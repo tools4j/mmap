@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
 
 import org.assertj.core.api.Assertions;
 import org.junit.Before;
@@ -29,6 +29,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.tools4j.mmap.io.MessageReader;
+import org.tools4j.mmap.io.MessageWriter;
 
 import java.nio.ByteBuffer;
 
@@ -40,9 +42,9 @@ import static org.mockito.Mockito.when;
 public class UIntsTest {
 
     @Mock
-    private MessageWriter messageWriter;
+    private MessageWriter<?> messageWriter;
     @Mock
-    private MessageReader messageReader;
+    private MessageReader<?> messageReader;
 
     private ByteBuffer byteBuffer = ByteBuffer.allocate(9);
 

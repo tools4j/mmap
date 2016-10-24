@@ -21,7 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.InitialBytes;
+import org.tools4j.mmap.io.MappedFile;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * MappedQueue implementation optimised for single Appender and multiple Enumerator support.
- * Uses an index file to avoid back tracking for volatile puts of message length field.
+ * Uses an index io to avoid back tracking for volatile puts of message length field.
  */
 public class OneToManyIndexedQueue implements MappedQueue {
 
@@ -87,7 +90,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
             switch (mode) {
                 case READ_ONLY:
                     if (fileChannel.size() < 8) {
-                        throw new IllegalArgumentException("Invalid file format");
+                        throw new IllegalArgumentException("Invalid io format");
                     }
                     break;
                 case READ_WRITE:
@@ -111,7 +114,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
     @Override
     public Appender appender() {
         if (indexFile.getMode() == MappedFile.Mode.READ_ONLY) {
-            throw new IllegalStateException("Cannot access appender for file in read-only mode");
+            throw new IllegalStateException("Cannot access appender for io in read-only mode");
         }
         if (appenderCreated.compareAndSet(false, true)) {
             return new OneToManyIndexedAppender(indexFile, dataFile);

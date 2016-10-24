@@ -21,22 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.AbstractUnsafeMessageReader;
+import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.MessageReader;
+
+import java.util.Objects;
 
 /**
- * Enumerator of a {@link OneToManyQueue}.
+ * Enumerator of a {@link OneToManyIndexedQueue}.
  */
-public final class OneToManyEnumerator implements Enumerator {
+public final class OneToManyIndexedEnumerator implements Enumerator {
 
-    private final MappedFile file;
+    private final MappedFile indexFile;
+    private final MappedFile dataFile;
     private final MessageReaderImpl messageReader;
     private long messageLen = -1;
 
-    public OneToManyEnumerator(final MappedFile file) {
-        if (file.getFileLength() < 8) {
-            throw new IllegalStateException("Not a direct queue file");
+    public OneToManyIndexedEnumerator(final MappedFile indexFile, final MappedFile dataFile) {
+        if (indexFile.getFileLength() < 8) {
+            throw new IllegalStateException("Not a valid index io");
         }
-        this.file = file;
+        this.indexFile = indexFile;
+        this.dataFile = Objects.requireNonNull(dataFile);
         this.messageReader = new MessageReaderImpl();
     }
 
@@ -46,7 +54,7 @@ public final class OneToManyEnumerator implements Enumerator {
     }
 
     @Override
-    public MessageReader readNextMessage() {
+    public MessageReader<Enumerator> readNextMessage() {
         final long messageLength = getMessageLength();
         if (messageLength >= 0) {
             this.messageLen = -1;
@@ -72,26 +80,28 @@ public final class OneToManyEnumerator implements Enumerator {
         messageReader.close();
     }
 
-    private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
+    private final class MessageReaderImpl extends AbstractUnsafeMessageReader<Enumerator> {
 
-        private final RollingRegionPointer ptr = new RollingRegionPointer(file);
+        private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
+        private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
         private long messageEndPosition = -1;
 
         private long pollNextMessageLength() {
             if (messageEndPosition >= 0) {
                 finishReadMessage();
             }
-            return UnsafeAccess.UNSAFE.getLongVolatile(null, ptr.getAddress());
+            return UnsafeAccess.UNSAFE.getLongVolatile(null, indexPtr.getAddress());
         }
 
         public void close() {
-            ptr.close();
+            indexPtr.close();
+            dataPtr.close();
         }
 
-        private MessageReader readNextMessage(final long messageLen) {
+        private MessageReader<Enumerator> readNextMessage(final long messageLen) {
             if (messageEndPosition < 0) {
-                ptr.ensureNotClosed().moveBy(8);//skip message length field
-                messageEndPosition = ptr.getPosition() + messageLen;
+                indexPtr.ensureNotClosed().moveBy(8);//prepare to read next length
+                messageEndPosition = dataPtr.getPosition() + messageLen;
                 return messageReader;
             }
             //should never get here
@@ -101,22 +111,22 @@ public final class OneToManyEnumerator implements Enumerator {
         @Override
         public Enumerator finishReadMessage() {
             if (messageEndPosition >= 0) {
-                ptr.ensureNotClosed().moveToPosition(messageEndPosition);
-                final long rem = ptr.getBytesRemaining();
+                dataPtr.ensureNotClosed().moveToPosition(messageEndPosition);
+                final long rem = dataPtr.getBytesRemaining();
                 if (rem < 8) {
-                    ptr.moveBy(rem);
+                    dataPtr.moveBy(rem);
                 }
                 messageEndPosition = -1;
-                return OneToManyEnumerator.this;
+                return OneToManyIndexedEnumerator.this;
             }
             throw new IllegalStateException("No message is currently being read");
         }
 
         @Override
         protected long getAndIncrementAddress(final int add) {
-            final long pos = ptr.ensureNotClosed().getPosition();
+            final long pos = dataPtr.ensureNotClosed().getPosition();
             if (pos + add <= messageEndPosition) {
-                return ptr.getAndIncrementAddress(add, false);
+                return dataPtr.getAndIncrementAddress(add, false);
             }
             throw new IllegalStateException("Attempt to read beyond message end: " + (pos + add) + " > " + messageEndPosition);
         }

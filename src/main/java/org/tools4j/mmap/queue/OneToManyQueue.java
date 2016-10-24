@@ -21,7 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.InitialBytes;
+import org.tools4j.mmap.io.MappedFile;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -78,7 +81,7 @@ public class OneToManyQueue implements MappedQueue {
             switch (mode) {
                 case READ_ONLY:
                     if (fileChannel.size() < 8) {
-                        throw new IllegalArgumentException("Invalid file format");
+                        throw new IllegalArgumentException("Invalid io format");
                     }
                     break;
                 case READ_WRITE:
@@ -102,7 +105,7 @@ public class OneToManyQueue implements MappedQueue {
     @Override
     public Appender appender() {
         if (file.getMode() == MappedFile.Mode.READ_ONLY) {
-            throw new IllegalStateException("Cannot access appender for file in read-only mode");
+            throw new IllegalStateException("Cannot access appender for io in read-only mode");
         }
         if (appenderCreated.compareAndSet(false, true)) {
             return new OneToManyAppender(file);

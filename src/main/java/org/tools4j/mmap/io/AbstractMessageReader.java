@@ -21,9 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-abstract public class AbstractMessageReader implements MessageReader {
+import org.tools4j.mmap.queue.UInts;
+
+abstract public class AbstractMessageReader<T> implements MessageReader<T> {
 
     @Override
     public boolean getBoolean() {

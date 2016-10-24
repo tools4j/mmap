@@ -21,11 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.AbstractUnsafeMessageWriter;
+import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.MappedRegion;
+import org.tools4j.mmap.io.MessageWriter;
 
 import java.util.Objects;
 
-import static org.tools4j.mmap.direct.UnsafeAccess.UNSAFE;
+import static org.tools4j.mmap.queue.UnsafeAccess.UNSAFE;
 
 /**
  * The single appender of a {@link OneToManyIndexedQueue}.
@@ -43,7 +48,7 @@ public final class OneToManyIndexedAppender implements Appender {
     }
 
     @Override
-    public MessageWriter appendMessage() {
+    public MessageWriter<Appender> appendMessage() {
         return messageWriter.startAppendMessage();
     }
 
@@ -52,7 +57,7 @@ public final class OneToManyIndexedAppender implements Appender {
         messageWriter.close();
     }
 
-    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
+    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter<Appender> {
 
         private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
         private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
@@ -80,7 +85,7 @@ public final class OneToManyIndexedAppender implements Appender {
             return dataPtr.ensureNotClosed().getAndIncrementAddress(add, true);
         }
 
-        private MessageWriter startAppendMessage() {
+        private MessageWriter<Appender> startAppendMessage() {
             if (messageStartPosition >= 0) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }

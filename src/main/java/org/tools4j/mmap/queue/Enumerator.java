@@ -21,14 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.MessageReader;
 
 import java.io.Closeable;
 
 /**
  * Appends messages to a {@link MappedQueue}.
  */
-public interface Appender extends Closeable {
-    MessageWriter appendMessage();
+public interface Enumerator extends Closeable {
+    boolean hasNextMessage();
+    MessageReader<Enumerator> readNextMessage();
+    Enumerator skipNextMessage();
     void close();
 }

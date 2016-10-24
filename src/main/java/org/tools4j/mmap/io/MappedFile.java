@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
 import java.io.*;
 import java.nio.channels.FileChannel;
@@ -33,7 +33,7 @@ public class MappedFile implements Closeable {
     public enum Mode {
         READ_ONLY("r"),
         READ_WRITE("rw"),
-        /** Delete file contents on open*/
+        /** Delete io contents on open*/
         READ_WRITE_CLEAR("rw");
 
         private final String rasMode;
@@ -110,7 +110,7 @@ public class MappedFile implements Closeable {
         try {
             file.setLength(length);
         } catch (final IOException e) {
-            throw new RuntimeException("could not set file length to " + length, e);
+            throw new RuntimeException("could not set io length to " + length, e);
         }
     }
 
@@ -188,7 +188,7 @@ public class MappedFile implements Closeable {
 
     private void ensureNotClosed() {
         if (isClosed()) {
-            throw new IllegalStateException("Mapped file is closed");
+            throw new IllegalStateException("Mapped io is closed");
         }
     }
 

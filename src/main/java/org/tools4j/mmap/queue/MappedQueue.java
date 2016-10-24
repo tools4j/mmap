@@ -21,25 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import java.io.Closeable;
 
 /**
- * Message writer offers methods to write different value types for elements of a message.
+ * A pile of messages of varying byte length. Messages can only be appended or
+ * sequentially read.
  */
-public interface MessageReader {
-    boolean getBoolean();
-    byte getInt8();
-    int getInt8AsInt();
-    short getInt16();
-    int getInt16AsInt();
-    int getInt32();
-    long getInt64();
-    float getFloat32();
-    double getFloat64();
-    char getChar();
-    char getCharAscii();
-    CharSequence getStringAscii();
-    CharSequence getStringUtf8();
-    CharSequence getString();
-    Enumerator finishReadMessage();
+public interface MappedQueue extends Closeable {
+    Appender appender();
+    Enumerator enumerator();
+    void close();
 }

@@ -21,33 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
+import sun.misc.Unsafe;
 
-public enum InitialBytes implements ReadableByteChannel {
-    ZERO(0L),
-    MINUS_ONE(-1L);
+import java.lang.reflect.Field;
 
-    private final long initialValue;
-    InitialBytes(final long initialValue) {
-        this.initialValue = initialValue;
-    }
-    @Override
-    public int read(ByteBuffer dst) throws IOException {
-        dst.putLong(initialValue);
-        return 8;
-    }
+/**
+ * Access to {@link Unsafe}.
+ */
+public class UnsafeAccess {
 
-    @Override
-    public boolean isOpen() {
-        return true;
-    }
+    public static final Unsafe UNSAFE = initUnsafe();
 
-    @Override
-    public void close() throws IOException {
-        //cannot be closed
+    private static final Unsafe initUnsafe() {
+        try {
+            final Field e = Unsafe.class.getDeclaredField("theUnsafe");
+            e.setAccessible(true);
+            return (Unsafe)e.get(null);
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot initialise UNSAFE, e=" + e, e);
+        }
     }
 }

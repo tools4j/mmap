@@ -21,16 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-import java.io.Closeable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 
-/**
- * A pile of messages of varying byte length. Messages can only be appended or
- * sequentially read.
- */
-public interface MappedQueue extends Closeable {
-    Appender appender();
-    Enumerator enumerator();
-    void close();
+public enum InitialBytes implements ReadableByteChannel {
+    ZERO(0L),
+    MINUS_ONE(-1L);
+
+    private final long initialValue;
+    InitialBytes(final long initialValue) {
+        this.initialValue = initialValue;
+    }
+    @Override
+    public int read(ByteBuffer dst) throws IOException {
+        dst.putLong(initialValue);
+        return 8;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return true;
+    }
+
+    @Override
+    public void close() throws IOException {
+        //cannot be closed
+    }
 }

@@ -21,7 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.AbstractUnsafeMessageWriter;
+import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.MappedRegion;
+import org.tools4j.mmap.io.MessageWriter;
 
 import java.util.Objects;
 
@@ -39,7 +44,7 @@ public final class OneToManyAppender implements Appender {
     }
 
     @Override
-    public MessageWriter appendMessage() {
+    public MessageWriter<Appender> appendMessage() {
         return messageWriter.startAppendMessage();
     }
 
@@ -48,7 +53,7 @@ public final class OneToManyAppender implements Appender {
         messageWriter.close();
     }
 
-    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
+    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter<Appender> {
 
         private final RollingRegionPointer ptr = new RollingRegionPointer(file);
 
@@ -74,7 +79,7 @@ public final class OneToManyAppender implements Appender {
             return ptr.ensureNotClosed().getAndIncrementAddress(add, true);
         }
 
-        private MessageWriter startAppendMessage() {
+        private MessageWriter<Appender> startAppendMessage() {
             if (startRegion != null) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }

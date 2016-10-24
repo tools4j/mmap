@@ -21,16 +21,47 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-import java.io.Closeable;
+import org.tools4j.mmap.queue.UnsafeAccess;
 
-/**
- * Appends messages to a {@link MappedQueue}.
- */
-public interface Enumerator extends Closeable {
-    boolean hasNextMessage();
-    MessageReader readNextMessage();
-    Enumerator skipNextMessage();
-    void close();
+abstract public class AbstractUnsafeMessageReader<T> extends AbstractMessageReader<T> {
+
+    abstract protected long getAndIncrementAddress(final int len);
+
+    @Override
+    public byte getInt8() {
+        return UnsafeAccess.UNSAFE.getByte(null, getAndIncrementAddress(1));
+    }
+
+    @Override
+    public short getInt16() {
+        return UnsafeAccess.UNSAFE.getShort(null, getAndIncrementAddress(2));
+    }
+
+    @Override
+    public int getInt32() {
+        return UnsafeAccess.UNSAFE.getInt(null, getAndIncrementAddress(4));
+    }
+
+    @Override
+    public long getInt64() {
+        return UnsafeAccess.UNSAFE.getLong(null, getAndIncrementAddress(8));
+    }
+
+    @Override
+    public float getFloat32() {
+        return UnsafeAccess.UNSAFE.getFloat(null, getAndIncrementAddress(4));
+    }
+
+    @Override
+    public double getFloat64() {
+        return UnsafeAccess.UNSAFE.getDouble(null, getAndIncrementAddress(8));
+    }
+
+    @Override
+    public char getChar() {
+        return UnsafeAccess.UNSAFE.getChar(null, getAndIncrementAddress(2));
+    }
+
 }

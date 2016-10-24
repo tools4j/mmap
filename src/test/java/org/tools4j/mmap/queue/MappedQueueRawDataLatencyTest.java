@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
 
 import org.HdrHistogram.Histogram;
 import org.junit.After;
@@ -30,6 +30,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.octtech.bw.ByteWatcher;
+import org.tools4j.mmap.io.MessageReader;
+import org.tools4j.mmap.io.MessageWriter;
 import org.tools4j.mmap.util.FileUtil;
 import org.tools4j.mmap.util.HistogramPrinter;
 import org.tools4j.mmap.util.WaitLatch;

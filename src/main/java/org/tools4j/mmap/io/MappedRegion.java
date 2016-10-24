@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
 import sun.nio.ch.FileChannelImpl;
 
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A mapped region of a file.
+ * A mapped region of a io.
  */
 public final class MappedRegion {
 

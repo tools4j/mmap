@@ -21,9 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-abstract public class AbstractMessageWriter implements MessageWriter {
+import org.tools4j.mmap.queue.UInts;
+
+abstract public class AbstractMessageWriter<T> implements MessageWriter<T> {
 
     public MessageWriter putBoolean(final boolean value) {
         return putInt8(value ? (byte)1 : (byte)0);

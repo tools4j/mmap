@@ -21,45 +21,54 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-abstract public class AbstractUnsafeMessageReader extends AbstractMessageReader {
+import org.tools4j.mmap.queue.UnsafeAccess;
+
+abstract public class AbstractUnsafeMessageWriter<T> extends AbstractMessageWriter<T> {
 
     abstract protected long getAndIncrementAddress(final int len);
 
     @Override
-    public byte getInt8() {
-        return UnsafeAccess.UNSAFE.getByte(null, getAndIncrementAddress(1));
+    public MessageWriter putInt8(byte value) {
+        UnsafeAccess.UNSAFE.putByte(null, getAndIncrementAddress(1), value);
+        return this;
     }
 
     @Override
-    public short getInt16() {
-        return UnsafeAccess.UNSAFE.getShort(null, getAndIncrementAddress(2));
+    public MessageWriter putInt16(final short value) {
+        UnsafeAccess.UNSAFE.putShort(null, getAndIncrementAddress(2), value);
+        return this;
     }
 
     @Override
-    public int getInt32() {
-        return UnsafeAccess.UNSAFE.getInt(null, getAndIncrementAddress(4));
+    public MessageWriter putInt32(final int value) {
+        UnsafeAccess.UNSAFE.putInt(null, getAndIncrementAddress(4), value);
+        return this;
     }
 
     @Override
-    public long getInt64() {
-        return UnsafeAccess.UNSAFE.getLong(null, getAndIncrementAddress(8));
+    public MessageWriter putInt64(final long value) {
+        UnsafeAccess.UNSAFE.putLong(null, getAndIncrementAddress(8), value);
+        return this;
     }
 
     @Override
-    public float getFloat32() {
-        return UnsafeAccess.UNSAFE.getFloat(null, getAndIncrementAddress(4));
+    public MessageWriter putFloat32(final float value) {
+        UnsafeAccess.UNSAFE.putFloat(null, getAndIncrementAddress(4), value);
+        return this;
     }
 
     @Override
-    public double getFloat64() {
-        return UnsafeAccess.UNSAFE.getDouble(null, getAndIncrementAddress(8));
+    public MessageWriter putFloat64(final double value) {
+        UnsafeAccess.UNSAFE.putDouble(null, getAndIncrementAddress(8), value);
+        return this;
     }
 
     @Override
-    public char getChar() {
-        return UnsafeAccess.UNSAFE.getChar(null, getAndIncrementAddress(2));
+    public MessageWriter putChar(final char value) {
+        UnsafeAccess.UNSAFE.putChar(null, getAndIncrementAddress(2), value);
+        return this;
     }
 
 }

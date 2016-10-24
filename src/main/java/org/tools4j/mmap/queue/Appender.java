@@ -21,25 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.queue;
+
+import org.tools4j.mmap.io.MessageWriter;
+
+import java.io.Closeable;
 
 /**
- * Message writer offers methods to write different value types for elements of a message.
+ * Appends messages to a {@link MappedQueue}.
  */
-public interface MessageWriter {
-    MessageWriter putBoolean(boolean value);
-    MessageWriter putInt8(byte value);
-    MessageWriter putInt8(int value);
-    MessageWriter putInt16(short value);
-    MessageWriter putInt16(int value);
-    MessageWriter putInt32(int value);
-    MessageWriter putInt64(long value);
-    MessageWriter putFloat32(float value);
-    MessageWriter putFloat64(double value);
-    MessageWriter putCharAscii(char value);
-    MessageWriter putChar(char value);
-    MessageWriter putStringAscii(CharSequence value);
-    MessageWriter putStringUtf8(CharSequence value);
-    MessageWriter putString(CharSequence value);
-    Appender finishAppendMessage();
+public interface Appender extends Closeable {
+    MessageWriter<Appender> appendMessage();
+    void close();
 }

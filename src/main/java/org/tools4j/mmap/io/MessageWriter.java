@@ -21,26 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.direct;
+package org.tools4j.mmap.io;
 
-import sun.misc.Unsafe;
-
-import java.lang.reflect.Field;
+import org.tools4j.mmap.queue.Appender;
 
 /**
- * Access to {@link Unsafe}.
+ * Message writer offers methods to write different value types for elements of a message.
  */
-public class UnsafeAccess {
-
-    public static final Unsafe UNSAFE = initUnsafe();
-
-    private static final Unsafe initUnsafe() {
-        try {
-            final Field e = Unsafe.class.getDeclaredField("theUnsafe");
-            e.setAccessible(true);
-            return (Unsafe)e.get(null);
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot initialise UNSAFE, e=" + e, e);
-        }
-    }
+public interface MessageWriter<T> {
+    MessageWriter putBoolean(boolean value);
+    MessageWriter putInt8(byte value);
+    MessageWriter putInt8(int value);
+    MessageWriter putInt16(short value);
+    MessageWriter putInt16(int value);
+    MessageWriter putInt32(int value);
+    MessageWriter putInt64(long value);
+    MessageWriter putFloat32(float value);
+    MessageWriter putFloat64(double value);
+    MessageWriter putCharAscii(char value);
+    MessageWriter putChar(char value);
+    MessageWriter putStringAscii(CharSequence value);
+    MessageWriter putStringUtf8(CharSequence value);
+    MessageWriter putString(CharSequence value);
+    T finishAppendMessage();
 }
