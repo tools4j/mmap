@@ -43,5 +43,5 @@ public interface MessageWriter {
     MessageWriter putStringAscii(CharSequence value);
     MessageWriter putStringUtf8(CharSequence value);
     MessageWriter putString(CharSequence value);
-    void finishAppendMessage();
+    void finishWriteMessage();
 }

@@ -91,7 +91,7 @@ public final class OneToManyIndexedAppender implements Appender {
         }
 
         @Override
-        public void finishAppendMessage() {
+        public void finishWriteMessage() {
             if (messageStartPosition < 0) {
                 throw new IllegalStateException("No message to finish");
             }
@@ -136,7 +136,7 @@ public final class OneToManyIndexedAppender implements Appender {
         public void close() {
             if (!indexPtr.isClosed() && !dataPtr.isClosed()) {
                 if (messageStartPosition >= 0) {
-                    finishAppendMessage();
+                    finishWriteMessage();
                 }
             }
             dataPtr.close();

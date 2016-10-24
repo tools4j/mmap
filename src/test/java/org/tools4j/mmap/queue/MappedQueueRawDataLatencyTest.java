@@ -204,7 +204,7 @@ public class MappedQueueRawDataLatencyTest {
                         i++;
                     }
                 }
-                writer.finishAppendMessage();
+                writer.finishWriteMessage();
                 cnt++;
             }
             final long t1 = clock.getAsLong();

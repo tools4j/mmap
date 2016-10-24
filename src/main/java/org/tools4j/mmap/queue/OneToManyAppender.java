@@ -88,7 +88,7 @@ public final class OneToManyAppender implements Appender {
         }
 
         @Override
-        public void finishAppendMessage() {
+        public void finishWriteMessage() {
             if (startRegion == null) {
                 throw new IllegalStateException("No message to finish");
             }
@@ -126,7 +126,7 @@ public final class OneToManyAppender implements Appender {
         public void close() {
             if (!ptr.isClosed()) {
                 if (startRegion != null) {
-                    finishAppendMessage();
+                    finishWriteMessage();
                 }
                 ptr.close();
             }
