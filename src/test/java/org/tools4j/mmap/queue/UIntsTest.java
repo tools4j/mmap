@@ -29,6 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.tools4j.mmap.io.Compact;
 import org.tools4j.mmap.io.MessageReader;
 import org.tools4j.mmap.io.MessageWriter;
 
@@ -75,10 +76,10 @@ public class UIntsTest {
     public void writeSmallInts() throws Exception {
         for (int value = 0; value < (1<<10); value++) {
             byteBuffer.reset();
-            UInts.writeUIntCompact(value, messageWriter);
+            Compact.putUnsignedInt(value, messageWriter);
             Assertions.assertThat(byteBuffer.position()).as("length: %s", value).isEqualTo(value < 128 ? 1 : 2);
             byteBuffer.reset();
-            final int read = UInts.readUIntCompact(messageReader);
+            final int read = Compact.getUnsignedInt(messageReader);
             Assertions.assertThat(read).isEqualTo(value);
         }
     }
@@ -87,10 +88,10 @@ public class UIntsTest {
     public void writeSmallLongs() throws Exception {
         for (int value = 0; value < (1<<10); value++) {
             byteBuffer.reset();
-            UInts.writeULongCompact(value, messageWriter);
+            Compact.putUnsignedLong(value, messageWriter);
             Assertions.assertThat(byteBuffer.position()).as("length: %s", value).isEqualTo(value < 128 ? 1 : 2);
             byteBuffer.reset();
-            final long read = UInts.readULongCompact(messageReader);
+            final long read = Compact.getUnsignedLong(messageReader);
             Assertions.assertThat(read).isEqualTo(value);
         }
     }
@@ -102,9 +103,9 @@ public class UIntsTest {
             for (int i = -2; i <= 2; i++) {
                 final int value = special + i;
                 byteBuffer.reset();
-                UInts.writeUIntCompact(value, messageWriter);
+                Compact.putUnsignedInt(value, messageWriter);
                 byteBuffer.reset();
-                final int read = UInts.readUIntCompact(messageReader);
+                final int read = Compact.getUnsignedInt(messageReader);
                 Assertions.assertThat(read).isEqualTo(value);
             }
         }
@@ -117,9 +118,9 @@ public class UIntsTest {
             for (int i = -2; i <= 2; i++) {
                 final long value = special + i;
                 byteBuffer.reset();
-                UInts.writeULongCompact(value, messageWriter);
+                Compact.putUnsignedLong(value, messageWriter);
                 byteBuffer.reset();
-                final long read = UInts.readULongCompact(messageReader);
+                final long read = Compact.getUnsignedLong(messageReader);
                 Assertions.assertThat(read).isEqualTo(value);
             }
         }
@@ -138,10 +139,10 @@ public class UIntsTest {
         for (int len = 0; len < specials.length; len++) {
             for (final int value : specials[len]) {
                 byteBuffer.reset();
-                UInts.writeUIntCompact(value, messageWriter);
+                Compact.putUnsignedInt(value, messageWriter);
                 Assertions.assertThat(byteBuffer.position()).as("length: %s", value).isEqualTo(len);
                 byteBuffer.reset();
-                final long read = UInts.readUIntCompact(messageReader);
+                final long read = Compact.getUnsignedInt(messageReader);
                 Assertions.assertThat(read).isEqualTo(value);
             }
         }
@@ -164,10 +165,10 @@ public class UIntsTest {
         for (int len = 0; len < specials.length; len++) {
             for (final long value : specials[len]) {
                 byteBuffer.reset();
-                UInts.writeULongCompact(value, messageWriter);
+                Compact.putUnsignedLong(value, messageWriter);
                 Assertions.assertThat(byteBuffer.position()).as("length: %s", value).isEqualTo(len);
                 byteBuffer.reset();
-                final long read = UInts.readULongCompact(messageReader);
+                final long read = Compact.getUnsignedLong(messageReader);
                 Assertions.assertThat(read).isEqualTo(value);
             }
         }

@@ -21,10 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue;
-
-import org.tools4j.mmap.io.MappedFile;
-import org.tools4j.mmap.io.MappedRegion;
+package org.tools4j.mmap.io;
 
 import java.io.Closeable;
 

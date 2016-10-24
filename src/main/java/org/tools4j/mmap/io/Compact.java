@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue;
+package org.tools4j.mmap.io;
 
 import org.tools4j.mmap.io.MessageReader;
 import org.tools4j.mmap.io.MessageWriter;
@@ -29,7 +29,7 @@ import org.tools4j.mmap.io.MessageWriter;
 /**
  * Utility class dealing with unsigned ints.
  */
-public class UInts {
+public class Compact {
 
     @SuppressWarnings("unused")
     private static final int SENTINEL_1 = 0x00;//0xxx xxxx
@@ -39,7 +39,7 @@ public class UInts {
     private static final int SENTINEL_8 = 0xe0;//1110 xxxx [8x] [8x] [8x] [8x] [8x] [8x]
     private static final int SENTINEL_9 = 0xff;//1111 xxxx [8x] [8x] [8x] [8x] [8x] [8x] [8x]
 
-    public static void writeUIntCompact(final int unsigned, final MessageWriter writer) {
+    public static void putUnsignedInt(final int unsigned, final MessageWriter<?> writer) {
         if (unsigned >= 0) {
             if (unsigned < (1<<7)) {
                 writer.putInt8(unsigned);
@@ -62,10 +62,10 @@ public class UInts {
         writer.putInt32(unsigned);
     }
 
-    public static void writeULongCompact(final long unsigned, final MessageWriter writer) {
+    public static void putUnsignedLong(final long unsigned, final MessageWriter<?> writer) {
         if (unsigned >= 0) {
             if (unsigned < (1 << 29)) {
-                writeUIntCompact((int) unsigned, writer);
+                putUnsignedInt((int) unsigned, writer);
                 return;
             }
             if (unsigned < (1L<<60)) {
@@ -81,12 +81,12 @@ public class UInts {
         writer.putInt64(unsigned);
     }
 
-    public static int readUIntCompact(final MessageReader reader) {
+    public static int getUnsignedInt(final MessageReader<?> reader) {
         final int int0 = reader.getInt8();
-        return readUIntCompact(reader, int0);
+        return getUnsignedInt(reader, int0);
     }
 
-    public static int readUIntCompact(final MessageReader reader, final int int0) {
+    private static int getUnsignedInt(final MessageReader<?> reader, final int int0) {
         if ((int0 & SENTINEL_2) != SENTINEL_2) {
             return int0;
         }
@@ -103,10 +103,10 @@ public class UInts {
         return (int1 << 24) | (int2 << 16) | (int3 << 8) | int4;
     }
 
-    public static long readULongCompact(final MessageReader reader) {
+    public static long getUnsignedLong(final MessageReader<?> reader) {
         final int int0 = reader.getInt8();
         if ((int0 & SENTINEL_8) != SENTINEL_8) {
-            return readUIntCompact(reader, int0);
+            return getUnsignedInt(reader, int0);
         }
         if ((int0 & SENTINEL_9) != SENTINEL_9) {
             final long lint0 = int0 ^ SENTINEL_8;

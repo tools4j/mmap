@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.UnsafeAccess;
-
 abstract public class AbstractUnsafeMessageReader<T> extends AbstractMessageReader<T> {
 
     abstract protected long getAndIncrementAddress(final int len);

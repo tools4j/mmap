@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.Enumerator;
-
 /**
  * Message writer offers methods to write different value types for elements of a message.
  */
@@ -40,8 +38,11 @@ public interface MessageReader<T> {
     double getFloat64();
     char getChar();
     char getCharAscii();
-    CharSequence getStringAscii();
-    CharSequence getStringUtf8();
-    CharSequence getString();
+    String getStringAscii();
+    String getStringUtf8();
+    String getString();
+    <A extends Appendable> A getStringAscii(A appendable);
+    <A extends Appendable> A getStringUtf8(A appendable);
+    <A extends Appendable> A getString(A appendable);
     T finishReadMessage();
 }

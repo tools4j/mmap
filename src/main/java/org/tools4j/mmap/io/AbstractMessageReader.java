@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.UInts;
+import java.io.IOException;
 
 abstract public class AbstractMessageReader<T> implements MessageReader<T> {
 
@@ -81,87 +81,128 @@ abstract public class AbstractMessageReader<T> implements MessageReader<T> {
         return (char)getInt8();
     }
 
-    public CharSequence getStringAscii() {
-        final int len = UInts.readUIntCompact(this);
-        final StringBuilder sb = new StringBuilder(len);
-        for (int i = 0; i < len; i++) {
-            sb.append(getCharAscii());
+    @Override
+    public String getStringAscii() {
+        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
+        sb.setLength(0);
+        return getStringAscii(sb).toString();
+    }
+
+    @Override
+    public <A extends Appendable> A getStringAscii(final A appendable) {
+        try {
+            final int len = Compact.getUnsignedInt(this);
+            for (int i = 0; i < len; i++) {
+                appendable.append(getCharAscii());
+            }
+            return appendable;
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
         }
-        return sb.toString();
+    }
+
+    @Override
+    public String getStringUtf8() {
+        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
+        sb.setLength(0);
+        return getStringUtf8(sb).toString();
     }
 
     /**
      * {@link java.io.DataInputStream#readUTF(java.io.DataInput)}
      */
-    public CharSequence getStringUtf8() {
-        final int utflen = UInts.readUIntCompact(this);
-        final StringBuilder sb = new StringBuilder(utflen);
+    @Override
+    public <A extends Appendable> A getStringUtf8(final A appendable) {
+        try {
+            final int utflen = Compact.getUnsignedInt(this);
 
-        int count = 0;
+            int count = 0;
 
-        int char1 = 0;
-        while (count < utflen) {
-            char1 = getInt8AsInt();
-            if (char1 > 127) break;
-            count++;
-            sb.append((char)char1);
-        }
+            int char1 = 0;
+            while (count < utflen) {
+                char1 = getInt8AsInt();
+                if (char1 > 127) break;
+                count++;
+                appendable.append((char) char1);
+            }
 
-        while (true) {
-            switch (char1 >> 4) {
-                case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: {
-                    /* 0xxxxxxx*/
-                    sb.append((char) char1);
-                    break;
-                }
-                case 12: case 13: {
-                    /* 110x xxxx   10xx xxxx*/
-                    count += 2;
-                    if (count > utflen)
-                        throw new RuntimeException(
-                                "UTF malformed input: partial character at end");
-                    final int char2 = getInt8AsInt();
-                    if ((char2 & 0xC0) != 0x80)
+            while (true) {
+                switch (char1 >> 4) {
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7: {
+                        /* 0xxxxxxx*/
+                        appendable.append((char) char1);
+                        break;
+                    }
+                    case 12:
+                    case 13: {
+                        /* 110x xxxx   10xx xxxx*/
+                        count += 2;
+                        if (count > utflen)
+                            throw new RuntimeException(
+                                    "UTF malformed input: partial character at end");
+                        final int char2 = getInt8AsInt();
+                        if ((char2 & 0xC0) != 0x80)
+                            throw new RuntimeException(
+                                    "UTF malformed input around byte " + count);
+                        appendable.append((char) (((char1 & 0x1F) << 6) | (char2 & 0x3F)));
+                        break;
+                    }
+                    case 14: {
+                        /* 1110 xxxx  10xx xxxx  10xx xxxx */
+                        count += 3;
+                        if (count > utflen)
+                            throw new RuntimeException(
+                                    "UTF malformed input: partial character at end");
+                        final int char2 = getInt8AsInt();
+                        final int char3 = getInt8AsInt();
+                        if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80))
+                            throw new RuntimeException(
+                                    "UTF malformed input around byte " + (count - 1));
+                        appendable.append((char) (((char1 & 0x0F) << 12) | ((char2 & 0x3F) << 6) | ((char3 & 0x3F) << 0)));
+                        break;
+                    }
+                    default:
+                        /* 10xx xxxx,  1111 xxxx */
                         throw new RuntimeException(
                                 "UTF malformed input around byte " + count);
-                    sb.append((char) (((char1 & 0x1F) << 6) | (char2 & 0x3F)));
+                }
+                if (count < utflen) {
+                    char1 = getInt8AsInt();
+                } else {
                     break;
                 }
-                case 14: {
-                    /* 1110 xxxx  10xx xxxx  10xx xxxx */
-                    count += 3;
-                    if (count > utflen)
-                        throw new RuntimeException(
-                                "UTF malformed input: partial character at end");
-                    final int char2 = getInt8AsInt();
-                    final int char3 = getInt8AsInt();
-                    if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80))
-                        throw new RuntimeException(
-                                "UTF malformed input around byte " + (count - 1));
-                    sb.append((char) (((char1 & 0x0F) << 12) | ((char2 & 0x3F) << 6) | ((char3 & 0x3F) << 0)));
-                    break;
-                }
-                default:
-                    /* 10xx xxxx,  1111 xxxx */
-                    throw new RuntimeException(
-                            "UTF malformed input around byte " + count);
             }
-            if (count < utflen) {
-                char1 = getInt8AsInt();
-            } else {
-                break;
-            }
+            // The number of chars produced may be less than utflen
+            return appendable;
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
         }
-        // The number of chars produced may be less than utflen
-        return sb.toString();
     }
 
-    public CharSequence getString() {
-        final int len = UInts.readUIntCompact(this);
-        final StringBuilder sb = new StringBuilder(len);
-        for (int i = 0; i < len; i++) {
-            sb.append(getChar());
+    @Override
+    public String getString() {
+        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
+        sb.setLength(0);
+        return getString(sb).toString();
+    }
+
+    @Override
+    public <A extends Appendable> A getString(final A appendable) {
+        try {
+            final int len = Compact.getUnsignedInt(this);
+            for (int i = 0; i < len; i++) {
+                appendable.append(getChar());
+            }
+            return appendable;
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
         }
-        return sb.toString();
     }
 }

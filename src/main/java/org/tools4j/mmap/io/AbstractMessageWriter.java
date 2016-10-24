@@ -23,60 +23,58 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.UInts;
-
 abstract public class AbstractMessageWriter<T> implements MessageWriter<T> {
 
-    public MessageWriter putBoolean(final boolean value) {
+    public MessageWriter<T> putBoolean(final boolean value) {
         return putInt8(value ? (byte)1 : (byte)0);
     }
 
-    public MessageWriter putInt8(final int value) {
+    public MessageWriter<T> putInt8(final int value) {
         return putInt8((byte)(value & 0xff));
     }
 
-    public MessageWriter putInt16(final short value) {
+    public MessageWriter<T> putInt16(final short value) {
         putInt8((byte)(value >>> 8));
         return putInt8((byte)(value & 0xff));
     }
 
-    public MessageWriter putInt16(final int value) {
+    public MessageWriter<T> putInt16(final int value) {
         return putInt16((short)(value & 0xffff));
     }
 
-    public MessageWriter putInt32(final int value) {
+    public MessageWriter<T> putInt32(final int value) {
         putInt8(value >>> 24);
         putInt8(value >>> 16);
         putInt8(value >>> 8);
         return putInt8(value);
     }
 
-    public MessageWriter putInt64(final long value) {
+    public MessageWriter<T> putInt64(final long value) {
         putInt32((int)(value >>> 32));
         return putInt32((int)(value & 0xffffffff));
     }
 
-    public MessageWriter putFloat32(final float value) {
+    public MessageWriter<T> putFloat32(final float value) {
         return putInt32(Float.floatToIntBits(value));
     }
 
-    public MessageWriter putFloat64(final double value) {
+    public MessageWriter<T> putFloat64(final double value) {
         return putInt64(Double.doubleToLongBits(value));
     }
 
-    public MessageWriter putChar(final char value) {
+    public MessageWriter<T> putChar(final char value) {
         putInt8(value >>> 8);
         return putInt8(value);
     }
 
     @Override
-    public MessageWriter putCharAscii(final char value) {
+    public MessageWriter<T> putCharAscii(final char value) {
         return putInt8(value);
     }
 
-    public MessageWriter putStringAscii(final CharSequence value) {
+    public MessageWriter<T> putStringAscii(final CharSequence value) {
         final int len = value.length();
-        UInts.writeUIntCompact(len, this);
+        Compact.putUnsignedInt(len, this);
         for (int i = 0; i < len; i++) {
             putCharAscii(value.charAt(i));
         }
@@ -86,7 +84,7 @@ abstract public class AbstractMessageWriter<T> implements MessageWriter<T> {
     /**
      * {@link java.io.DataOutputStream#writeUTF(String, java.io.DataOutput)}
      */
-    public MessageWriter putStringUtf8(final CharSequence value) {
+    public MessageWriter<T> putStringUtf8(final CharSequence value) {
         final int strlen = value.length();
         int utflen = 0;
         int count = 0;
@@ -102,7 +100,7 @@ abstract public class AbstractMessageWriter<T> implements MessageWriter<T> {
                 utflen += 2;
             }
         }
-        UInts.writeUIntCompact(utflen, this);
+        Compact.putUnsignedInt(utflen, this);
 
         int i;
         for (i=0; i<strlen; i++) {
@@ -127,9 +125,9 @@ abstract public class AbstractMessageWriter<T> implements MessageWriter<T> {
         return this;
     }
 
-    public MessageWriter putString(final CharSequence value) {
+    public MessageWriter<T> putString(final CharSequence value) {
         final int len = value.length();
-        UInts.writeUIntCompact(len, this);
+        Compact.putUnsignedInt(len, this);
         for (int i = 0; i < len; i++) {
             putChar(value.charAt(i));
         }

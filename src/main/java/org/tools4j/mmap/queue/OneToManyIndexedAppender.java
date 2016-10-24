@@ -23,14 +23,11 @@
  */
 package org.tools4j.mmap.queue;
 
-import org.tools4j.mmap.io.AbstractUnsafeMessageWriter;
-import org.tools4j.mmap.io.MappedFile;
-import org.tools4j.mmap.io.MappedRegion;
-import org.tools4j.mmap.io.MessageWriter;
+import org.tools4j.mmap.io.*;
 
 import java.util.Objects;
 
-import static org.tools4j.mmap.queue.UnsafeAccess.UNSAFE;
+import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
  * The single appender of a {@link OneToManyIndexedQueue}.

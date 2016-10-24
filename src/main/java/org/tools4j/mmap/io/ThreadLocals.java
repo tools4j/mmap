@@ -23,25 +23,14 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.Appender;
-
 /**
- * Message writer offers methods to write different value types for elements of a message.
+ * Access to all thread locals used by this library.
  */
-public interface MessageWriter<T> {
-    MessageWriter<T> putBoolean(boolean value);
-    MessageWriter<T> putInt8(byte value);
-    MessageWriter<T> putInt8(int value);
-    MessageWriter<T> putInt16(short value);
-    MessageWriter<T> putInt16(int value);
-    MessageWriter<T> putInt32(int value);
-    MessageWriter<T> putInt64(long value);
-    MessageWriter<T> putFloat32(float value);
-    MessageWriter<T> putFloat64(double value);
-    MessageWriter<T> putCharAscii(char value);
-    MessageWriter<T> putChar(char value);
-    MessageWriter<T> putStringAscii(CharSequence value);
-    MessageWriter<T> putStringUtf8(CharSequence value);
-    MessageWriter<T> putString(CharSequence value);
-    T finishAppendMessage();
+public class ThreadLocals {
+
+    public static final ThreadLocal<StringBuilder> STRING_BUILDER = ThreadLocal.withInitial(() -> new StringBuilder(256));
+
+    public static void removeAll() {
+        STRING_BUILDER.remove();
+    }
 }

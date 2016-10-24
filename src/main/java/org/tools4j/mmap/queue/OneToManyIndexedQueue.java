@@ -27,7 +27,6 @@ import org.tools4j.mmap.io.InitialBytes;
 import org.tools4j.mmap.io.MappedFile;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.Objects;
@@ -43,8 +42,6 @@ public class OneToManyIndexedQueue implements MappedQueue {
     public static final String SUFFIX_DATA = ".dat";
     public static final long DEFAULT_INDEX_REGION_SIZE = 4L << 20;//4 MB
     public static final long DEFAULT_DATA_REGION_SIZE = 4L << 20;//4 MB
-
-    private static final ByteBuffer BUF_INIT_FILE = ByteBuffer.wrap(new byte[] {-1, -1, -1, -1, -1, -1, -1, -1});
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;

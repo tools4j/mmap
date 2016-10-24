@@ -23,50 +23,48 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.queue.UnsafeAccess;
-
 abstract public class AbstractUnsafeMessageWriter<T> extends AbstractMessageWriter<T> {
 
     abstract protected long getAndIncrementAddress(final int len);
 
     @Override
-    public MessageWriter putInt8(byte value) {
+    public MessageWriter<T> putInt8(byte value) {
         UnsafeAccess.UNSAFE.putByte(null, getAndIncrementAddress(1), value);
         return this;
     }
 
     @Override
-    public MessageWriter putInt16(final short value) {
+    public MessageWriter<T> putInt16(final short value) {
         UnsafeAccess.UNSAFE.putShort(null, getAndIncrementAddress(2), value);
         return this;
     }
 
     @Override
-    public MessageWriter putInt32(final int value) {
+    public MessageWriter<T> putInt32(final int value) {
         UnsafeAccess.UNSAFE.putInt(null, getAndIncrementAddress(4), value);
         return this;
     }
 
     @Override
-    public MessageWriter putInt64(final long value) {
+    public MessageWriter<T> putInt64(final long value) {
         UnsafeAccess.UNSAFE.putLong(null, getAndIncrementAddress(8), value);
         return this;
     }
 
     @Override
-    public MessageWriter putFloat32(final float value) {
+    public MessageWriter<T> putFloat32(final float value) {
         UnsafeAccess.UNSAFE.putFloat(null, getAndIncrementAddress(4), value);
         return this;
     }
 
     @Override
-    public MessageWriter putFloat64(final double value) {
+    public MessageWriter<T> putFloat64(final double value) {
         UnsafeAccess.UNSAFE.putDouble(null, getAndIncrementAddress(8), value);
         return this;
     }
 
     @Override
-    public MessageWriter putChar(final char value) {
+    public MessageWriter<T> putChar(final char value) {
         UnsafeAccess.UNSAFE.putChar(null, getAndIncrementAddress(2), value);
         return this;
     }
