@@ -32,7 +32,7 @@ import java.io.Closeable;
  */
 public interface Enumerator extends Closeable {
     boolean hasNextMessage();
-    MessageReader<Enumerator> readNextMessage();
+    MessageReader readNextMessage();
     Enumerator skipNextMessage();
     void close();
 }

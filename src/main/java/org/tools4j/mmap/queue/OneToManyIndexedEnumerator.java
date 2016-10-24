@@ -52,7 +52,7 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
     }
 
     @Override
-    public MessageReader<Enumerator> readNextMessage() {
+    public MessageReader readNextMessage() {
         final long messageLength = getMessageLength();
         if (messageLength >= 0) {
             this.messageLen = -1;
@@ -63,7 +63,8 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
 
     @Override
     public Enumerator skipNextMessage() {
-        return readNextMessage().finishReadMessage();
+        readNextMessage().finishReadMessage();
+        return this;
     }
 
     private long getMessageLength() {
@@ -78,7 +79,7 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
         messageReader.close();
     }
 
-    private final class MessageReaderImpl extends AbstractUnsafeMessageReader<Enumerator> {
+    private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
 
         private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
         private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
@@ -96,7 +97,7 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
             dataPtr.close();
         }
 
-        private MessageReader<Enumerator> readNextMessage(final long messageLen) {
+        private MessageReader readNextMessage(final long messageLen) {
             if (messageEndPosition < 0) {
                 indexPtr.ensureNotClosed().moveBy(8);//prepare to read next length
                 messageEndPosition = dataPtr.getPosition() + messageLen;
@@ -107,17 +108,16 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
         }
 
         @Override
-        public Enumerator finishReadMessage() {
-            if (messageEndPosition >= 0) {
-                dataPtr.ensureNotClosed().moveToPosition(messageEndPosition);
-                final long rem = dataPtr.getBytesRemaining();
-                if (rem < 8) {
-                    dataPtr.moveBy(rem);
-                }
-                messageEndPosition = -1;
-                return OneToManyIndexedEnumerator.this;
+        public void finishReadMessage() {
+            if (messageEndPosition < 0) {
+                throw new IllegalStateException("No message is currently being read");
             }
-            throw new IllegalStateException("No message is currently being read");
+            dataPtr.ensureNotClosed().moveToPosition(messageEndPosition);
+            final long rem = dataPtr.getBytesRemaining();
+            if (rem < 8) {
+                dataPtr.moveBy(rem);
+            }
+            messageEndPosition = -1;
         }
 
         @Override

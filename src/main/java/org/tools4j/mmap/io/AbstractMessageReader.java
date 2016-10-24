@@ -25,7 +25,7 @@ package org.tools4j.mmap.io;
 
 import java.io.IOException;
 
-abstract public class AbstractMessageReader<T> implements MessageReader<T> {
+abstract public class AbstractMessageReader implements MessageReader {
 
     @Override
     public boolean getBoolean() {

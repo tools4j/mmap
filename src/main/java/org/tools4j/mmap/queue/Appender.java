@@ -31,6 +31,6 @@ import java.io.Closeable;
  * Appends messages to a {@link MappedQueue}.
  */
 public interface Appender extends Closeable {
-    MessageWriter<Appender> appendMessage();
+    MessageWriter appendMessage();
     void close();
 }

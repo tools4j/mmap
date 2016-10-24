@@ -45,7 +45,7 @@ public final class OneToManyIndexedAppender implements Appender {
     }
 
     @Override
-    public MessageWriter<Appender> appendMessage() {
+    public MessageWriter appendMessage() {
         return messageWriter.startAppendMessage();
     }
 
@@ -54,7 +54,7 @@ public final class OneToManyIndexedAppender implements Appender {
         messageWriter.close();
     }
 
-    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter<Appender> {
+    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
 
         private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
         private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
@@ -82,7 +82,7 @@ public final class OneToManyIndexedAppender implements Appender {
             return dataPtr.ensureNotClosed().getAndIncrementAddress(add, true);
         }
 
-        private MessageWriter<Appender> startAppendMessage() {
+        private MessageWriter startAppendMessage() {
             if (messageStartPosition >= 0) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }
@@ -91,13 +91,12 @@ public final class OneToManyIndexedAppender implements Appender {
         }
 
         @Override
-        public Appender finishAppendMessage() {
+        public void finishAppendMessage() {
             if (messageStartPosition < 0) {
                 throw new IllegalStateException("No message to finish");
             }
             padMessageEnd();
             writeNextAndCurrentMessageLength();
-            return OneToManyIndexedAppender.this;
         }
 
         private void writeNextAndCurrentMessageLength() {

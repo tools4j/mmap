@@ -39,7 +39,7 @@ public class Compact {
     private static final int SENTINEL_8 = 0xe0;//1110 xxxx [8x] [8x] [8x] [8x] [8x] [8x]
     private static final int SENTINEL_9 = 0xff;//1111 xxxx [8x] [8x] [8x] [8x] [8x] [8x] [8x]
 
-    public static void putUnsignedInt(final int unsigned, final MessageWriter<?> writer) {
+    public static void putUnsignedInt(final int unsigned, final MessageWriter writer) {
         if (unsigned >= 0) {
             if (unsigned < (1<<7)) {
                 writer.putInt8(unsigned);
@@ -62,7 +62,7 @@ public class Compact {
         writer.putInt32(unsigned);
     }
 
-    public static void putUnsignedLong(final long unsigned, final MessageWriter<?> writer) {
+    public static void putUnsignedLong(final long unsigned, final MessageWriter writer) {
         if (unsigned >= 0) {
             if (unsigned < (1 << 29)) {
                 putUnsignedInt((int) unsigned, writer);
@@ -81,12 +81,12 @@ public class Compact {
         writer.putInt64(unsigned);
     }
 
-    public static int getUnsignedInt(final MessageReader<?> reader) {
+    public static int getUnsignedInt(final MessageReader reader) {
         final int int0 = reader.getInt8();
         return getUnsignedInt(reader, int0);
     }
 
-    private static int getUnsignedInt(final MessageReader<?> reader, final int int0) {
+    private static int getUnsignedInt(final MessageReader reader, final int int0) {
         if ((int0 & SENTINEL_2) != SENTINEL_2) {
             return int0;
         }
@@ -103,7 +103,7 @@ public class Compact {
         return (int1 << 24) | (int2 << 16) | (int3 << 8) | int4;
     }
 
-    public static long getUnsignedLong(final MessageReader<?> reader) {
+    public static long getUnsignedLong(final MessageReader reader) {
         final int int0 = reader.getInt8();
         if ((int0 & SENTINEL_8) != SENTINEL_8) {
             return getUnsignedInt(reader, int0);

@@ -43,9 +43,9 @@ import static org.mockito.Mockito.when;
 public class UIntsTest {
 
     @Mock
-    private MessageWriter<?> messageWriter;
+    private MessageWriter messageWriter;
     @Mock
-    private MessageReader<?> messageReader;
+    private MessageReader messageReader;
 
     private ByteBuffer byteBuffer = ByteBuffer.allocate(9);
 

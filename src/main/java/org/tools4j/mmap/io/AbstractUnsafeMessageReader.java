@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.io;
 
-abstract public class AbstractUnsafeMessageReader<T> extends AbstractMessageReader<T> {
+abstract public class AbstractUnsafeMessageReader extends AbstractMessageReader {
 
     abstract protected long getAndIncrementAddress(final int len);
 

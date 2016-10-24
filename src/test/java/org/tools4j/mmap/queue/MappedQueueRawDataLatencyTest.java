@@ -55,8 +55,8 @@ public class MappedQueueRawDataLatencyTest {
     private Enumerator enumerator;
     private ByteWatcher byteWatcher;
 
-    @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}, AFFINITY={2}")
-    public static Collection testRunParameters() {
+    @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}")
+    public static Collection<?> testRunParameters() {
         return Arrays.asList(new Object[][] {
                 { 160000, 100},
                 { 500000, 100},

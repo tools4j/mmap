@@ -26,7 +26,7 @@ package org.tools4j.mmap.io;
 /**
  * Message writer offers methods to write different value types for elements of a message.
  */
-public interface MessageReader<T> {
+public interface MessageReader {
     boolean getBoolean();
     byte getInt8();
     int getInt8AsInt();
@@ -44,5 +44,5 @@ public interface MessageReader<T> {
     <A extends Appendable> A getStringAscii(A appendable);
     <A extends Appendable> A getStringUtf8(A appendable);
     <A extends Appendable> A getString(A appendable);
-    T finishReadMessage();
+    void finishReadMessage();
 }
