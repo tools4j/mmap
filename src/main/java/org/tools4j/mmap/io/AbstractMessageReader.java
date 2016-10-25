@@ -83,9 +83,12 @@ abstract public class AbstractMessageReader implements MessageReader {
 
     @Override
     public String getStringAscii() {
-        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
-        sb.setLength(0);
-        return getStringAscii(sb).toString();
+        final int len = Compact.getUnsignedInt(this);
+        final StringBuilder sb = stringBuilder(len);
+        for (int i = 0; i < len; i++) {
+            sb.append(getCharAscii());
+        }
+        return sb.toString();
     }
 
     @Override
@@ -103,9 +106,8 @@ abstract public class AbstractMessageReader implements MessageReader {
 
     @Override
     public String getStringUtf8() {
-        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
-        sb.setLength(0);
-        return getStringUtf8(sb).toString();
+        final int utflen = Compact.getUnsignedInt(this);
+        return getStringUtf8(stringBuilder(utflen)).toString();
     }
 
     /**
@@ -113,9 +115,12 @@ abstract public class AbstractMessageReader implements MessageReader {
      */
     @Override
     public <A extends Appendable> A getStringUtf8(final A appendable) {
-        try {
-            final int utflen = Compact.getUnsignedInt(this);
+        final int utflen = Compact.getUnsignedInt(this);
+        return getStringUtf8(appendable, utflen);
+    }
 
+    private <A extends Appendable> A getStringUtf8(final A appendable, final int utflen) {
+        try {
             int count = 0;
 
             int char1 = 0;
@@ -188,9 +193,12 @@ abstract public class AbstractMessageReader implements MessageReader {
 
     @Override
     public String getString() {
-        final StringBuilder sb = ThreadLocals.STRING_BUILDER.get();
-        sb.setLength(0);
-        return getString(sb).toString();
+        final int len = Compact.getUnsignedInt(this);
+        final StringBuilder sb = stringBuilder(len);
+        for (int i = 0; i < len; i++) {
+            sb.append(getChar());
+        }
+        return sb.toString();
     }
 
     @Override
@@ -205,4 +213,6 @@ abstract public class AbstractMessageReader implements MessageReader {
             throw new IllegalArgumentException(e);
         }
     }
+
+    abstract protected StringBuilder stringBuilder(int capacity);
 }

@@ -79,6 +79,7 @@ public final class OneToManyEnumerator implements Enumerator {
 
         private final RollingRegionPointer ptr = new RollingRegionPointer(file);
         private long messageEndPosition = -1;
+        private StringBuilder stringBuilder;
 
         private long pollNextMessageLength() {
             if (messageEndPosition >= 0) {
@@ -122,6 +123,14 @@ public final class OneToManyEnumerator implements Enumerator {
                 return ptr.getAndIncrementAddress(add, false);
             }
             throw new IllegalStateException("Attempt to read beyond message end: " + (pos + add) + " > " + messageEndPosition);
+        }
+
+        @Override
+        protected StringBuilder stringBuilder(final int capacity) {
+            if (stringBuilder == null) {
+                stringBuilder = new StringBuilder(Math.max(capacity, 256));
+            }
+            return stringBuilder;
         }
     }
 }
