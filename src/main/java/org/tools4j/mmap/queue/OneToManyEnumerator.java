@@ -77,7 +77,7 @@ public final class OneToManyEnumerator implements Enumerator {
 
     private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
 
-        private final RollingRegionPointer ptr = new RollingRegionPointer(file);
+        private final MappedFilePointer ptr = new MappedFilePointer(file);
         private long messageEndPosition = -1;
         private StringBuilder stringBuilder;
 

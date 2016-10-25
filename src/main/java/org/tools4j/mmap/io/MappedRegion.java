@@ -23,144 +23,110 @@
  */
 package org.tools4j.mmap.io;
 
-import sun.nio.ch.FileChannelImpl;
-
-import java.lang.reflect.Method;
-import java.nio.channels.FileChannel;
+import java.io.Closeable;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A mapped region of a io.
+ * A mapped region of a file.
  */
-public final class MappedRegion {
+public final class MappedRegion implements Closeable {
 
-    private static final Method MAP_METHOD = getMethod(FileChannelImpl.class, "map0", int.class, long.class, long.class);
-    private static final Method UNMAP_METHOD = getMethod(FileChannelImpl.class, "unmap0", long.class, long.class);
+    private final MappedFile file;
+    private long position;
+    private long address;
 
-    public static final long REGION_SIZE_GRANULARITY = initRegionSizeGranularity();
-
-    private final FileChannel fileChannel;
-    private final int index;
-    private final long position;
-    private final long size;
-    private final long address;
-    private final AtomicInteger refCount = new AtomicInteger(1);
-    private final AtomicBoolean closed = new AtomicBoolean(false);
-
-    public MappedRegion(final FileChannel fileChannel, final int index, final long position, final long size) {
-        this.fileChannel = Objects.requireNonNull(fileChannel);
-        this.index = index;
-        this.position = position;
-        this.size = size;
-        this.address = map(fileChannel, position, size);
+    public MappedRegion(final MappedFile file) {
+        this.file = Objects.requireNonNull(file);
+        this.position = -1;
+        this.address = 0;
     }
 
-    public int getIndex() {
-        return index;
+    public MappedFile getFile() {
+        return file;
+    }
+
+    public long getSize() {
+        return file.getRegionSize();
+    }
+
+    public MappedRegion map(final long position) {
+        if (this.position >= 0) {
+            throw new IllegalStateException("Already mapped to position " + this.position);
+        }
+        ensureFileLength(position + file.getRegionSize());
+        this.address = RegionMapper.map(file.getFileChannel(), position, file.getRegionSize());
+        this.position = position;
+        return this;
+    }
+
+    public MappedRegion mapSameAs(final MappedRegion other) {
+        if (this.position >= 0) {
+            throw new IllegalStateException("Already mapped to position " + this.position);
+        }
+        this.address = other.address;
+        this.position = other.position;
+        return this;
+    }
+
+    public MappedRegion unmap() {
+        if (position < 0) {
+            throw new IllegalStateException("Region is not mapped");
+        }
+        RegionMapper.unmap(file.getFileChannel(), address, file.getRegionSize());
+        position = -1;
+        address = 0;
+        return this;
+    }
+
+    public long unmapExternal() {
+        if (position < 0) {
+            throw new IllegalStateException("Region is not mapped");
+        }
+        final long addr = address;
+        position = -1;
+        address = 0;
+        return addr;
     }
 
     public long getPosition() {
         return position;
     }
 
-    public long getSize() {
-        return size;
+    public long getPosition(final long offset) {
+        return position + offset;
     }
 
     public long getAddress() {
+        ensureMapped();
         return address;
     }
 
     public long getAddress(final long offset) {
-        return address + offset;
+        return ensureMapped().getAddress() + offset;
     }
 
-    public boolean isValidAddress(final long offset, final long length) {
-        return offset + length <= this.size;
+    public boolean isMapped() {
+        return position >= 0;
     }
 
-    public void checkValidAddress(final long offset, final long length) {
-        if (!isValidAddress(offset, length)) {
-            throw new IndexOutOfBoundsException("Address offset is invalid: " + offset + "+" + length + " should be <= " + this.size);
+    public MappedRegion ensureMapped() {
+        if (position >= 0) {
+            return this;
         }
-    }
-
-    public boolean isClosed() {
-        return closed.get();
-    }
-
-    public int incAndGetRefCount() {
-        if (!isClosed()) {
-            final int rc = refCount.incrementAndGet();
-            if (rc > 0) {
-                return rc;
-            }
-            refCount.decrementAndGet();
-        }
-        return 0;
-    }
-
-    public int decAndGetRefCount() {
-        final int rc = refCount.decrementAndGet();
-        if (rc == 0) {
-            if (refCount.compareAndSet(0, Integer.MIN_VALUE/2)) {
-                close();
-            }
-        }
-        return rc > 0 ? rc : 0;
-    }
-
-    int decAndGetRefCountButDontClose() {
-        return refCount.decrementAndGet();
-    }
-
-    private void close() {
-        if (closed.compareAndSet(false, true)) {
-            unmap(fileChannel, address, size);
-        }
+        throw new RuntimeException("Region is not mapped");
     }
 
     @Override
-    protected void finalize() throws Throwable {
-        if (!isClosed()) {
-            System.err.println("Unclosed: " + this);
-            close();
+    public void close() {
+        if (position >= 0) {
+            unmap();
         }
     }
 
-    private static long map(final FileChannel fileChannel, final long position, final long length) {
-        try {
-            return (long) MAP_METHOD.invoke(fileChannel, 1, position, length);
-        } catch (final Exception e) {
-            throw new RuntimeException("Mapping failed for " + fileChannel + ":" + position + ":" + length, e);
+    private void ensureFileLength(final long minLen) {
+        if (file.getFileLength() < minLen) {
+            file.setFileLength(minLen);
         }
     }
 
-    private static void unmap(final FileChannel fileChannel, final long position, final long length) {
-        try {
-            UNMAP_METHOD.invoke(null, position, length);
-        } catch (final Exception e) {
-            throw new RuntimeException("Unmapping failed for " + fileChannel + ":" + position + ":" + length, e);
-        }
-    }
-
-    private static long initRegionSizeGranularity() {
-        try {
-            return (Long)getMethod(FileChannelImpl.class, "initIDs").invoke(null);
-        } catch (final Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Method getMethod(final Class<?> cls, final String name, final Class<?>... params) {
-        try {
-            final Method m = cls.getDeclaredMethod(name, params);
-            m.setAccessible(true);
-            return m;
-        } catch (final Exception e) {
-            throw new RuntimeException("Could not get declared method " + cls.getName() + "." + name + "(..)", e);
-        }
-    }
 }

@@ -74,9 +74,9 @@ public class MappedQueueRawDataLatencyTest {
     @Before
     public void setup() throws Exception {
 //        queue = OneToManyQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath());
-//        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath());
+        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath());
 //        queue = OneToManyQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12);
-        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12, 1L<<12);
+//        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12, 1L<<12);
         appender = queue.appender();
         enumerator = queue.enumerator();
         //byteWatcher = ByteWatcherPrinter.watch();

@@ -81,8 +81,8 @@ public final class OneToManyIndexedEnumerator implements Enumerator {
 
     private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
 
-        private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
-        private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
+        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile);
+        private final MappedFilePointer dataPtr = new MappedFilePointer(dataFile);
         private StringBuilder stringBuilder;
         private long messageEndPosition = -1;
 

@@ -26,23 +26,23 @@ package org.tools4j.mmap.io;
 import java.io.Closeable;
 
 /**
- * Points to a position in a {@link MappedRegion} and automatically
- * rolls to next region when pointer is moved over region boundary.
+ * Points to a position in a {@link MappedFile}. Only a region of the
+ * file is memory mapped. The pointer automatically maps the next region
+ * and unmaps the previous region when the pointer is moved over the region
+ * boundaries.
  */
-public final class RollingRegionPointer implements Closeable {
+public final class MappedFilePointer implements Closeable {
 
-    private final MappedFile file;
-    private MappedRegion region;
+    private static final AsyncMapper asyncMapper = AsyncMapper.start();
+
+    private final MappedRegion mappedRegion;
     private long offset;
+    private boolean unmapRegionOnRoll;
 
-    public RollingRegionPointer(final MappedFile file) {
-        this.file = file;//null checked next
-        this.region = file.reserveRegion(0);
+    public MappedFilePointer(final MappedFile file) {
+        this.mappedRegion = new MappedRegion(file).map(0);
         this.offset = 0;
-    }
-
-    public MappedRegion getRegion() {
-        return region;
+        this.unmapRegionOnRoll = true;
     }
 
     public long getOffset() {
@@ -50,31 +50,31 @@ public final class RollingRegionPointer implements Closeable {
     }
 
     public long getBytesRemaining() {
-        return region.getSize() - offset;
+        return mappedRegion.getSize() - offset;
     }
 
     public long getPosition() {
-        return region.getPosition() + offset;
+        return mappedRegion.getPosition(offset);
     }
 
     public long getAddress() {
-        return region.getAddress(offset);
+        return mappedRegion.getAddress(offset);
     }
 
     public long getAndIncrementAddress(final long add, final boolean padOnRoll) {
         final long off = offset;
         final long newOffset = off + add;
-        final long regionSize = region.getSize();
+        final long regionSize = mappedRegion.getSize();
         if (newOffset <= regionSize) {
             offset = newOffset;
-            return region.getAddress(off);
+            return mappedRegion.getAddress(off);
         }
         if (padOnRoll) {
             pad(regionSize - off);
         }
         rollRegion();
         offset += add;
-        return region.getAddress();
+        return mappedRegion.getAddress();
     }
 
     public void moveBy(final long step) {
@@ -82,43 +82,53 @@ public final class RollingRegionPointer implements Closeable {
     }
 
     public void moveToPosition(final long position) {
-        long newOffset = position - region.getPosition();
-        while (newOffset >= region.getSize()) {
+        long newOffset = position - mappedRegion.getPosition();
+        while (newOffset >= mappedRegion.getSize()) {
             rollRegion();
-            newOffset = position - region.getPosition();
+            newOffset = position - mappedRegion.getPosition();
         }
         offset = newOffset;
     }
 
     private void pad(final long len) {
         if (len > 0) {
-            UnsafeAccess.UNSAFE.setMemory(null, region.getAddress(), len, (byte) 0);
+            UnsafeAccess.UNSAFE.setMemory(null, mappedRegion.getAddress(offset), len, (byte) 0);
         }
     }
 
     private void rollRegion() {
-        final MappedRegion previousRegion = region;
-        region = file.reserveRegion(region.getIndex() + 1);
-        file.releaseRegion(previousRegion);
+        final long position = mappedRegion.getPosition();
+        if (unmapRegionOnRoll) {
+            mappedRegion.unmap();
+        } else {
+            mappedRegion.unmapExternal();
+            unmapRegionOnRoll = true;
+        }
+        mappedRegion.map(position + mappedRegion.getSize());
         offset = 0;
     }
 
     public boolean isClosed() {
-        return region == null;
+        return !mappedRegion.isMapped();
     }
 
-    public RollingRegionPointer ensureNotClosed() {
-        if (region != null) {
+    public MappedFilePointer ensureNotClosed() {
+        if (mappedRegion.isMapped()) {
             return this;
         }
         throw new RuntimeException("Pointer has already been closed");
     }
 
+    public long unmapRegionOnRoll(final boolean unmapRegionOnRoll) {
+        this.unmapRegionOnRoll = unmapRegionOnRoll;
+        return mappedRegion.getAddress();
+    }
+
     @Override
     public void close() {
-        if (region != null) {
-            file.releaseRegion(region);
-            region = null;
+        if (mappedRegion.isMapped()) {
+            mappedRegion.unmap();
+            offset = 0;
         }
     }
 }

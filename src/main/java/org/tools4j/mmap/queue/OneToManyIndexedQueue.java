@@ -40,8 +40,8 @@ public class OneToManyIndexedQueue implements MappedQueue {
 
     public static final String SUFFIX_INDEX = ".idx";
     public static final String SUFFIX_DATA = ".dat";
-    public static final long DEFAULT_INDEX_REGION_SIZE = 4L << 20;//4 MB
-    public static final long DEFAULT_DATA_REGION_SIZE = 4L << 20;//4 MB
+    public static final long DEFAULT_INDEX_REGION_SIZE = 1L << 14;//16 KB
+    public static final long DEFAULT_DATA_REGION_SIZE = 1L << 18;//256 KB
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;

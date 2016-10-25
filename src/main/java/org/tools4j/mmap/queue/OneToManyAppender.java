@@ -25,6 +25,7 @@ package org.tools4j.mmap.queue;
 
 import org.tools4j.mmap.io.*;
 
+import javax.swing.plaf.synth.Region;
 import java.util.Objects;
 
 /**
@@ -52,10 +53,11 @@ public final class OneToManyAppender implements Appender {
 
     private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
 
-        private final RollingRegionPointer ptr = new RollingRegionPointer(file);
+        private final MappedFilePointer ptr = new MappedFilePointer(file);
 
-        private MappedRegion startRegion;
-        private long startOffset;
+        private long regionStartPosition = -1;
+        private long regionStartAddress = 0;
+        private long messageStartOffset = 0;
 
         public MessageWriterImpl() {
             skipExistingMessages();
@@ -70,26 +72,26 @@ public final class OneToManyAppender implements Appender {
 
         @Override
         protected long getAndIncrementAddress(final int add) {
-            if (startRegion == null) {
+            if (regionStartPosition < 0) {
                 throw new IllegalStateException("Message not started");
             }
             return ptr.ensureNotClosed().getAndIncrementAddress(add, true);
         }
 
         private MessageWriter startAppendMessage() {
-            if (startRegion != null) {
+            if (regionStartPosition >= 0) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }
-            startRegion = ptr.ensureNotClosed().getRegion();
-            startOffset = ptr.getOffset();
-            startRegion.incAndGetRefCount();
+            messageStartOffset = ptr.ensureNotClosed().getOffset();
+            regionStartPosition = ptr.getPosition() - messageStartOffset;
+            regionStartAddress = ptr.unmapRegionOnRoll(false);
             ptr.moveBy(8);
             return this;
         }
 
         @Override
         public void finishWriteMessage() {
-            if (startRegion == null) {
+            if (regionStartPosition < 0) {
                 throw new IllegalStateException("No message to finish");
             }
             ptr.ensureNotClosed();
@@ -98,13 +100,16 @@ public final class OneToManyAppender implements Appender {
         }
 
         private void writeMessageLength() {
-            final long startAddr = startRegion.getAddress(startOffset);
-            final long startPos = startRegion.getPosition() + startOffset;
+            final long startAddr = regionStartAddress + messageStartOffset;
+            final long startPos = regionStartPosition + messageStartOffset;
             final long length = ptr.getPosition() - startPos - 8;
             UnsafeAccess.UNSAFE.putOrderedLong(null, startAddr, length);
-            file.releaseRegion(startRegion);
-            startRegion = null;
-            startOffset = -1;
+            if (regionStartAddress != ptr.unmapRegionOnRoll(true)) {
+                RegionMapper.unmap(file.getFileChannel(), regionStartAddress, file.getRegionSize());
+            }
+            regionStartPosition = -1;
+            regionStartAddress = 0;
+            messageStartOffset = 0;
         }
 
         private void padMessageAndWriteNextLength() {
@@ -125,7 +130,7 @@ public final class OneToManyAppender implements Appender {
 
         public void close() {
             if (!ptr.isClosed()) {
-                if (startRegion != null) {
+                if (regionStartPosition >= 0) {
                     finishWriteMessage();
                 }
                 ptr.close();

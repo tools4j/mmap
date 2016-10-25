@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class OneToManyQueue implements MappedQueue {
 
-    public static final long DEFAULT_REGION_SIZE = 4L << 20;//4 MB
+    public static final long DEFAULT_REGION_SIZE = 1L << 24;//16 MB
 
     private final MappedFile file;
     private final AtomicBoolean appenderCreated = new AtomicBoolean(false);

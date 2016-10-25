@@ -56,8 +56,8 @@ public final class OneToManyIndexedAppender implements Appender {
 
     private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
 
-        private final RollingRegionPointer indexPtr = new RollingRegionPointer(indexFile);
-        private final RollingRegionPointer dataPtr = new RollingRegionPointer(dataFile);
+        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile);
+        private final MappedFilePointer dataPtr = new MappedFilePointer(dataFile);
         long messageStartPosition = -1;
 
         public MessageWriterImpl() {
@@ -111,14 +111,15 @@ public final class OneToManyIndexedAppender implements Appender {
                 UNSAFE.putOrderedLong(null, indexPtr.getAndIncrementAddress(8, false), messageLen);
             } else {
                 //current message lenght and next message length are in different regions
-                final MappedRegion region = indexPtr.getRegion();
-                region.incAndGetRefCount();
+                final long addrToRelease = indexPtr.unmapRegionOnRoll(false);
                 final long addr0 = indexPtr.getAndIncrementAddress(8, true);
                 final long addr1 = indexPtr.getAndIncrementAddress(8, true);
                 UNSAFE.putOrderedLong(null, addr1, -1);
                 UNSAFE.putOrderedLong(null, addr0, messageLen);
                 indexPtr.moveBy(-8);
-                indexFile.releaseRegion(region);
+                if (addrToRelease != indexPtr.unmapRegionOnRoll(true)) {
+                    RegionMapper.unmap(indexFile.getFileChannel(), addrToRelease, indexFile.getRegionSize());
+                }
             }
             messageStartPosition = -1;
         }
