@@ -79,7 +79,7 @@ public class MappedQueueRawDataLatencyTest {
 //        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12, 1L<<12);
         appender = queue.appender();
         enumerator = queue.enumerator();
-        //byteWatcher = ByteWatcherPrinter.watch();
+        byteWatcher = null;//ByteWatcherPrinter.watch();
     }
 
     @After
@@ -106,8 +106,8 @@ public class MappedQueueRawDataLatencyTest {
     public void latencyTest() throws Exception {
         //given
         final long histogramMax = TimeUnit.SECONDS.toNanos(1);
-        final int w = 200000;//warmup
-        final int c = 100000;//counted
+        final int w = 100000;//warmup
+        final int c = 200000;//counted
 //        final int w = 500;//warmup
 //        final int c = 500;//counted
         final int n = w+c;

@@ -25,6 +25,7 @@ package org.tools4j.mmap.queue;
 
 import org.tools4j.mmap.io.InitialBytes;
 import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.RegionMapper;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -37,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class OneToManyQueue implements MappedQueue {
 
-    public static final long DEFAULT_REGION_SIZE = 1L << 24;//16 MB
+    public static final long DEFAULT_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 18);//256 KB
 
     private final MappedFile file;
     private final AtomicBoolean appenderCreated = new AtomicBoolean(false);

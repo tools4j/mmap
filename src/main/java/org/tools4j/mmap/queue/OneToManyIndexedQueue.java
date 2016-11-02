@@ -25,6 +25,7 @@ package org.tools4j.mmap.queue;
 
 import org.tools4j.mmap.io.InitialBytes;
 import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.RegionMapper;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -40,8 +41,8 @@ public class OneToManyIndexedQueue implements MappedQueue {
 
     public static final String SUFFIX_INDEX = ".idx";
     public static final String SUFFIX_DATA = ".dat";
-    public static final long DEFAULT_INDEX_REGION_SIZE = 1L << 14;//16 KB
-    public static final long DEFAULT_DATA_REGION_SIZE = 1L << 18;//256 KB
+    public static final long DEFAULT_INDEX_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 14);//16 KB
+    public static final long DEFAULT_DATA_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 18);//256 KB
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;
