@@ -28,7 +28,7 @@ import org.tools4j.mmap.io.*;
 /**
  * Enumerator of a {@link OneToManyQueue}.
  */
-public final class OneToManyEnumerator implements Enumerator {
+final class OneToManyEnumerator implements Enumerator {
 
     private final MappedFile file;
     private final MessageReaderImpl messageReader;

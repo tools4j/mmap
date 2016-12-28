@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * MappedQueue implementation optimised for single Appender and multiple Enumerator support.
  * Uses an index io to avoid back tracking for volatile puts of message length field.
+ * <p>
+ * This class is thread safe but appender and enumerators are not and should only be used from at most one thread each.
  */
 public class OneToManyIndexedQueue implements MappedQueue {
 

@@ -35,10 +35,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * MappedQueue implementation optimised for single Appender and multiple Enumerator support.
+ * <p>
+ * This class is thread safe but appender and enumerators are not and should only be used from at most one thread each.
  */
 public class OneToManyQueue implements MappedQueue {
 
-    public static final long DEFAULT_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 18);//256 KB
+    public static final long DEFAULT_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 16);//64 KB
 
     private final MappedFile file;
     private final AtomicBoolean appenderCreated = new AtomicBoolean(false);

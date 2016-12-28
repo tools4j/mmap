@@ -32,7 +32,7 @@ import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 /**
  * The single appender of a {@link OneToManyIndexedQueue}.
  */
-public final class OneToManyIndexedAppender implements Appender {
+final class OneToManyIndexedAppender implements Appender {
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;

@@ -36,11 +36,13 @@ public class UnsafeAccess {
 
     private static final Unsafe initUnsafe() {
         try {
-            final Field e = Unsafe.class.getDeclaredField("theUnsafe");
-            e.setAccessible(true);
-            return (Unsafe)e.get(null);
+            final Field field = Unsafe.class.getDeclaredField("theUnsafe");
+            field.setAccessible(true);
+            final Unsafe unsafe = (Unsafe)field.get(null);
+            field.setAccessible(false);
+            return unsafe;
         } catch (Exception e) {
-            throw new RuntimeException("Cannot initialise UNSAFE, e=" + e, e);
+            throw new RuntimeException("Cannot initialise Unsafe, e=" + e, e);
         }
     }
 }

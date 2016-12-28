@@ -30,7 +30,7 @@ import java.util.Objects;
 /**
  * Enumerator of a {@link OneToManyIndexedQueue}.
  */
-public final class OneToManyIndexedEnumerator implements Enumerator {
+final class OneToManyIndexedEnumerator implements Enumerator {
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;

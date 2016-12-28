@@ -31,7 +31,7 @@ import java.util.Objects;
 /**
  * The single appender of a {@link OneToManyQueue}.
  */
-public final class OneToManyAppender implements Appender {
+final class OneToManyAppender implements Appender {
 
     private final MappedFile file;
     private final MessageWriterImpl messageWriter;

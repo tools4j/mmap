@@ -125,7 +125,7 @@ public final class MappedRegion implements Closeable {
 
     private void ensureFileLength(final long minLen) {
         if (file.getFileLength() < minLen) {
-            file.setFileLength(minLen);
+            file.setFileLength(minLen + 15 * getSize());
         }
     }
 

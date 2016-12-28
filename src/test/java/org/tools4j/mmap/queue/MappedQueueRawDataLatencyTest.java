@@ -58,10 +58,10 @@ public class MappedQueueRawDataLatencyTest {
     @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}")
     public static Collection<?> testRunParameters() {
         return Arrays.asList(new Object[][] {
-                { 160000, 100},
-                { 500000, 100},
-                { 160000, 100},
-                { 500000, 100},
+                { 160000, 1500},
+                { 500000, 1500},
+                { 160000, 1500},
+                { 500000, 1500},
         });
     }
 
@@ -73,10 +73,10 @@ public class MappedQueueRawDataLatencyTest {
 
     @Before
     public void setup() throws Exception {
-//        queue = OneToManyQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath());
-        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath());
-//        queue = OneToManyQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12);
-//        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.tmpDirFile("queue").getAbsolutePath(), 1L<<12, 1L<<12);
+        queue = OneToManyQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath());
+//        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath());
+//        queue = OneToManyQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath(), 1L<<12);
+//        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath(), 1L<<12, 1L<<12);
         appender = queue.appender();
         enumerator = queue.enumerator();
         byteWatcher = null;//ByteWatcherPrinter.watch();
@@ -228,8 +228,9 @@ public class MappedQueueRawDataLatencyTest {
     }
 
     public static void main(String... args) throws Exception {
-        final int byteLen = 94;
-        final int[] messagesPerSec = {160000, 500000};
+        final int byteLen = 100;
+        final int[] messagesPerSec = {160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000};
+//        final int[] messagesPerSec = {160000, 500000};
 //        final int[] messagesPerSec = {160000};
         for (final int mps : messagesPerSec) {
             final MappedQueueRawDataLatencyTest latencyTest = new MappedQueueRawDataLatencyTest(mps, byteLen);
