@@ -54,13 +54,12 @@ final class OneToManyIndexedAppender implements Appender {
         messageWriter.close();
     }
 
-    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
+    private final class MessageWriterImpl extends AbstractQueueMessageWriter {
 
-        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile);
-        private final MappedFilePointer dataPtr = new MappedFilePointer(dataFile);
-        long messageStartPosition = -1;
+        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile, MappedRegion.Mode.READ_WRITE);
 
         public MessageWriterImpl() {
+            super(dataFile);
             skipExistingMessages();
         }
 
@@ -71,22 +70,14 @@ final class OneToManyIndexedAppender implements Appender {
                 indexPtr.moveBy(8);
                 offset += messageLen;
             }
-            dataPtr.moveToPosition(offset);
-        }
-
-        @Override
-        protected long getAndIncrementAddress(final int add) {
-            if (messageStartPosition < 0) {
-                throw new IllegalStateException("Message not started");
-            }
-            return dataPtr.ensureNotClosed().getAndIncrementAddress(add, true);
+            ptr.moveToPosition(offset);
         }
 
         private MessageWriter startAppendMessage() {
             if (messageStartPosition >= 0) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }
-            messageStartPosition = dataPtr.getPosition();
+            messageStartPosition = ptr.getPosition();
             return this;
         }
 
@@ -100,7 +91,7 @@ final class OneToManyIndexedAppender implements Appender {
         }
 
         private void writeNextAndCurrentMessageLength() {
-            final long messageLen = dataPtr.getPosition() - messageStartPosition;
+            final long messageLen = ptr.getPosition() - messageStartPosition;
             long rem = indexPtr.getBytesRemaining();
             if (rem < 8) {
                 indexPtr.getAndIncrementAddress(rem, true);
@@ -124,24 +115,14 @@ final class OneToManyIndexedAppender implements Appender {
             messageStartPosition = -1;
         }
 
-        private void padMessageEnd() {
-            final long pad = 8 - (int) (dataPtr.getPosition() & 0x7);
-            if (pad < 8) {
-                UNSAFE.setMemory(null, dataPtr.getAndIncrementAddress(pad, false), pad, (byte) 0);
-            }
-            if (dataPtr.getBytesRemaining() < 8) {
-                dataPtr.getAndIncrementAddress(8, true);
-            }
-        }
-
-        public void close() {
-            if (!indexPtr.isClosed() && !dataPtr.isClosed()) {
-                if (messageStartPosition >= 0) {
-                    finishWriteMessage();
-                }
-            }
-            dataPtr.close();
-            indexPtr.close();
+       public void close() {
+           if (!indexPtr.isClosed() && !ptr.isClosed()) {
+               if (messageStartPosition >= 0) {
+                   finishWriteMessage();
+               }
+           }
+           indexPtr.close();
+           super.close();
         }
 
     }

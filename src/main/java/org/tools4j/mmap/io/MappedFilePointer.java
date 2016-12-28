@@ -39,8 +39,8 @@ public final class MappedFilePointer implements Closeable {
     private long offset;
     private boolean unmapRegionOnRoll;
 
-    public MappedFilePointer(final MappedFile file) {
-        this.mappedRegion = new MappedRegion(file).map(0);
+    public MappedFilePointer(final MappedFile file, final MappedRegion.Mode mode) {
+        this.mappedRegion = new MappedRegion(file, mode).map(0);
         this.offset = 0;
         this.unmapRegionOnRoll = true;
     }

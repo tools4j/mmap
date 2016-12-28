@@ -31,12 +31,19 @@ import java.util.Objects;
  */
 public final class MappedRegion implements Closeable {
 
+    public enum Mode {
+        READ_ONLY,
+        READ_WRITE;
+    }
+
     private final MappedFile file;
+    private final Mode mode;
     private long position;
     private long address;
 
-    public MappedRegion(final MappedFile file) {
+    public MappedRegion(final MappedFile file, final Mode mode) {
         this.file = Objects.requireNonNull(file);
+        this.mode = Objects.requireNonNull(mode);
         this.position = -1;
         this.address = 0;
     }
@@ -54,7 +61,7 @@ public final class MappedRegion implements Closeable {
             throw new IllegalStateException("Already mapped to position " + this.position);
         }
         ensureFileLength(position + file.getRegionSize());
-        this.address = RegionMapper.map(file.getFileChannel(), position, file.getRegionSize());
+        this.address = RegionMapper.map(file.getFileChannel(), mode == Mode.READ_ONLY, position, file.getRegionSize());
         this.position = position;
         return this;
     }

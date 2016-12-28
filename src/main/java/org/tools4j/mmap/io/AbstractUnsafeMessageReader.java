@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.io;
 
+import java.nio.ByteBuffer;
+
 abstract public class AbstractUnsafeMessageReader extends AbstractMessageReader {
 
     abstract protected long getAndIncrementAddress(final int len);
@@ -60,6 +62,24 @@ abstract public class AbstractUnsafeMessageReader extends AbstractMessageReader 
     @Override
     public char getChar() {
         return UnsafeAccess.UNSAFE.getChar(null, getAndIncrementAddress(2));
+    }
+
+    @Override
+    protected void bytes(final byte[] target, final int targetOffset, final int length) {
+        if (targetOffset < 0 | targetOffset + length > target.length) {
+            throw new IndexOutOfBoundsException(String.format("targetOffset=%d, length=%d, target.length=%d", targetOffset, length, target.length));
+        }
+        UnsafeAccess.UNSAFE.copyMemory(null, getAndIncrementAddress(length), target, UnsafeAccess.ARRAY_BASE_OFFSET + targetOffset, length);
+    }
+
+    @Override
+    protected void byteBuffer(final ByteBuffer target, final int targetOffset, final int length) {
+        if (targetOffset < 0 | targetOffset + length > target.capacity()) {
+            throw new IndexOutOfBoundsException(String.format("targetOffset=%d, length=%d, target.capacity=%d", targetOffset, length, target.capacity()));
+        }
+        final byte[] targetArray = UnsafeAccess.array(target);
+        final long targetAddress = UnsafeAccess.address(target);
+        UnsafeAccess.UNSAFE.copyMemory(null, getAndIncrementAddress(length), targetArray, targetAddress + targetOffset, length);
     }
 
 }

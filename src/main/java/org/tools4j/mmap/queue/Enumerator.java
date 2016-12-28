@@ -28,7 +28,8 @@ import org.tools4j.mmap.io.MessageReader;
 import java.io.Closeable;
 
 /**
- * Appends messages to a {@link MappedQueue}.
+ * Enumerates messages stored in a {@link MappedQueue}. The enumeration order is generally the appending order of the
+ * messages.
  */
 public interface Enumerator extends Closeable {
     boolean hasNextMessage();

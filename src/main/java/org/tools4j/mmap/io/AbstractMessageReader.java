@@ -24,6 +24,7 @@
 package org.tools4j.mmap.io;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 abstract public class AbstractMessageReader implements MessageReader {
 
@@ -213,6 +214,44 @@ abstract public class AbstractMessageReader implements MessageReader {
             throw new IllegalArgumentException(e);
         }
     }
+
+    @Override
+    public byte[] getBytes() {
+        final int length = Compact.getUnsignedInt(this);
+        final byte[] result = new byte[length];
+        bytes(result, 0, length);
+        return result;
+    }
+
+    @Override
+    public int getBytes(final byte[] target) {
+        return getBytes(target, 0, target.length);
+    }
+
+    @Override
+    public int getBytes(final byte[] target, final int targetOffset, final int maxLength) {
+        final int length = Compact.getUnsignedInt(this);
+        final int readLen = Math.min(length, maxLength);
+        bytes(target, targetOffset, readLen);
+        return readLen;
+    }
+
+    @Override
+    public int getBytes(final ByteBuffer target, final int maxLength) {
+        return getBytes(target, target.position(), maxLength);
+    }
+
+    @Override
+    public int getBytes(final ByteBuffer target, final int targetOffset, final int maxLength) {
+        final int length = Compact.getUnsignedInt(this);
+        final int readLen = Math.min(length, maxLength);
+        byteBuffer(target, targetOffset, readLen);
+        return readLen;
+    }
+
+    abstract protected void bytes(byte[] target, int targetOffset, int length);
+
+    abstract protected void byteBuffer(ByteBuffer target, int targetOffset, int length);
 
     abstract protected StringBuilder stringBuilder(int capacity);
 }

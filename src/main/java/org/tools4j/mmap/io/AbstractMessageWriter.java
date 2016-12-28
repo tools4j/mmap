@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.io;
 
+import java.nio.ByteBuffer;
+
 abstract public class AbstractMessageWriter implements MessageWriter {
 
     public MessageWriter putBoolean(final boolean value) {
@@ -132,5 +134,15 @@ abstract public class AbstractMessageWriter implements MessageWriter {
             putChar(value.charAt(i));
         }
         return this;
+    }
+
+    @Override
+    public MessageWriter putBytes(final byte[] source) {
+        return putBytes(source, 0, source.length);
+    }
+
+    @Override
+    public MessageWriter putBytes(final ByteBuffer source) {
+        return putBytes(source, source.position(), source.remaining());
     }
 }

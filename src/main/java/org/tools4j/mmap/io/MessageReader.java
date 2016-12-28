@@ -23,10 +23,17 @@
  */
 package org.tools4j.mmap.io;
 
+import java.nio.ByteBuffer;
+
 /**
- * Message writer offers methods to write different value types for elements of a message.
+ * Message reader offers methods to read different value types for elements of a message.
  */
 public interface MessageReader {
+    /**
+     * Returns the number of bytes remaining in this message, including padding bytes.
+     * @return the number of bytes remaining to be read in this message
+     */
+    long remaining();
     boolean getBoolean();
     byte getInt8();
     int getInt8AsInt();
@@ -44,5 +51,11 @@ public interface MessageReader {
     <A extends Appendable> A getStringAscii(A appendable);
     <A extends Appendable> A getStringUtf8(A appendable);
     <A extends Appendable> A getString(A appendable);
+    byte[] getBytes();
+    int getBytes(byte[] target);
+    int getBytes(byte[] target, int targetOffset, int maxLength);
+    int getBytes(ByteBuffer target, int maxLength);
+    int getBytes(ByteBuffer target, int targetOffset, int maxLength);
+    //MessageReader getBytesAsMessageReader();
     void finishReadMessage();
 }

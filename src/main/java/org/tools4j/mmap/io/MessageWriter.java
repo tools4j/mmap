@@ -25,6 +25,8 @@ package org.tools4j.mmap.io;
 
 import org.tools4j.mmap.queue.Appender;
 
+import java.nio.ByteBuffer;
+
 /**
  * Message writer offers methods to write different value types for elements of a message.
  */
@@ -43,5 +45,9 @@ public interface MessageWriter {
     MessageWriter putStringAscii(CharSequence value);
     MessageWriter putStringUtf8(CharSequence value);
     MessageWriter putString(CharSequence value);
+    MessageWriter putBytes(byte[] source);
+    MessageWriter putBytes(byte[] source, int sourceOffset, int length);
+    MessageWriter putBytes(ByteBuffer source);
+    MessageWriter putBytes(ByteBuffer source, int sourceOffset, int length);
     void finishWriteMessage();
 }

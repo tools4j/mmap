@@ -26,6 +26,7 @@ package org.tools4j.mmap.io;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
 
 /**
  * Access to {@link Unsafe}.
@@ -33,6 +34,36 @@ import java.lang.reflect.Field;
 public class UnsafeAccess {
 
     public static final Unsafe UNSAFE = initUnsafe();
+
+    public static final long ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
+
+    private static final long BYTE_BUFFER_HB_FIELD_OFFSET;
+    private static final long BYTE_BUFFER_OFFSET_FIELD_OFFSET;
+
+    static {
+        try {
+            BYTE_BUFFER_HB_FIELD_OFFSET = UNSAFE.objectFieldOffset(ByteBuffer.class.getDeclaredField("hb"));
+            BYTE_BUFFER_OFFSET_FIELD_OFFSET = UNSAFE.objectFieldOffset(ByteBuffer.class.getDeclaredField("offset"));
+        } catch (final Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public static byte[] array(final ByteBuffer buffer) {
+        if (buffer.isDirect()) {
+            return null;
+        } else {
+            return (byte[]) UNSAFE.getObject(buffer, BYTE_BUFFER_HB_FIELD_OFFSET);
+        }
+    }
+
+    public static long address(final ByteBuffer buffer) {
+        if (buffer.isDirect()) {
+            return ((sun.nio.ch.DirectBuffer) buffer).address();
+        } else {
+            return ARRAY_BASE_OFFSET + UNSAFE.getInt(buffer, BYTE_BUFFER_OFFSET_FIELD_OFFSET);
+        }
+    }
 
     private static final Unsafe initUnsafe() {
         try {

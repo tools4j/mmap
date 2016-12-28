@@ -79,12 +79,13 @@ final class OneToManyIndexedEnumerator implements Enumerator {
         messageReader.close();
     }
 
-    private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
+    private final class MessageReaderImpl extends AbstractQueueMessageReader {
 
-        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile);
-        private final MappedFilePointer dataPtr = new MappedFilePointer(dataFile);
-        private StringBuilder stringBuilder;
-        private long messageEndPosition = -1;
+        private final MappedFilePointer indexPtr = new MappedFilePointer(indexFile, MappedRegion.Mode.READ_ONLY);
+
+        public MessageReaderImpl() {
+            super(dataFile);
+        }
 
         private long pollNextMessageLength() {
             if (messageEndPosition >= 0) {
@@ -93,15 +94,10 @@ final class OneToManyIndexedEnumerator implements Enumerator {
             return UnsafeAccess.UNSAFE.getLongVolatile(null, indexPtr.getAddress());
         }
 
-        public void close() {
-            indexPtr.close();
-            dataPtr.close();
-        }
-
         private MessageReader readNextMessage(final long messageLen) {
             if (messageEndPosition < 0) {
                 indexPtr.ensureNotClosed().moveBy(8);//prepare to read next length
-                messageEndPosition = dataPtr.getPosition() + messageLen;
+                messageEndPosition = ptr.getPosition() + messageLen;
                 return messageReader;
             }
             //should never get here
@@ -113,29 +109,18 @@ final class OneToManyIndexedEnumerator implements Enumerator {
             if (messageEndPosition < 0) {
                 throw new IllegalStateException("No message is currently being read");
             }
-            dataPtr.ensureNotClosed().moveToPosition(messageEndPosition);
-            final long rem = dataPtr.getBytesRemaining();
+            ptr.ensureNotClosed().moveToPosition(messageEndPosition);
+            final long rem = ptr.getBytesRemaining();
             if (rem < 8) {
-                dataPtr.moveBy(rem);
+                ptr.moveBy(rem);
             }
             messageEndPosition = -1;
         }
 
-        @Override
-        protected long getAndIncrementAddress(final int add) {
-            final long pos = dataPtr.ensureNotClosed().getPosition();
-            if (pos + add <= messageEndPosition) {
-                return dataPtr.getAndIncrementAddress(add, false);
-            }
-            throw new IllegalStateException("Attempt to read beyond message end: " + (pos + add) + " > " + messageEndPosition);
+        public void close() {
+            indexPtr.close();
+            super.close();
         }
 
-        @Override
-        protected StringBuilder stringBuilder(final int capacity) {
-            if (stringBuilder == null) {
-                stringBuilder = new StringBuilder(Math.max(capacity, 256));
-            }
-            return stringBuilder;
-        }
     }
 }

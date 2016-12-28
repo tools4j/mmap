@@ -50,10 +50,10 @@ public final class RegionMapper {
 
     public static final long REGION_SIZE_GRANULARITY = initRegionSizeGranularity();
 
-    public static long map(final FileChannel fileChannel, final long position, final long length) {
+    public static long map(final FileChannel fileChannel, final boolean readOnly, final long position, final long length) {
 //        final long t0 = System.nanoTime();
         try {
-            return MAP_METHOD.map(fileChannel, 1, position, length);
+            return MAP_METHOD.map(fileChannel, readOnly ? 0 : 1, position, length);
         } catch (final Throwable e) {
             throw new RuntimeException("Mapping failed for " + fileChannel + ":" + position + ":" + length, e);
 //        } finally {

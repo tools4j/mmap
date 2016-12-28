@@ -23,10 +23,14 @@
  */
 package org.tools4j.mmap.queue;
 
-import org.tools4j.mmap.io.*;
+import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.MessageWriter;
+import org.tools4j.mmap.io.RegionMapper;
+import org.tools4j.mmap.io.UnsafeAccess;
 
-import javax.swing.plaf.synth.Region;
 import java.util.Objects;
+
+import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
  * The single appender of a {@link OneToManyQueue}.
@@ -51,39 +55,29 @@ final class OneToManyAppender implements Appender {
         messageWriter.close();
     }
 
-    private final class MessageWriterImpl extends AbstractUnsafeMessageWriter {
+    private final class MessageWriterImpl extends AbstractQueueMessageWriter {
 
-        private final MappedFilePointer ptr = new MappedFilePointer(file);
-
-        private long regionStartPosition = -1;
+        private long regionStartPosition = 0;
         private long regionStartAddress = 0;
-        private long messageStartOffset = 0;
 
         public MessageWriterImpl() {
+            super(file);
             skipExistingMessages();
         }
 
         private void skipExistingMessages() {
             long messageLen;
-            while ((messageLen = UnsafeAccess.UNSAFE.getLong(null, ptr.getAddress())) >= 0) {
+            while ((messageLen = UNSAFE.getLong(null, ptr.getAddress())) >= 0) {
                 ptr.moveBy(8 + messageLen);
             }
         }
 
-        @Override
-        protected long getAndIncrementAddress(final int add) {
-            if (regionStartPosition < 0) {
-                throw new IllegalStateException("Message not started");
-            }
-            return ptr.ensureNotClosed().getAndIncrementAddress(add, true);
-        }
-
         private MessageWriter startAppendMessage() {
-            if (regionStartPosition >= 0) {
+            if (messageStartPosition >= 0) {
                 throw new IllegalStateException("Current message is not finished, must be finished before appending next");
             }
-            messageStartOffset = ptr.ensureNotClosed().getOffset();
-            regionStartPosition = ptr.getPosition() - messageStartOffset;
+            messageStartPosition = ptr.ensureNotClosed().getPosition();
+            regionStartPosition = messageStartPosition - ptr.getOffset();
             regionStartAddress = ptr.unmapRegionOnRoll(false);
             ptr.moveBy(8);
             return this;
@@ -91,7 +85,7 @@ final class OneToManyAppender implements Appender {
 
         @Override
         public void finishWriteMessage() {
-            if (regionStartPosition < 0) {
+            if (messageStartPosition < 0) {
                 throw new IllegalStateException("No message to finish");
             }
             ptr.ensureNotClosed();
@@ -100,42 +94,21 @@ final class OneToManyAppender implements Appender {
         }
 
         private void writeMessageLength() {
-            final long startAddr = regionStartAddress + messageStartOffset;
-            final long startPos = regionStartPosition + messageStartOffset;
+            final long startPos = messageStartPosition;
+            final long startAddr = regionStartAddress + (messageStartPosition - regionStartPosition);
             final long length = ptr.getPosition() - startPos - 8;
-            UnsafeAccess.UNSAFE.putOrderedLong(null, startAddr, length);
+            UNSAFE.putOrderedLong(null, startAddr, length);
             if (regionStartAddress != ptr.unmapRegionOnRoll(true)) {
                 RegionMapper.unmap(file.getFileChannel(), regionStartAddress, file.getRegionSize());
             }
-            regionStartPosition = -1;
+            messageStartPosition = -1;
+            regionStartPosition = 0;
             regionStartAddress = 0;
-            messageStartOffset = 0;
         }
 
         private void padMessageAndWriteNextLength() {
             padMessageEnd();
-            UnsafeAccess.UNSAFE.putOrderedLong(null, ptr.getAddress(), -1);
+            UNSAFE.putOrderedLong(null, ptr.getAddress(), -1);
         }
-
-        //POSTCONDITION: guaranteed that we can write a 8 byte msg len after padding
-        private void padMessageEnd() {
-            final long pad = 8 - (int) (ptr.getPosition() & 0x7);
-            if (pad < 8) {
-                UnsafeAccess.UNSAFE.setMemory(null, ptr.getAndIncrementAddress(pad, false), pad, (byte) 0);
-            }
-            if (ptr.getBytesRemaining() < 8) {
-                ptr.getAndIncrementAddress(8, true);
-            }
-        }
-
-        public void close() {
-            if (!ptr.isClosed()) {
-                if (regionStartPosition >= 0) {
-                    finishWriteMessage();
-                }
-                ptr.close();
-            }
-        }
-
     }
 }

@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.io;
 
+import java.nio.ByteBuffer;
+
 abstract public class AbstractUnsafeMessageWriter extends AbstractMessageWriter {
 
     abstract protected long getAndIncrementAddress(final int len);
@@ -69,4 +71,23 @@ abstract public class AbstractUnsafeMessageWriter extends AbstractMessageWriter 
         return this;
     }
 
+    @Override
+    public MessageWriter putBytes(final byte[] source, final int sourceOffset, final int length) {
+        if (sourceOffset < 0 | sourceOffset + length > source.length) {
+            throw new IndexOutOfBoundsException(String.format("sourceOffset=%d, length=%d, source.length=%d", sourceOffset, length, source.length));
+        }
+        UnsafeAccess.UNSAFE.copyMemory(source, UnsafeAccess.ARRAY_BASE_OFFSET + sourceOffset, null, getAndIncrementAddress(length), length);
+        return this;
+    }
+
+    @Override
+    public MessageWriter putBytes(final ByteBuffer source, final int sourceOffset, final int length) {
+        if (sourceOffset < 0 | sourceOffset + length > source.capacity()) {
+            throw new IndexOutOfBoundsException(String.format("sourceOffset=%d, length=%d, source.capacity=%d", sourceOffset, length, source.capacity()));
+        }
+        final byte[] sourceArray = UnsafeAccess.array(source);
+        final long sourceAddress = UnsafeAccess.address(source);
+        UnsafeAccess.UNSAFE.copyMemory(sourceArray, sourceAddress + sourceOffset, null, getAndIncrementAddress(length), length);
+        return this;
+    }
 }

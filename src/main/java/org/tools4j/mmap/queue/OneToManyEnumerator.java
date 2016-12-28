@@ -23,7 +23,10 @@
  */
 package org.tools4j.mmap.queue;
 
-import org.tools4j.mmap.io.*;
+import org.tools4j.mmap.io.MappedFile;
+import org.tools4j.mmap.io.MessageReader;
+
+import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
  * Enumerator of a {@link OneToManyQueue}.
@@ -75,21 +78,17 @@ final class OneToManyEnumerator implements Enumerator {
         messageReader.close();
     }
 
-    private final class MessageReaderImpl extends AbstractUnsafeMessageReader {
+    private final class MessageReaderImpl extends AbstractQueueMessageReader {
 
-        private final MappedFilePointer ptr = new MappedFilePointer(file);
-        private long messageEndPosition = -1;
-        private StringBuilder stringBuilder;
+        public MessageReaderImpl() {
+            super(file);
+        }
 
         private long pollNextMessageLength() {
             if (messageEndPosition >= 0) {
                 finishReadMessage();
             }
-            return UnsafeAccess.UNSAFE.getLongVolatile(null, ptr.getAddress());
-        }
-
-        public void close() {
-            ptr.close();
+            return UNSAFE.getLongVolatile(null, ptr.getAddress());
         }
 
         private MessageReader readNextMessage(final long messageLen) {
@@ -114,23 +113,6 @@ final class OneToManyEnumerator implements Enumerator {
             }
             messageEndPosition = -1;
             return;
-        }
-
-        @Override
-        protected long getAndIncrementAddress(final int add) {
-            final long pos = ptr.ensureNotClosed().getPosition();
-            if (pos + add <= messageEndPosition) {
-                return ptr.getAndIncrementAddress(add, false);
-            }
-            throw new IllegalStateException("Attempt to read beyond message end: " + (pos + add) + " > " + messageEndPosition);
-        }
-
-        @Override
-        protected StringBuilder stringBuilder(final int capacity) {
-            if (stringBuilder == null) {
-                stringBuilder = new StringBuilder(Math.max(capacity, 256));
-            }
-            return stringBuilder;
         }
     }
 }
