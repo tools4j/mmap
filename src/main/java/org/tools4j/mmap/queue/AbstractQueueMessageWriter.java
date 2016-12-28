@@ -64,6 +64,7 @@ abstract class AbstractQueueMessageWriter extends AbstractUnsafeMessageWriter {
         if (sourceOffset < 0 | sourceOffset + length > source.length) {
             throw new IndexOutOfBoundsException(String.format("sourceOffset=%d, length=%d, source.length=%d", sourceOffset, length, source.length));
         }
+        Compact.putUnsignedInt(length, this);
         int done = 0;
         while (done < length) {
             final int copyLen = (int) Math.min(length - done, ptr.getBytesRemaining());
@@ -79,6 +80,7 @@ abstract class AbstractQueueMessageWriter extends AbstractUnsafeMessageWriter {
         if (sourceOffset < 0 | sourceOffset + length > source.capacity()) {
             throw new IndexOutOfBoundsException(String.format("sourceOffset=%d, length=%d, source.capacity=%d", sourceOffset, length, source.capacity()));
         }
+        Compact.putUnsignedInt(length, this);
         final byte[] sourceArray = UnsafeAccess.array(source);
         final long sourceAddress = UnsafeAccess.address(source);
         int done = 0;
