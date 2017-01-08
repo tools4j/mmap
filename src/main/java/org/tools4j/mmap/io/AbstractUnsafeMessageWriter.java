@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 
 abstract public class AbstractUnsafeMessageWriter extends AbstractMessageWriter {
 
-    abstract protected long getAndIncrementAddress(final int len);
+    abstract protected long getAndIncrementAddress(int inc);
 
     @Override
     public MessageWriter putInt8(byte value) {

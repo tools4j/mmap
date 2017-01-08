@@ -40,12 +40,12 @@ abstract class AbstractQueueMessageReader extends AbstractUnsafeMessageReader {
     }
 
     @Override
-    protected long getAndIncrementAddress(final int add) {
+    protected long getAndIncrementAddress(final int inc) {
         final long pos = ptr.ensureNotClosed().getPosition();
-        if (pos + add <= messageEndPosition) {
-            return ptr.getAndIncrementAddress(add, false);
+        if (pos + inc <= messageEndPosition) {
+            return ptr.getAndIncrementAddress(inc, false);
         }
-        throw new IllegalStateException("Attempt to read beyond message end: " + (pos + add) + " > " + messageEndPosition);
+        throw new IllegalStateException("Attempt to read beyond message end: " + (pos + inc) + " > " + messageEndPosition);
     }
 
     @Override

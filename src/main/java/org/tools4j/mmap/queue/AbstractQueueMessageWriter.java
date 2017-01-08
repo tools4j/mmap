@@ -41,11 +41,11 @@ abstract class AbstractQueueMessageWriter extends AbstractUnsafeMessageWriter {
     }
 
     @Override
-    protected long getAndIncrementAddress(final int add) {
+    protected long getAndIncrementAddress(final int inc) {
         if (messageStartPosition < 0) {
             throw new IllegalStateException("Message not started");
         }
-        return ptr.ensureNotClosed().getAndIncrementAddress(add, true);
+        return ptr.ensureNotClosed().getAndIncrementAddress(inc, true);
     }
 
     //POSTCONDITION: guaranteed that we can write a 8 byte msg len after padding
