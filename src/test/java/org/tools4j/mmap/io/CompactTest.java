@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue;
+package org.tools4j.mmap.io;
 
 import org.assertj.core.api.Assertions;
 import org.junit.Before;
@@ -29,9 +29,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.tools4j.mmap.io.Compact;
-import org.tools4j.mmap.io.MessageReader;
-import org.tools4j.mmap.io.MessageWriter;
 
 import java.nio.ByteBuffer;
 
@@ -39,8 +36,11 @@ import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit test for {@link Compact}
+ */
 @RunWith(MockitoJUnitRunner.class)
-public class UIntsTest {
+public class CompactTest {
 
     @Mock
     private MessageWriter messageWriter;
@@ -66,7 +66,8 @@ public class UIntsTest {
             byteBuffer.putLong(value);
             return null;
         });
-        when(messageReader.getInt8()).thenAnswer(invocation -> 0xff & byteBuffer.get());
+        when(messageReader.getInt8()).thenAnswer(invocation -> byteBuffer.get());
+        when(messageReader.getInt8AsInt()).thenAnswer(invocation -> 0xff & byteBuffer.get());
         when(messageReader.getInt32()).thenAnswer(invocation -> byteBuffer.getInt());
         when(messageReader.getInt64()).thenAnswer(invocation -> byteBuffer.getLong());
         byteBuffer.mark();

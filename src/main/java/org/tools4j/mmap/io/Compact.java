@@ -23,9 +23,6 @@
  */
 package org.tools4j.mmap.io;
 
-import org.tools4j.mmap.io.MessageReader;
-import org.tools4j.mmap.io.MessageWriter;
-
 /**
  * Utility class dealing with unsigned ints.
  */
@@ -82,7 +79,7 @@ public class Compact {
     }
 
     public static int getUnsignedInt(final MessageReader reader) {
-        final int int0 = reader.getInt8();
+        final int int0 = reader.getInt8AsInt();
         return getUnsignedInt(reader, int0);
     }
 
@@ -90,30 +87,30 @@ public class Compact {
         if ((int0 & SENTINEL_2) != SENTINEL_2) {
             return int0;
         }
-        final int int1 = reader.getInt8();
+        final int int1 = reader.getInt8AsInt();
         if ((int0 & SENTINEL_4) != SENTINEL_4) {
             return ((int0 ^ SENTINEL_2) << 8) | int1;
         }
-        final int int2 = reader.getInt8();
-        final int int3 = reader.getInt8();
+        final int int2 = reader.getInt8AsInt();
+        final int int3 = reader.getInt8AsInt();
         if ((int0 & SENTINEL_5) != SENTINEL_5) {
             return ((int0 ^ SENTINEL_4) << 24) | (int1 << 16) | (int2 << 8) | int3;
         }
-        final int int4 = reader.getInt8();
+        final int int4 = reader.getInt8AsInt();
         return (int1 << 24) | (int2 << 16) | (int3 << 8) | int4;
     }
 
     public static long getUnsignedLong(final MessageReader reader) {
-        final int int0 = reader.getInt8();
+        final int int0 = reader.getInt8AsInt();
         if ((int0 & SENTINEL_8) != SENTINEL_8) {
-            return getUnsignedInt(reader, int0);
+            return 0xffffffffL & getUnsignedInt(reader, int0);
         }
         if ((int0 & SENTINEL_9) != SENTINEL_9) {
-            final long lint0 = int0 ^ SENTINEL_8;
-            final long lint1 = reader.getInt8();
-            final long lint2 = reader.getInt8();
-            final long lint3 = reader.getInt8();
-            final long lint4_7 = reader.getInt32() & 0xffffffffL;
+            final long lint0 = 0xffL & (int0 ^ SENTINEL_8);
+            final long lint1 = 0xffL & reader.getInt8();
+            final long lint2 = 0xffL & reader.getInt8();
+            final long lint3 = 0xffL & reader.getInt8();
+            final long lint4_7 = 0xffffffffL & reader.getInt32();
             return (lint0 << 56) | (lint1 << 48) | (lint2 << 40) | (lint3 << 32) | lint4_7;
         }
         return reader.getInt64();
