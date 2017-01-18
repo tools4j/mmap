@@ -40,6 +40,7 @@ public final class MappedRegion implements Closeable {
     private final Mode mode;
     private long position;
     private long address;
+    private long fileSize;
 
     public MappedRegion(final MappedFile file, final Mode mode) {
         this.file = Objects.requireNonNull(file);
@@ -60,9 +61,17 @@ public final class MappedRegion implements Closeable {
         if (this.position >= 0) {
             throw new IllegalStateException("Already mapped to position " + this.position);
         }
-        ensureFileLength(position + file.getRegionSize());
-        this.address = RegionMapper.map(file.getFileChannel(), mode == Mode.READ_ONLY, position, file.getRegionSize());
-        this.position = position;
+//        final long t0 = System.nanoTime();
+//        try {
+            ensureFileLength(position + file.getRegionSize());
+            this.address = RegionMapper.map(file.getFileChannel(), mode == Mode.READ_ONLY, position, file.getRegionSize());
+            this.position = position;
+//        } finally {
+//            final long dt = System.nanoTime() - t0;
+//            if (dt > 100000) {
+//                System.out.println("map: dt=" + dt / 1000f + " micros");
+//            }
+//        }
         return this;
     }
 
@@ -131,8 +140,15 @@ public final class MappedRegion implements Closeable {
     }
 
     private void ensureFileLength(final long minLen) {
-        if (file.getFileLength() < minLen) {
-            file.setFileLength(minLen + 15 * getSize());
+        if (fileSize < minLen) {
+            final long len = file.getFileLength();
+            if (len < minLen) {
+                final long newLen = Math.max(2L * len, Math.max(minLen, 16<<20));
+                file.setFileLength(newLen);
+                fileSize = newLen;
+            } else {
+                fileSize = len;
+            }
         }
     }
 

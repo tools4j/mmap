@@ -28,7 +28,7 @@ import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class MappedFile implements Closeable {
+public final class MappedFile implements Closeable {
 
     public enum Mode {
         READ_ONLY("r"),
@@ -51,6 +51,7 @@ public class MappedFile implements Closeable {
     }
 
     private final RandomAccessFile file;
+    private final FileChannel fileChannel;
     private final Mode mode;
     private final long regionSize;
     private final AtomicLong positionToMap = new AtomicLong(0);
@@ -84,7 +85,8 @@ public class MappedFile implements Closeable {
         this.file = Objects.requireNonNull(raf);
         this.mode = Objects.requireNonNull(mode);
         this.regionSize = regionSize;
-        fileInitialiser.init(raf.getChannel(), mode);
+        this.fileChannel = raf.getChannel();
+        fileInitialiser.init(fileChannel, mode);
     }
 
     public Mode getMode() {
@@ -112,7 +114,7 @@ public class MappedFile implements Closeable {
     }
 
     public FileChannel getFileChannel() {
-        return file.getChannel();
+        return fileChannel;
     }
 
     public void close() {

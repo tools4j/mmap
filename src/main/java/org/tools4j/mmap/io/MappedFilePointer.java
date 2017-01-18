@@ -33,8 +33,6 @@ import java.io.Closeable;
  */
 public final class MappedFilePointer implements Closeable {
 
-    private static final AsyncMapper asyncMapper = AsyncMapper.start();
-
     private final MappedRegion mappedRegion;
     private long offset;
     private boolean unmapRegionOnRoll;

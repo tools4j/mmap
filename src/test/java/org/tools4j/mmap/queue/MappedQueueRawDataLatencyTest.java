@@ -32,6 +32,7 @@ import org.junit.runners.Parameterized;
 import org.octtech.bw.ByteWatcher;
 import org.tools4j.mmap.io.MessageReader;
 import org.tools4j.mmap.io.MessageWriter;
+import org.tools4j.mmap.util.ByteWatcherPrinter;
 import org.tools4j.mmap.util.FileUtil;
 import org.tools4j.mmap.util.HistogramPrinter;
 import org.tools4j.mmap.util.WaitLatch;
@@ -58,6 +59,10 @@ public class MappedQueueRawDataLatencyTest {
     @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}")
     public static Collection<?> testRunParameters() {
         return Arrays.asList(new Object[][] {
+                { 160000, 100},
+                { 500000, 100},
+                { 160000, 100},
+                { 500000, 100},
                 { 160000, 1500},
                 { 500000, 1500},
                 { 160000, 1500},
@@ -79,7 +84,7 @@ public class MappedQueueRawDataLatencyTest {
 //        queue = OneToManyIndexedQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath(), 1L<<12, 1L<<12);
         appender = queue.appender();
         enumerator = queue.enumerator();
-        byteWatcher = null;//ByteWatcherPrinter.watch();
+        byteWatcher = ByteWatcherPrinter.watch();
     }
 
     @After
@@ -229,7 +234,8 @@ public class MappedQueueRawDataLatencyTest {
 
     public static void main(String... args) throws Exception {
         final int byteLen = 100;
-        final int[] messagesPerSec = {160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000};
+//        final int[] messagesPerSec = {160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000, 160000};
+        final int[] messagesPerSec = {160000, 160000, 160000, 160000, 160000, 160000};
 //        final int[] messagesPerSec = {160000, 500000};
 //        final int[] messagesPerSec = {160000};
         for (final int mps : messagesPerSec) {
