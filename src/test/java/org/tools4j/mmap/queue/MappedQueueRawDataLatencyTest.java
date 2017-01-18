@@ -32,7 +32,6 @@ import org.junit.runners.Parameterized;
 import org.octtech.bw.ByteWatcher;
 import org.tools4j.mmap.io.MessageReader;
 import org.tools4j.mmap.io.MessageWriter;
-import org.tools4j.mmap.util.ByteWatcherPrinter;
 import org.tools4j.mmap.util.FileUtil;
 import org.tools4j.mmap.util.HistogramPrinter;
 import org.tools4j.mmap.util.WaitLatch;
@@ -84,7 +83,7 @@ public class MappedQueueRawDataLatencyTest {
 //        queue = IndexedQueue.createOrReplace(FileUtil.sharedMemDir("queue").getAbsolutePath(), 1L<<12, 1L<<12);
         appender = queue.appender();
         enumerator = queue.enumerator();
-        byteWatcher = ByteWatcherPrinter.watch();
+        byteWatcher = null;//ByteWatcherPrinter.watch();
     }
 
     @After
