@@ -31,6 +31,10 @@ import java.util.Objects;
  */
 public final class MappedRegion implements Closeable {
 
+    private static final int MB = 1024 * 1024;
+    private static final int MIN_FILE_SIZE   = 4 * MB;
+    private static final int MAX_FILE_GROWTH = 64 * MB;
+
     public enum Mode {
         READ_ONLY,
         READ_WRITE;
@@ -143,7 +147,16 @@ public final class MappedRegion implements Closeable {
         if (fileSize < minLen) {
             final long len = file.getFileLength();
             if (len < minLen) {
-                final long newLen = Math.max(2L * len, Math.max(minLen, 16<<20));
+                final long newLen;
+                if (minLen < MIN_FILE_SIZE) {
+                    newLen = MIN_FILE_SIZE;
+                } else {
+                    if (len < MAX_FILE_GROWTH) {
+                        newLen = Math.max(minLen, 2 * len);
+                    } else {
+                        newLen = Math.max(minLen, len + MAX_FILE_GROWTH);
+                    }
+                }
                 file.setFileLength(newLen);
                 fileSize = newLen;
             } else {
