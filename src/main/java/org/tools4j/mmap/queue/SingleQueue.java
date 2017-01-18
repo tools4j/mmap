@@ -34,11 +34,13 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * MappedQueue implementation optimised for single Appender and multiple Enumerator support.
+ * MappedQueue implementation supporting a single {@link Appender} and multiple {@link Enumerator}s.
+ * Uses a single file to store the data. Writing messages requires backtracking for volatile puts of the message
+ * length field.
  * <p>
  * This class is thread safe but appender and enumerators are not and should only be used from at most one thread each.
  */
-public class OneToManyQueue implements MappedQueue {
+public class SingleQueue implements MappedQueue {
 
     public static final long DEFAULT_REGION_SIZE = Math.max(RegionMapper.REGION_SIZE_GRANULARITY, 1L << 16);//64 KB
 
@@ -46,7 +48,7 @@ public class OneToManyQueue implements MappedQueue {
     private final AtomicBoolean appenderCreated = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private OneToManyQueue(final MappedFile file) {
+    private SingleQueue(final MappedFile file) {
         this.file = Objects.requireNonNull(file);
     }
 
@@ -55,7 +57,7 @@ public class OneToManyQueue implements MappedQueue {
     }
 
     public static final MappedQueue createOrReplace(final String fileName, final long regionSize) throws IOException {
-        return open(new MappedFile(fileName, MappedFile.Mode.READ_WRITE_CLEAR, regionSize, OneToManyQueue::initFile));
+        return open(new MappedFile(fileName, MappedFile.Mode.READ_WRITE_CLEAR, regionSize, SingleQueue::initFile));
     }
 
     public static final MappedQueue createOrAppend(final String fileName) throws IOException {
@@ -63,7 +65,7 @@ public class OneToManyQueue implements MappedQueue {
     }
 
     public static final MappedQueue createOrAppend(final String fileName, final long regionSize) throws IOException {
-        return open(new MappedFile(fileName, MappedFile.Mode.READ_WRITE, regionSize, OneToManyQueue::initFile));
+        return open(new MappedFile(fileName, MappedFile.Mode.READ_WRITE, regionSize, SingleQueue::initFile));
     }
 
     public static final MappedQueue openReadOnly(final String fileName) throws IOException {
@@ -75,7 +77,7 @@ public class OneToManyQueue implements MappedQueue {
     }
 
     public static final MappedQueue open(final MappedFile file) {
-        return new OneToManyQueue(file);
+        return new SingleQueue(file);
     }
 
     private static void initFile(final FileChannel fileChannel, final MappedFile.Mode mode) throws IOException {
@@ -111,14 +113,14 @@ public class OneToManyQueue implements MappedQueue {
             throw new IllegalStateException("Cannot access appender for io in read-only mode");
         }
         if (appenderCreated.compareAndSet(false, true)) {
-            return new OneToManyAppender(file);
+            return new SingleQueueAppender(file);
         }
         throw new IllegalStateException("Only one appender supported");
     }
 
     @Override
     public Enumerator enumerator() {
-        return new OneToManyEnumerator(file);
+        return new SingleQueueEnumerator(file);
     }
 
     @Override

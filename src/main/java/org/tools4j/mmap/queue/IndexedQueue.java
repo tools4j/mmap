@@ -34,12 +34,14 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * MappedQueue implementation optimised for single Appender and multiple Enumerator support.
- * Uses an index io to avoid back tracking for volatile puts of message length field.
+ * MappedQueue implementation supporting a single {@link Appender} and multiple {@link Enumerator}s.
+ * Uses two files to store index and data separately. This allows writing of messages without backtracking for
+ * volatile puts of the message length field. It also allows faster forward looping when finding an entry or when
+ * positioning at the end for appending.
  * <p>
  * This class is thread safe but appender and enumerators are not and should only be used from at most one thread each.
  */
-public class OneToManyIndexedQueue implements MappedQueue {
+public class IndexedQueue implements MappedQueue {
 
     public static final String SUFFIX_INDEX = ".idx";
     public static final String SUFFIX_DATA = ".dat";
@@ -51,7 +53,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
     private final AtomicBoolean appenderCreated = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private OneToManyIndexedQueue(final MappedFile indexFile, final MappedFile dataFile) {
+    private IndexedQueue(final MappedFile indexFile, final MappedFile dataFile) {
         this.indexFile = Objects.requireNonNull(indexFile);
         this.dataFile = Objects.requireNonNull(dataFile);
     }
@@ -61,7 +63,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
     }
 
     public static final MappedQueue createOrReplace(final String fileName, final long indexRegionSize, final long dataRegionSize) throws IOException {
-        return open(new MappedFile(fileName + SUFFIX_INDEX, MappedFile.Mode.READ_WRITE_CLEAR, indexRegionSize, OneToManyIndexedQueue::initIndexFile), new MappedFile(fileName + SUFFIX_DATA, MappedFile.Mode.READ_WRITE_CLEAR, dataRegionSize));
+        return open(new MappedFile(fileName + SUFFIX_INDEX, MappedFile.Mode.READ_WRITE_CLEAR, indexRegionSize, IndexedQueue::initIndexFile), new MappedFile(fileName + SUFFIX_DATA, MappedFile.Mode.READ_WRITE_CLEAR, dataRegionSize));
     }
 
     public static final MappedQueue createOrAppend(final String fileName) throws IOException {
@@ -69,7 +71,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
     }
 
     public static final MappedQueue createOrAppend(final String fileName, final long indexRegionSize, final long dataRegionSize) throws IOException {
-        return open(new MappedFile(fileName + SUFFIX_INDEX, MappedFile.Mode.READ_WRITE, indexRegionSize, OneToManyIndexedQueue::initIndexFile), new MappedFile(fileName + SUFFIX_DATA, MappedFile.Mode.READ_WRITE, dataRegionSize));
+        return open(new MappedFile(fileName + SUFFIX_INDEX, MappedFile.Mode.READ_WRITE, indexRegionSize, IndexedQueue::initIndexFile), new MappedFile(fileName + SUFFIX_DATA, MappedFile.Mode.READ_WRITE, dataRegionSize));
     }
 
     public static final MappedQueue openReadOnly(final String fileName) throws IOException {
@@ -81,7 +83,7 @@ public class OneToManyIndexedQueue implements MappedQueue {
     }
 
     private static final MappedQueue open(final MappedFile indexFile, final MappedFile dataFile) {
-        return new OneToManyIndexedQueue(indexFile, dataFile);
+        return new IndexedQueue(indexFile, dataFile);
     }
 
     private static void initIndexFile(final FileChannel fileChannel, final MappedFile.Mode mode) throws IOException {
@@ -117,14 +119,14 @@ public class OneToManyIndexedQueue implements MappedQueue {
             throw new IllegalStateException("Cannot access appender for io in read-only mode");
         }
         if (appenderCreated.compareAndSet(false, true)) {
-            return new OneToManyIndexedAppender(indexFile, dataFile);
+            return new IndexedQueueAppender(indexFile, dataFile);
         }
         throw new IllegalStateException("Only one appender supported");
     }
 
     @Override
     public Enumerator enumerator() {
-        return new OneToManyIndexedEnumerator(indexFile, dataFile);
+        return new IndexedQueueEnumerator(indexFile, dataFile);
     }
 
     @Override

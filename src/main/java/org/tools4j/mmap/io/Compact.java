@@ -24,7 +24,7 @@
 package org.tools4j.mmap.io;
 
 /**
- * Utility class dealing with unsigned ints.
+ * Utility class supporting compact serialisation of (unsigned) integer values.
  */
 public class Compact {
 

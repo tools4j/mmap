@@ -26,21 +26,20 @@ package org.tools4j.mmap.queue;
 import org.tools4j.mmap.io.MappedFile;
 import org.tools4j.mmap.io.MessageWriter;
 import org.tools4j.mmap.io.RegionMapper;
-import org.tools4j.mmap.io.UnsafeAccess;
 
 import java.util.Objects;
 
 import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
- * The single appender of a {@link OneToManyQueue}.
+ * The single appender of a {@link SingleQueue}.
  */
-final class OneToManyAppender implements Appender {
+final class SingleQueueAppender implements Appender {
 
     private final MappedFile file;
     private final MessageWriterImpl messageWriter;
 
-    public OneToManyAppender(final MappedFile file) {
+    public SingleQueueAppender(final MappedFile file) {
         this.file = Objects.requireNonNull(file);
         this.messageWriter = new MessageWriterImpl();
     }

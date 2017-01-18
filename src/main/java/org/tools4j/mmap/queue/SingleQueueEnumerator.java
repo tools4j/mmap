@@ -29,15 +29,15 @@ import org.tools4j.mmap.io.MessageReader;
 import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
- * Enumerator of a {@link OneToManyQueue}.
+ * Enumerator of a {@link SingleQueue}.
  */
-final class OneToManyEnumerator implements Enumerator {
+final class SingleQueueEnumerator implements Enumerator {
 
     private final MappedFile file;
     private final MessageReaderImpl messageReader;
     private long messageLen = -1;
 
-    public OneToManyEnumerator(final MappedFile file) {
+    public SingleQueueEnumerator(final MappedFile file) {
         if (file.getFileLength() < 8) {
             throw new IllegalStateException("Not a queue queue io");
         }

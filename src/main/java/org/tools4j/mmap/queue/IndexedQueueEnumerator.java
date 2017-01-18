@@ -28,16 +28,16 @@ import org.tools4j.mmap.io.*;
 import java.util.Objects;
 
 /**
- * Enumerator of a {@link OneToManyIndexedQueue}.
+ * Enumerator of a {@link IndexedQueue}.
  */
-final class OneToManyIndexedEnumerator implements Enumerator {
+final class IndexedQueueEnumerator implements Enumerator {
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;
     private final MessageReaderImpl messageReader;
     private long messageLen = -1;
 
-    public OneToManyIndexedEnumerator(final MappedFile indexFile, final MappedFile dataFile) {
+    public IndexedQueueEnumerator(final MappedFile indexFile, final MappedFile dataFile) {
         if (indexFile.getFileLength() < 8) {
             throw new IllegalStateException("Not a valid index io");
         }

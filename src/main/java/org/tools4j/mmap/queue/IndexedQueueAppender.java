@@ -30,15 +30,15 @@ import java.util.Objects;
 import static org.tools4j.mmap.io.UnsafeAccess.UNSAFE;
 
 /**
- * The single appender of a {@link OneToManyIndexedQueue}.
+ * The single appender of a {@link IndexedQueue}.
  */
-final class OneToManyIndexedAppender implements Appender {
+final class IndexedQueueAppender implements Appender {
 
     private final MappedFile indexFile;
     private final MappedFile dataFile;
     private final MessageWriterImpl messageWriter;
 
-    public OneToManyIndexedAppender(final MappedFile indexFile, final MappedFile dataFile) {
+    public IndexedQueueAppender(final MappedFile indexFile, final MappedFile dataFile) {
         this.indexFile = Objects.requireNonNull(indexFile);
         this.dataFile = Objects.requireNonNull(dataFile);
         this.messageWriter = new MessageWriterImpl();
