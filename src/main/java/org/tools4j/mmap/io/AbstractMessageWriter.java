@@ -74,6 +74,21 @@ abstract public class AbstractMessageWriter implements MessageWriter {
         return putInt8(value);
     }
 
+    @Override
+    public MessageWriter putCharUtf8(char value) {
+        if ((value >= 0x0001) && (value <= 0x007F)) {
+            putInt8(value);
+        } else if (value > 0x07FF) {
+            putInt8(0xE0 | ((value >> 12) & 0x0F));
+            putInt8(0x80 | ((value >>  6) & 0x3F));
+            putInt8(0x80 | ((value >>  0) & 0x3F));
+        } else {
+            putInt8(0xC0 | ((value >>  6) & 0x1F));
+            putInt8(0x80 | ((value >>  0) & 0x3F));
+        }
+        return this;
+    }
+
     public MessageWriter putStringAscii(final CharSequence value) {
         final int len = value.length();
         Compact.putUnsignedInt(len, this);
@@ -89,7 +104,6 @@ abstract public class AbstractMessageWriter implements MessageWriter {
     public MessageWriter putStringUtf8(final CharSequence value) {
         final int strlen = value.length();
         int utflen = 0;
-        int count = 0;
 
         /* use charAt instead of copying String to char array */
         for (int i = 0; i < strlen; i++) {

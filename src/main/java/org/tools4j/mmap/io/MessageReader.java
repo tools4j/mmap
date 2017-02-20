@@ -45,6 +45,7 @@ public interface MessageReader {
     double getFloat64();
     char getChar();
     char getCharAscii();
+    char getCharUtf8();
     String getStringAscii();
     String getStringUtf8();
     String getString();

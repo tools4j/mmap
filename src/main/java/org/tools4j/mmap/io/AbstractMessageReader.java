@@ -79,7 +79,37 @@ abstract public class AbstractMessageReader implements MessageReader {
 
     @Override
     public char getCharAscii() {
-        return (char)getInt8();
+        return (char)getInt8AsInt();
+    }
+
+    public char getCharUtf8() {
+        final int char1 = getInt8AsInt();
+        switch (char1 >> 4) {
+            case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: {
+                /* 0xxxxxxx*/
+                return (char) char1;
+            }
+            case 12: case 13: {
+                /* 110x xxxx   10xx xxxx*/
+                final int char2 = getInt8AsInt();
+                if ((char2 & 0xC0) != 0x80) {
+                    throw new RuntimeException("UTF malformed input");
+                }
+                return (char) (((char1 & 0x1F) << 6) | (char2 & 0x3F));
+            }
+            case 14: {
+                /* 1110 xxxx  10xx xxxx  10xx xxxx */
+                final int char2 = getInt8AsInt();
+                final int char3 = getInt8AsInt();
+                if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80)) {
+                    throw new RuntimeException("UTF malformed input");
+                }
+                return (char) (((char1 & 0x0F) << 12) | ((char2 & 0x3F) << 6) | ((char3 & 0x3F) << 0));
+            }
+            default:
+                /* 10xx xxxx,  1111 xxxx */
+                throw new RuntimeException("UTF malformed input");
+        }
     }
 
     @Override
@@ -108,7 +138,7 @@ abstract public class AbstractMessageReader implements MessageReader {
     @Override
     public String getStringUtf8() {
         final int utflen = Compact.getUnsignedInt(this);
-        return getStringUtf8(stringBuilder(utflen)).toString();
+        return getStringUtf8(stringBuilder(utflen), utflen).toString();
     }
 
     /**
@@ -131,23 +161,18 @@ abstract public class AbstractMessageReader implements MessageReader {
                 count++;
                 appendable.append((char) char1);
             }
-
+            if (count >= utflen) {
+                return appendable;
+            }
             while (true) {
                 switch (char1 >> 4) {
-                    case 0:
-                    case 1:
-                    case 2:
-                    case 3:
-                    case 4:
-                    case 5:
-                    case 6:
-                    case 7: {
+                    case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: {
                         /* 0xxxxxxx*/
+                        count++;
                         appendable.append((char) char1);
                         break;
                     }
-                    case 12:
-                    case 13: {
+                    case 12: case 13: {
                         /* 110x xxxx   10xx xxxx*/
                         count += 2;
                         if (count > utflen)

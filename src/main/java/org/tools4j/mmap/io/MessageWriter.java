@@ -40,8 +40,9 @@ public interface MessageWriter {
     MessageWriter putInt64(long value);
     MessageWriter putFloat32(float value);
     MessageWriter putFloat64(double value);
-    MessageWriter putCharAscii(char value);
     MessageWriter putChar(char value);
+    MessageWriter putCharAscii(char value);
+    MessageWriter putCharUtf8(char value);
     MessageWriter putStringAscii(CharSequence value);
     MessageWriter putStringUtf8(CharSequence value);
     MessageWriter putString(CharSequence value);
