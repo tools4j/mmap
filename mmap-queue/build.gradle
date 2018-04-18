@@ -1,0 +1,34 @@
+group 'org.tools4j'
+version '1.0.1-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: "com.github.hierynomus.license"
+
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+license {
+    header rootProject.file('src/main/resources/LICENSE.template')
+    strictCheck true
+    include "**/*.java"
+    ignoreFailures true
+    ext.year = Calendar.getInstance().get(Calendar.YEAR)
+}
+
+dependencies {
+    compile project(':mmap-region')
+    compile project(':mmap-process')
+
+    compile group: 'org.agrona', name: 'agrona', version: '0.9.13'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
+    testCompile 'org.hdrhistogram:HdrHistogram:2.1.9'
+    testCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'org.mockito:mockito-all:1.10.19'
+    testCompile 'org.tools4j:tools4j-spockito:1.6'
+    testCompile 'org.assertj:assertj-core:3.4.1'
+}
