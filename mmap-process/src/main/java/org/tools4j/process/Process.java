@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 hover-raft (tools4j), Anton Anufriev, Marco Terzer
+ * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
-public class Process implements Service.Start {
+public class Process implements Service {
 
     private final ProcessLoop processLoop;
     private final String name;
@@ -47,6 +47,7 @@ public class Process implements Service.Start {
                    final BiConsumer<? super String, ? super Exception> exceptionHandler,
                    final long gracefulShutdownTimeout,
                    final TimeUnit gracefulShutdownTimeunit,
+                   final boolean daemonThread,
                    final ProcessStep... steps) {
         this.gracefulShutdownTimeunit = Objects.requireNonNull(gracefulShutdownTimeunit);
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
@@ -60,14 +61,15 @@ public class Process implements Service.Start {
                 exceptionHandler,
                 steps);
         this.thread = new Thread(processLoop, name);
+        this.thread.setDaemon(daemonThread);
         this.name = name;
     }
 
     @Override
-    public Service.Stop start() {
+    public Service.Stoppable start() {
         thread.start();
 
-        return new Service.Stop() {
+        return new Service.Stoppable() {
             @Override
             public void stop() {
                 final long gracefulShutdownTimeoutMillis = gracefulShutdownTimeunit.toMillis(gracefulShutdownTimeout);

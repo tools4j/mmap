@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 hover-raft (tools4j), Anton Anufriev, Marco Terzer
+ * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,10 +24,21 @@
 package org.tools4j.process;
 
 public interface Service {
-    interface Start {
-        Stop start();
-    }
-    interface Stop {
+    Stoppable start();
+
+    interface Stoppable {
+        Stoppable NO_OP = new Stoppable() {
+            @Override
+            public void stop() {
+                //no op
+            }
+
+            @Override
+            public void awaitShutdown() {
+                //no op
+            }
+        };
+
         void stop();
         void awaitShutdown();
     }

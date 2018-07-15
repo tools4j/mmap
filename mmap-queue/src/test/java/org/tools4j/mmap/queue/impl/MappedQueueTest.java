@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 hover-raft (tools4j), Anton Anufriev, Marco Terzer
+ * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,12 +27,12 @@ import org.HdrHistogram.Histogram;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
@@ -56,6 +56,7 @@ public class MappedQueueTest {
                             new BusySpinIdleStrategy()::idle,
                             (s, e) -> LOGGER.error("{} {}", s, e, e),
                             10, TimeUnit.SECONDS,
+                            true,
                             processStepChain.getOrNoop()
                     );
                     regionMapper.start();
@@ -85,7 +86,7 @@ public class MappedQueueTest {
         final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16) * 1024 * 4;//64 KB
         LOGGER.info("regionSize: {}", regionSize);
 
-        final RegionMappingConfig regionMappingConfig = RegionMappingConfig.valueOf(args[0]);
+        final RegionMappingConfig regionMappingConfig = getRegionMappingConfig(args);
         final RegionRingFactory regionRingFactory = regionMappingConfig.get();
 
         final MappedQueue mappedQueue = new MappedQueue(fileName, regionSize, regionRingFactory, 4, 1,64L * 16 * 1024 * 1024 * 4);
@@ -150,5 +151,17 @@ public class MappedQueueTest {
         }
 
         pollerThread.join();
+    }
+
+    private static RegionMappingConfig getRegionMappingConfig(final String[] args) {
+        final String errorMessage = "Please specify a type of mapping (ASYNC/SYNC) as first program argument";
+        if (args.length < 1) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+        try {
+            return RegionMappingConfig.valueOf(args[0]);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(errorMessage);
+        }
     }
 }

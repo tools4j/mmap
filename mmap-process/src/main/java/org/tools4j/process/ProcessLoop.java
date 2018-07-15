@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 hover-raft (tools4j), Anton Anufriev, Marco Terzer
+ * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -70,7 +70,7 @@ public class ProcessLoop implements Runnable {
     private boolean executeLoop() {
         LOGGER.info("Started {} process loop", name);
         while (!shutdownCondition.getAsBoolean()) {
-            idleStrategy.idle(executeSteps() ? 1 : 0);
+            idleStrategy.idle(executeSteps());
         }
         LOGGER.info("Shutting down {} process loop", name);
         boolean aborted = shutdownAbortCondition.getAsBoolean();

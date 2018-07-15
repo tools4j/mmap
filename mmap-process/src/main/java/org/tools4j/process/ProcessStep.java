@@ -1,7 +1,7 @@
 /**
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 hover-raft (tools4j), Anton Anufriev, Marco Terzer
+ * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,26 +36,17 @@ public interface ProcessStep {
 
     default ProcessStep then(final ProcessStep nextStep) {
         Objects.requireNonNull(nextStep);
-        return () -> {
-            final boolean workDone = execute();
-            return workDone | nextStep.execute();
-        };
+        return () -> execute() | nextStep.execute();
     }
 
     default ProcessStep thenIfWorkDone(final ProcessStep nextStep) {
         Objects.requireNonNull(nextStep);
-        return () -> {
-            final boolean workDone = execute();
-            return workDone && nextStep.execute();
-        };
+        return () -> execute() && nextStep.execute();
     }
 
     default ProcessStep thenIfWorkNotDone(final ProcessStep nextStep) {
         Objects.requireNonNull(nextStep);
-        return () -> {
-            final boolean workDone = execute();
-            return workDone || nextStep.execute();
-        };
+        return () -> execute() || nextStep.execute();
     }
 
     static ProcessStep finalisable(final ProcessStep step) {
