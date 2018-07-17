@@ -25,7 +25,6 @@ package org.tools4j.mmap.queue.impl;
 
 import org.HdrHistogram.Histogram;
 import org.agrona.DirectBuffer;
-import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,34 +32,35 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
+import org.tools4j.mmap.region.api.Processor;
 import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
-import org.tools4j.process.MutableProcessStepChain;
-import org.tools4j.process.Process;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class MappedQueueTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueTest.class);
 
     private static final Supplier<RegionRingFactory> ASYNC = () -> {
-        final MutableProcessStepChain processStepChain = new MutableProcessStepChain();
+        final AtomicReference<Processor> processorPtr = new AtomicReference<>(() -> false);
         return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE,
-                processor -> processStepChain.thenStep(processor::process),
-                () -> {
-                    final Process regionMapper = new Process("RegionMapper",
-                            () -> {}, () -> {},
-                            new BusySpinIdleStrategy()::idle,
-                            (s, e) -> LOGGER.error("{} {}", s, e, e),
-                            10, TimeUnit.SECONDS,
-                            true,
-                            processStepChain.getOrNoop()
-                    );
+                processorPtr::set, () -> {
+                    final Thread regionMapper = new Thread(() -> {
+                        LOGGER.info("started: {}", Thread.currentThread());
+                        while (true) {
+                            processorPtr.get().process();
+                        }
+                    });
+                    regionMapper.setName("region-mapper");
+                    regionMapper.setDaemon(true);
+                    regionMapper.setUncaughtExceptionHandler((t, e) -> LOGGER.error("{}", e));
                     regionMapper.start();
-                });
+                }
+        );
     };
     private static final Supplier<RegionRingFactory> SYNC = () -> RegionRingFactory.forSync(RegionFactory.SYNC);
 
@@ -113,6 +113,7 @@ public class MappedQueueTest {
 
 
         final Thread pollerThread = new Thread(() -> {
+            LOGGER.info("started: {}", Thread.currentThread());
             final Histogram histogram = new Histogram(1, TimeUnit.SECONDS.toNanos(1), 3);
             long lastTimeNanos = 0;
             final DirectBuffer messageBuffer = new UnsafeBuffer();
