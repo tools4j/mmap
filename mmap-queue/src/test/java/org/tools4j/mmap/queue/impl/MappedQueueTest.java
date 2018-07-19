@@ -83,7 +83,7 @@ public class MappedQueueTest {
     public static void main(String... args) throws Exception {
         final String fileName = FileUtil.sharedMemDir("regiontest").getAbsolutePath();
         LOGGER.info("File: {}", fileName);
-        final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16) * 1024 * 4;//64 KB
+        final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16);//64 KB
         LOGGER.info("regionSize: {}", regionSize);
 
         final RegionMappingConfig regionMappingConfig = getRegionMappingConfig(args);
@@ -96,7 +96,8 @@ public class MappedQueueTest {
         final Poller poller = mappedQueue.poller();
 
 
-        final String testMessage = "#------------------------------------------------#\n";
+//        final String testMessage = "#------------------------------------------------#\n";
+        final String testMessage = message(2000);
 
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(8 + testMessage.getBytes().length);
         final UnsafeBuffer unsafeBuffer = new UnsafeBuffer(byteBuffer);
@@ -107,7 +108,7 @@ public class MappedQueueTest {
 //        final Histogram histogram = new Histogram(1, TimeUnit.MINUTES.toNanos(10), 3);
 
         final long messagesPerSecond = 90000;
-        final long maxNanosPerMessage = 1000000000 / messagesPerSecond;
+        final double maxNanosPerMessage = 1000000000.0 / messagesPerSecond;
         final int messages = 2000000;
         final int warmup = 100000;
 
@@ -140,18 +141,25 @@ public class MappedQueueTest {
         pollerThread.start();
 
 
+        final long start = System.nanoTime();
         for (int i = 0; i < messages; i++) {
-            final long start = System.nanoTime();
-            unsafeBuffer.putLong(0, start);
+            final long time = System.nanoTime();
+            unsafeBuffer.putLong(0, time);
             appender.append(unsafeBuffer, 0, size);
             long end = System.nanoTime();
-            final long waitUntil = start + maxNanosPerMessage;
+            final long waitUntil = start + (long)((i+1)*maxNanosPerMessage);
             while (end < waitUntil) {
                 end = System.nanoTime();
             }
         }
 
         pollerThread.join();
+    }
+
+    private static String message(final int length) {
+        final StringBuilder message = new StringBuilder(length);
+        message.setLength(length);
+        return message.toString();
     }
 
     private static RegionMappingConfig getRegionMappingConfig(final String[] args) {

@@ -24,6 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
@@ -81,6 +82,11 @@ public class MappedQueue implements Queue {
     @Override
     public Poller poller() {
         return new MappedPoller(enumeratorRegionRingAccessor);
+    }
+
+    @Override
+    public Enumerator enumerator() {
+        return new MappedEnumerator(enumeratorRegionRingAccessor);
     }
 
     @Override

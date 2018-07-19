@@ -32,5 +32,6 @@ import java.io.Closeable;
 public interface Queue extends Closeable {
     Appender appender();
     Poller poller();
+    Enumerator enumerator();
     void close();
 }
