@@ -97,7 +97,7 @@ public class MappedQueueTest {
 
 
 //        final String testMessage = "#------------------------------------------------#\n";
-        final String testMessage = message(2000);
+        final String testMessage = message(100);
 
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(8 + testMessage.getBytes().length);
         final UnsafeBuffer unsafeBuffer = new UnsafeBuffer(byteBuffer);
