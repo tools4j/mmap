@@ -26,7 +26,6 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
 
 import java.nio.channels.FileChannel;
 import java.util.Objects;
@@ -38,7 +37,7 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
     private static final long NULL = -1;
 
     private final Supplier<FileChannel> fileChannelSupplier;
-    private final Region.IoMapper ioMapper;
+    private final IoMapper ioMapper;
     private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;

@@ -26,7 +26,6 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
 
 import java.nio.channels.FileChannel;
 import java.util.Objects;
@@ -36,8 +35,8 @@ public class SyncRegion implements Region {
     private static final long NULL = -1;
 
     private final Supplier<FileChannel> fileChannelSupplier;
-    private final RegionMapper.IoMapper ioMapper;
-    private final RegionMapper.IoUnmapper ioUnmapper;
+    private final IoMapper ioMapper;
+    private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;
     private final int length;

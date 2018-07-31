@@ -24,14 +24,15 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,9 +47,9 @@ public class SyncRegionTest {
     @Mock
     private FileChannel fileChannel;
     @Mock
-    private Region.IoMapper ioMapper;
+    private RegionMapper.IoMapper ioMapper;
     @Mock
-    private Region.IoUnmapper ioUnmapper;
+    private RegionMapper.IoUnmapper ioUnmapper;
     @Mock
     private FileSizeEnsurer fileSizeEnsurer;
 

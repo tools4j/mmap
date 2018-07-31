@@ -32,7 +32,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.spockito.Spockito;
 
 import java.nio.channels.FileChannel;
@@ -60,8 +60,8 @@ public class AsyncRegionTest {
 
     interface AsyncRegionFactory {
         AsyncRegion create(Supplier<FileChannel> fileChannelSupplier,
-                           Region.IoMapper ioMapper,
-                           Region.IoUnmapper ioUnmapper,
+                           RegionMapper.IoMapper ioMapper,
+                           RegionMapper.IoUnmapper ioUnmapper,
                            FileSizeEnsurer fileSizeEnsurer,
                            FileChannel.MapMode mapMode,
                            int length,
@@ -89,9 +89,9 @@ public class AsyncRegionTest {
     @Mock
     private FileChannel fileChannel;
     @Mock
-    private Region.IoMapper ioMapper;
+    private RegionMapper.IoMapper ioMapper;
     @Mock
-    private Region.IoUnmapper ioUnmapper;
+    private RegionMapper.IoUnmapper ioUnmapper;
     @Mock
     private FileSizeEnsurer fileSizeEnsurer;
 
