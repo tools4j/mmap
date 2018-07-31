@@ -27,7 +27,6 @@ import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.AsyncRegionState;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
 
 import java.nio.channels.FileChannel;
 import java.util.Objects;
@@ -38,8 +37,8 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private static final long NULL = -1;
 
     private final Supplier<FileChannel> fileChannelSupplier;
-    private final Region.IoMapper ioMapper;
-    private final Region.IoUnMapper ioUnMapper;
+    private final IoMapper ioMapper;
+    private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;
     private final int length;
@@ -57,7 +56,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
     public AsyncVolatileStateMachineRegion(final Supplier<FileChannel> fileChannelSupplier,
                                            final IoMapper ioMapper,
-                                           final IoUnMapper ioUnMapper,
+                                           final IoUnmapper ioUnmapper,
                                            final FileSizeEnsurer fileSizeEnsurer,
                                            final FileChannel.MapMode mapMode,
                                            final int length,
@@ -65,7 +64,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
                                            final TimeUnit timeUnits) {
         this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
         this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnMapper = Objects.requireNonNull(ioUnMapper);
+        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
         this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
         this.mapMode = Objects.requireNonNull(mapMode);
         this.length = length;
@@ -111,7 +110,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     @Override
-    public boolean process() {
+    public boolean processRequest() {
         final AsyncRegionState readState = this.currentState;
         final AsyncRegionState nextState = readState.processRequest();
         if (readState != nextState) {
@@ -172,7 +171,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         @Override
         public AsyncRegionState processRequest() {
             if (address != NULL) {
-                ioUnMapper.unmap(fileChannelSupplier.get(), address, length);
+                ioUnmapper.unmap(fileChannelSupplier.get(), address, length);
                 address = NULL;
             }
 
@@ -224,7 +223,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            ioUnMapper.unmap(fileChannelSupplier.get(), address, length);
+            ioUnmapper.unmap(fileChannelSupplier.get(), address, length);
             address = NULL;
             return unmapped;
         }

@@ -39,7 +39,7 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
 
     private final Supplier<FileChannel> fileChannelSupplier;
     private final Region.IoMapper ioMapper;
-    private final Region.IoUnMapper ioUnMapper;
+    private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;
     private final int length;
@@ -57,7 +57,7 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
 
     public AsyncAtomicExchangeRegion(final Supplier<FileChannel> fileChannelSupplier,
                                      final IoMapper ioMapper,
-                                     final IoUnMapper ioUnMapper,
+                                     final IoUnmapper ioUnmapper,
                                      final FileSizeEnsurer fileSizeEnsurer,
                                      final FileChannel.MapMode mapMode,
                                      final int length,
@@ -65,7 +65,7 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
                                      final TimeUnit timeUnits) {
         this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
         this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnMapper = Objects.requireNonNull(ioUnMapper);
+        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
         this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
         this.mapMode = Objects.requireNonNull(mapMode);
         this.length = length;
@@ -118,11 +118,11 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
     }
 
     @Override
-    public boolean process() {
+    public boolean processRequest() {
         final long reqPosition = requestPosition.get();
         if (writerPosition != reqPosition) {
             if (writerAddress != NULL) {
-                ioUnMapper.unmap(fileChannelSupplier.get(), writerAddress, length);
+                ioUnmapper.unmap(fileChannelSupplier.get(), writerAddress, length);
                 writerAddress = NULL;
             }
             if (reqPosition != NULL) {

@@ -32,7 +32,6 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
-import org.tools4j.mmap.region.api.Processor;
 import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
@@ -46,13 +45,13 @@ public class MappedQueueTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueTest.class);
 
     private static final Supplier<RegionRingFactory> ASYNC = () -> {
-        final AtomicReference<Processor> processorPtr = new AtomicReference<>(() -> false);
+        final AtomicReference<Runnable> requestPtr = new AtomicReference<>(() -> {});
         return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE,
-                processorPtr::set, () -> {
+                requestPtr::set, () -> {
                     final Thread regionMapper = new Thread(() -> {
                         LOGGER.info("started: {}", Thread.currentThread());
                         while (true) {
-                            processorPtr.get().process();
+                            requestPtr.get().run();
                         }
                     });
                     regionMapper.setName("region-mapper");

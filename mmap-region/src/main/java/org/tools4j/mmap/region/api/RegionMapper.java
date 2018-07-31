@@ -23,6 +23,13 @@
  */
 package org.tools4j.mmap.region.api;
 
+import org.agrona.IoUtil;
+
+import java.nio.channels.FileChannel;
+
+/**
+ * Interface offering operations to map or unmap a region.
+ */
 public interface RegionMapper {
     /**
      * Attempts to map a region.
@@ -46,5 +53,19 @@ public interface RegionMapper {
      * @return true if the region is unmapped after the call, otherwise - false.
      */
     boolean unmap();
+
+    @FunctionalInterface
+    interface IoMapper {
+        IoMapper DEFAULT = IoUtil::map;
+
+        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
+    }
+
+    @FunctionalInterface
+    interface IoUnmapper {
+        IoUnmapper DEFAULT = IoUtil::unmap;
+
+        void unmap(FileChannel fileChannel, long address, long length);
+    }
 
 }

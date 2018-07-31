@@ -57,10 +57,10 @@ public interface RegionRingFactory {
     default void onComplete() {}
 
     static <T extends AsyncRegion> RegionRingFactory forAsync(final RegionFactory<T> regionFactory,
-                                                              final Consumer<Processor> processorConsumer,
+                                                              final Consumer<Runnable> requestProcessor,
                                                               final Runnable onComplete) {
         Objects.requireNonNull(regionFactory);
-        Objects.requireNonNull(processorConsumer);
+        Objects.requireNonNull(requestProcessor);
         Objects.requireNonNull(onComplete);
 
         return new RegionRingFactory() {
@@ -72,12 +72,10 @@ public interface RegionRingFactory {
                     regions[i] = regionFactory.create(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode);
                 }
 
-                processorConsumer.accept(() -> {
-                    boolean processed = false;
-                    for (final Processor region : regions) {
-                        processed |= region.process();
+                requestProcessor.accept(() -> {
+                    for (final AsyncRegionMapper asyncRegionMapper : regions) {
+                        asyncRegionMapper.processRequest();
                     }
-                    return processed;
                 });
                 return regions;
             }

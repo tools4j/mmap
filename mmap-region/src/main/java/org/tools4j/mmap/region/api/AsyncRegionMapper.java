@@ -23,6 +23,15 @@
  */
 package org.tools4j.mmap.region.api;
 
-public interface Processor {
-    boolean process();
+/**
+ * AsyncRegion version of region mapper delaying map and unmap requests until
+ * later.  An Outstanding request is processed (usually in a different thread) via
+ * {@link #processRequest()}.
+ */
+public interface AsyncRegionMapper extends RegionMapper {
+    /**
+     * Process outstanding {@link #map(long)} or {@link #unmap()} operations if any have been requested.
+     * @return true if an operation has been processed, and false if no request was outstanding
+     */
+    boolean processRequest();
 }
