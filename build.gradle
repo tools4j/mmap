@@ -120,3 +120,11 @@ task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
         xml.destination = "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
     }
 }
+
+coveralls {
+    sourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
+}
+
+tasks.coveralls {
+    dependsOn(jacocoRootReport)
+}
