@@ -35,12 +35,13 @@ import java.util.function.Supplier;
 public interface RegionRingFactory {
     /**
      * Creates array of regions based on the length of the array and size of a region.
-     * @param ringSize
-     * @param regionSize
-     * @param fileChannelSupplier
-     * @param fileSizeEnsurer
-     * @param mapMode
-     * @return array of Regions
+     *
+     * @param ringSize              how many regions to buffer in the ring
+     * @param regionSize            bytes per region
+     * @param fileChannelSupplier   supplier of file channel
+     * @param fileSizeEnsurer       ansures sufficient file size is guaranteed
+     * @param mapMode               file map mode
+     * @return array of regions
      */
     Region[] create(int ringSize,
                     int regionSize,

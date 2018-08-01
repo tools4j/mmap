@@ -5,4 +5,4 @@ jdk:
 sudo: true
 
 after_success:
-  - gradle jacocoTestReport coveralls
+  - gradle jacocoRootReport coveralls

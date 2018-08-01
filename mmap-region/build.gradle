@@ -1,26 +1,8 @@
-apply plugin: 'jacoco'
-apply plugin: 'com.github.kt3k.coveralls'
-
-group 'org.tools4j'
-version '1.0.1-SNAPSHOT'
-
-apply plugin: 'java'
-apply plugin: "com.github.hierynomus.license"
-
-sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'mmap-region', 'Implementation-Version': version
+    }
 }
-
-license {
-    header rootProject.file('src/main/resources/LICENSE.template')
-    strictCheck true
-    include "**/*.java"
-    ignoreFailures true
-    ext.year = Calendar.getInstance().get(Calendar.YEAR)
-}
-
 
 dependencies {
     compile group: 'org.agrona', name: 'agrona', version: '0.9.13'

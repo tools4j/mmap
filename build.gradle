@@ -1,21 +1,8 @@
-apply plugin: 'java'
-apply plugin: 'license'
 apply plugin: 'jacoco'
 apply plugin: 'com.github.kt3k.coveralls'
 
-sourceCompatibility = 1.8
 group = "org.tools4j"
 version = '1.0.1-SNAPSHOT'
-archivesBaseName = "mmap"
-
-def generatedSrcName = "generated-src"
-def generatedSrc = "$buildDir/$generatedSrcName"
-
-jar {
-    manifest {
-        attributes 'Implementation-Title': 'mmap', 'Implementation-Version': version
-    }
-}
 
 repositories {
     mavenCentral()
@@ -37,67 +24,98 @@ buildscript {
 	}
 }
 
-dependencies {
-}
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'jacoco'
+    apply plugin: 'com.github.hierynomus.license'
 
-uploadArchives {
+    group 'org.tools4j'
+    version '1.0.1-SNAPSHOT'
+
+    sourceCompatibility = 1.8
+
+    def generatedSrcName = "generated-src"
+    def generatedSrc = "$buildDir/$generatedSrcName"
+
     repositories {
-       flatDir {
-           dirs 'build/repositories'
-       }
+        mavenCentral()
+    }
+
+    uploadArchives {
+        repositories {
+            flatDir {
+                dirs 'build/repositories'
+            }
+        }
+    }
+
+    task copyLicense(type: Copy) {
+        from('.')
+        into('build/resources/main/')
+        include('LICENSE.md')
+        rename('LICENSE.md', 'LICENSE.txt')
+    }
+
+    task copyLicenseToSrc(type: Copy) {
+        from('build/resources/main/')
+        into(generatedSrc)
+        include('LICENSE.txt')
+    }
+
+    task javadocJar(type: Jar) {
+        classifier = 'javadoc'
+        from javadoc
+    }
+
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+
+    artifacts {
+        archives jar
+        archives javadocJar
+        archives sourcesJar
+    }
+
+    copyLicense.dependsOn processResources
+    copyLicenseToSrc.dependsOn copyLicense
+    compileJava.dependsOn licenseFormat,copyLicense,copyLicenseToSrc
+
+    javadoc {
+        options.showFromPackage()
+        options.linkSource()
+        options.links("http://docs.oracle.com/javase/8/docs/api/");
+        options.windowTitle = "mmap API ${version}"
+        options.overview = "../src/main/java/overview.html";
+    }
+
+    license {
+        header rootProject.file('src/main/resources/LICENSE.template')
+        strictCheck true
+        include "**/*.java"
+        ignoreFailures true
+        ext.year = Calendar.getInstance().get(Calendar.YEAR)
+    }
+
+    jacocoTestReport {
+        reports {
+            xml.enabled = true
+            html.enabled = true
+            csv.enabled = false
+        }
     }
 }
 
-jacocoTestReport {
+task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    dependsOn = subprojects.test
+    additionalSourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs)
+    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories =  files(subprojects.sourceSets.main.output)
+    executionData = files(subprojects.jacocoTestReport.executionData)
     reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
         html.enabled = true
+        xml.enabled = true
+        csv.enabled = false
     }
-}
-
-task copyLicense(type: Copy) {
-    from('.')
-    into('build/resources/main/')
-    include('LICENSE.md')
-    rename('LICENSE.md', 'LICENSE.txt')
-}
-task copyLicenseToSrc(type: Copy) {
-    from('build/resources/main/')
-    into(generatedSrc)
-    include('LICENSE.txt')
-}
-
-license {
-    header rootProject.file('src/main/resources/LICENSE.template')
-    strictCheck true
-	include "**/*.java"
-	ext.year = Calendar.getInstance().get(Calendar.YEAR)
-}
-
-copyLicense.dependsOn processResources
-copyLicenseToSrc.dependsOn copyLicense
-compileJava.dependsOn licenseFormat,copyLicense,copyLicenseToSrc
-
-javadoc {
-	options.showFromPackage()
-	options.linkSource()
-	options.links("http://docs.oracle.com/javase/8/docs/api/");
-	options.windowTitle = "mmap API ${version}"
-	options.overview = "src/main/java/overview.html";
-}
-
-task javadocJar(type: Jar) {
-    classifier = 'javadoc'
-    from javadoc
-}
-
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
-artifacts {
-    archives jar
-    archives javadocJar
-    archives sourcesJar
 }

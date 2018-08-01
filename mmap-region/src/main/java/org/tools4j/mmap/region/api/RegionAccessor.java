@@ -34,8 +34,8 @@ public interface RegionAccessor extends Closeable {
     /**
      * Wraps the buffer starting from given position to the end of the mapped region.
      * Once mapped, buffer.capacity will indicate the length of the mapped memory.
-     * @param position - position in the file.
-     * @param buffer
+     * @param position  position in the file.
+     * @param buffer    the direct buffer
      * @return true if mapped successfully, otherwise false.
      */
     boolean wrap(long position, DirectBuffer buffer);
