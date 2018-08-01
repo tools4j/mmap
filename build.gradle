@@ -117,14 +117,11 @@ task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
         html.enabled = true
         xml.enabled = true
         csv.enabled = false
-        xml.destination = "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
     }
 }
 
 coveralls {
+    dependsOn = jacocoRootReport
     sourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
-}
-
-tasks.coveralls {
-    dependsOn(jacocoRootReport)
+    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
 }
