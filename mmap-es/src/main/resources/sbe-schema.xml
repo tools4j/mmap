@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   package="org.tools4j.eventsourcing.sbe"
+                   id="1"
+                   version="0"
+                   semanticVersion="1.0"
+                   description="Event sourcing schema"
+                   byteOrder="littleEndian">
+    <types>
+        <composite name="messageHeader" description="Message identifiers and length of message root">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId" primitiveType="uint16"/>
+            <type name="version" primitiveType="uint16"/>
+        </composite>
+        <composite name="groupSizeEncoding" description="Repeating group dimensions">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="numInGroup" primitiveType="uint16"/>
+        </composite>
+        <composite name="varDataEncoding">
+            <type name="length" primitiveType="uint32" maxValue="1073741824"/>
+            <type name="varData" primitiveType="uint8" length="0"/>
+        </composite>
+        <composite name="index" description="Index Attributes">
+            <type name="position" primitiveType="uint64"/>
+            <type name="source" primitiveType="int32"/>
+            <type name="sourceId" primitiveType="uint64"/>
+            <type name="eventTimeNanos" primitiveType="uint64"/>
+        </composite>
+    </types>
+    <sbe:message id="1" name="SinglePayload" description="Single Payload">
+        <data name="value" id="1" type="varDataEncoding"/>
+    </sbe:message>
+    <sbe:message id="2" name="MultiPayload" description="Multi Payload">
+        <group name="entries" id="2" dimensionType="groupSizeEncoding">
+            <data name="value" id="3" type="varDataEncoding"/>
+        </group>
+    </sbe:message>
+    <sbe:message id="3" name="IndexPayload" description="Index Payload">
+        <field name="index" id="4" type="index"/>
+    </sbe:message>
+</sbe:messageSchema>

@@ -57,6 +57,7 @@ public class MappedQueueTest {
                             (s, e) -> LOGGER.error("{} {}", s, e, e),
                             10, TimeUnit.SECONDS,
                             true,
+                            () -> false,
                             processStepChain.getOrNoop()
                     );
                     regionMapper.start();

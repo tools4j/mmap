@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 
 public class Process implements Service {
 
@@ -48,6 +49,7 @@ public class Process implements Service {
                    final long gracefulShutdownTimeout,
                    final TimeUnit gracefulShutdownTimeunit,
                    final boolean daemonThread,
+                   final BooleanSupplier shutdownCondition,
                    final ProcessStep... steps) {
         this.gracefulShutdownTimeunit = Objects.requireNonNull(gracefulShutdownTimeunit);
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
@@ -55,7 +57,7 @@ public class Process implements Service {
         this.processLoop = new ProcessLoop(name,
                 onStartHandler,
                 onStopHandler,
-                stopping::get,
+                () -> shutdownCondition.getAsBoolean() || stopping.get(),
                 () -> System.currentTimeMillis() > gracefulShutdownMaxTime.get(),
                 idleStrategy,
                 exceptionHandler,

@@ -1,0 +1,6 @@
+1. Persistence of upstream events
+2. Persistence of downstream events. Zero-or-many atomic downstream events per one upstream event.
+3. Rebuilding state on start from downstream events, processing upstream events that have higher sourceIds than applied
+   downstream events.
+3. Exactly-once processing of upstream events on fault restore.
+4. Replay starting from given source/sourceId until given stop condition persisting output to a separate downstream file.
