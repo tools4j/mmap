@@ -27,7 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpsteamUntilDoneStep;
+import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpstreamUntilDoneStep;
 import org.tools4j.process.ProcessStep;
 
 import static org.mockito.Mockito.times;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
-public class DownstreamWhileDoneThenUpsteamUntilDoneStepTest {
+public class DownstreamWhileDoneThenUpstreamUntilDoneStepTest {
     @Mock
     private ProcessStep inStep;
     @Mock
@@ -47,7 +47,7 @@ public class DownstreamWhileDoneThenUpsteamUntilDoneStepTest {
         when(outStep.execute()).thenReturn(true, true, false, true, false);
         when(inStep.execute()).thenReturn(false, false, true);
 
-        final DownstreamWhileDoneThenUpsteamUntilDoneStep processorStep = new DownstreamWhileDoneThenUpsteamUntilDoneStep(inStep::execute, outStep::execute);
+        final DownstreamWhileDoneThenUpstreamUntilDoneStep processorStep = new DownstreamWhileDoneThenUpstreamUntilDoneStep(inStep::execute, outStep::execute);
 
 
         processorStep.execute();

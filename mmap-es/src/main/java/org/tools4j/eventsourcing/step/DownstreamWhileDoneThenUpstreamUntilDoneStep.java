@@ -27,14 +27,14 @@ import org.tools4j.process.ProcessStep;
 
 import java.util.Objects;
 
-public final class DownstreamWhileDoneThenUpsteamUntilDoneStep implements ProcessStep {
+public final class DownstreamWhileDoneThenUpstreamUntilDoneStep implements ProcessStep {
 
     private final ProcessStep upstreamProcessStepState;
     private ProcessStep downstreamProcessStepState;
     private ProcessStep currentStep;
 
 
-    public DownstreamWhileDoneThenUpsteamUntilDoneStep(final ProcessStep upstreamProcessStep, final ProcessStep downstreamProcessStep) {
+    public DownstreamWhileDoneThenUpstreamUntilDoneStep(final ProcessStep upstreamProcessStep, final ProcessStep downstreamProcessStep) {
         Objects.requireNonNull(upstreamProcessStep);
         Objects.requireNonNull(downstreamProcessStep);
 
