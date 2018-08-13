@@ -51,7 +51,7 @@ public interface MessageConsumer {
      * operation followed by the {@code after} operation
      * @throws NullPointerException if {@code after} is null
      */
-    default MessageConsumer andThen(MessageConsumer after) {
+    default MessageConsumer andThen(final MessageConsumer after) {
         Objects.requireNonNull(after);
         return (b, o, l) -> {
             accept(b, o, l); after.accept(b, o, l);
@@ -60,7 +60,7 @@ public interface MessageConsumer {
 
 
     /**
-     * Factory for upstream messages.
+     * Factory for upstream messages consumer.
      */
     interface UpstreamFactory {
         /**
@@ -84,7 +84,7 @@ public interface MessageConsumer {
     }
 
     /**
-     * Factory for downstream messages.
+     * Factory for downstream messages consumer.
      */
     interface DownstreamFactory {
         /**
