@@ -1,0 +1,62 @@
+group 'org.tools4j'
+version '1.0.1-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: "com.github.hierynomus.license"
+
+def generatedSrcName = "generated-src"
+def generatedSrc = "$buildDir/$generatedSrcName"
+
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+configurations{
+    codecGeneration
+}
+
+sourceSets {
+    main.java.srcDirs += file(generatedSrc)
+}
+
+license {
+    header rootProject.file('src/main/resources/LICENSE.template')
+    strictCheck true
+    include "**/*.java"
+    ignoreFailures true
+    ext.year = Calendar.getInstance().get(Calendar.YEAR)
+}
+
+
+task(generateCodecs, type: JavaExec) {
+    main = 'uk.co.real_logic.sbe.SbeTool'
+    classpath = configurations.codecGeneration
+    systemProperties(
+            'sbe.output.dir': generatedSrc,
+            'sbe.target.language': 'Java',
+            'sbe.java.generate.interfaces': 'false',
+            'sbe.validation.stop.on.error': 'true',
+            'sbe.validation.xsd': 'src/main/resources/fpl/sbe.xsd'
+    )
+    args = ['src/main/resources/sbe-schema.xml']
+}
+
+compileJava.dependsOn generateCodecs
+
+dependencies {
+    compile project(':mmap-region')
+    compile project(':mmap-process')
+
+    compile group: 'org.agrona', name: 'agrona', version: '0.9.13'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
+    testCompile 'org.hdrhistogram:HdrHistogram:2.1.9'
+    testCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'org.mockito:mockito-all:1.10.19'
+    testCompile 'org.tools4j:tools4j-spockito:1.6'
+    testCompile 'org.assertj:assertj-core:3.4.1'
+    codecGeneration 'uk.co.real-logic:sbe-all:1.7.8'
+}
