@@ -31,7 +31,7 @@ import java.util.Objects;
 import java.util.function.LongSupplier;
 
 public final class DefaultEventProcessingState implements EventProcessingState, Poller.IndexConsumer {
-    private final Long2LongHashMap sourceMap;
+    private final Long2LongHashMap sourceIdMap;
     private final LongSupplier systemNanoClock;
 
     private long id;
@@ -42,18 +42,18 @@ public final class DefaultEventProcessingState implements EventProcessingState, 
 
     public DefaultEventProcessingState(final LongSupplier systemNanoClock) {
         this.systemNanoClock = Objects.requireNonNull(systemNanoClock);
-        this.sourceMap = new Long2LongHashMap(-1);
+        this.sourceIdMap = new Long2LongHashMap(-1);
         this.eventTimeNanos = 0;
     }
 
     @Override
     public long sourceId(final int source) {
-        return sourceMap.get(source);
+        return sourceIdMap.get(source);
     }
 
     @Override
     public void accept(final long id, final int source, final long sourceId, final long eventTimeNanos) {
-        sourceMap.put(source, sourceId);
+        sourceIdMap.put(source, sourceId);
         this.id = id;
         this.source = source;
         this.sourceId = sourceId;
