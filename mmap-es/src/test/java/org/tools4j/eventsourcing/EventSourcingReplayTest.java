@@ -33,7 +33,7 @@ import org.tools4j.eventsourcing.api.MessageConsumer;
 import org.tools4j.eventsourcing.api.Poller;
 import org.tools4j.eventsourcing.config.RegionRingFactoryConfig;
 import org.tools4j.eventsourcing.queue.*;
-import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpsteamUntilDoneStep;
+import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpstreamUntilDoneStep;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
 import org.tools4j.process.Process;
@@ -114,7 +114,7 @@ public class EventSourcingReplayTest {
                     commitStateRef.set(downstreamAfterState);
                     return stateMessageConsumer;
                 },
-                DownstreamWhileDoneThenUpsteamUntilDoneStep::new
+                DownstreamWhileDoneThenUpstreamUntilDoneStep::new
         );
 
         regionRingFactory.onComplete();

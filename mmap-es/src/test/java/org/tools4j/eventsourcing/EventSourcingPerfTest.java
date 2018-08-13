@@ -34,7 +34,7 @@ import org.tools4j.eventsourcing.config.RegionRingFactoryConfig;
 import org.tools4j.eventsourcing.queue.DefaultEventProcessingQueue;
 import org.tools4j.eventsourcing.queue.DefaultIndexedQueue;
 import org.tools4j.eventsourcing.queue.DefaultIndexedTransactionalQueue;
-import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpsteamUntilDoneStep;
+import org.tools4j.eventsourcing.step.DownstreamWhileDoneThenUpstreamUntilDoneStep;
 import org.tools4j.eventsourcing.step.PollingProcessStep;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
@@ -105,7 +105,7 @@ public class EventSourcingPerfTest {
                 Poller.IndexConsumer.noop(),
                 (downstreamAppender, upstreamBeforeState, downstreamAfterState) -> downstreamAppender,
                 (upstreamBeforeState, downstreamAfterState) -> stateMessageConsumer,
-                DownstreamWhileDoneThenUpsteamUntilDoneStep::new
+                DownstreamWhileDoneThenUpstreamUntilDoneStep::new
         );
 
         final ProcessStep senderStep = new PollingProcessStep(
