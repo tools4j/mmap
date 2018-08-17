@@ -35,8 +35,8 @@ public class SyncRegion implements Region {
     private static final long NULL = -1;
 
     private final Supplier<FileChannel> fileChannelSupplier;
-    private final Region.IoMapper ioMapper;
-    private final Region.IoUnMapper ioUnMapper;
+    private final IoMapper ioMapper;
+    private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;
     private final int length;
@@ -46,13 +46,13 @@ public class SyncRegion implements Region {
 
     public SyncRegion(final Supplier<FileChannel> fileChannelSupplier,
                       final IoMapper ioMapper,
-                      final IoUnMapper ioUnMapper,
+                      final IoUnmapper ioUnmapper,
                       final FileSizeEnsurer fileSizeEnsurer,
                       final FileChannel.MapMode mapMode,
                       final int length) {
         this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
         this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnMapper = Objects.requireNonNull(ioUnMapper);
+        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
         this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
         this.mapMode = Objects.requireNonNull(mapMode);
         this.length = length;
@@ -76,7 +76,7 @@ public class SyncRegion implements Region {
         if (currentPosition == regionStartPosition) return true;
 
         if (currentAddress != NULL) {
-            ioUnMapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
             currentAddress = NULL;
         }
         if (fileSizeEnsurer.ensureSize(regionStartPosition + length)) {
@@ -91,7 +91,7 @@ public class SyncRegion implements Region {
     @Override
     public boolean unmap() {
         if (currentAddress != NULL) {
-            ioUnMapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
             currentAddress = NULL;
             currentPosition = NULL;
         }

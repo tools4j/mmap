@@ -24,15 +24,15 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.AsyncRegion;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.tools4j.mmap.region.api.AsyncRegion;
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.spockito.Spockito;
 
 import java.nio.channels.FileChannel;
@@ -59,14 +59,14 @@ import static org.mockito.Mockito.*;
 public class AsyncRegionTest {
 
     interface AsyncRegionFactory {
-        AsyncRegion create(final Supplier<FileChannel> fileChannelSupplier,
-                      final Region.IoMapper ioMapper,
-                      final Region.IoUnMapper ioUnMapper,
-                      final FileSizeEnsurer fileSizeEnsurer,
-                      final FileChannel.MapMode mapMode,
-                      final int length,
-                      final long timeout,
-                      final TimeUnit timeUnits);
+        AsyncRegion create(Supplier<FileChannel> fileChannelSupplier,
+                           RegionMapper.IoMapper ioMapper,
+                           RegionMapper.IoUnmapper ioUnmapper,
+                           FileSizeEnsurer fileSizeEnsurer,
+                           FileChannel.MapMode mapMode,
+                           int length,
+                           long timeout,
+                           TimeUnit timeUnits);
     }
 
     enum TestFactory {
@@ -89,9 +89,9 @@ public class AsyncRegionTest {
     @Mock
     private FileChannel fileChannel;
     @Mock
-    private Region.IoMapper ioMapper;
+    private RegionMapper.IoMapper ioMapper;
     @Mock
-    private Region.IoUnMapper ioUnMapper;
+    private RegionMapper.IoUnmapper ioUnmapper;
     @Mock
     private FileSizeEnsurer fileSizeEnsurer;
 
@@ -108,9 +108,9 @@ public class AsyncRegionTest {
         MockitoAnnotations.initMocks(this);
 
         region = testFactory.factory.create(() -> fileChannel,
-                ioMapper, ioUnMapper, fileSizeEnsurer,
+                ioMapper, ioUnmapper, fileSizeEnsurer,
                 mapMode, length, timeoutMillis, TimeUnit.MILLISECONDS);
-        inOrder = inOrder(directBuffer, fileChannel, ioMapper, ioUnMapper, fileSizeEnsurer);
+        inOrder = inOrder(directBuffer, fileChannel, ioMapper, ioUnmapper, fileSizeEnsurer);
     }
 
     @Test
@@ -136,7 +136,7 @@ public class AsyncRegionTest {
         when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
 
         //when - request mapping
         final Thread thread1 = new Thread(() -> {
@@ -147,7 +147,7 @@ public class AsyncRegionTest {
         final Thread thread2 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread1.start();
@@ -161,7 +161,7 @@ public class AsyncRegionTest {
         inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, length - positionInRegion);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
         //check that region is mapped
         assertThat(region.map(regionStartPosition)).isTrue();
 
@@ -180,7 +180,7 @@ public class AsyncRegionTest {
         inOrder.verify(ioMapper, times(0)).map(fileChannel, mapMode, regionStartPosition, length);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
 
         //when send unmap request
         assertThat(region.unmap()).isFalse();
@@ -189,17 +189,17 @@ public class AsyncRegionTest {
         final Thread thread3 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread3.start();
         thread3.join();
 
         //then
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnMapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
     }
 
     @Test
@@ -214,7 +214,7 @@ public class AsyncRegionTest {
         when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
 
         //when - request mapping
         assertThat(region.map(regionStartPosition)).isFalse();
@@ -223,7 +223,7 @@ public class AsyncRegionTest {
         final Thread thread1 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread1.start();
@@ -233,7 +233,7 @@ public class AsyncRegionTest {
         inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, regionStartPosition, length);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
 
         //once region is mapped, wrap should be non-blocking
         assertThat(region.wrap(position, directBuffer)).isTrue();
@@ -246,7 +246,7 @@ public class AsyncRegionTest {
         inOrder.verify(ioMapper, times(0)).map(fileChannel, mapMode, regionStartPosition, length);
 
         //check that there is nothing to process
-        assertThat(region.process()).isFalse();
+        assertThat(region.processRequest()).isFalse();
 
         //when send unmap request
         assertThat(region.unmap()).isFalse();
@@ -255,17 +255,17 @@ public class AsyncRegionTest {
         final Thread thread2 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread2.start();
         thread2.join();
 
         //then
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnMapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
     }
 
     @Test
@@ -286,7 +286,7 @@ public class AsyncRegionTest {
         final Thread thread1 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread1.start();
@@ -308,14 +308,14 @@ public class AsyncRegionTest {
         final Thread thread2 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread2.start();
         thread2.join();
 
         //then
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
         inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, prevRegionStartPosition, length);
     }
 
@@ -338,7 +338,7 @@ public class AsyncRegionTest {
         final Thread thread1 = new Thread(() -> {
             boolean processed;
             do {
-                processed = region.process();
+                processed = region.processRequest();
             } while (!processed);
         });
         thread1.start();
@@ -351,10 +351,10 @@ public class AsyncRegionTest {
         region.close();
 
         //and
-        assertThat(region.process()).isTrue();
+        assertThat(region.processRequest()).isTrue();
 
         //then
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
     }
 
 }

@@ -24,24 +24,9 @@
 package org.tools4j.mmap.region.api;
 
 
-import org.agrona.IoUtil;
-
-import java.nio.channels.FileChannel;
-
 /**
  * A region of a file that maps a certain block of file to a memory address.
  * Once mapped, client DirectBuffers can be wrapped to the pre-mapped memory.
  */
 public interface Region extends RegionAccessor, RegionMapper {
-    interface IoUnMapper {
-        IoUnMapper DEFAULT = IoUtil::unmap;
-
-        void unmap(FileChannel fileChannel, long address, long length);
-    }
-
-    interface IoMapper {
-        IoMapper DEFAULT = IoUtil::map;
-
-        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
-    }
 }

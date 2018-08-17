@@ -24,14 +24,15 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,9 +47,9 @@ public class SyncRegionTest {
     @Mock
     private FileChannel fileChannel;
     @Mock
-    private Region.IoMapper ioMapper;
+    private RegionMapper.IoMapper ioMapper;
     @Mock
-    private Region.IoUnMapper ioUnMapper;
+    private RegionMapper.IoUnmapper ioUnmapper;
     @Mock
     private FileSizeEnsurer fileSizeEnsurer;
 
@@ -63,9 +64,9 @@ public class SyncRegionTest {
     public void setUp() throws Exception {
         region = new SyncRegion(
                 () -> fileChannel,
-                ioMapper, ioUnMapper, fileSizeEnsurer,
+                ioMapper, ioUnmapper, fileSizeEnsurer,
                 mapMode, length);
-        inOrder = inOrder(directBuffer, fileChannel, ioMapper, ioUnMapper, fileSizeEnsurer);
+        inOrder = inOrder(directBuffer, fileChannel, ioMapper, ioUnmapper, fileSizeEnsurer);
     }
 
     @Test
@@ -101,10 +102,10 @@ public class SyncRegionTest {
         //when unmap request
         assertThat(region.unmap()).isTrue();
 
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnMapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
     }
 
     @Test
@@ -131,10 +132,10 @@ public class SyncRegionTest {
 
         assertThat(region.unmap()).isTrue();
 
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnMapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
     }
 
     @Test
@@ -164,7 +165,7 @@ public class SyncRegionTest {
 
         assertThat(region.map(prevRegionStartPosition)).isTrue();
 
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
         inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, prevRegionStartPosition, length);
 
     }
@@ -192,7 +193,7 @@ public class SyncRegionTest {
         region.close();
 
         //then
-        inOrder.verify(ioUnMapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
     }
 
 }
