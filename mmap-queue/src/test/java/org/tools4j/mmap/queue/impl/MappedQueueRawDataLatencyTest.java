@@ -35,6 +35,7 @@ import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
@@ -45,10 +46,12 @@ import org.tools4j.mmap.region.impl.MappedFile;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -58,31 +61,76 @@ public class MappedQueueRawDataLatencyTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueRawDataLatencyTest.class);
     private static final Supplier<RegionRingFactory> SYNC = () -> RegionRingFactory.forSync(RegionFactory.SYNC);
 
+    private enum PollerFactory implements Function<MappedQueue, Poller> {
+        ORIGINAL() {
+            @Override
+            public Poller apply(final MappedQueue mappedQueue) {
+                return mappedQueue.poller();
+            }
+        },
+        ADAPTED_FROM_ENUMERATOR() {
+            @Override
+            public Poller apply(final MappedQueue mappedQueue) {
+                return new Poller() {
+                    private final Enumerator enumerator = mappedQueue.enumerator();
+                    @Override
+                    public boolean poll(final DirectBuffer buffer) {
+                        if (enumerator.hasNextMessage()) {
+                            final DirectBuffer enumBuffer = enumerator.readNextMessage();
+                            buffer.wrap(enumBuffer);
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    @Override
+                    public void close() {
+                        enumerator.close();
+                    }
+                };
+            }
+        }
+    }
+
     private final long messagesPerSecond;
     private final int numberOfBytes;
+    private final Function<MappedQueue, Poller> pollerFactory;
+
 
     private MappedQueue queue;
     private Appender appender;
     private Poller poller;
 
-    @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}")
+    @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}, POLLER={2}")
     public static Collection<?> testRunParameters() {
         return Arrays.asList(new Object[][] {
-                { 160000, 100},
-                { 500000, 100},
-                { 160000, 100},
-                { 500000, 100},
-                { 160000, 1000},
-                { 500000, 1000},
-                { 160000, 1000},
-                { 500000, 1000},
+                { 160000, 100, PollerFactory.ORIGINAL},
+                { 500000, 100, PollerFactory.ORIGINAL},
+                { 160000, 100, PollerFactory.ORIGINAL},
+                { 500000, 100, PollerFactory.ORIGINAL},
+                { 160000, 1000, PollerFactory.ORIGINAL},
+                { 500000, 1000, PollerFactory.ORIGINAL},
+                { 160000, 1000, PollerFactory.ORIGINAL},
+                { 500000, 1000, PollerFactory.ORIGINAL},
+
+                { 160000, 100, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 100, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 160000, 100, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 100, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 160000, 1000, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 1000, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 160000, 1000, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 1000, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+
         });
     }
 
     public MappedQueueRawDataLatencyTest(final long messagesPerSecond,
-                                         final int numberOfBytes) {
+                                         final int numberOfBytes,
+                                         final Function<MappedQueue, Poller> pollerFactory) {
         this.messagesPerSecond = messagesPerSecond;
         this.numberOfBytes = numberOfBytes;
+        this.pollerFactory = Objects.requireNonNull(pollerFactory);
     }
 
     @Before
@@ -97,7 +145,7 @@ public class MappedQueueRawDataLatencyTest {
         regionRingFactory.onComplete();
 
         appender = queue.appender();
-        poller = queue.poller();
+        poller = pollerFactory.apply(queue);
     }
 
     @After
@@ -250,7 +298,7 @@ public class MappedQueueRawDataLatencyTest {
 //        final int[] messagesPerSec = {160000, 500000};
 //        final int[] messagesPerSec = {160000};
         for (final int mps : messagesPerSec) {
-            final MappedQueueRawDataLatencyTest latencyTest = new MappedQueueRawDataLatencyTest(mps, byteLen);
+            final MappedQueueRawDataLatencyTest latencyTest = new MappedQueueRawDataLatencyTest(mps, byteLen, MappedQueue::poller);
             latencyTest.setup();
             try {
                 latencyTest.latencyTest();
