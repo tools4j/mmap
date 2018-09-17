@@ -34,7 +34,8 @@ public final class MappedFile implements Closeable {
     public static long REGION_SIZE_GRANULARITY = regionSizeGranularity();
 
     public enum Mode {
-        READ_ONLY("r", FileChannel.MapMode.READ_ONLY),
+        READ_ONLY(OS.ifWindows("rw", "r"),
+                  OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
         READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
         /** Delete io contents on open*/
         READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
