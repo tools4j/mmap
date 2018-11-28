@@ -40,10 +40,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit test for {@link RegionRing}
+ */
 @RunWith(MockitoJUnitRunner.class)
-public class RegionRingAccessorTest {
-    @Mock
-    private Runnable onClose;
+public class RegionRingTest {
     @Mock
     private Region region1;
     @Mock
@@ -58,15 +59,18 @@ public class RegionRingAccessorTest {
     @Mock
     private DirectBuffer directBuffer;
 
-    private RegionRingAccessor regionRingAccessor;
+    private RegionRing regionRing;
     private int regionSize = 128;
 
     @Before
     public void setup() {
-        inOrder = Mockito.inOrder(region1, region2, region3, region4, onClose);
+        inOrder = Mockito.inOrder(region1, region2, region3, region4);
 
         final Region[] regions = new Region[] {region1, region2, region3, region4};
-        regionRingAccessor = new RegionRingAccessor(regions, regionSize, 3, onClose);
+        for (final Region region : regions) {
+            when(region.size()).thenReturn(regionSize);
+        }
+        regionRing = new RegionRing(regions,3);
     }
 
     @Test
@@ -76,9 +80,9 @@ public class RegionRingAccessorTest {
         when(region4.wrap(7 * regionSize + 60, directBuffer)).thenReturn(true);
 
         //when
-        regionRingAccessor.wrap(7 * regionSize + 45, directBuffer);
-        regionRingAccessor.wrap(7 * regionSize + 60, directBuffer);
-        regionRingAccessor.wrap(8 * regionSize + 20, directBuffer);
+        regionRing.wrap(7 * regionSize + 45, directBuffer);
+        regionRing.wrap(7 * regionSize + 60, directBuffer);
+        regionRing.wrap(8 * regionSize + 20, directBuffer);
 
         //then
         inOrder.verify(region4).wrap(7 * regionSize + 45, directBuffer);
@@ -89,7 +93,7 @@ public class RegionRingAccessorTest {
 
         //when
         when(region4.wrap(7 * regionSize + 60, directBuffer)).thenReturn(true);
-        regionRingAccessor.wrap(7 * regionSize + 60, directBuffer);
+        regionRing.wrap(7 * regionSize + 60, directBuffer);
 
         inOrder.verify(region1, times(0)).map(8 * regionSize);
         inOrder.verify(region2, times(0)).map(9 * regionSize);
@@ -97,7 +101,7 @@ public class RegionRingAccessorTest {
 
         //when
         when(region1.wrap(8 * regionSize + 20, directBuffer)).thenReturn(true);
-        regionRingAccessor.wrap(8 * regionSize + 20, directBuffer);
+        regionRing.wrap(8 * regionSize + 20, directBuffer);
 
         //then
         inOrder.verify(region2).map(9 * regionSize);
@@ -106,7 +110,7 @@ public class RegionRingAccessorTest {
 
         //when - backwards
         when(region3.wrap(6 * regionSize + 80, directBuffer)).thenReturn(true);
-        regionRingAccessor.wrap(6 * regionSize + 80, directBuffer);
+        regionRing.wrap(6 * regionSize + 80, directBuffer);
 
         //then
         inOrder.verify(region2).map(5 * regionSize);
@@ -117,23 +121,22 @@ public class RegionRingAccessorTest {
     @Test
     public void close() {
         //when
-        regionRingAccessor.close();
+        regionRing.close();
 
         //verify
         inOrder.verify(region1).close();
         inOrder.verify(region2).close();
         inOrder.verify(region3).close();
         inOrder.verify(region4).close();
-        inOrder.verify(onClose).run();
     }
 
     @Test
     public void wrap_when_backwards_direction_approaching_0_position() {
         final Region[] regions = new Region[] {region1, region2, region3, region4};
-        regionRingAccessor = new RegionRingAccessor(regions, regionSize, 1, onClose);
+        regionRing = new RegionRing(regions, 1);
 
         when(region2.wrap(regionSize + 45, directBuffer)).thenReturn(true);
-        regionRingAccessor.wrap(regionSize + 45, directBuffer);
+        regionRing.wrap(regionSize + 45, directBuffer);
         inOrder.verify(region2).wrap(regionSize + 45, directBuffer);
         inOrder.verify(region3).map(2 * regionSize);
 
@@ -141,7 +144,7 @@ public class RegionRingAccessorTest {
         when(region1.wrap(45, directBuffer)).thenReturn(true);
 
         //when
-        regionRingAccessor.wrap(45, directBuffer);
+        regionRing.wrap(45, directBuffer);
         inOrder.verify(region1).wrap(45, directBuffer);
         inOrder.verify(region4, never()).map(anyLong());
         inOrder.verify(region2).unmap();
@@ -150,6 +153,6 @@ public class RegionRingAccessorTest {
 
     @Test
     public void size() {
-        assertThat(regionRingAccessor.size()).isEqualTo(regionSize);
+        assertThat(regionRing.size()).isEqualTo(regionSize);
     }
 }

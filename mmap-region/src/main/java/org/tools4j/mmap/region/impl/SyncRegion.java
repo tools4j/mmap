@@ -30,83 +30,85 @@ import java.util.function.Supplier;
 import org.agrona.DirectBuffer;
 
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.MappableRegion;
 import org.tools4j.mmap.region.api.Region;
 
 public class SyncRegion implements Region {
-    private static final long NULL = -1;
-
     private final Supplier<? extends FileChannel> fileChannelSupplier;
     private final IoMapper ioMapper;
     private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
     private final FileChannel.MapMode mapMode;
-    private final int length;
+    private final int regionSize;
 
-    private long currentPosition = NULL;
     private long currentAddress = NULL;
+    private long currentPosition = -1;
 
     public SyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                       final IoMapper ioMapper,
                       final IoUnmapper ioUnmapper,
                       final FileSizeEnsurer fileSizeEnsurer,
                       final FileChannel.MapMode mapMode,
-                      final int length) {
+                      final int regionSize) {
         this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
         this.ioMapper = Objects.requireNonNull(ioMapper);
         this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
         this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
         this.mapMode = Objects.requireNonNull(mapMode);
-        this.length = length;
+        this.regionSize = regionSize;
+        ensurePowerOfTwo("Region size", regionSize);
     }
 
     @Override
     public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int) (position & (this.length - 1));
+        final int regionOffset = (int)(position & (regionSize - 1));
         final long regionStartPosition = position - regionOffset;
-        if (map(regionStartPosition)) {
-            source.wrap(currentAddress + regionOffset, this.length - regionOffset);
+        final long address = map(regionStartPosition);
+        if (address != MappableRegion.NULL) {
+            source.wrap(address + regionOffset, regionSize - regionOffset);
             return true;
         }
         return false;
     }
-
     @Override
-    public boolean map(final long regionStartPosition) {
+    public long map(final long regionStartPosition) {
         if (regionStartPosition < 0) throw new IllegalArgumentException("Invalid regionStartPosition " + regionStartPosition);
 
-        if (currentPosition == regionStartPosition) return true;
+        if (currentPosition == regionStartPosition) {
+            return currentAddress;
+        }
 
         if (currentAddress != NULL) {
-            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
             currentAddress = NULL;
+            currentPosition = -1;
         }
-        if (fileSizeEnsurer.ensureSize(regionStartPosition + length)) {
-            currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, regionStartPosition, length);
+        if (fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)) {
+            currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, regionStartPosition, regionSize);
             currentPosition = regionStartPosition;
-            return true;
-        } else {
-            return false;
+            return currentAddress;
         }
+        return NULL;
     }
 
     @Override
     public boolean unmap() {
         if (currentAddress != NULL) {
-            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
             currentAddress = NULL;
-            currentPosition = NULL;
+            currentPosition = -1;
         }
         return true;
     }
 
     @Override
-    public void close() {
-        unmap();
-    }
-
-    @Override
     public int size() {
-        return length;
+        return regionSize;
     }
 
-}
+    static void ensurePowerOfTwo(final String name, final int value) {
+        if ((value & (value - 1)) != 0) {
+            //true ony for 0 and non-powers of true
+            throw new IllegalArgumentException(name + " must be non zero and a power of two: " + value);
+        }
+    }}

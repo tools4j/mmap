@@ -23,8 +23,29 @@
  */
 package org.tools4j.mmap.region.api;
 
-public interface AsyncRegionState {
-    AsyncRegionState requestMap(long regionStartPosition);
-    AsyncRegionState requestUnmap();
-    AsyncRegionState processRequest();
+import java.util.concurrent.TimeUnit;
+
+/**
+ * AsyncRegion version of region mapper delaying map and unmap requests until
+ * later.  An Outstanding request is processed (usually in a different thread) via
+ * {@link #processRequest()}.
+ */
+public interface AsyncMappableRegion extends MappableRegion {
+    /**
+     * Process outstanding {@link #map(long)} or {@link #unmap()} operations if any have been requested.
+     * @return true if an operation has been processed, and false if no request was outstanding
+     */
+    boolean processRequest();
+
+    default long map(final long position, final long timeout, final TimeUnit unit) {
+        long address = map(position);
+        if (address == NULL) {
+            final long nanos = unit.toNanos(timeout);
+            final long start = System.nanoTime();
+            do {
+                address = map(position);
+            } while (address == NULL && System.nanoTime() - start < nanos);
+        }
+        return address;
+    }
 }

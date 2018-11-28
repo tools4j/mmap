@@ -25,26 +25,27 @@ package org.tools4j.mmap.queue.impl;
 
 import java.util.Objects;
 
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.AccessibleRegion;
 
 public class MappedPoller implements Poller {
     private final static int LENGTH_SIZE = 4;
-    private final RegionAccessor regionAccessor;
+    private final AccessibleRegion accessibleRegion;
     private final UnsafeBuffer unsafeBuffer = new UnsafeBuffer();
 
     private long position = 0;
 
-    public MappedPoller(final RegionAccessor regionAccessor) {
-        this.regionAccessor = Objects.requireNonNull(regionAccessor);
+    public MappedPoller(final AccessibleRegion accessibleRegion) {
+        this.accessibleRegion = Objects.requireNonNull(accessibleRegion);
     }
 
     @Override
     public boolean poll(final DirectBuffer buffer) {
-        if (regionAccessor.wrap(position, unsafeBuffer)) {
+        if (accessibleRegion.wrap(position, unsafeBuffer)) {
             final int length = unsafeBuffer.getIntVolatile(0);
             if (length > 0) {
                 buffer.wrap(unsafeBuffer, LENGTH_SIZE, length);
@@ -61,6 +62,8 @@ public class MappedPoller implements Poller {
 
     @Override
     public void close() {
-        regionAccessor.close();
+        if (accessibleRegion instanceof AutoCloseable) {
+            CloseHelper.quietClose((AutoCloseable) accessibleRegion);
+        }
     }
 }

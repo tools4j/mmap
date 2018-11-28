@@ -24,35 +24,17 @@
 package org.tools4j.mmap.region.impl;
 
 import java.nio.channels.FileChannel;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import org.agrona.DirectBuffer;
-
-import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 
-public class AsyncAtomicExchangeRegion implements AsyncRegion {
-    private static final long NULL = -1;
-
-    private final Supplier<? extends FileChannel> fileChannelSupplier;
-    private final IoMapper ioMapper;
-    private final IoUnmapper ioUnmapper;
-    private final FileSizeEnsurer fileSizeEnsurer;
-    private final FileChannel.MapMode mapMode;
-    private final int length;
-    private final long timeoutNanos;
-
-
-    private final AtomicLong requestPosition = new AtomicLong(NULL);
+public class AsyncAtomicExchangeRegion extends AbstractAsyncRegion {
+    private final AtomicLong requestPosition = new AtomicLong(-1);
     private final AtomicLong responseAddress = new AtomicLong(NULL);
 
-    private long readerPosition = NULL;
-    private long readerAddress = NULL;
-
-    private long writerPosition = NULL;
+    private long writerPosition = -1;
     private long writerAddress = NULL;
 
     public AsyncAtomicExchangeRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
@@ -60,61 +42,48 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
                                      final IoUnmapper ioUnmapper,
                                      final FileSizeEnsurer fileSizeEnsurer,
                                      final FileChannel.MapMode mapMode,
-                                     final int length,
+                                     final int regionSize,
                                      final long timeout,
-                                     final TimeUnit timeUnits) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
-        this.length = length;
-        this.timeoutNanos = timeUnits.toNanos(timeout);
+                                     final TimeUnit unit) {
+        super(fileChannelSupplier, ioMapper, ioUnmapper, fileSizeEnsurer, mapMode, regionSize, timeout, unit);
     }
 
     @Override
-    public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int) (position & (this.length - 1));
-        final long regionStartPosition = position - regionOffset;
-        if (awaitMapped(regionStartPosition)) {
-            source.wrap(readerAddress + regionOffset, this.length - regionOffset);
-            return true;
+    public long map(final long regionStartPosition) {
+        if (position == regionStartPosition) {
+            return address;
         }
-        return false;
-    }
 
-    @Override
-    public boolean map(final long regionStartPosition) {
-        if (readerPosition == regionStartPosition) return true;
-
-        readerPosition = NULL;
+        position = -1;
         requestPosition.set(regionStartPosition); //can be lazy
 
-        return false;
+        return NULL;
+    }
+
+    @Override
+    public long map(long regionStartPosition, long timeout, TimeUnit unit) {
+        long addr = map(regionStartPosition);
+        if (addr == NULL) {
+            final long nanos = unit.toNanos(timeout);
+            final long start = System.nanoTime();
+            long respAddress;
+            do {
+                respAddress = responseAddress.get();
+            } while (addr == respAddress && System.nanoTime() - start < nanos);
+
+            this.address = respAddress;
+            this.position = regionStartPosition;
+        }
+        return addr;
     }
 
     @Override
     public boolean unmap() {
-        final boolean hadBeenUnmapped = readerPosition == NULL;
-        readerPosition = NULL;
-        requestPosition.set(NULL); //can be lazy
+        final boolean hadBeenUnmapped = position == -1;
+        position = -1;
+        requestPosition.set(-1); //can be lazy
 
         return hadBeenUnmapped;
-    }
-
-    private boolean awaitMapped(final long regionStartPosition) {
-        if (!map(regionStartPosition)) {
-            final long timeOutTimeNanos = System.nanoTime() + timeoutNanos;
-            long respAddress;
-            do {
-                if (timeOutTimeNanos <= System.nanoTime()) return false; // timeout
-                respAddress = responseAddress.get();
-            } while (readerAddress == respAddress);
-
-            readerAddress = respAddress;
-            readerPosition = regionStartPosition;
-        }
-        return true;
     }
 
     @Override
@@ -122,12 +91,12 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
         final long reqPosition = requestPosition.get();
         if (writerPosition != reqPosition) {
             if (writerAddress != NULL) {
-                ioUnmapper.unmap(fileChannelSupplier.get(), writerAddress, length);
+                ioUnmapper.unmap(fileChannelSupplier.get(), writerAddress, regionSize);
                 writerAddress = NULL;
             }
-            if (reqPosition != NULL) {
-                if (fileSizeEnsurer.ensureSize(reqPosition + length)) {
-                    writerAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, reqPosition, length);
+            if (reqPosition != -1) {
+                if (fileSizeEnsurer.ensureSize(reqPosition + regionSize)) {
+                    writerAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, reqPosition, regionSize);
                 }
             }
             writerPosition = reqPosition;
@@ -136,15 +105,4 @@ public class AsyncAtomicExchangeRegion implements AsyncRegion {
         }
         return false;
     }
-
-    @Override
-    public void close() {
-        unmap();
-    }
-
-    @Override
-    public int size() {
-        return length;
-    }
-
 }

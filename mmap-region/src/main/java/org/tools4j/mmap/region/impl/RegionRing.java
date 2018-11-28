@@ -24,39 +24,47 @@
 package org.tools4j.mmap.region.impl;
 
 import java.util.Objects;
-import java.util.function.LongFunction;
 
 import org.agrona.DirectBuffer;
 
+import org.tools4j.mmap.region.api.AccessibleRegion;
 import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionAccessor;
 
-public class RegionRingAccessor implements RegionAccessor {
+import static org.tools4j.mmap.region.impl.SyncRegion.ensurePowerOfTwo;
+
+public class RegionRing implements AccessibleRegion, AutoCloseable {
     private final Region[] regions;
-    private final int regionsLength;
-    private final int regionsToMapAhead;
     private final int regionSize;
-    private final Runnable onClose;
+    private final int regionsToMapAhead;
     private final int regionsLengthMask;
 
     private long currentAbsoluteIndex = -1;
 
-    public RegionRingAccessor(final Region[] regions, final int regionSize, final int regionsToMapAhead, final Runnable onClose) {
-        this.regions = Objects.requireNonNull(regions);
-        this.onClose = Objects.requireNonNull(onClose);
-        if (regionsToMapAhead >= regions.length) throw new IllegalArgumentException("regionsToMapAhead " + regionsToMapAhead + " must be less that regions.length " + regions.length);
-        if (regionsToMapAhead < 0) throw new IllegalArgumentException("regionsToMapAhead " + regionsToMapAhead + " must positive");
-        this.regionSize = regionSize;
+    public RegionRing(final Region[] regions, final int regionsToMapAhead) {
+        if (regions.length == 0) {
+            throw new IllegalArgumentException("Empty region array");
+        }
+        ensurePowerOfTwo("Region length", regions.length);
+        if (regionsToMapAhead > regions.length) {
+            throw new IllegalArgumentException("Regions to map ahead is larger than regions: " + regionsToMapAhead +
+                    " > " + regions.length);
+        }
+        for (int i = 0; i < regions.length; i++) {
+            final Region r = Objects.requireNonNull(regions[i]);
+            if (i == 0) {
+                ensurePowerOfTwo("Region size", r.size());
+            } else {
+                if (r.size() != regions[0].size()) {
+                    throw new IllegalArgumentException("Incompatible region sizes, all sizes must be " +
+                            regions[0].size() + " but also found " + r.size());
+                }
+            }
+        }
+        this.regions = regions;
+        this.regionSize = regions[0].size();
         this.regionsToMapAhead = regionsToMapAhead;
-        this.regionsLength = regions.length;
-        assertPowerOfTwo(regionsLength, v -> "regionsLength must be a power of two, but is " + v);
-        assertPowerOfTwo(regionSize, v -> "regionSize must be a power of two, but is " + v);
-        regionsLengthMask = regionsLength - 1;
-    }
-
-    private void assertPowerOfTwo(final int value, final LongFunction<String> comment) {
-        if(Integer.bitCount(value) != 1) throw new IllegalArgumentException(comment.apply(value));
-    }
+        this.regionsLengthMask = regions.length - 1;
+     }
 
     @Override
     public boolean wrap(final long position, final DirectBuffer buffer) {
@@ -81,15 +89,14 @@ public class RegionRingAccessor implements RegionAccessor {
     }
 
     @Override
+    public int size() {
+        return regionSize;
+    }
+
+    @Override
     public void close() {
         for (final Region region : regions) {
             region.close();
         }
-        onClose.run();
-    }
-
-    @Override
-    public int size() {
-        return regionSize;
     }
 }

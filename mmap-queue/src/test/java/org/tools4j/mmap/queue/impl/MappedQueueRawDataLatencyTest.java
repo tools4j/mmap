@@ -157,7 +157,7 @@ public class MappedQueueRawDataLatencyTest {
         final String fileName = FileUtil.sharedMemDir("regiontest").getAbsolutePath();
         LOGGER.info("File: {}", fileName);
         final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16);
-        LOGGER.info("regionSize: {}", regionSize);
+        LOGGER.info("size: {}", regionSize);
 
         queue = new MappedQueue(fileName, regionSize, regionRingFactory, 4, 1,64L * 16 * 1024 * 1024 * 4);
 

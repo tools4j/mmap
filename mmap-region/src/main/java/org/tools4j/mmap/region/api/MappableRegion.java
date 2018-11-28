@@ -30,7 +30,9 @@ import org.agrona.IoUtil;
 /**
  * Interface offering operations to map or unmap a region.
  */
-public interface RegionMapper {
+public interface MappableRegion extends AutoCloseable {
+    long NULL = 0;
+
     /**
      * Attempts to map a region.
      * In synchronous implementations, it is expected to be mapped immediately,
@@ -40,9 +42,10 @@ public interface RegionMapper {
      *
      * @param regionStartPosition - start position of a region, must be power of two and aligned with
      *                            the length of the region.
-     * @return true if the region is mapped after the call, otherwise - false.
+     * @return the start address of the mapped region, or NULL if not mapped (yet)
      */
-    boolean map(final long regionStartPosition);
+    long map(final long regionStartPosition);
+
     /**
      * Attempts to unmap a region.
      * In synchronous implementations, it is expected to be unmapped immediately,
@@ -53,6 +56,18 @@ public interface RegionMapper {
      * @return true if the region is unmapped after the call, otherwise - false.
      */
     boolean unmap();
+
+    /**
+     * Returns the total size of the region.
+     *
+     * @return the region size
+     */
+    int size();
+
+    @Override
+    default void close() {
+        unmap();
+    }
 
     @FunctionalInterface
     interface IoMapper {

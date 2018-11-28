@@ -76,8 +76,8 @@ public interface RegionRingFactory {
             }
 
             regionRingProcessors.add(() -> {
-                for (final AsyncRegionMapper asyncRegionMapper : regions) {
-                    asyncRegionMapper.processRequest();
+                for (final AsyncMappableRegion region : regions) {
+                    region.processRequest();
                 }
             });
             return regions;

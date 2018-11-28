@@ -26,22 +26,23 @@ package org.tools4j.mmap.queue.impl;
 import java.util.Objects;
 
 import org.agrona.BitUtil;
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
 import org.tools4j.mmap.queue.api.Appender;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.AccessibleRegion;
 
 public class MappedAppender implements Appender {
     private final static int LENGTH_SIZE = 4;
-    private final RegionAccessor regionAccessor;
+    private final AccessibleRegion accessibleRegion;
     private final int alignment;
     private final UnsafeBuffer unsafeBuffer = new UnsafeBuffer();
 
     private long position = 0;
 
-    public MappedAppender(final RegionAccessor regionAccessor, final int alignment) {
-        this.regionAccessor = Objects.requireNonNull(regionAccessor);
+    public MappedAppender(final AccessibleRegion accessibleRegion, final int alignment) {
+        this.accessibleRegion = Objects.requireNonNull(accessibleRegion);
         this.alignment = alignment;
         if (Integer.bitCount(alignment) > 1) throw new IllegalArgumentException("alignment " + alignment + " must be power of two");
         moveToLastAppendPosition();
@@ -52,7 +53,7 @@ public class MappedAppender implements Appender {
             int length = 0;
             do {
                 position += length;
-                if (regionAccessor.wrap(position, unsafeBuffer)) {
+                if (accessibleRegion.wrap(position, unsafeBuffer)) {
                     length = Math.abs(unsafeBuffer.getInt(0));
                 }
             } while (length > 0);
@@ -65,12 +66,12 @@ public class MappedAppender implements Appender {
 
         final int paddedMessageLength = BitUtil.align(messageLength, alignment);
 
-        if (paddedMessageLength > regionAccessor.size()) {
-            throw new IllegalStateException("Length is too big for region size: " +
-                    paddedMessageLength + " > " + regionAccessor.size());
+        if (paddedMessageLength > accessibleRegion.size()) {
+            throw new IllegalStateException("Length is too big for accessibleRegion size: " +
+                    paddedMessageLength + " > " + accessibleRegion.size());
         }
 
-        if (regionAccessor.wrap(position, unsafeBuffer)) {
+        if (accessibleRegion.wrap(position, unsafeBuffer)) {
             final int capacity = unsafeBuffer.capacity();
 
             if (capacity < paddedMessageLength) {
@@ -91,6 +92,8 @@ public class MappedAppender implements Appender {
 
     @Override
     public void close() {
-        regionAccessor.close();
+        if (accessibleRegion instanceof AutoCloseable) {
+            CloseHelper.quietClose((AutoCloseable) accessibleRegion);
+        }
     }
 }

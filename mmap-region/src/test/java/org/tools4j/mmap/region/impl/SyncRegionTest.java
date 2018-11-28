@@ -34,12 +34,12 @@ import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.MappableRegion;
 import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -49,9 +49,9 @@ public class SyncRegionTest {
     @Mock
     private FileChannel fileChannel;
     @Mock
-    private RegionMapper.IoMapper ioMapper;
+    private MappableRegion.IoMapper ioMapper;
     @Mock
-    private RegionMapper.IoUnmapper ioUnmapper;
+    private MappableRegion.IoUnmapper ioUnmapper;
     @Mock
     private FileSizeEnsurer fileSizeEnsurer;
 
@@ -59,7 +59,7 @@ public class SyncRegionTest {
 
     private Region region;
 
-    private int length = 128;
+    private int regionSize = 128;
     private FileChannel.MapMode mapMode = FileChannel.MapMode.READ_WRITE;
 
     @Before
@@ -67,7 +67,7 @@ public class SyncRegionTest {
         region = new SyncRegion(
                 () -> fileChannel,
                 ioMapper, ioUnmapper, fileSizeEnsurer,
-                mapMode, length);
+                mapMode, regionSize);
         inOrder = inOrder(directBuffer, fileChannel, ioMapper, ioUnmapper, fileSizeEnsurer);
     }
 
@@ -76,38 +76,38 @@ public class SyncRegionTest {
         //given
         final long expectedAddress = 1024;
         final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, length)).thenReturn(expectedAddress);
-        when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
+        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, regionSize)).thenReturn(expectedAddress);
+        when(fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)).thenReturn(true);
 
         //when and then
         assertThat(region.wrap(position, directBuffer)).isTrue();
 
-        inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, regionStartPosition, length);
-        inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, length - positionInRegion);
+        inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
+        inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, regionSize - positionInRegion);
 
         //when - wrap again within the same region
         final int offset = 4;
         region.wrap(regionStartPosition + offset, directBuffer);
 
         //then
-        inOrder.verify(directBuffer).wrap(expectedAddress + offset, length - offset);
-        inOrder.verify(ioMapper, times(0)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(directBuffer).wrap(expectedAddress + offset, regionSize - offset);
+        inOrder.verify(ioMapper, never()).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
         //when
         region.map(regionStartPosition);
         //then
-        inOrder.verify(ioMapper, times(0)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(ioMapper, never()).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
         //when unmap request
         assertThat(region.unmap()).isTrue();
 
-        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper).unmap(fileChannel, expectedAddress, regionSize);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, never()).unmap(fileChannel, expectedAddress, regionSize);
     }
 
     @Test
@@ -115,28 +115,28 @@ public class SyncRegionTest {
         //given
         final long expectedAddress = 1024;
         final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, length)).thenReturn(expectedAddress);
-        when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
+        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, regionSize)).thenReturn(expectedAddress);
+        when(fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)).thenReturn(true);
 
-        assertThat(region.map(regionStartPosition)).isTrue();
+        assertThat(region.map(regionStartPosition)).isNotEqualTo(Region.NULL);
 
-        inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
-        assertThat(region.map(regionStartPosition)).isTrue();
+        assertThat(region.map(regionStartPosition)).isNotEqualTo(Region.NULL);
 
         //then
-        inOrder.verify(ioMapper, times(0)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(ioMapper, never()).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
         assertThat(region.unmap()).isTrue();
 
-        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper).unmap(fileChannel, expectedAddress, regionSize);
 
         assertThat(region.unmap()).isTrue();
-        inOrder.verify(ioUnmapper, times(0)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper, never()).unmap(fileChannel, expectedAddress, regionSize);
     }
 
     @Test
@@ -144,29 +144,29 @@ public class SyncRegionTest {
         //given
         final long expectedAddress = 1024;
         final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, length)).thenReturn(expectedAddress);
-        when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
+        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, regionSize)).thenReturn(expectedAddress);
+        when(fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)).thenReturn(true);
 
         //when - request mapping
-        assertThat(region.map(regionStartPosition)).isTrue();
+        assertThat(region.map(regionStartPosition)).isNotEqualTo(Region.NULL);
 
-        inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
 
         //when send unmap request
-        final long prevRegionStartPosition = regionStartPosition - length;
-        final long prevExpectedAddress = expectedAddress - length;
-        when(ioMapper.map(fileChannel, mapMode, prevRegionStartPosition, length)).thenReturn(prevExpectedAddress);
+        final long prevRegionStartPosition = regionStartPosition - regionSize;
+        final long prevExpectedAddress = expectedAddress - regionSize;
+        when(ioMapper.map(fileChannel, mapMode, prevRegionStartPosition, regionSize)).thenReturn(prevExpectedAddress);
         when(fileSizeEnsurer.ensureSize(regionStartPosition)).thenReturn(true);
 
 
-        assertThat(region.map(prevRegionStartPosition)).isTrue();
+        assertThat(region.map(prevRegionStartPosition)).isNotEqualTo(Region.NULL);
 
-        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
-        inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, prevRegionStartPosition, length);
+        inOrder.verify(ioUnmapper).unmap(fileChannel, expectedAddress, regionSize);
+        inOrder.verify(ioMapper).map(fileChannel, mapMode, prevRegionStartPosition, regionSize);
 
     }
 
@@ -175,24 +175,24 @@ public class SyncRegionTest {
         //given
         final long expectedAddress = 1024;
         final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        assertThat(region.size()).isEqualTo(length);
+        assertThat(region.size()).isEqualTo(regionSize);
 
-        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, length)).thenReturn(expectedAddress);
-        when(fileSizeEnsurer.ensureSize(regionStartPosition + length)).thenReturn(true);
+        when(ioMapper.map(fileChannel, mapMode, regionStartPosition, regionSize)).thenReturn(expectedAddress);
+        when(fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)).thenReturn(true);
 
         //when - request mapping
-        assertThat(region.map(regionStartPosition)).isTrue();
+        assertThat(region.map(regionStartPosition)).isNotEqualTo(Region.NULL);
 
         //then
-        inOrder.verify(ioMapper, times(1)).map(fileChannel, mapMode, regionStartPosition, length);
+        inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
 
         //when
         region.close();
 
         //then
-        inOrder.verify(ioUnmapper, times(1)).unmap(fileChannel, expectedAddress, length);
+        inOrder.verify(ioUnmapper).unmap(fileChannel, expectedAddress, regionSize);
     }
 
 }
