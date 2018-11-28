@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
-
 import java.io.Closeable;
+
+import org.agrona.DirectBuffer;
 
 /**
  * Appends messages to a {@link Queue}.

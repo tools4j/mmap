@@ -45,7 +45,7 @@ public interface RegionRingFactory {
      */
     Region[] create(int ringSize,
                     int regionSize,
-                    Supplier<FileChannel> fileChannelSupplier,
+                    Supplier<? extends FileChannel> fileChannelSupplier,
                     FileSizeEnsurer fileSizeEnsurer,
                     FileChannel.MapMode mapMode);
 
@@ -56,16 +56,20 @@ public interface RegionRingFactory {
      */
     default void onComplete() {}
 
-    static <T extends AsyncRegion> RegionRingFactory forAsync(final RegionFactory<T> regionFactory,
-                                                              final Consumer<Runnable> requestProcessor,
-                                                              final Runnable onComplete) {
+    static RegionRingFactory forAsync(final RegionFactory<? extends AsyncRegion> regionFactory,
+                                      final Consumer<Runnable> requestProcessor,
+                                      final Runnable onComplete) {
         Objects.requireNonNull(regionFactory);
         Objects.requireNonNull(requestProcessor);
         Objects.requireNonNull(onComplete);
 
         return new RegionRingFactory() {
             @Override
-            public Region[] create(final int ringSize, final int regionSize, final Supplier<FileChannel> fileChannelSupplier, final FileSizeEnsurer fileSizeEnsurer, final FileChannel.MapMode mapMode) {
+            public Region[] create(final int ringSize,
+                                   final int regionSize,
+                                   final Supplier<? extends FileChannel> fileChannelSupplier,
+                                   final FileSizeEnsurer fileSizeEnsurer,
+                                   final FileChannel.MapMode mapMode) {
                 final AsyncRegion[] regions = new AsyncRegion[ringSize];
 
                 for (int i = 0; i < ringSize; i++) {
@@ -87,7 +91,7 @@ public interface RegionRingFactory {
         };
     }
 
-    static <T extends Region> RegionRingFactory forSync(final RegionFactory<T> regionFactory) {
+    static RegionRingFactory forSync(final RegionFactory<? extends Region> regionFactory) {
         Objects.requireNonNull(regionFactory);
 
         return (ringSize, regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode) -> {

@@ -23,12 +23,13 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionAccessor;
-
 import java.util.Objects;
 import java.util.function.LongFunction;
+
+import org.agrona.DirectBuffer;
+
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionAccessor;
 
 public class RegionRingAccessor implements RegionAccessor {
     private final Region[] regions;

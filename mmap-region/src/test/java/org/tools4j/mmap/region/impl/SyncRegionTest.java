@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import java.nio.channels.FileChannel;
+
 import org.agrona.DirectBuffer;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,15 +32,15 @@ import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.api.RegionMapper;
 
-import java.nio.channels.FileChannel;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class SyncRegionTest {
@@ -61,7 +63,7 @@ public class SyncRegionTest {
     private FileChannel.MapMode mapMode = FileChannel.MapMode.READ_WRITE;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         region = new SyncRegion(
                 () -> fileChannel,
                 ioMapper, ioUnmapper, fileSizeEnsurer,
@@ -70,7 +72,7 @@ public class SyncRegionTest {
     }
 
     @Test
-    public void wrap_map_and_unmap() throws Exception {
+    public void wrap_map_and_unmap() {
         //given
         final long expectedAddress = 1024;
         final long position = 4567;
@@ -109,9 +111,8 @@ public class SyncRegionTest {
     }
 
     @Test
-    public void map_and_unmap() throws Exception {
+    public void map_and_unmap() {
         //given
-        final AtomicBoolean hadBeenMapped = new AtomicBoolean();
         final long expectedAddress = 1024;
         final long position = 4567;
         final int positionInRegion = (int) (position % length);
@@ -139,9 +140,8 @@ public class SyncRegionTest {
     }
 
     @Test
-    public void map_and_remap() throws Exception {
+    public void map_and_remap() {
         //given
-        final AtomicBoolean hadBeenMapped = new AtomicBoolean();
         final long expectedAddress = 1024;
         final long position = 4567;
         final int positionInRegion = (int) (position % length);
@@ -171,9 +171,8 @@ public class SyncRegionTest {
     }
 
     @Test
-    public void map_and_close() throws Exception {
+    public void map_and_close() {
         //given
-        final AtomicBoolean hadBeenMapped = new AtomicBoolean();
         final long expectedAddress = 1024;
         final long position = 4567;
         final int positionInRegion = (int) (position % length);

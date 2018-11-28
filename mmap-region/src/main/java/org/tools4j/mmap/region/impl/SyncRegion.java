@@ -23,18 +23,19 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.Region;
-
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import org.agrona.DirectBuffer;
+
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.Region;
+
 public class SyncRegion implements Region {
     private static final long NULL = -1;
 
-    private final Supplier<FileChannel> fileChannelSupplier;
+    private final Supplier<? extends FileChannel> fileChannelSupplier;
     private final IoMapper ioMapper;
     private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
@@ -44,7 +45,7 @@ public class SyncRegion implements Region {
     private long currentPosition = NULL;
     private long currentAddress = NULL;
 
-    public SyncRegion(final Supplier<FileChannel> fileChannelSupplier,
+    public SyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                       final IoMapper ioMapper,
                       final IoUnmapper ioUnmapper,
                       final FileSizeEnsurer fileSizeEnsurer,

@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.agrona.DirectBuffer;
-
 import java.io.Closeable;
+
+import org.agrona.DirectBuffer;
 
 /**
  * Accessor to a file region.

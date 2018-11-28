@@ -31,6 +31,8 @@ import org.HdrHistogram.Histogram;
 public class HistogramPrinter {
     public static void printHistogram(final Histogram histogram) {
         System.out.println("Percentiles (micros)");
+        System.out.println("\tmin    : " + histogram.getMinValue()/1000f);
+        System.out.println("\t50%    : " + histogram.getValueAtPercentile(50)/1000f);
         System.out.println("\t90%    : " + histogram.getValueAtPercentile(90)/1000f);
         System.out.println("\t99%    : " + histogram.getValueAtPercentile(99)/1000f);
         System.out.println("\t99.9%  : " + histogram.getValueAtPercentile(99.9)/1000f);

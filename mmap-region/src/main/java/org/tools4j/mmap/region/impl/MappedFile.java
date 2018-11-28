@@ -23,12 +23,16 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import sun.nio.ch.FileChannelImpl;
-
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.reflect.Method;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
+
+import sun.nio.ch.FileChannelImpl;
 
 public final class MappedFile implements Closeable {
     public static long REGION_SIZE_GRANULARITY = regionSizeGranularity();
@@ -53,10 +57,6 @@ public final class MappedFile implements Closeable {
         public FileChannel.MapMode getMapMode() {
             return mapMode;
         }
-    }
-
-    public interface FileInitialiser {
-        void init(FileChannel file, Mode mode) throws IOException;
     }
 
     private final RandomAccessFile file;
@@ -94,7 +94,7 @@ public final class MappedFile implements Closeable {
         this.mode = Objects.requireNonNull(mode);
         this.regionSize = regionSize;
         this.fileChannel = raf.getChannel();
-        fileInitialiser.init(fileChannel, mode);
+        fileInitialiser.init(file.getName(), fileChannel);
     }
 
     public Mode getMode() {

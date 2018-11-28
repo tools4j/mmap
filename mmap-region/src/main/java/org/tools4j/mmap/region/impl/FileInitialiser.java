@@ -27,29 +27,38 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 
-public class FileInitialiser {
+@FunctionalInterface
+public interface FileInitialiser {
 
-    public static void initFile(final FileChannel fileChannel, final MappedFile.Mode mode) throws IOException {
+    void init(String fileName, FileChannel fileChannel) throws IOException;
+
+    static FileInitialiser forMode(final MappedFile.Mode mode) {
         switch (mode) {
             case READ_ONLY:
-                if (fileChannel.size() < 8) {
-                    throw new IllegalArgumentException("Invalid io format");
-                }
-                break;
+                return (fileName, fileChannel) -> {
+                    if (fileChannel.size() < 8) {
+                        throw new IllegalArgumentException("Invalid file format: " + fileName);
+                    }
+                };
             case READ_WRITE:
-                if (fileChannel.size() >= 8) break;
+                return (fileName, fileChannel) -> {
+                    forMode(fileChannel.size() == 0 ? MappedFile.Mode.READ_WRITE_CLEAR : MappedFile.Mode.READ_ONLY)
+                            .init(fileName, fileChannel);
+                };
             case READ_WRITE_CLEAR:
-                final FileLock lock = fileChannel.lock();
-                try {
-                    fileChannel.truncate(0);
-                    fileChannel.transferFrom(InitialBytes.ZERO, 0, 8);
-                    fileChannel.force(true);
-                } finally {
-                    lock.release();
-                }
-                break;
+                return (fileName, fileChannel) -> {
+                    final FileLock lock = fileChannel.lock();
+                    try {
+                        fileChannel.truncate(0);
+                        fileChannel.transferFrom(InitialBytes.ZERO, 0, 8);
+                        fileChannel.force(true);
+                    } finally {
+                        lock.release();
+                    }
+                };
             default:
                 throw new IllegalArgumentException("Invalid mode: " + mode);
+
         }
     }
 }

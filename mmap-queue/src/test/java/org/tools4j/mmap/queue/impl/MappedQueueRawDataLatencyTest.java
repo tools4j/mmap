@@ -23,6 +23,17 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+
 import org.HdrHistogram.Histogram;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -34,6 +45,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.queue.api.Poller;
@@ -43,17 +55,6 @@ import org.tools4j.mmap.queue.util.WaitLatch;
 import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 
 @RunWith(Parameterized.class)
 public class MappedQueueRawDataLatencyTest {

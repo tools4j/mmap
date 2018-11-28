@@ -23,12 +23,13 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import java.util.Objects;
+
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+
 import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.region.api.RegionAccessor;
-
-import java.util.Objects;
 
 public class MappedEnumerator implements Enumerator {
     private final static int LENGTH_SIZE = 4;

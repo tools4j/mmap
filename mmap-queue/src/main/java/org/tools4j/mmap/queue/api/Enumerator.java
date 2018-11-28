@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
-
 import java.io.Closeable;
+
+import org.agrona.DirectBuffer;
 
 /**
  * Enumerates messages stored in a {@link Queue}. The enumeration order is generally the appending order of the

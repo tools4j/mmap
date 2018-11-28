@@ -27,16 +27,18 @@ import org.agrona.DirectBuffer;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
+
 import org.tools4j.mmap.region.api.Region;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class RegionRingAccessorTest {
@@ -68,7 +70,7 @@ public class RegionRingAccessorTest {
     }
 
     @Test
-    public void wrap() throws Exception {
+    public void wrap() {
         //given
         when(region4.wrap(7 * regionSize + 45, directBuffer)).thenReturn(true);
         when(region4.wrap(7 * regionSize + 60, directBuffer)).thenReturn(true);
@@ -113,7 +115,7 @@ public class RegionRingAccessorTest {
     }
 
     @Test
-    public void close() throws Exception {
+    public void close() {
         //when
         regionRingAccessor.close();
 
@@ -126,10 +128,7 @@ public class RegionRingAccessorTest {
     }
 
     @Test
-    public void wrap_when_backwards_direction_approaching_0_position() throws Exception {
-        //given
-        ArgumentCaptor<Long> positionArgumentCaptor = ArgumentCaptor.forClass(Long.class);
-
+    public void wrap_when_backwards_direction_approaching_0_position() {
         final Region[] regions = new Region[] {region1, region2, region3, region4};
         regionRingAccessor = new RegionRingAccessor(regions, regionSize, 1, onClose);
 
@@ -150,7 +149,7 @@ public class RegionRingAccessorTest {
 
 
     @Test
-    public void size() throws Exception {
+    public void size() {
         assertThat(regionRingAccessor.size()).isEqualTo(regionSize);
     }
 }

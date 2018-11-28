@@ -24,7 +24,7 @@
 package org.tools4j.mmap.region.api;
 
 public interface AsyncRegionState {
-    AsyncRegionState requestMap(final long regionStartPosition);
+    AsyncRegionState requestMap(long regionStartPosition);
     AsyncRegionState requestUnmap();
     AsyncRegionState processRequest();
 }

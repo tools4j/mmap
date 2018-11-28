@@ -23,20 +23,21 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.AsyncRegion;
-import org.tools4j.mmap.region.api.AsyncRegionState;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
-
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import org.agrona.DirectBuffer;
+
+import org.tools4j.mmap.region.api.AsyncRegion;
+import org.tools4j.mmap.region.api.AsyncRegionState;
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+
 public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private static final long NULL = -1;
 
-    private final Supplier<FileChannel> fileChannelSupplier;
+    private final Supplier<? extends FileChannel> fileChannelSupplier;
     private final IoMapper ioMapper;
     private final IoUnmapper ioUnmapper;
     private final FileSizeEnsurer fileSizeEnsurer;
@@ -54,7 +55,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private long position = NULL;
     private long address = NULL;
 
-    public AsyncVolatileStateMachineRegion(final Supplier<FileChannel> fileChannelSupplier,
+    public AsyncVolatileStateMachineRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                                            final IoMapper ioMapper,
                                            final IoUnmapper ioUnmapper,
                                            final FileSizeEnsurer fileSizeEnsurer,

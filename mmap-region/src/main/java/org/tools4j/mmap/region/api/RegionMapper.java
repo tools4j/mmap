@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.agrona.IoUtil;
-
 import java.nio.channels.FileChannel;
+
+import org.agrona.IoUtil;
 
 /**
  * Interface offering operations to map or unmap a region.

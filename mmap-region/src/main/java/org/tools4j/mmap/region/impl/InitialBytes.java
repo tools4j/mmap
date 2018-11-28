@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
@@ -38,7 +37,7 @@ public enum InitialBytes implements ReadableByteChannel {
     }
 
     @Override
-    public int read(ByteBuffer dst) throws IOException {
+    public int read(ByteBuffer dst) {
         dst.putLong(initialValue);
         return 8;
     }
@@ -49,7 +48,7 @@ public enum InitialBytes implements ReadableByteChannel {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         //cannot be closed
     }
 }

@@ -23,11 +23,17 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+
 import org.HdrHistogram.Histogram;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
@@ -35,11 +41,6 @@ import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
-
-import java.nio.ByteBuffer;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 public class MappedQueueTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueTest.class);

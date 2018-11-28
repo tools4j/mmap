@@ -23,13 +23,14 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import java.util.Objects;
+
 import org.agrona.BitUtil;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.region.api.RegionAccessor;
-
-import java.util.Objects;
 
 public class MappedAppender implements Appender {
     private final static int LENGTH_SIZE = 4;
@@ -65,7 +66,8 @@ public class MappedAppender implements Appender {
         final int paddedMessageLength = BitUtil.align(messageLength, alignment);
 
         if (paddedMessageLength > regionAccessor.size()) {
-            throw new IllegalStateException("Length is too big for a region size");
+            throw new IllegalStateException("Length is too big for region size: " +
+                    paddedMessageLength + " > " + regionAccessor.size());
         }
 
         if (regionAccessor.wrap(position, unsafeBuffer)) {

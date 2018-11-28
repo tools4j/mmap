@@ -23,16 +23,16 @@
  */
 package org.tools4j.mmap.region.api;
 
+import java.nio.channels.FileChannel;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+
 import org.tools4j.mmap.region.api.RegionMapper.IoMapper;
 import org.tools4j.mmap.region.api.RegionMapper.IoUnmapper;
 import org.tools4j.mmap.region.impl.AsyncAtomicExchangeRegion;
 import org.tools4j.mmap.region.impl.AsyncAtomicStateMachineRegion;
 import org.tools4j.mmap.region.impl.AsyncVolatileStateMachineRegion;
 import org.tools4j.mmap.region.impl.SyncRegion;
-
-import java.nio.channels.FileChannel;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 public interface RegionFactory<T extends Region> {
     RegionFactory<AsyncRegion> ASYNC_ATOMIC_STATE_MACHINE =
@@ -52,7 +52,7 @@ public interface RegionFactory<T extends Region> {
                     IoMapper.DEFAULT, IoUnmapper.DEFAULT, fileSizeEnsurer, mapMode, size);
 
     T create(int size,
-             Supplier<FileChannel> fileChannelSupplier,
+             Supplier<? extends FileChannel> fileChannelSupplier,
              FileSizeEnsurer fileSizeEnsurer,
              FileChannel.MapMode mapMode);
 

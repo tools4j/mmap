@@ -30,12 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class OSTest {
     @Test
-    public void ifWindows() throws Exception {
+    public void ifWindows() {
         assertThat(OS.ifWindows("win", "nonwin")).isEqualTo("nonwin");
     }
 
     @Test
-    public void isWindows() throws Exception {
+    public void isWindows() {
         assertThat(OS.isWindows()).isEqualTo(false);
     }
 

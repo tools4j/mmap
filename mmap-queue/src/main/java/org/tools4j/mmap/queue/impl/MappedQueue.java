@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import java.io.IOException;
+
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.queue.api.Poller;
@@ -33,8 +35,6 @@ import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.MappedFile;
 import org.tools4j.mmap.region.impl.RegionRingAccessor;
-
-import java.io.IOException;
 
 public class MappedQueue implements Queue {
     private final RegionAccessor appenderRegionRingAccessor;
@@ -47,9 +47,9 @@ public class MappedQueue implements Queue {
                        final int regionsToMapAhead,
                        final long maxFileSize) throws IOException {
         final MappedFile appenderFile = new MappedFile(fileName, MappedFile.Mode.READ_WRITE_CLEAR,
-                regionSize, FileInitialiser::initFile);
+                regionSize, FileInitialiser.forMode(MappedFile.Mode.READ_WRITE_CLEAR));
         final MappedFile enumeratorFile = new MappedFile(fileName, MappedFile.Mode.READ_ONLY,
-                regionSize, FileInitialiser::initFile);
+                regionSize, FileInitialiser.forMode(MappedFile.Mode.READ_ONLY));
 
         appenderRegionRingAccessor = new RegionRingAccessor(
                 factory.create(

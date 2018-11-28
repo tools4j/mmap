@@ -23,6 +23,12 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import java.nio.channels.FileChannel;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
+
 import org.agrona.DirectBuffer;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,29 +36,27 @@ import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.spockito.Spockito;
 
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.same;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 @Spockito.Unroll({
         "| testFactory                             |",
         "|-----------------------------------------|",
-        "| VOLATILE_STATEMENT_MACHINE_REGION |",
-        "| ATOMIC_STATEMENT_MACHINE_REGION   |",
-        "| ATOMIC_EXCHANGE_REGION            |",
+        "| VOLATILE_STATEMENT_MACHINE_REGION       |",
+        "| ATOMIC_STATEMENT_MACHINE_REGION         |",
+        "| ATOMIC_EXCHANGE_REGION                  |",
 })
 @Spockito.Name("[{row}]: {testFactory}")
 @RunWith(Spockito.class)
@@ -69,6 +73,7 @@ public class AsyncRegionTest {
                            TimeUnit timeUnits);
     }
 
+    @SuppressWarnings("unused")
     enum TestFactory {
         VOLATILE_STATEMENT_MACHINE_REGION(AsyncVolatileStateMachineRegion::new),
         ATOMIC_STATEMENT_MACHINE_REGION(AsyncAtomicStateMachineRegion::new),
@@ -82,6 +87,7 @@ public class AsyncRegionTest {
     }
 
     @Spockito.Ref
+    @SuppressWarnings("unused")
     private TestFactory testFactory;
 
     @Mock
@@ -104,7 +110,7 @@ public class AsyncRegionTest {
     private long timeoutMillis = 100;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         MockitoAnnotations.initMocks(this);
 
         region = testFactory.factory.create(() -> fileChannel,
@@ -114,7 +120,7 @@ public class AsyncRegionTest {
     }
 
     @Test
-    public void wrap_false_when_no_async_mapping() throws Exception {
+    public void wrap_false_when_no_async_mapping() {
 
         final boolean wrapped = region.wrap(10, directBuffer);
 

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.agrona.collections.MutableLong;
-
 import java.util.Objects;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
+
+import org.agrona.collections.MutableLong;
 
 public interface FileSizeEnsurer {
     FileSizeEnsurer NO_OP = minSize -> true;
