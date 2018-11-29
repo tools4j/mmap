@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.region.api;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,8 +39,15 @@ public interface AsyncMappableRegion extends MappableRegion {
     boolean processRequest();
 
     default long map(final long position, final long timeout, final TimeUnit unit) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative" + position);
+        }
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Timeout cannot be negative" + timeout);
+        }
+        Objects.requireNonNull(unit);
         long address = map(position);
-        if (address == NULL) {
+        if (address == NULL & timeout > 0) {
             final long nanos = unit.toNanos(timeout);
             final long start = System.nanoTime();
             do {

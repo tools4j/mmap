@@ -24,71 +24,40 @@
 package org.tools4j.mmap.region.impl;
 
 import java.nio.channels.FileChannel;
-import java.util.Objects;
 import java.util.function.Supplier;
 
-import org.agrona.DirectBuffer;
-
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.MappableRegion;
-import org.tools4j.mmap.region.api.Region;
 
-public class SyncRegion implements Region {
-    private final Supplier<? extends FileChannel> fileChannelSupplier;
-    private final IoMapper ioMapper;
-    private final IoUnmapper ioUnmapper;
-    private final FileSizeEnsurer fileSizeEnsurer;
-    private final FileChannel.MapMode mapMode;
-    private final int regionSize;
-
-    private long currentAddress = NULL;
-    private long currentPosition = -1;
-
+public class SyncRegion extends AbstractRegion {
     public SyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                       final IoMapper ioMapper,
                       final IoUnmapper ioUnmapper,
                       final FileSizeEnsurer fileSizeEnsurer,
                       final FileChannel.MapMode mapMode,
                       final int regionSize) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
-        this.regionSize = regionSize;
-        ensurePowerOfTwo("Region size", regionSize);
+        super(fileChannelSupplier, ioMapper, ioUnmapper, fileSizeEnsurer, mapMode, regionSize);
     }
 
     @Override
-    public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int)(position & (regionSize - 1));
-        final long regionStartPosition = position - regionOffset;
-        final long address = map(regionStartPosition);
-        if (address != MappableRegion.NULL) {
-            source.wrap(address + regionOffset, regionSize - regionOffset);
-            return true;
+    public long map(final long position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative: " + position);
         }
-        return false;
-    }
-    @Override
-    public long map(final long regionStartPosition) {
-        if (regionStartPosition < 0) throw new IllegalArgumentException("Invalid regionStartPosition " + regionStartPosition);
-
-        if (currentPosition == regionStartPosition) {
+        if (currentPosition == position) {
             return currentAddress;
         }
 
-        if (currentAddress != NULL) {
-            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
-            currentAddress = NULL;
-            currentPosition = -1;
-        }
-        if (fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)) {
-            currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, regionStartPosition, regionSize);
-            currentPosition = regionStartPosition;
+        unmap();
+        if (fileSizeEnsurer.ensureSize(position + regionSize)) {
+            currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, position, regionSize);
+            currentPosition = position;
             return currentAddress;
         }
         return NULL;
+    }
+
+    protected long tryMap(final long position) {
+        return map(position);
     }
 
     @Override
@@ -100,15 +69,4 @@ public class SyncRegion implements Region {
         }
         return true;
     }
-
-    @Override
-    public int size() {
-        return regionSize;
-    }
-
-    static void ensurePowerOfTwo(final String name, final int value) {
-        if ((value & (value - 1)) != 0) {
-            //true ony for 0 and non-powers of true
-            throw new IllegalArgumentException(name + " must be non zero and a power of two: " + value);
-        }
-    }}
+}

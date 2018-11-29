@@ -30,7 +30,7 @@ import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.AccessibleRegion;
 import org.tools4j.mmap.region.api.Region;
 
-import static org.tools4j.mmap.region.impl.SyncRegion.ensurePowerOfTwo;
+import static org.tools4j.mmap.region.impl.AbstractRegion.ensurePowerOfTwo;
 
 public class RegionRing implements AccessibleRegion, AutoCloseable {
     private final Region[] regions;
@@ -67,11 +67,15 @@ public class RegionRing implements AccessibleRegion, AutoCloseable {
      }
 
     @Override
-    public boolean wrap(final long position, final DirectBuffer buffer) {
-        final long absoluteIndex = position / regionSize;
+    public int wrap(final long position, final DirectBuffer buffer) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative" + position);
+        }
+        Objects.requireNonNull(buffer);
 
-        final boolean wrapped = regions[(int) (absoluteIndex & regionsLengthMask)].wrap(position, buffer);
-        if (wrapped) {
+        final long absoluteIndex = position / regionSize;
+        final int length = regions[(int) (absoluteIndex & regionsLengthMask)].wrap(position, buffer);
+        if (length > 0) {
             if (currentAbsoluteIndex < absoluteIndex) { // moving forward
                 for (long mapIndex = absoluteIndex + 1; mapIndex <= absoluteIndex + regionsToMapAhead; mapIndex++) {
                     regions[(int) (mapIndex & regionsLengthMask)].map(mapIndex * regionSize);
@@ -85,7 +89,7 @@ public class RegionRing implements AccessibleRegion, AutoCloseable {
             }
         }
         currentAbsoluteIndex = absoluteIndex;
-        return wrapped;
+        return length;
     }
 
     @Override

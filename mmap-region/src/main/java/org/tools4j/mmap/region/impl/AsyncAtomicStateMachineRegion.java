@@ -37,6 +37,8 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
     private final UnMapRequestedRegionState unmapRequested;
 
     private final AtomicReference<AsyncRegionState> currentState;
+    private long currentPosition = -1;
+    private long currentAddress = NULL;
 
     public AsyncAtomicStateMachineRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                                          final IoMapper ioMapper,
@@ -65,12 +67,15 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
     }
 
     public long map(final long position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative: " + position);
+        }
         final AsyncRegionState readState = this.currentState.get();
         final AsyncRegionState nextState = readState.requestMap(position);
         if (readState != nextState) {
             this.currentState.set(nextState);
         }
-        return nextState == mapped ? address : NULL;
+        return nextState == mapped ? currentAddress : NULL;
     }
 
     public boolean unmap() {
@@ -80,6 +85,13 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
             this.currentState.set(nextState);
         }
         return nextState == unmapped;
+    }
+
+    @Override
+    public void close() {
+        if (currentPosition >= 0) {
+            unmap();
+        }
     }
 
     private final class UnmappedRegionState implements AsyncRegionState {
@@ -115,14 +127,14 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            if (address != NULL) {
-                ioUnmapper.unmap(fileChannelSupplier.get(), address, regionSize);
-                address = NULL;
+            if (currentAddress != NULL) {
+                ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
+                currentAddress = NULL;
             }
 
             if (fileSizeEnsurer.ensureSize(requestedPosition + regionSize)) {
-                address = ioMapper.map(fileChannelSupplier.get(), mapMode, requestedPosition, regionSize);
-                position = requestedPosition;
+                currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, requestedPosition, regionSize);
+                currentPosition = requestedPosition;
                 requestedPosition = NULL;
 
                 return mapped;
@@ -135,9 +147,9 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
     private final class MappedRegionState implements AsyncRegionState {
         @Override
         public AsyncRegionState requestMap(final long position) {
-            if (AsyncAtomicStateMachineRegion.this.position != position) {
+            if (AsyncAtomicStateMachineRegion.this.currentPosition != position) {
                 mapRequested.requestedPosition = position;
-                AsyncAtomicStateMachineRegion.this.position = NULL;
+                AsyncAtomicStateMachineRegion.this.currentPosition = NULL;
                 return mapRequested;
             }
             return this;
@@ -145,7 +157,7 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState requestUnmap() {
-            position = NULL;
+            currentPosition = NULL;
             return unmapRequested;
         }
 
@@ -168,8 +180,8 @@ public class AsyncAtomicStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            ioUnmapper.unmap(fileChannelSupplier.get(), address, regionSize);
-            address = NULL;
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
+            currentAddress = NULL;
             return unmapped;
         }
     }

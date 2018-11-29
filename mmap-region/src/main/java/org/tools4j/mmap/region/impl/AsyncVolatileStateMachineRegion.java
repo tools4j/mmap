@@ -39,6 +39,8 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
 
     @Contended
     private volatile AsyncRegionState currentState;
+    private long currentPosition = -1;
+    private long currentAddress = NULL;
 
     public AsyncVolatileStateMachineRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                                            final IoMapper ioMapper,
@@ -68,14 +70,17 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
     }
 
     @Override
-    public long map(final long regionStartPosition) {
-        //assert that regionStartPosition is aligned with length
+    public long map(final long position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative: " + position);
+        }
+        //assert that currentPosition is aligned with length
         final AsyncRegionState readState = this.currentState;
-        final AsyncRegionState nextState = readState.requestMap(regionStartPosition);
+        final AsyncRegionState nextState = readState.requestMap(position);
         if (readState != nextState) {
             this.currentState = nextState;
         }
-        return nextState == mapped ? address : NULL;
+        return nextState == mapped ? currentAddress : NULL;
     }
 
     @Override
@@ -86,6 +91,13 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
             this.currentState = nextState;
         }
         return nextState == unmapped;
+    }
+
+    @Override
+    public void close() {
+        if (currentPosition >= 0) {
+            unmap();
+        }
     }
 
     private final class UnmappedRegionState implements AsyncRegionState {
@@ -121,14 +133,14 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            if (address != NULL) {
-                ioUnmapper.unmap(fileChannelSupplier.get(), address, regionSize);
-                address = NULL;
+            if (currentAddress != NULL) {
+                ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
+                currentAddress = NULL;
             }
 
             if (fileSizeEnsurer.ensureSize(requestedPosition + regionSize)) {
-                address = ioMapper.map(fileChannelSupplier.get(), mapMode, requestedPosition, regionSize);
-                position = requestedPosition;
+                currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, requestedPosition, regionSize);
+                currentPosition = requestedPosition;
                 requestedPosition = NULL;
 
                 return mapped;
@@ -141,9 +153,9 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
     private final class MappedRegionState implements AsyncRegionState {
         @Override
         public AsyncRegionState requestMap(final long regionStartPosition) {
-            if (AsyncVolatileStateMachineRegion.this.position != regionStartPosition) {
+            if (AsyncVolatileStateMachineRegion.this.currentPosition != regionStartPosition) {
                 mapRequested.requestedPosition = regionStartPosition;
-                AsyncVolatileStateMachineRegion.this.position = NULL;
+                AsyncVolatileStateMachineRegion.this.currentPosition = NULL;
                 return mapRequested;
             }
             return this;
@@ -151,7 +163,7 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState requestUnmap() {
-            position = NULL;
+            currentPosition = NULL;
             return unmapRequested;
         }
 
@@ -174,8 +186,8 @@ public class AsyncVolatileStateMachineRegion extends AbstractAsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            ioUnmapper.unmap(fileChannelSupplier.get(), address, regionSize);
-            address = NULL;
+            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
+            currentAddress = NULL;
             return unmapped;
         }
     }

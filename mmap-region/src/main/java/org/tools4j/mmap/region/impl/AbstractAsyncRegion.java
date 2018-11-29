@@ -24,28 +24,15 @@
 package org.tools4j.mmap.region.impl;
 
 import java.nio.channels.FileChannel;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
-import org.agrona.DirectBuffer;
 
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 
-import static org.tools4j.mmap.region.impl.SyncRegion.ensurePowerOfTwo;
+abstract class AbstractAsyncRegion extends AbstractRegion implements AsyncRegion {
 
-abstract class AbstractAsyncRegion implements AsyncRegion {
-    protected final Supplier<? extends FileChannel> fileChannelSupplier;
-    protected final IoMapper ioMapper;
-    protected final IoUnmapper ioUnmapper;
-    protected final FileSizeEnsurer fileSizeEnsurer;
-    protected final FileChannel.MapMode mapMode;
-    protected final int regionSize;
-    protected final long timeoutNanos;
-
-    protected long address = NULL;
-    protected long position = -1;
+    private final long timeoutNanos;
 
     public AbstractAsyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
                                final IoMapper ioMapper,
@@ -55,35 +42,14 @@ abstract class AbstractAsyncRegion implements AsyncRegion {
                                final int regionSize,
                                final long timeout,
                                final TimeUnit unit) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
-        this.regionSize = regionSize;
-        this.timeoutNanos = unit.toNanos(timeout);
-        ensurePowerOfTwo("Region size", regionSize);
-    }
-
-    @Override
-    public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int) (position & (this.regionSize - 1));
-        final long regionStartPosition = position - regionOffset;
-        final long address = map(regionStartPosition, timeoutNanos, TimeUnit.NANOSECONDS);
-        if (address != NULL) {
-            source.wrap(address + regionOffset, this.regionSize - regionOffset);
-            return true;
+        super(fileChannelSupplier, ioMapper, ioUnmapper, fileSizeEnsurer, mapMode, regionSize);
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Timeout cannot be negative: " + timeout);
         }
-        return false;
+        this.timeoutNanos = unit.toNanos(timeout);
     }
 
-    @Override
-    public void close() {
-        if (position > 0) unmap();
-    }
-
-    @Override
-    public int size() {
-        return regionSize;
+    protected long tryMap(final long position) {
+        return map(position, timeoutNanos, TimeUnit.NANOSECONDS);
     }
 }

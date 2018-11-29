@@ -30,13 +30,14 @@ import org.agrona.DirectBuffer;
  */
 public interface AccessibleRegion {
     /**
-     * Wraps the buffer starting from given position to the end of the mapped region.
+     * Wraps the buffer starting from given currentPosition to the end of the mapped region.
      * Once mapped, buffer.capacity will indicate the length of the mapped memory.
-     * @param position  position in the file.
+     * 
+     * @param position  currentPosition in the file.
      * @param buffer    the direct buffer
-     * @return true if mapped successfully, otherwise false.
+     * @return the number of bytes that can now be read from buffer (equal to buffer capacity)
      */
-    boolean wrap(long position, DirectBuffer buffer);
+    int wrap(long position, DirectBuffer buffer);
 
     /**
      * Returns the total size of the region.

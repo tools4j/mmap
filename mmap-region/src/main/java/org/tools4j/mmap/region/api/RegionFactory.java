@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 import org.tools4j.mmap.region.api.MappableRegion.IoMapper;
 import org.tools4j.mmap.region.api.MappableRegion.IoUnmapper;
-import org.tools4j.mmap.region.impl.AsyncAtomicExchangeRegion;
+import org.tools4j.mmap.region.impl.AsyncVolatileRequestRegion;
 import org.tools4j.mmap.region.impl.AsyncAtomicStateMachineRegion;
 import org.tools4j.mmap.region.impl.AsyncVolatileStateMachineRegion;
 import org.tools4j.mmap.region.impl.SyncRegion;
@@ -43,8 +43,8 @@ public interface RegionFactory<T extends AccessibleRegion & MappableRegion> {
             (size, fileChannelSupplier, fileSizeEnsurer, mapMode) -> new AsyncVolatileStateMachineRegion(fileChannelSupplier,
                     IoMapper.DEFAULT, IoUnmapper.DEFAULT, fileSizeEnsurer, mapMode, size,
                     2, TimeUnit.SECONDS);
-    RegionFactory<AsyncRegion> ASYNC_ATOMIC_EXCHANGE =
-            (size, fileChannelSupplier, fileSizeEnsurer, mapMode) -> new AsyncAtomicExchangeRegion(fileChannelSupplier,
+    RegionFactory<AsyncRegion> ASYNC_VOLATILE_REQUEST =
+            (size, fileChannelSupplier, fileSizeEnsurer, mapMode) -> new AsyncVolatileRequestRegion(fileChannelSupplier,
                     IoMapper.DEFAULT, IoUnmapper.DEFAULT, fileSizeEnsurer, mapMode, size,
                     2, TimeUnit.SECONDS);
     RegionFactory<Region> SYNC =

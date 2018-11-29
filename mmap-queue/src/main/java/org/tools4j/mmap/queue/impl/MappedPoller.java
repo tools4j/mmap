@@ -45,7 +45,7 @@ public class MappedPoller implements Poller {
 
     @Override
     public boolean poll(final DirectBuffer buffer) {
-        if (accessibleRegion.wrap(position, unsafeBuffer)) {
+        if (accessibleRegion.wrap(position, unsafeBuffer) >= 4) {
             final int length = unsafeBuffer.getIntVolatile(0);
             if (length > 0) {
                 buffer.wrap(unsafeBuffer, LENGTH_SIZE, length);

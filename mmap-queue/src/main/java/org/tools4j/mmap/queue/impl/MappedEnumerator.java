@@ -47,7 +47,7 @@ public class MappedEnumerator implements Enumerator {
 
     @Override
     public boolean hasNextMessage() {
-        if (accessibleRegion.wrap(position, unsafeBuffer)) {
+        if (accessibleRegion.wrap(position, unsafeBuffer) >= 4) {
             final int length = unsafeBuffer.getIntVolatile(0);
             if (length > 0) {
                 nextLength = length;

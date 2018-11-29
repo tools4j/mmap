@@ -53,7 +53,7 @@ public class MappedAppender implements Appender {
             int length = 0;
             do {
                 position += length;
-                if (accessibleRegion.wrap(position, unsafeBuffer)) {
+                if (accessibleRegion.wrap(position, unsafeBuffer) >= 4) {
                     length = Math.abs(unsafeBuffer.getInt(0));
                 }
             } while (length > 0);
@@ -71,7 +71,7 @@ public class MappedAppender implements Appender {
                     paddedMessageLength + " > " + accessibleRegion.size());
         }
 
-        if (accessibleRegion.wrap(position, unsafeBuffer)) {
+        if (accessibleRegion.wrap(position, unsafeBuffer) > 0) {
             final int capacity = unsafeBuffer.capacity();
 
             if (capacity < paddedMessageLength) {

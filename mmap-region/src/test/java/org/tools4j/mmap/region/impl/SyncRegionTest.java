@@ -83,7 +83,7 @@ public class SyncRegionTest {
         when(fileSizeEnsurer.ensureSize(regionStartPosition + regionSize)).thenReturn(true);
 
         //when and then
-        assertThat(region.wrap(position, directBuffer)).isTrue();
+        assertThat(region.wrap(position, directBuffer)).isNotEqualTo(0);
 
         inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
         inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, regionSize - positionInRegion);

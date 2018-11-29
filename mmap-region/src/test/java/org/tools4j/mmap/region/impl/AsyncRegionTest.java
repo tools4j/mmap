@@ -26,7 +26,7 @@ package org.tools4j.mmap.region.impl;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import org.agrona.DirectBuffer;
@@ -52,11 +52,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @Spockito.Unroll({
-        "| testFactory                             |",
-        "|-----------------------------------------|",
-        "| VOLATILE_STATEMENT_MACHINE_REGION       |",
-        "| ATOMIC_STATEMENT_MACHINE_REGION         |",
-//FIXME        "| ATOMIC_EXCHANGE_REGION                  |",
+        "| testFactory                   |",
+        "|-------------------------------|",
+        "| VOLATILE_STATE_MACHINE_REGION |",
+        "| ATOMIC_STATE_MACHINE_REGION   |",
+        "| VOLATILE_REQUEST_REGION       |",
 })
 @Spockito.Name("[{row}]: {testFactory}")
 @RunWith(Spockito.class)
@@ -75,9 +75,9 @@ public class AsyncRegionTest {
 
     @SuppressWarnings("unused")
     enum TestFactory {
-        VOLATILE_STATEMENT_MACHINE_REGION(AsyncVolatileStateMachineRegion::new),
-        ATOMIC_STATEMENT_MACHINE_REGION(AsyncAtomicStateMachineRegion::new),
-        ATOMIC_EXCHANGE_REGION(AsyncAtomicExchangeRegion::new);
+        VOLATILE_STATE_MACHINE_REGION(AsyncVolatileStateMachineRegion::new),
+        ATOMIC_STATE_MACHINE_REGION(AsyncAtomicStateMachineRegion::new),
+        VOLATILE_REQUEST_REGION(AsyncVolatileRequestRegion::new);
 
         private AsyncRegionFactory factory;
 
@@ -107,7 +107,7 @@ public class AsyncRegionTest {
 
     private int regionSize = 128;
     private FileChannel.MapMode mapMode = FileChannel.MapMode.READ_WRITE;
-    private long timeoutMillis = 100;
+    private long timeoutMillis = 200;
 
     @Before
     public void setUp() {
@@ -122,9 +122,9 @@ public class AsyncRegionTest {
     @Test
     public void wrap_false_when_no_async_mapping() {
 
-        final boolean wrapped = region.wrap(10, directBuffer);
+        final int len = region.wrap(10, directBuffer);
 
-        assertThat(wrapped).isFalse();
+        assertThat(len).isEqualTo(0);
         inOrder.verify(directBuffer, never()).wrap(anyLong(), anyInt());
         inOrder.verify(ioMapper, never()).map(same(fileChannel), same(mapMode), anyLong(), same(regionSize));
     }
@@ -132,7 +132,7 @@ public class AsyncRegionTest {
     @Test
     public void wrap_map_and_unmap() throws Exception {
         //given
-        final AtomicBoolean wrapped = new AtomicBoolean();
+        final AtomicInteger length = new AtomicInteger();
         final long expectedAddress = 1024;
         final long position = 4567;
         final int positionInRegion = (int) (position % regionSize);
@@ -146,7 +146,7 @@ public class AsyncRegionTest {
 
         //when - request mapping
         final Thread thread1 = new Thread(() -> {
-            wrapped.set(region.wrap(position, directBuffer));
+            length.set(region.wrap(position, directBuffer));
         });
 
         //and when - process mapping request
@@ -162,7 +162,7 @@ public class AsyncRegionTest {
         thread2.join();
 
         //then
-        assertThat(wrapped.get()).isNotEqualTo(Region.NULL);
+        assertThat(length.get()).isNotEqualTo(0);
         inOrder.verify(ioMapper).map(fileChannel, mapMode, regionStartPosition, regionSize);
         inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, regionSize - positionInRegion);
 
@@ -357,7 +357,7 @@ public class AsyncRegionTest {
         region.close();
 
         //and
-        assertThat(region.processRequest()).isNotEqualTo(Region.NULL);
+        assertThat(region.processRequest()).isTrue();
 
         //then
         inOrder.verify(ioUnmapper).unmap(fileChannel, expectedAddress, regionSize);

@@ -40,9 +40,9 @@ public interface MappableRegion extends AutoCloseable {
      * In asynchronous implementations, if the region is not mapped yet, mapping
      *    will be performed asynchronously and false will be returned.
      *
-     * @param regionStartPosition - start position of a region, must be power of two and aligned with
+     * @param regionStartPosition - start currentPosition of a region, must be power of two and aligned with
      *                            the length of the region.
-     * @return the start address of the mapped region, or NULL if not mapped (yet)
+     * @return the start currentAddress of the mapped region, or NULL if not mapped (yet)
      */
     long map(final long regionStartPosition);
 
