@@ -23,5 +23,15 @@
  */
 package org.tools4j.mmap.region.api;
 
-public interface AsyncRegion extends Region, AsyncMappableRegion {
+/**
+ * A background process that performs the memory mapping and unmapping operations.
+ */
+public interface AsyncMappingProcessor {
+    /**
+     * Process outstanding {@link RegionMapper#map(long)} or {@link RegionMapper#unmap()} operations if any have been
+     * requested.
+     *
+     * @return true if an operation has been processed, and false if no request was outstanding
+     */
+    boolean processMappingRequests();
 }

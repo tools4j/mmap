@@ -24,6 +24,9 @@
 package org.tools4j.mmap.queue.impl;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 import org.agrona.CloseHelper;
 
@@ -31,74 +34,92 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Enumerator;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.region.api.AccessibleRegion;
+import org.tools4j.mmap.region.api.AsyncMappingProcessor;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.MappedFile;
-import org.tools4j.mmap.region.impl.RegionRing;
 
 public class MappedQueue implements Queue {
 
     private final MappedFile appenderFile;
     private final MappedFile enumeratorFile;
-    private final AccessibleRegion appenderRegionRingAccessor;
-    private final AccessibleRegion enumeratorRegionRingAccessor;
+    private final Region appenderRegion;
+    private final Region enumeratorRegion;
+    private volatile boolean closed = false;
 
     public MappedQueue(final String fileName,
                        final int regionSize,
-                       final RegionRingFactory factory,
-                       final int ringSize,
-                       final int regionsToMapAhead,
+                       final RegionFactory<? extends Region> factory,
+                       final Consumer<? super AsyncMappingProcessor> asyncRunnerInitialiser,
                        final long maxFileSize) throws IOException {
         this.appenderFile = new MappedFile(fileName, MappedFile.Mode.READ_WRITE_CLEAR, regionSize,
                 FileInitialiser.forMode(MappedFile.Mode.READ_WRITE_CLEAR));
         this.enumeratorFile = new MappedFile(fileName, MappedFile.Mode.READ_ONLY, regionSize,
                 FileInitialiser.forMode(MappedFile.Mode.READ_ONLY));
-
-        appenderRegionRingAccessor = new RegionRing(
-                factory.create(
-                        ringSize,
-                        regionSize,
-                        appenderFile::getFileChannel,
+        this.appenderRegion = factory.create(regionSize, appenderFile::getFileChannel,
                         FileSizeEnsurer.bounded(appenderFile::getFileLength, appenderFile::setFileLength, maxFileSize),
-                        appenderFile.getMode().getMapMode()),
-                regionsToMapAhead);
+                        appenderFile.getMode().getMapMode());
+        this.enumeratorRegion = factory.create(regionSize, enumeratorFile::getFileChannel, FileSizeEnsurer.NO_OP,
+                        enumeratorFile.getMode().getMapMode());
+        if (appenderRegion instanceof AsyncMappingProcessor) {
+            asyncRunnerInitialiser.accept((AsyncMappingProcessor)appenderRegion);
+        }
+        if (enumeratorRegion instanceof AsyncMappingProcessor) {
+            asyncRunnerInitialiser.accept((AsyncMappingProcessor)enumeratorRegion);
+        }
+    }
 
-        enumeratorRegionRingAccessor = new RegionRing(
-                factory.create(
-                        ringSize,
-                        regionSize,
-                        enumeratorFile::getFileChannel,
-                        FileSizeEnsurer.NO_OP,
-                        enumeratorFile.getMode().getMapMode()),
-                regionsToMapAhead);
+    public static MappedQueue syncRingQueue(final String fileName,
+                                            final int regionSize,
+                                            final long maxFileSize) throws IOException {
+        return new MappedQueue(fileName, regionSize, RegionFactory.Sync.SYNC_RING, async -> {}, maxFileSize);
+    }
+
+    public static MappedQueue asyncRingQueue(final RegionFactory.AsyncRing regionFactory,
+                                             final String fileName,
+                                             final int regionSize,
+                                             final long maxFileSize) throws IOException {
+        final List<AsyncMappingProcessor> processors = new ArrayList<>(2);
+        final MappedQueue queue = new MappedQueue(fileName, regionSize, regionFactory, processors::add, maxFileSize);
+        final Thread thread = new Thread(
+                null, () -> {
+                    while (!queue.closed) {
+                        processors.forEach(AsyncMappingProcessor::processMappingRequests);
+                    }
+        }, "async-mapper"
+        );
+        thread.setDaemon(true);
+        thread.start();
+        return queue;
     }
 
     @Override
     public Appender appender() {
-        return new MappedAppender(appenderRegionRingAccessor, 64);
+        return new MappedAppender(appenderRegion, 64);
     }
 
     @Override
     public Poller poller() {
-        return new MappedPoller(enumeratorRegionRingAccessor);
+        return new MappedPoller(enumeratorRegion);
     }
 
     @Override
     public Enumerator enumerator() {
-        return new MappedEnumerator(enumeratorRegionRingAccessor);
+        return new MappedEnumerator(enumeratorRegion);
     }
 
     @Override
     public void close() {
-        if (appenderRegionRingAccessor instanceof AutoCloseable) {
-            CloseHelper.quietClose((AutoCloseable) appenderRegionRingAccessor);
+        if (appenderRegion instanceof AutoCloseable) {
+            CloseHelper.quietClose((AutoCloseable) appenderRegion);
         }
-        if (enumeratorRegionRingAccessor instanceof AutoCloseable) {
-            CloseHelper.quietClose((AutoCloseable) enumeratorRegionRingAccessor);
+        if (enumeratorRegion instanceof AutoCloseable) {
+            CloseHelper.quietClose((AutoCloseable) enumeratorRegion);
         }
         CloseHelper.quietClose(appenderFile);
         CloseHelper.quietClose(enumeratorFile);
+        closed = true;
     }
 }

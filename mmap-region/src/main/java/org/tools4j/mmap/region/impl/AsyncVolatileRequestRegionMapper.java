@@ -24,26 +24,24 @@
 package org.tools4j.mmap.region.impl;
 
 import java.nio.channels.FileChannel;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import org.agrona.IoUtil;
+
+import org.tools4j.mmap.region.api.AsyncRegionMapper;
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 
-public class AsyncVolatileRequestRegion extends AbstractAsyncRegion {
+public class AsyncVolatileRequestRegionMapper extends AbstractRegionMapper implements AsyncRegionMapper {
 
     private volatile long requestedPosition = -1;
     private volatile long mappedPosition = -1;
     private volatile long mappedAddress = NULL;
 
-    public AsyncVolatileRequestRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
-                                      final IoMapper ioMapper,
-                                      final IoUnmapper ioUnmapper,
-                                      final FileSizeEnsurer fileSizeEnsurer,
-                                      final FileChannel.MapMode mapMode,
-                                      final int regionSize,
-                                      final long timeout,
-                                      final TimeUnit unit) {
-        super(fileChannelSupplier, ioMapper, ioUnmapper, fileSizeEnsurer, mapMode, regionSize, timeout, unit);
+    public AsyncVolatileRequestRegionMapper(final int regionSize,
+                                            final Supplier<? extends FileChannel> fileChannelSupplier,
+                                            final FileSizeEnsurer fileSizeEnsurer,
+                                            final FileChannel.MapMode mapMode) {
+        super(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode);
     }
 
     @Override
@@ -84,24 +82,19 @@ public class AsyncVolatileRequestRegion extends AbstractAsyncRegion {
     }
 
     @Override
-    public void close() {
-        unmap();
-    }
-
-    @Override
-    public boolean processRequest() {
+    public boolean processMappingRequests() {
         final long reqPosition = requestedPosition;
         if (reqPosition != mappedPosition) {
             boolean workDone = false;
             if (mappedAddress != NULL) {
-                ioUnmapper.unmap(fileChannelSupplier.get(), mappedAddress, regionSize);
+                IoUtil.unmap(fileChannelSupplier.get(), mappedAddress, regionSize);
                 mappedAddress = NULL;
                 mappedPosition = -1;
                 workDone = true;
             }
             if (reqPosition >= 0) {
                 if (fileSizeEnsurer.ensureSize(reqPosition + regionSize)) {
-                    mappedAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, reqPosition, regionSize);
+                    mappedAddress = IoUtil.map(fileChannelSupplier.get(), mapMode, reqPosition, regionSize);
                     mappedPosition = reqPosition;
                     workDone = true;
                 }

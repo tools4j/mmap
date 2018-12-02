@@ -26,29 +26,44 @@ package org.tools4j.mmap.region.impl;
 import java.nio.channels.FileChannel;
 import java.util.function.Supplier;
 
+import org.agrona.IoUtil;
+
 import org.tools4j.mmap.region.api.FileSizeEnsurer;
 import org.tools4j.mmap.region.api.RegionMapper;
 
-public class SyncRegion extends AbstractRegion {
-
-    public SyncRegion(final int regionSize,
-                      final Supplier<? extends FileChannel> fileChannelSupplier,
-                      final FileSizeEnsurer fileSizeEnsurer,
-                      final FileChannel.MapMode mapMode) {
-        this(new SyncRegionMapper(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode));
-    }
-
-    public SyncRegion(final RegionMapper regionMapper) {
-        super(regionMapper);
+public class SyncRegionMapper extends AbstractRegionMapper {
+    public SyncRegionMapper(final int regionSize,
+                            final Supplier<? extends FileChannel> fileChannelSupplier,
+                            final FileSizeEnsurer fileSizeEnsurer,
+                            final FileChannel.MapMode mapMode) {
+        super(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode);
     }
 
     @Override
-    protected long tryMap(final long position) {
-        return regionMapper.map(position);
+    public long map(final long position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative: " + position);
+        }
+        if (currentPosition == position) {
+            return currentAddress;
+        }
+
+        unmap();
+        if (fileSizeEnsurer.ensureSize(position + regionSize)) {
+            currentAddress = IoUtil.map(fileChannelSupplier.get(), mapMode, position, regionSize);
+            currentPosition = position;
+            return currentAddress;
+        }
+        return RegionMapper.NULL;
     }
 
     @Override
-    protected boolean tryUnmap() {
-        return regionMapper.unmap();
+    public boolean unmap() {
+        if (currentAddress != RegionMapper.NULL) {
+            IoUtil.unmap(fileChannelSupplier.get(), currentAddress, regionSize);
+            currentAddress = RegionMapper.NULL;
+            currentPosition = -1;
+        }
+        return true;
     }
 }

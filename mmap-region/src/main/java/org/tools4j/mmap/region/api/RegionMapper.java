@@ -23,14 +23,10 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.nio.channels.FileChannel;
-
-import org.agrona.IoUtil;
-
 /**
  * Interface offering operations to map or unmap a region.
  */
-public interface MappableRegion extends AutoCloseable {
+public interface RegionMapper {
     long NULL = 0;
 
     /**
@@ -63,24 +59,4 @@ public interface MappableRegion extends AutoCloseable {
      * @return the region size
      */
     int size();
-
-    @Override
-    default void close() {
-        unmap();
-    }
-
-    @FunctionalInterface
-    interface IoMapper {
-        IoMapper DEFAULT = IoUtil::map;
-
-        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
-    }
-
-    @FunctionalInterface
-    interface IoUnmapper {
-        IoUnmapper DEFAULT = IoUtil::unmap;
-
-        void unmap(FileChannel fileChannel, long address, long length);
-    }
-
 }

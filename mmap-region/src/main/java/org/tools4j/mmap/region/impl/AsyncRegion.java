@@ -23,33 +23,35 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
-import org.tools4j.mmap.region.api.AsyncRegion;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.AsyncMappingProcessor;
+import org.tools4j.mmap.region.api.AsyncRegionMapper;
 
-abstract class AbstractAsyncRegion extends AbstractRegion implements AsyncRegion {
+public class AsyncRegion extends AbstractRegion implements AsyncMappingProcessor {
 
     private final long timeoutNanos;
 
-    public AbstractAsyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
-                               final IoMapper ioMapper,
-                               final IoUnmapper ioUnmapper,
-                               final FileSizeEnsurer fileSizeEnsurer,
-                               final FileChannel.MapMode mapMode,
-                               final int regionSize,
-                               final long timeout,
-                               final TimeUnit unit) {
-        super(fileChannelSupplier, ioMapper, ioUnmapper, fileSizeEnsurer, mapMode, regionSize);
+    public AsyncRegion(final AsyncRegionMapper regionMapper, final long timeout, final TimeUnit unit) {
+        super(regionMapper);
         if (timeout < 0) {
             throw new IllegalArgumentException("Timeout cannot be negative: " + timeout);
         }
         this.timeoutNanos = unit.toNanos(timeout);
     }
 
+    @Override
     protected long tryMap(final long position) {
-        return map(position, timeoutNanos, TimeUnit.NANOSECONDS);
+        return ((AsyncRegionMapper)regionMapper).map(position, timeoutNanos, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    protected boolean tryUnmap() {
+        return ((AsyncRegionMapper)regionMapper).unmap(timeoutNanos, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public boolean processMappingRequests() {
+        return ((AsyncRegionMapper)regionMapper).processMappingRequests();
     }
 }

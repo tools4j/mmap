@@ -23,39 +23,23 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import java.nio.channels.FileChannel;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 import org.agrona.DirectBuffer;
 
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
 import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 abstract class AbstractRegion implements Region {
-    protected final Supplier<? extends FileChannel> fileChannelSupplier;
-    protected final IoMapper ioMapper;
-    protected final IoUnmapper ioUnmapper;
-    protected final FileSizeEnsurer fileSizeEnsurer;
-    protected final FileChannel.MapMode mapMode;
-    protected final int regionSize;
+    protected final RegionMapper regionMapper;
 
+    protected DirectBuffer wrapped = null;
     protected long currentPosition = -1;
-    protected long currentAddress = NULL;
+    protected long currentAddress = RegionMapper.NULL;
 
-    public AbstractRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
-                          final IoMapper ioMapper,
-                          final IoUnmapper ioUnmapper,
-                          final FileSizeEnsurer fileSizeEnsurer,
-                          final FileChannel.MapMode mapMode,
-                          final int regionSize) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
-        this.regionSize = regionSize;
-        ensurePowerOfTwo("Region size", regionSize);
+    public AbstractRegion(final RegionMapper regionMapper) {
+        this.regionMapper = Objects.requireNonNull(regionMapper);
+        ensurePowerOfTwo("region size", regionMapper.size());
     }
 
     @Override
@@ -63,11 +47,17 @@ abstract class AbstractRegion implements Region {
         if (position < 0) {
             throw new IllegalArgumentException("Position cannot be negative: " + position);
         }
-        Objects.requireNonNull(buffer);
+        Objects.requireNonNull(buffer, "buffer cannot be null");
+        if (wrapped != null & wrapped != buffer) {
+            throw new IllegalArgumentException("Buffer " + buffer + " cannot be wrapped, this region is already" +
+                    " used in a wrapping association, unwrap buffer " + wrapped + " before wrapping another buffer");
+        }
+        wrapped = buffer;
+        final int regionSize = regionMapper.size();
         final int regionOffset = (int)(position & (regionSize - 1));
         final long regionStartPosition = position - regionOffset;
         final long address = tryMap(regionStartPosition);
-        if (address != NULL) {
+        if (address != RegionMapper.NULL) {
             final int length = regionSize - regionOffset;
             buffer.wrap(address + regionOffset, regionSize - regionOffset);
             return length;
@@ -75,16 +65,28 @@ abstract class AbstractRegion implements Region {
         return 0;
     }
 
+    @Override
+    public int unwrap(final DirectBuffer buffer) {
+        Objects.requireNonNull(buffer, "buffer cannot be null");
+        if (wrapped != buffer) {
+            return -1;
+        }
+        if (currentAddress == wrapped.addressOffset() & currentAddress != RegionMapper.NULL) {
+            if (tryUnmap()) {
+                wrapped = null;
+                return regionMapper.size();
+            }
+        }
+        return 0;
+    }
+
     abstract protected long tryMap(long position);
+
+    abstract protected boolean tryUnmap();
 
     @Override
     public int size() {
-        return regionSize;
-    }
-
-    @Override
-    public void close() {
-        unmap();
+        return regionMapper.size();
     }
 
     static void ensurePowerOfTwo(final String name, final int value) {
