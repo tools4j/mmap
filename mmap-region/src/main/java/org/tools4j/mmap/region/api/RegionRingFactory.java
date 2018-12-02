@@ -98,7 +98,7 @@ public interface RegionRingFactory {
     }
 
     static RegionRingFactory async() {
-        return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE);
+        return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_REQUEST);
     }
 
     static RegionRingFactory sync() {
