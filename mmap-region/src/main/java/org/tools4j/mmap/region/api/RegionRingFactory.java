@@ -24,8 +24,9 @@
 package org.tools4j.mmap.region.api;
 
 import java.nio.channels.FileChannel;
+import java.util.List;
 import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 /**
@@ -49,45 +50,37 @@ public interface RegionRingFactory {
                     FileSizeEnsurer fileSizeEnsurer,
                     FileChannel.MapMode mapMode);
 
-    /**
-     * Should be invoked once all regions are created.
-     * For async regions, it will register async processors to be polled
-     * in a separate thread.
-     */
-    default void onComplete() {}
-
-    static RegionRingFactory forAsync(final RegionFactory<? extends AsyncRegion> regionFactory,
-                                      final Consumer<Runnable> requestProcessor,
-                                      final Runnable onComplete) {
+    static RegionRingFactory forAsync(final RegionFactory<? extends AsyncRegion> regionFactory) {
         Objects.requireNonNull(regionFactory);
-        Objects.requireNonNull(requestProcessor);
-        Objects.requireNonNull(onComplete);
-
-        return new RegionRingFactory() {
-            @Override
-            public Region[] create(final int ringSize,
-                                   final int regionSize,
-                                   final Supplier<? extends FileChannel> fileChannelSupplier,
-                                   final FileSizeEnsurer fileSizeEnsurer,
-                                   final FileChannel.MapMode mapMode) {
-                final AsyncRegion[] regions = new AsyncRegion[ringSize];
-
-                for (int i = 0; i < ringSize; i++) {
-                    regions[i] = regionFactory.create(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode);
+        final List<Runnable> regionRingProcessors = new CopyOnWriteArrayList<>();
+        final Thread regionMapper = new Thread(() -> {
+            System.out.println("started: region-mapper");
+            while (true) {
+                for(int index = 0; index < regionRingProcessors.size(); index++) {
+                    final Runnable regionRingProcessor = regionRingProcessors.get(index);
+                    regionRingProcessor.run();
                 }
+            }
+        });
+        regionMapper.setName("region-mapper");
+        regionMapper.setDaemon(true);
+        regionMapper.setUncaughtExceptionHandler((t, e) -> System.err.println(e.getMessage()));
+        regionMapper.start();
 
-                requestProcessor.accept(() -> {
-                    for (final AsyncRegionMapper asyncRegionMapper : regions) {
-                        asyncRegionMapper.processRequest();
-                    }
-                });
-                return regions;
+
+        return (ringSize, regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode) -> {
+            final AsyncRegion[] regions = new AsyncRegion[ringSize];
+
+            for (int i = 0; i < ringSize; i++) {
+                regions[i] = regionFactory.create(regionSize, fileChannelSupplier, fileSizeEnsurer, mapMode);
             }
 
-            @Override
-            public void onComplete() {
-                onComplete.run();
-            }
+            regionRingProcessors.add(() -> {
+                for (final AsyncRegionMapper asyncRegionMapper : regions) {
+                    asyncRegionMapper.processRequest();
+                }
+            });
+            return regions;
         };
     }
 
@@ -102,6 +95,14 @@ public interface RegionRingFactory {
             }
             return regions;
         };
+    }
+
+    static RegionRingFactory async() {
+        return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE);
+    }
+
+    static RegionRingFactory sync() {
+        return RegionRingFactory.forSync(RegionFactory.SYNC);
     }
 
 }

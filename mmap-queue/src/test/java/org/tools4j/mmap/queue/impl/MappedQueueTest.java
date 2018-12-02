@@ -25,8 +25,6 @@ package org.tools4j.mmap.queue.impl;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 import org.HdrHistogram.Histogram;
 import org.agrona.DirectBuffer;
@@ -45,52 +43,18 @@ import org.tools4j.mmap.region.impl.MappedFile;
 public class MappedQueueTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueTest.class);
 
-    private static final Supplier<RegionRingFactory> ASYNC = () -> {
-        final AtomicReference<Runnable> requestPtr = new AtomicReference<>(() -> {});
-        return RegionRingFactory.forAsync(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE,
-                requestPtr::set, () -> {
-                    final Thread regionMapper = new Thread(() -> {
-                        LOGGER.info("started: {}", Thread.currentThread());
-                        while (true) {
-                            requestPtr.get().run();
-                        }
-                    });
-                    regionMapper.setName("region-mapper");
-                    regionMapper.setDaemon(true);
-                    regionMapper.setUncaughtExceptionHandler((t, e) -> LOGGER.error("{}", e));
-                    regionMapper.start();
-                }
-        );
-    };
-    private static final Supplier<RegionRingFactory> SYNC = () -> RegionRingFactory.forSync(RegionFactory.SYNC);
-
-    private enum RegionMappingConfig implements Supplier<RegionRingFactory> {
-        SYNC {
-            @Override
-            public RegionRingFactory get() {
-                return MappedQueueTest.SYNC.get();
-            }
-        },
-        ASYNC {
-            @Override
-            public RegionRingFactory get() {
-                return MappedQueueTest.ASYNC.get();
-            }
-        }
-    }
-
-
     public static void main(String... args) throws Exception {
         final String fileName = FileUtil.sharedMemDir("regiontest").getAbsolutePath();
         LOGGER.info("File: {}", fileName);
-        final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16);//64 KB
+        final int regionSize = (int) MappedFile.REGION_SIZE_GRANULARITY * 1024;
         LOGGER.info("regionSize: {}", regionSize);
 
-        final RegionMappingConfig regionMappingConfig = getRegionMappingConfig(args);
-        final RegionRingFactory regionRingFactory = regionMappingConfig.get();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.sync();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.async();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.forAsync(RegionFactory.ASYNC_ATOMIC_STATE_MACHINE);
+        final RegionRingFactory regionRingFactory = RegionRingFactory.forAsync(RegionFactory.ASYNC_ATOMIC_EXCHANGE);
 
         final MappedQueue mappedQueue = new MappedQueue(fileName, regionSize, regionRingFactory, 4, 1,64L * 16 * 1024 * 1024 * 4);
-        regionRingFactory.onComplete();
 
         final Appender appender = mappedQueue.appender();
         final Poller poller = mappedQueue.poller();
@@ -160,17 +124,5 @@ public class MappedQueueTest {
         final StringBuilder message = new StringBuilder(length);
         message.setLength(length);
         return message.toString();
-    }
-
-    private static RegionMappingConfig getRegionMappingConfig(final String[] args) {
-        final String errorMessage = "Please specify a type of mapping (ASYNC/SYNC) as first program argument";
-        if (args.length < 1) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-        try {
-            return RegionMappingConfig.valueOf(args[0]);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }
