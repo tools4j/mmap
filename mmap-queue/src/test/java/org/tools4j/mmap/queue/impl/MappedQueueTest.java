@@ -36,6 +36,7 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
+import org.tools4j.mmap.region.api.RegionFactory;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.MappedFile;
 
@@ -48,7 +49,10 @@ public class MappedQueueTest {
         final int regionSize = (int) MappedFile.REGION_SIZE_GRANULARITY * 1024;
         LOGGER.info("regionSize: {}", regionSize);
 
-        final RegionRingFactory regionRingFactory = RegionRingFactory.Provider.valueOf(args[0]).get();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.sync();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.async();
+        //final RegionRingFactory regionRingFactory = RegionRingFactory.forAsync(RegionFactory.ASYNC_ATOMIC_STATE_MACHINE);
+        final RegionRingFactory regionRingFactory = RegionRingFactory.forAsync(RegionFactory.ASYNC_ATOMIC_EXCHANGE);
 
         final MappedQueue mappedQueue = new MappedQueue(fileName, regionSize, regionRingFactory, 4, 1,64L * 16 * 1024 * 1024 * 4);
 

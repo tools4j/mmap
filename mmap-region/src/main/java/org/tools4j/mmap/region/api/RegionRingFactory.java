@@ -34,21 +34,6 @@ import java.util.function.Supplier;
  */
 @FunctionalInterface
 public interface RegionRingFactory {
-    enum Provider implements Supplier<RegionRingFactory>{
-        ASYNC() {
-            @Override
-            public RegionRingFactory get() {
-                return async();
-            }
-        },
-        SYNC() {
-            @Override
-            public RegionRingFactory get() {
-                return sync();
-            }
-        }
-    }
-
     /**
      * Creates array of regions based on the length of the array and size of a region.
      *
