@@ -26,9 +26,8 @@ package org.tools4j.mmap.region.impl;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
-public enum InitialBytes implements ReadableByteChannel {
-    ZERO(0L),
-    MINUS_ONE(-1L);
+enum InitialBytes implements ReadableByteChannel {
+    ZERO(0L);
 
     private final long initialValue;
 

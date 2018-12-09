@@ -21,11 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.impl;
 
-/**
- * A region that performs map and unmap operations asynchronously as
- * described in {@link AsyncRegionMapper}.
- */
-public interface AsyncRegion extends Region, AsyncRegionMapper {
+import java.util.concurrent.TimeUnit;
+
+import org.tools4j.mmap.region.api.AsyncMappingProcessor;
+import org.tools4j.mmap.region.api.AsyncRegionMapper;
+
+public class AsyncRegion extends AbstractRegion implements AsyncMappingProcessor {
+
+    private final long timeoutNanos;
+
+    public AsyncRegion(final AsyncRegionMapper regionMapper, final long timeout, final TimeUnit unit) {
+        super(regionMapper);
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Timeout cannot be negative: " + timeout);
+        }
+        this.timeoutNanos = unit.toNanos(timeout);
+    }
+
+    @Override
+    protected long tryMap(final long position) {
+        return ((AsyncRegionMapper)regionMapper).map(position, timeoutNanos, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    protected boolean tryUnmap() {
+        return ((AsyncRegionMapper)regionMapper).unmap(timeoutNanos, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public boolean processMappingRequests() {
+        return ((AsyncRegionMapper)regionMapper).processMappingRequests();
+    }
 }

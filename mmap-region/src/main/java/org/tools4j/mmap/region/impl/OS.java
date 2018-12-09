@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.region.impl;
 
-public class OS {
+class OS {
     public static final String NAME = java.lang.System.getProperty("os.name").toLowerCase();
     public static final boolean WINDOWS = NAME.startsWith("win");
 

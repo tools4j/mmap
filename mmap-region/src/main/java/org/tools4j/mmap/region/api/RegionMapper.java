@@ -23,14 +23,12 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.nio.channels.FileChannel;
-
-import org.agrona.IoUtil;
-
 /**
  * Interface offering operations to map or unmap a region.
  */
 public interface RegionMapper {
+    long NULL = 0;
+
     /**
      * Attempts to map a region.
      * In synchronous implementations, it is expected to be mapped immediately,
@@ -38,11 +36,12 @@ public interface RegionMapper {
      * In asynchronous implementations, if the region is not mapped yet, mapping
      *    will be performed asynchronously and false will be returned.
      *
-     * @param regionStartPosition - start position of a region, must be power of two and aligned with
+     * @param regionStartPosition - start currentPosition of a region, must be power of two and aligned with
      *                            the length of the region.
-     * @return true if the region is mapped after the call, otherwise - false.
+     * @return the start currentAddress of the mapped region, or NULL if not mapped (yet)
      */
-    boolean map(final long regionStartPosition);
+    long map(final long regionStartPosition);
+
     /**
      * Attempts to unmap a region.
      * In synchronous implementations, it is expected to be unmapped immediately,
@@ -54,18 +53,10 @@ public interface RegionMapper {
      */
     boolean unmap();
 
-    @FunctionalInterface
-    interface IoMapper {
-        IoMapper DEFAULT = IoUtil::map;
-
-        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
-    }
-
-    @FunctionalInterface
-    interface IoUnmapper {
-        IoUnmapper DEFAULT = IoUtil::unmap;
-
-        void unmap(FileChannel fileChannel, long address, long length);
-    }
-
+    /**
+     * Returns the total size of the region.
+     *
+     * @return the region size
+     */
+    int size();
 }

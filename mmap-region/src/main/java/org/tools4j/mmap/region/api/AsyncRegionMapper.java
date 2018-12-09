@@ -23,15 +23,48 @@
  */
 package org.tools4j.mmap.region.api;
 
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
 /**
  * AsyncRegion version of region mapper delaying map and unmap requests until
  * later.  An Outstanding request is processed (usually in a different thread) via
- * {@link #processRequest()}.
+ * {@link #processMappingRequests()}.
  */
-public interface AsyncRegionMapper extends RegionMapper {
-    /**
-     * Process outstanding {@link #map(long)} or {@link #unmap()} operations if any have been requested.
-     * @return true if an operation has been processed, and false if no request was outstanding
-     */
-    boolean processRequest();
+public interface AsyncRegionMapper extends RegionMapper, AsyncMappingProcessor {
+
+    default long map(final long position, final long timeout, final TimeUnit unit) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative" + position);
+        }
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Timeout cannot be negative" + timeout);
+        }
+        Objects.requireNonNull(unit);
+        long address = map(position);
+        if (address == NULL & timeout > 0) {
+            final long nanos = unit.toNanos(timeout);
+            final long start = System.nanoTime();
+            do {
+                address = map(position);
+            } while (address == NULL && System.nanoTime() - start < nanos);
+        }
+        return address;
+    }
+
+    default boolean unmap(final long timeout, final TimeUnit unit) {
+        if (timeout < 0) {
+            throw new IllegalArgumentException("Timeout cannot be negative" + timeout);
+        }
+        Objects.requireNonNull(unit);
+        boolean unmapped = unmap();
+        if (!unmapped & timeout > 0) {
+            final long nanos = unit.toNanos(timeout);
+            final long start = System.nanoTime();
+            do {
+                unmapped = unmap();
+            } while (!unmapped && System.nanoTime() - start < nanos);
+        }
+        return unmapped;
+    }
 }

@@ -25,28 +25,29 @@ package org.tools4j.mmap.queue.impl;
 
 import java.util.Objects;
 
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
 import org.tools4j.mmap.queue.api.Enumerator;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.Region;
 
 public class MappedEnumerator implements Enumerator {
     private final static int LENGTH_SIZE = 4;
-    private final RegionAccessor regionAccessor;
+    private final Region region;
     private final UnsafeBuffer unsafeBuffer = new UnsafeBuffer();
     private final UnsafeBuffer messageBuffer = new UnsafeBuffer();
 
     private long position = 0;
     private int nextLength = 0;
 
-    public MappedEnumerator(final RegionAccessor regionAccessor) {
-        this.regionAccessor = Objects.requireNonNull(regionAccessor);
+    public MappedEnumerator(final Region region) {
+        this.region = Objects.requireNonNull(region);
     }
 
     @Override
     public boolean hasNextMessage() {
-        if (regionAccessor.wrap(position, unsafeBuffer)) {
+        if (region.wrap(position, unsafeBuffer) >= 4) {
             final int length = unsafeBuffer.getIntVolatile(0);
             if (length > 0) {
                 nextLength = length;
@@ -84,6 +85,8 @@ public class MappedEnumerator implements Enumerator {
 
     @Override
     public void close() {
-        regionAccessor.close();
+        if (region instanceof AutoCloseable) {
+            CloseHelper.quietClose((AutoCloseable) region);
+        }
     }
 }

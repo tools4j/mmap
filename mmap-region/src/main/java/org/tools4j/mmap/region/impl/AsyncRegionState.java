@@ -21,26 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.impl;
 
-import java.io.Closeable;
-
-import org.agrona.DirectBuffer;
-
-/**
- * Accessor to a file region.
- */
-public interface RegionAccessor extends Closeable {
-    /**
-     * Wraps the buffer starting from given position to the end of the mapped region.
-     * Once mapped, buffer.capacity will indicate the length of the mapped memory.
-     * @param position  position in the file.
-     * @param buffer    the direct buffer
-     * @return true if mapped successfully, otherwise false.
-     */
-    boolean wrap(long position, DirectBuffer buffer);
-    int size();
-
-    @Override
-    void close();
+interface AsyncRegionState {
+    AsyncRegionState requestMap(long regionStartPosition);
+    AsyncRegionState requestUnmap();
+    AsyncRegionState processRequest();
 }

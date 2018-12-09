@@ -35,7 +35,14 @@ public interface FileSizeEnsurer {
     boolean ensureSize(long minSize);
 
 
-    static FileSizeEnsurer forWritableFile(final LongSupplier fileSizeGetter, final LongConsumer fileSizeSetter, final long maxSize) {
+    static FileSizeEnsurer unbounded(final LongSupplier fileSizeGetter,
+                                     final LongConsumer fileSizeSetter) {
+        return bounded(fileSizeGetter, fileSizeSetter, Long.MAX_VALUE);
+    }
+
+    static FileSizeEnsurer bounded(final LongSupplier fileSizeGetter,
+                                   final LongConsumer fileSizeSetter,
+                                   final long maxSize) {
         Objects.requireNonNull(fileSizeGetter);
         Objects.requireNonNull(fileSizeSetter);
         final MutableLong fileSize = new MutableLong(0);
@@ -45,7 +52,7 @@ public interface FileSizeEnsurer {
                 final long len = fileSizeGetter.getAsLong();
                 if (len < minSize) {
                     if (minSize > maxSize) {
-                        throw new IllegalStateException("Exceeded max file size " + maxSize + ", requested size " + minSize);
+                        return false;
                     }
                     fileSizeSetter.accept(minSize);
                     fileSize.set(minSize);

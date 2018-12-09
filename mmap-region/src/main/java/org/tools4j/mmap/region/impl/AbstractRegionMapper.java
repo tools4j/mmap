@@ -21,49 +21,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.impl;
 
+import java.nio.channels.FileChannel;
 import java.util.Objects;
+import java.util.function.Supplier;
 
-import org.agrona.CloseHelper;
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.RegionMapper;
 
-import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.Region;
+abstract class AbstractRegionMapper implements RegionMapper {
+    protected final Supplier<? extends FileChannel> fileChannelSupplier;
+    protected final FileSizeEnsurer fileSizeEnsurer;
+    protected final FileChannel.MapMode mapMode;
+    protected final int regionSize;
 
-public class MappedPoller implements Poller {
-    private final static int LENGTH_SIZE = 4;
-    private final Region region;
-    private final UnsafeBuffer unsafeBuffer = new UnsafeBuffer();
+    protected long currentPosition = -1;
+    protected long currentAddress = RegionMapper.NULL;
 
-    private long position = 0;
-
-    public MappedPoller(final Region region) {
-        this.region = Objects.requireNonNull(region);
+    public AbstractRegionMapper(final int regionSize,
+                                final Supplier<? extends FileChannel> fileChannelSupplier,
+                                final FileSizeEnsurer fileSizeEnsurer,
+                                final FileChannel.MapMode mapMode) {
+        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
+        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
+        this.mapMode = Objects.requireNonNull(mapMode);
+        this.regionSize = regionSize;
     }
 
     @Override
-    public boolean poll(final DirectBuffer buffer) {
-        if (region.wrap(position, unsafeBuffer) >= 4) {
-            final int length = unsafeBuffer.getIntVolatile(0);
-            if (length > 0) {
-                buffer.wrap(unsafeBuffer, LENGTH_SIZE, length);
-                position += LENGTH_SIZE + length;
-                return true;
-            } else if (length < 0) {
-                position += LENGTH_SIZE + -length;
-                return poll(buffer);
-            }
-        }
-        return false;
-    }
-
-
-    @Override
-    public void close() {
-        if (region instanceof AutoCloseable) {
-            CloseHelper.quietClose((AutoCloseable) region);
-        }
+    public int size() {
+        return regionSize;
     }
 }
