@@ -49,11 +49,11 @@ public class MappedQueue implements Queue {
     private final Region enumeratorRegion;
     private volatile boolean closed = false;
 
-    public MappedQueue(final String fileName,
-                       final int regionSize,
-                       final RegionFactory<? extends Region> factory,
-                       final Consumer<? super AsyncMappingProcessor> asyncRunnerInitialiser,
-                       final long maxFileSize) throws IOException {
+    private MappedQueue(final String fileName,
+                        final int regionSize,
+                        final RegionFactory<? extends Region> factory,
+                        final Consumer<? super AsyncMappingProcessor> asyncRunnerInitialiser,
+                        final long maxFileSize) throws IOException {
         this.appenderFile = new MappedFile(fileName, MappedFile.Mode.READ_WRITE_CLEAR, regionSize,
                 FileInitialiser.forMode(MappedFile.Mode.READ_WRITE_CLEAR));
         this.enumeratorFile = new MappedFile(fileName, MappedFile.Mode.READ_ONLY, regionSize,
@@ -71,23 +71,36 @@ public class MappedQueue implements Queue {
         }
     }
 
+    public static MappedQueue syncQueue(final String fileName,
+                                        final int regionSize,
+                                        final long maxFileSize) throws IOException {
+        return syncQueue(RegionFactory.Sync.SYNC, fileName, regionSize, maxFileSize);
+    }
+
     public static MappedQueue syncRingQueue(final String fileName,
                                             final int regionSize,
                                             final long maxFileSize) throws IOException {
-        return new MappedQueue(fileName, regionSize, RegionFactory.Sync.SYNC_RING, async -> {}, maxFileSize);
+        return syncQueue(RegionFactory.Sync.SYNC_RING, fileName, regionSize, maxFileSize);
     }
 
-    public static MappedQueue asyncRingQueue(final RegionFactory.AsyncRing regionFactory,
-                                             final String fileName,
-                                             final int regionSize,
-                                             final long maxFileSize) throws IOException {
+    public static MappedQueue syncQueue(final RegionFactory.Sync regionFactory,
+                                        final String fileName,
+                                        final int regionSize,
+                                        final long maxFileSize) throws IOException {
+        return new MappedQueue(fileName, regionSize, regionFactory, async -> {}, maxFileSize);
+    }
+
+    public static MappedQueue asyncQueue(final RegionFactory regionFactory,
+                                         final String fileName,
+                                         final int regionSize,
+                                         final long maxFileSize) throws IOException {
         final List<AsyncMappingProcessor> processors = new ArrayList<>(2);
         final MappedQueue queue = new MappedQueue(fileName, regionSize, regionFactory, processors::add, maxFileSize);
         final Thread thread = new Thread(
                 null, () -> {
-                    while (!queue.closed) {
-                        processors.forEach(AsyncMappingProcessor::processMappingRequests);
-                    }
+            while (!queue.closed) {
+                processors.forEach(AsyncMappingProcessor::processMappingRequests);
+            }
         }, "async-mapper"
         );
         thread.setDaemon(true);

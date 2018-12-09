@@ -37,7 +37,7 @@ import org.tools4j.mmap.region.impl.SyncRegion;
 
 @FunctionalInterface
 public interface RegionFactory<T> {
-    long ASYNC_MAPPING_TIMEOUT_MILLIS = 2000;
+    long ASYNC_MAPPING_TIMEOUT_MILLIS = 10000;
     int RING_SIZE = 2;
 
     T create(int size,
@@ -95,9 +95,9 @@ public interface RegionFactory<T> {
     }
 
     enum AsyncRing implements RegionFactory<RegionRing.AsyncRegionRing> {
-        ASYNC_VOLATILE_REQUEST(AsyncVolatileRequestRegionMapper::new),
-        ASYNC_ATOMIC_STATE_MACHINE(AsyncAtomicStateMachineRegionMapper::new),
-        ASYNC_VOLATILE_STATE_MACHINE(AsyncVolatileStateMachineRegionMapper::new);
+        ASYNC_RING_VOLATILE_REQUEST(AsyncVolatileRequestRegionMapper::new),
+        ASYNC_RING_ATOMIC_STATE_MACHINE(AsyncAtomicStateMachineRegionMapper::new),
+        ASYNC_RING_VOLATILE_STATE_MACHINE(AsyncVolatileStateMachineRegionMapper::new);
 
         private interface AsyncRegionMapperFactory {
             AsyncRegionMapper create(int size,

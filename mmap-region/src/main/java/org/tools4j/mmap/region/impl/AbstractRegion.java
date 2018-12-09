@@ -34,7 +34,6 @@ abstract class AbstractRegion implements Region {
     protected final RegionMapper regionMapper;
 
     protected DirectBuffer wrapped = null;
-    protected long currentPosition = -1;
     protected long currentAddress = RegionMapper.NULL;
 
     public AbstractRegion(final RegionMapper regionMapper) {

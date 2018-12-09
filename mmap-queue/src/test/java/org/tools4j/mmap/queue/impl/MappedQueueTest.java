@@ -48,7 +48,7 @@ public class MappedQueueTest {
         LOGGER.info("regionSize: {}", regionSize);
 
         final MappedQueue mappedQueue = MappedQueue.syncRingQueue(fileName, regionSize, 64L * 16 * 1024 * 1024 * 4);
-//        final MappedQueue mappedQueue = MappedQueue.asyncRingQueue(RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, fileName, regionSize, 64L * 16 * 1024 * 1024 * 4);
+//        final MappedQueue mappedQueue = MappedQueue.asyncRingQueue(RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, fileName, regionSize, 64L * 16 * 1024 * 1024 * 4);
 
         final Appender appender = mappedQueue.appender();
         final Poller poller = mappedQueue.poller();

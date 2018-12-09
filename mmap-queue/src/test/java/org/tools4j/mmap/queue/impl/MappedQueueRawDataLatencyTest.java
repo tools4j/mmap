@@ -60,6 +60,8 @@ public class MappedQueueRawDataLatencyTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MappedQueueRawDataLatencyTest.class);
 
+    private static final long MAX_FILE_SIZE = 64L * 16 * 1024 * 1024 * 4;
+
     private enum PollerFactory implements Function<MappedQueue, Poller> {
         ORIGINAL() {
             @Override
@@ -104,14 +106,14 @@ public class MappedQueueRawDataLatencyTest {
     @Parameterized.Parameters(name = "{index}: MPS={0}, NBYTES={1}, QUEUE={2}, POLLER={3}")
     public static Collection<?> testRunParameters() {
         return Arrays.asList(new Object[][] {
-//                { 160000, 100, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
-//                { 500000, 100, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
-//                { 160000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
-//                { 500000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
-//                { 160000, 100, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 100, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 160000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 160000, 100, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
+                { 500000, 100, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
+                { 160000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
+                { 500000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ORIGINAL},
+                { 160000, 100, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 100, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 160000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+                { 500000, 1000, RegionFactory.Sync.SYNC, PollerFactory.ADAPTED_FROM_ENUMERATOR},
 
                 { 160000, 100, RegionFactory.Sync.SYNC_RING, PollerFactory.ORIGINAL},
                 { 500000, 100, RegionFactory.Sync.SYNC_RING, PollerFactory.ORIGINAL},
@@ -122,23 +124,59 @@ public class MappedQueueRawDataLatencyTest {
                 { 160000, 1000, RegionFactory.Sync.SYNC_RING, PollerFactory.ADAPTED_FROM_ENUMERATOR},
                 { 500000, 1000, RegionFactory.Sync.SYNC_RING, PollerFactory.ADAPTED_FROM_ENUMERATOR},
 
-//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
-//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
-//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
-//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
-//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 100, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
 
-//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
-//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
-//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
-//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
-//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
-//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 100, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+
+//                { 160000, 100, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.Async.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_REQUEST, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_VOLATILE_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ORIGINAL},
+//                { 160000, 100, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 100, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 160000, 1000, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
+//                { 500000, 1000, RegionFactory.AsyncRing.ASYNC_RING_ATOMIC_STATE_MACHINE, PollerFactory.ADAPTED_FROM_ENUMERATOR},
         });
     }
 
@@ -156,15 +194,14 @@ public class MappedQueueRawDataLatencyTest {
     public void setup() throws Exception {
         final String fileName = FileUtil.sharedMemDir("regiontest").getAbsolutePath();
         LOGGER.info("File: {}", fileName);
-        final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16);
+        //final int regionSize = (int) Math.max(MappedFile.REGION_SIZE_GRANULARITY, 1L << 16);
+        final int regionSize = (int)MappedFile.REGION_SIZE_GRANULARITY;
         LOGGER.info("size: {}", regionSize);
 
-        if (regionFactory == RegionFactory.Sync.SYNC_RING) {
-            queue = MappedQueue.syncRingQueue(fileName, regionSize, 64L * 16 * 1024 * 1024 * 4);
-        } else if (regionFactory instanceof RegionFactory.AsyncRing) {
-            queue = MappedQueue.asyncRingQueue((RegionFactory.AsyncRing)regionFactory, fileName, regionSize, 64L * 16 * 1024 * 1024 * 4);
+        if (regionFactory instanceof RegionFactory.Async || regionFactory instanceof RegionFactory.AsyncRing) {
+            queue = MappedQueue.asyncQueue(regionFactory, fileName, regionSize, MAX_FILE_SIZE);
         } else {
-            throw new IllegalStateException("Unsupported region factory: " + regionFactory);
+            queue = MappedQueue.syncRingQueue(fileName, regionSize, MAX_FILE_SIZE);
         }
 
         appender = queue.appender();
