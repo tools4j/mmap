@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,13 +34,21 @@ public interface RegionAccessor extends Closeable {
     /**
      * Wraps the buffer starting from given position to the end of the mapped region.
      * Once mapped, buffer.capacity will indicate the length of the mapped memory.
-     * @param position  position in the file.
-     * @param buffer    the direct buffer
+     *
+     * @param position position in the file.
+     * @param buffer the direct buffer
      * @return true if mapped successfully, otherwise false.
      */
     boolean wrap(long position, DirectBuffer buffer);
+
+    /**
+     * @return size of mappable memory region
+     */
     int size();
 
+    /**
+     * Override close to suppress checked exceptions.
+     */
     @Override
     void close();
 }

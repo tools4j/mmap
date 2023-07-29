@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,15 +23,39 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import java.io.Closeable;
+import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.queue.impl.QueueBuilder;
 
 /**
- * A pile of messages of varying byte length. Messages can only be appended or
- * sequentially read.
+ * A queue of messages with index details.
  */
-public interface Queue extends Closeable {
-    Appender appender();
-    Poller poller();
-    Enumerator enumerator();
+public interface Queue extends AutoCloseable {
+    /**
+     * @return new appender
+     */
+    Appender createAppender();
+
+    /**
+     * Creates a poller.
+     *
+     * @return new instance of a poller.
+     */
+    Poller createPoller();
+
+    /**
+     * Creates a reader.
+     *
+     * @return new instance of a reader.
+     */
+    Reader createReader();
+
+    static QueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
+        return new QueueBuilder(name, directory, regionRingFactory);
+    }
+
+    /**
+     * Overridden to suppress throwing checked exceptions
+     */
+    @Override
     void close();
 }

@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,45 +23,29 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-import java.util.function.Supplier;
-
 import org.agrona.DirectBuffer;
-
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.Region;
+
+import java.util.Objects;
 
 public class SyncRegion implements Region {
     private static final long NULL = -1;
 
-    private final Supplier<? extends FileChannel> fileChannelSupplier;
-    private final IoMapper ioMapper;
-    private final IoUnmapper ioUnmapper;
-    private final FileSizeEnsurer fileSizeEnsurer;
-    private final FileChannel.MapMode mapMode;
+    private final FileMapper fileMapper;
     private final int length;
 
     private long currentPosition = NULL;
     private long currentAddress = NULL;
 
-    public SyncRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
-                      final IoMapper ioMapper,
-                      final IoUnmapper ioUnmapper,
-                      final FileSizeEnsurer fileSizeEnsurer,
-                      final FileChannel.MapMode mapMode,
-                      final int length) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
+    public SyncRegion(final FileMapper fileMapper, final int length) {
+        this.fileMapper = Objects.requireNonNull(fileMapper);
         this.length = length;
     }
 
     @Override
     public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int) (position & (this.length - 1));
+        final int regionOffset = (int)(position & (this.length - 1));
         final long regionStartPosition = position - regionOffset;
         if (map(regionStartPosition)) {
             source.wrap(currentAddress + regionOffset, this.length - regionOffset);
@@ -71,19 +55,25 @@ public class SyncRegion implements Region {
     }
 
     @Override
-    public boolean map(final long regionStartPosition) {
-        if (regionStartPosition < 0) throw new IllegalArgumentException("Invalid regionStartPosition " + regionStartPosition);
+    public boolean map(final long position) {
+        if (position < 0)
+            throw new IllegalArgumentException("Invalid regionStartPosition " + position);
 
-        if (currentPosition == regionStartPosition) return true;
+        if (currentPosition == position)
+            return true;
 
         if (currentAddress != NULL) {
-            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+            fileMapper.unmap(currentAddress, currentPosition, length);
             currentAddress = NULL;
+            currentPosition = NULL;
         }
-        if (fileSizeEnsurer.ensureSize(regionStartPosition + length)) {
-            currentAddress = ioMapper.map(fileChannelSupplier.get(), mapMode, regionStartPosition, length);
-            currentPosition = regionStartPosition;
+
+        final long mappedAddress = fileMapper.map(position, length);
+        if (mappedAddress > 0) {
+            currentAddress = mappedAddress;
+            currentPosition = position;
             return true;
+
         } else {
             return false;
         }
@@ -91,8 +81,8 @@ public class SyncRegion implements Region {
 
     @Override
     public boolean unmap() {
-        if (currentAddress != NULL) {
-            ioUnmapper.unmap(fileChannelSupplier.get(), currentAddress, length);
+        if (currentAddress != NULL && currentPosition != NULL) {
+            fileMapper.unmap(currentAddress, currentPosition, length);
             currentAddress = NULL;
             currentPosition = NULL;
         }

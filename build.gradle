@@ -1,134 +1,356 @@
-apply plugin: 'jacoco'
-apply plugin: 'com.github.kt3k.coveralls'
-
-group = "org.tools4j"
-version = '1.0-SNAPSHOT'
-
-repositories {
-    mavenCentral()
-    flatDir {
-        dirs 'lib'
-    }
-}
+import java.time.Year
 
 buildscript {
-	repositories {
-		mavenCentral()
-		jcenter()
-	}
-	
-	dependencies {
-		classpath 'nl.javadude.gradle.plugins:license-gradle-plugin:0.11.0'
-		classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.5.3"
-        classpath "org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.8.2"
-	}
-}
-
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'jacoco'
-    apply plugin: 'com.github.hierynomus.license'
-
-    group 'org.tools4j'
-    version '1.0-SNAPSHOT'
-
-    sourceCompatibility = 1.8
-
-    def generatedSrcName = "generated-src"
-    def generatedSrc = "$buildDir/$generatedSrcName"
-
     repositories {
         mavenCentral()
     }
+}
 
-    uploadArchives {
+plugins {
+    id 'idea'
+    id 'java-library'
+    id 'io.freefair.javadoc-links' version '6.5.1' apply false
+    id 'biz.aQute.bnd.builder' version '6.3.1' apply false
+    id 'com.github.hierynomus.license' version "0.16.1" apply false
+}
+
+defaultTasks 'clean', 'build'
+
+def projGroup = 'org.tools4j'
+def projVersion = file('version.txt').text.trim()
+
+def agronaVersion = '1.18.0'
+def slf4jVersion = '2.0.7'
+def junitVersion = '5.9.2'
+def mockitoVersion = '4.11.0'   //5.x requires Java 11
+def hdrHistogramVersion = '2.1.12'
+def spockitoVersion = '1.6'
+def assertjVersion = '3.24.2'
+
+ext {
+    //gradle clean build publish -PossrhUsername=mterzer -PossrhPassword=xxx
+
+    isReleaseVersion = !projVersion.endsWith('-SNAPSHOT')
+    releasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+    snapshotsRepoUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
+
+    println name + " version=" + projVersion + " release=" + isReleaseVersion
+
+    if (!project.hasProperty('ossrhUsername')) {
+        ossrhUsername = ''
+    }
+
+    if (!project.hasProperty('ossrhPassword')) {
+        ossrhPassword = ''
+    }
+}
+
+def projectPom = {
+    name = 'mmap'
+    packaging = 'pom'
+    // optionally artifactId can be defined here
+    description = 'Memory mapped files used to implement off-heap low latency utilities such as queues'
+    url = 'https://github.com/tools4j/mmap'
+
+    scm {
+        connection = 'scm:git:https://github.com/tools4j/mmap.git'
+        developerConnection = 'scm:git:https://github.com/tools4j/mmap.git'
+        url = 'https://github.com/tools4j/mmap.git'
+    }
+
+    licenses {
+        license {
+            name = 'The MIT License (MIT)'
+            url = 'https://opensource.org/licenses/MIT'
+        }
+    }
+
+    developers {
+        developer {
+            id = 'anton-anufriev'
+            name = 'Antun Anufriev'
+            email = 'anufriev@gmail.com'
+            url = 'https://github.com/anton-anufriev'
+        }
+        developer {
+            id = 'terzerm'
+            name = 'Marco Terzer'
+            email = 'terzerm@gmail.com'
+            url = 'https://github.com/terzerm'
+        }
+    }
+}
+
+jar.enabled = false
+
+allprojects {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'com.github.hierynomus.license'
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
+    apply plugin: 'biz.aQute.bnd.builder'
+    apply plugin: 'io.freefair.javadoc-links'
+
+    dependencies {
+        testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
+        testImplementation "org.mockito:mockito-inline:${mockitoVersion}"
+        testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+        testImplementation "org.tools4j:tools4j-spockito:${spockitoVersion}"
+        testImplementation "org.assertj:assertj-core:${assertjVersion}"
+        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    }
+
+    group = projGroup
+    version = projVersion
+
+    tasks.withType(Sign) {
+        onlyIf {
+            isReleaseVersion && gradle.taskGraph.hasTask(tasks.publish)
+        }
+    }
+
+    tasks.withType(Jar) {
+        enabled = true
+        includeEmptyDirs = false
+    }
+
+    tasks.withType(JavaCompile) {
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.compilerArgs.addAll(['--add-exports', 'java.base/java.lang.reflect=ALL-UNNAMED'])
+            options.compilerArgs.addAll(['--add-exports', 'java.base/java.net=ALL-UNNAMED'])
+            options.compilerArgs.addAll(['--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED'])
+            options.compilerArgs.addAll(['--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED'])
+            options.compilerArgs.addAll(['--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED'])
+        }
+        options.encoding = 'UTF-8'
+        options.deprecation = true
+    }
+
+    tasks.withType(Test) {
+
+        enableAssertions = true
+        jvmArgs('-Ddisable.thread.safety=true')
+
+        if (JavaVersion.current().isJava9Compatible()) {
+            jvmArgs('--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/java.net=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/java.util.zip=ALL-UNNAMED')
+            jvmArgs('--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED')
+        }
+
+        useJUnitPlatform {
+            excludeTags 'perf'
+        }
+
+        testLogging {
+            showStandardStreams = true
+            exceptionFormat = 'full'
+        }
+
+        reports.html.required = false // Disable individual test reports
+    }
+
+    task perfTest(type: Test) {
+        maxParallelForks = 1
+
+        enableAssertions = false
+        jvmArgs('-Djvm.resource.tracing=false')
+        jvmArgs('-Ddisable.thread.safety=true')
+
+        if (JavaVersion.current().isJava9Compatible()) {
+            jvmArgs('--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/java.net=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED')
+            jvmArgs('--add-opens', 'java.base/java.util.zip=ALL-UNNAMED')
+            jvmArgs('--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED')
+        }
+
+        useJUnitPlatform {
+            includeTags 'perf'
+        }
+    }
+
+    task profilerTest(type: Test) {
+        maxParallelForks = 1
+
+        enableAssertions = false
+        jvmArgs('-Djvm.resource.tracing=false')
+        jvmArgs('-agentpath:/Applications/JProfiler.app/Contents/Resources/app/bin/macos/libjprofilerti.jnilib=port=8849')
+
+        useJUnitPlatform {
+            includeTags 'perf'
+        }
+    }
+
+    license {
+        header rootProject.file('etc/LICENSE.template')
+        strictCheck true
+        include "**/*.java"
+        ext.year = Year.now().value
+        mapping {
+            java='SLASHSTAR_STYLE'
+        }
+    }
+
+    compileJava.dependsOn licenseFormat
+
+    javadoc {
+        title = '<h1>mmap</h1>'
+        options.bottom = "<i>Copyright &#169; 2020-" + Year.now().getValue() + " tools4j.org (Marco Terzer, Anton Anufriev). All Rights Reserved.</i>"
+        options.encoding = 'UTF-8'
+        options.docEncoding = 'UTF-8'
+        options.charSet = 'UTF-8'
+        if (JavaVersion.current().isJava10Compatible()) {
+            options.addBooleanOption 'html5', true
+        }
+    }
+
+    task testJar(type: Jar, dependsOn: testClasses) {
+        archiveClassifier.set "test-${project.archivesBaseName}"
+        from sourceSets.test.output
+    }
+
+    configurations {
+        tests
+    }
+
+    artifacts {
+        tests testJar
+    }
+}
+
+project(':mmap-region') {
+    dependencies {
+        api "org.agrona:agrona:${agronaVersion}"
+        api "org.slf4j:slf4j-api:${slf4jVersion}"
+        testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    }
+
+    jar {
+        bnd """
+            Automatic-Module-Name:  org.tools4j.mmap-region
+            Bundle-Name:            org.tools4j.mmap-region
+            Bundle-SymbolicName:    org.tools4j.mmap-region
+            Implementation-Title:   mmap
+            Implementation-Vendor:  tools4j.org
+            Implementation-Version: ${projVersion}
+            -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
+            # Suppress headers that reduce reproducibility.
+            -reproducible: true
+            -noextraheaders: true
+        """
+    }
+
+    java {
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    publishing {
+        publications {
+            mmapRegion(MavenPublication) {
+                from components.java
+                pom(projectPom)
+            }
+        }
+
         repositories {
-            flatDir {
-                dirs 'build/repositories'
+            maven {
+                url = !isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
             }
         }
     }
 
-    task copyLicense(type: Copy) {
-        from('.')
-        into('build/resources/main/')
-        include('LICENSE.md')
-        rename('LICENSE.md', 'LICENSE.txt')
+    signing {
+        sign publishing.publications.mmapRegion
+    }
+}
+
+project(':mmap-queue') {
+    dependencies {
+        api "org.agrona:agrona:${agronaVersion}"
+        api "org.slf4j:slf4j-api:${slf4jVersion}"
+        api project(':mmap-region')
+
+        testImplementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
+        testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
     }
 
-    task copyLicenseToSrc(type: Copy) {
-        from('build/resources/main/')
-        into(generatedSrc)
-        include('LICENSE.txt')
+    jar {
+        bnd """
+            Automatic-Module-Name:  org.tools4j.mmap-queue
+            Bundle-Name:            org.tools4j.mmap-queue
+            Bundle-SymbolicName:    org.tools4j.mmap-queue
+            Implementation-Title:   mmap
+            Implementation-Vendor:  tools4j.org
+            Implementation-Version: ${projVersion}
+            -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
+            # Suppress headers that reduce reproducibility.
+            -reproducible: true
+            -noextraheaders: true
+        """
     }
 
-    task javadocJar(type: Jar) {
-        classifier = 'javadoc'
-        from javadoc
+    java {
+        withSourcesJar()
+        withJavadocJar()
     }
 
-    task sourcesJar(type: Jar) {
-        classifier = 'sources'
-        from sourceSets.main.allSource
-    }
+    publishing {
+        publications {
+            mmapQueue(MavenPublication) {
+                from components.java
+                pom(projectPom)
+            }
+        }
 
-    artifacts {
-        archives jar
-        archives javadocJar
-        archives sourcesJar
-    }
-
-    copyLicense.dependsOn processResources
-    copyLicenseToSrc.dependsOn copyLicense
-    compileJava.dependsOn licenseFormat,copyLicense,copyLicenseToSrc
-
-    javadoc {
-        options.showFromPackage()
-        options.linkSource()
-        options.links("http://docs.oracle.com/javase/8/docs/api/");
-        options.windowTitle = "mmap API ${version}"
-        options.overview = "../src/main/java/overview.html";
-    }
-
-    license {
-        header rootProject.file('src/main/resources/LICENSE.template')
-        strictCheck true
-        include "**/*.java"
-        ignoreFailures true
-        ext.year = Calendar.getInstance().get(Calendar.YEAR)
-    }
-
-    jacocoTestReport {
-        reports {
-            xml.enabled = true
-            html.enabled = true
-            csv.enabled = false
+        repositories {
+            maven {
+                url = !isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
         }
     }
-}
 
-task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    dependsOn = subprojects.test
-    additionalSourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs)
-    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
-    classDirectories =  files(subprojects.sourceSets.main.output)
-    executionData = files(subprojects.jacocoTestReport.executionData)
-    reports {
-        html.enabled = true
-        xml.enabled = true
-        csv.enabled = false
+    signing {
+        sign publishing.publications.mmapQueue
     }
 }
 
-coveralls {
-    sourceDirs = subprojects.sourceSets.main.allSource.srcDirs.flatten()
-    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
+
+tasks.register('testReport', TestReport) {
+    destinationDirectory = file("${buildDir}/reports/allTests")
+    // Include the results from the `test` task in all sub-projects
+    testResults.setFrom(subprojects*.test)
 }
 
-tasks.coveralls {
-    group = 'Coverage reports'
-    description = 'Uploads the aggregated coverage report to Coveralls'
+task copyCrashLogs(type: Copy) {
+    from '.'
+    include '**/hs_err*.log'
+    include 'LICENSE'
+    into 'build/crash_logs'
 
-    dependsOn jacocoRootReport
-    onlyIf { System.env.'CI' && !JavaVersion.current().isJava9Compatible() }
+    includeEmptyDirs = false
+}
+
+wrapper {
+    gradleVersion = '6.1.1'
+    distributionType = 'ALL'
 }

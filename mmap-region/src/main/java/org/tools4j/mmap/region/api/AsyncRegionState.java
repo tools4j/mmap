@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,25 @@
 package org.tools4j.mmap.region.api;
 
 public interface AsyncRegionState {
-    AsyncRegionState requestMap(long regionStartPosition);
+    /**
+     * Request region mapping.
+     *
+     * @param position starting position of the region
+     * @return next state to transition to
+     */
+    AsyncRegionState requestMap(long position);
+
+    /**
+     * Request region unmapping if applicable
+     *
+     * @return next state to transition to
+     */
     AsyncRegionState requestUnmap();
+
+    /**
+     * Process request
+     *
+     * @return next state to transition to
+     */
     AsyncRegionState processRequest();
 }

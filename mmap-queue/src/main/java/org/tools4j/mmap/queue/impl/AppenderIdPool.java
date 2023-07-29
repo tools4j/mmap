@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,19 +21,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
-
-import java.io.Closeable;
-
-import org.agrona.DirectBuffer;
+package org.tools4j.mmap.queue.impl;
 
 /**
- * Enumerates messages stored in a {@link Queue}. The enumeration order is generally the appending order of the
- * messages.
+ * A pool of appender ids.
  */
-public interface Enumerator extends Closeable {
-    boolean hasNextMessage();
-    DirectBuffer readNextMessage();
-    Enumerator skipNextMessage();
+public interface AppenderIdPool extends AutoCloseable {
+    short SINGLE_APPENDER_ID = 0;
+    AppenderIdPool SINGLE_APPENDER = new AppenderIdPool() {
+        @Override
+        public short acquire() {
+            return SINGLE_APPENDER_ID;
+        }
+
+        @Override
+        public void release(final short appenderId) {
+            //no op
+        }
+
+        @Override
+        public void close() {
+            //no op
+        }
+    };
+
+    /**
+     * Acquire appender id
+     * @return numeric value [0 .. 255]
+     */
+    short acquire();
+
+    /**
+     * Release appender id
+     * @param appenderId appender id
+     */
+    void release(short appenderId);
+
+    /**
+     * Overriding to suppress throwing checked exceptions.
+     */
+    @Override
     void close();
 }

@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,10 +23,6 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.nio.channels.FileChannel;
-
-import org.agrona.IoUtil;
-
 /**
  * Interface offering operations to map or unmap a region.
  */
@@ -34,38 +30,24 @@ public interface RegionMapper {
     /**
      * Attempts to map a region.
      * In synchronous implementations, it is expected to be mapped immediately,
-     *    if not mapped yet, and true is returned.
+     * if not mapped yet, and true is returned.
      * In asynchronous implementations, if the region is not mapped yet, mapping
-     *    will be performed asynchronously and false will be returned.
+     * will be performed asynchronously and false will be returned.
      *
-     * @param regionStartPosition - start position of a region, must be power of two and aligned with
-     *                            the length of the region.
+     * @param position - start position of a region, must be power of two and aligned with
+     *   the length of the region.
      * @return true if the region is mapped after the call, otherwise - false.
      */
-    boolean map(final long regionStartPosition);
+    boolean map(final long position);
+
     /**
      * Attempts to unmap a region.
      * In synchronous implementations, it is expected to be unmapped immediately,
-     *    if not unmapped yet.
+     * if not unmapped yet.
      * In asynchronous implementations, if the region is not unmapped yet, mapping
-     *    will be performed asynchronously and false will be returned.
+     * will be performed asynchronously and false will be returned.
      *
      * @return true if the region is unmapped after the call, otherwise - false.
      */
     boolean unmap();
-
-    @FunctionalInterface
-    interface IoMapper {
-        IoMapper DEFAULT = IoUtil::map;
-
-        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
-    }
-
-    @FunctionalInterface
-    interface IoUnmapper {
-        IoUnmapper DEFAULT = IoUtil::unmap;
-
-        void unmap(FileChannel fileChannel, long address, long length);
-    }
-
 }

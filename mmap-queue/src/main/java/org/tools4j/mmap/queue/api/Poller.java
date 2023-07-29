@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,11 +23,76 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import java.io.Closeable;
+/**
+ * Queue poller
+ */
+public interface Poller extends AutoCloseable {
+    /**
+     * Result of message polling
+     */
+    enum Result {
+        /**
+         * Message was not available.
+         */
+        NOT_AVAILABLE,
+        /**
+         * Message was handled and message index was advanced.
+         */
+        ADVANCED,
+        /**
+         * Message was handled and message index was retained.
+         */
+        RETAINED,
+        /**
+         * Message was handled and message index was retreated.
+         */
+        RETREATED,
+        /**
+         * Error occurred when attempting to access message payload.
+         */
+        ERROR,
+    }
 
-import org.agrona.DirectBuffer;
+    /**
+     * Polls the queue and invokes the messageHandler if a message is available for consumption.
+     *
+     * @param messageHandler message handler
+     * @return result value
+     */
+    Result poll(MessageHandler messageHandler);
 
-public interface Poller extends Closeable {
-    boolean poll(DirectBuffer buffer);
+    /**
+     * Move current cursor to given index.
+     *
+     * @param index to move the cursor to
+     * @return true if the move succeeded, false otherwise
+     */
+    boolean moveToIndex(long index);
+
+    /**
+     * Move to end of the queue
+     * @return last index at which new message is expected
+     */
+    long moveToEnd();
+
+    /**
+     * Move to start
+     * @return true is succeeded
+     */
+    boolean moveToStart();
+
+    /**
+     * @return current index
+     */
+    long currentIndex();
+
+    /**
+     * Check if a message is available at the given index
+     * @param index message index
+     * @return true if message is available, false - otherwise
+     */
+    boolean hasEntry(long index);
+
+    @Override
     void close();
 }

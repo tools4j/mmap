@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,27 +23,18 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-
 import org.agrona.DirectBuffer;
-
-import sun.misc.Contended;
-
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.AsyncRegionState;
-import org.tools4j.mmap.region.api.FileSizeEnsurer;
+import org.tools4j.mmap.region.api.FileMapper;
+
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private static final long NULL = -1;
 
-    private final Supplier<? extends FileChannel> fileChannelSupplier;
-    private final IoMapper ioMapper;
-    private final IoUnmapper ioUnmapper;
-    private final FileSizeEnsurer fileSizeEnsurer;
-    private final FileChannel.MapMode mapMode;
+    private final FileMapper fileMapper;
     private final int length;
     private final long timeoutNanos;
 
@@ -52,25 +43,18 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private final MappedRegionState mapped;
     private final UnMapRequestedRegionState unmapRequested;
 
-    @Contended
+    //@Contended
     private volatile AsyncRegionState currentState;
 
     private long position = NULL;
     private long address = NULL;
+    private long requestedPosition;
 
-    public AsyncVolatileStateMachineRegion(final Supplier<? extends FileChannel> fileChannelSupplier,
-                                           final IoMapper ioMapper,
-                                           final IoUnmapper ioUnmapper,
-                                           final FileSizeEnsurer fileSizeEnsurer,
-                                           final FileChannel.MapMode mapMode,
+    public AsyncVolatileStateMachineRegion(final FileMapper fileMapper,
                                            final int length,
                                            final long timeout,
                                            final TimeUnit timeUnits) {
-        this.fileChannelSupplier = Objects.requireNonNull(fileChannelSupplier);
-        this.ioMapper = Objects.requireNonNull(ioMapper);
-        this.ioUnmapper = Objects.requireNonNull(ioUnmapper);
-        this.fileSizeEnsurer = Objects.requireNonNull(fileSizeEnsurer);
-        this.mapMode = Objects.requireNonNull(mapMode);
+        this.fileMapper = Objects.requireNonNull(fileMapper);
         this.length = length;
         this.timeoutNanos = timeUnits.toNanos(timeout);
 
@@ -79,7 +63,8 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         this.mapped = new MappedRegionState();
         this.unmapRequested = new UnMapRequestedRegionState();
         this.currentState = unmapped;
-        if (Integer.bitCount(length) > 1) throw new IllegalArgumentException("length must be power of two");
+        if (Integer.bitCount(length) > 1)
+            throw new IllegalArgumentException("length must be power of two");
     }
 
     @Override
@@ -97,15 +82,24 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         if (this.position != position) {
             final long timeOutTimeNanos = System.nanoTime() + timeoutNanos;
             while (!map(position)) {
-                if (timeOutTimeNanos <= System.nanoTime()) return false;
+                if (timeOutTimeNanos <= System.nanoTime())
+                    return false;
             }
         }
         return true;
     }
 
+    private void awaitUnMapped() {
+        final long timeOutTimeNanos = System.nanoTime() + timeoutNanos;
+        while (!unmap()) {
+            if (timeOutTimeNanos <= System.nanoTime())
+                return;
+        }
+    }
+
     @Override
     public void close() {
-        if (position > 0) unmap();
+        awaitUnMapped();
     }
 
     @Override
@@ -125,11 +119,11 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     @Override
-    public boolean map(final long regionStartPosition) {
-        //assert that regionStartPosition is aligned with length
+    public boolean map(final long position) {
         final AsyncRegionState readState = this.currentState;
-        final AsyncRegionState nextState = readState.requestMap(regionStartPosition);
-        if (readState != nextState) this.currentState = nextState;
+        final AsyncRegionState nextState = readState.requestMap(position);
+        if (readState != nextState)
+            this.currentState = nextState;
         return nextState == mapped;
     }
 
@@ -137,14 +131,15 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     public boolean unmap() {
         final AsyncRegionState readState = this.currentState;
         final AsyncRegionState nextState = readState.requestUnmap();
-        if (readState != nextState) this.currentState = nextState;
+        if (readState != nextState)
+            this.currentState = nextState;
         return nextState == unmapped;
     }
 
     private final class UnmappedRegionState implements AsyncRegionState {
         @Override
-        public AsyncRegionState requestMap(final long regionStartPosition) {
-            mapRequested.requestedPosition = regionStartPosition;
+        public AsyncRegionState requestMap(final long position) {
+            requestedPosition = position;
             return mapRequested;
         }
 
@@ -160,10 +155,9 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     private final class MapRequestedRegionState implements AsyncRegionState {
-        private long requestedPosition;
 
         @Override
-        public AsyncRegionState requestMap(final long regionStartPosition) {
+        public AsyncRegionState requestMap(final long position) {
             return this;
         }
 
@@ -174,17 +168,20 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            if (address != NULL) {
-                ioUnmapper.unmap(fileChannelSupplier.get(), address, length);
+            if (address != NULL && position != NULL) {
+                fileMapper.unmap(address, position, length);
                 address = NULL;
+                position = NULL;
             }
 
-            if (fileSizeEnsurer.ensureSize(requestedPosition + length)) {
-                address = ioMapper.map(fileChannelSupplier.get(), mapMode, requestedPosition, length);
+            final long mappedAddress = fileMapper.map(requestedPosition, length);
+            if (mappedAddress > 0) {
+                address = mappedAddress;
                 position = requestedPosition;
                 requestedPosition = NULL;
 
                 return mapped;
+
             } else {
                 return this;
             }
@@ -193,10 +190,9 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
     private final class MappedRegionState implements AsyncRegionState {
         @Override
-        public AsyncRegionState requestMap(final long regionStartPosition) {
-            if (AsyncVolatileStateMachineRegion.this.position != regionStartPosition) {
-                mapRequested.requestedPosition = regionStartPosition;
-                AsyncVolatileStateMachineRegion.this.position = NULL;
+        public AsyncRegionState requestMap(final long position) {
+            if (AsyncVolatileStateMachineRegion.this.position != position) {
+                requestedPosition = position;
                 return mapRequested;
             }
             return this;
@@ -204,7 +200,6 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState requestUnmap() {
-            position = NULL;
             return unmapRequested;
         }
 
@@ -216,7 +211,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
     private final class UnMapRequestedRegionState implements AsyncRegionState {
         @Override
-        public AsyncRegionState requestMap(final long regionStartPosition) {
+        public AsyncRegionState requestMap(final long position) {
             return this;
         }
 
@@ -227,8 +222,9 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            ioUnmapper.unmap(fileChannelSupplier.get(), address, length);
+            fileMapper.unmap(address, position, length);
             address = NULL;
+            position = NULL;
             return unmapped;
         }
     }

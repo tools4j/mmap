@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,18 +29,18 @@ import org.HdrHistogram.Histogram;
  * Test printout for histograms.
  */
 public class HistogramPrinter {
-    public static void printHistogram(final Histogram histogram) {
-        System.out.println("Percentiles (micros)");
-        System.out.println("\tmin    : " + histogram.getMinValue()/1000f);
-        System.out.println("\t50%    : " + histogram.getValueAtPercentile(50)/1000f);
-        System.out.println("\t90%    : " + histogram.getValueAtPercentile(90)/1000f);
-        System.out.println("\t99%    : " + histogram.getValueAtPercentile(99)/1000f);
-        System.out.println("\t99.9%  : " + histogram.getValueAtPercentile(99.9)/1000f);
-        System.out.println("\t99.99% : " + histogram.getValueAtPercentile(99.99)/1000f);
-        System.out.println("\t99.999%: " + histogram.getValueAtPercentile(99.999)/1000f);
-        System.out.println("\tmax    : " + histogram.getMaxValue()/1000f);
+    public static void printHistogram(final String name, final Histogram histogram) {
+        System.out.println(name + ": Percentiles (micros)");
+        System.out.println("\tmin    : " + histogram.getMinValue() / 1000f);
+        System.out.println("\t50%    : " + histogram.getValueAtPercentile(50) / 1000f);
+        System.out.println("\t90%    : " + histogram.getValueAtPercentile(90) / 1000f);
+        System.out.println("\t99%    : " + histogram.getValueAtPercentile(99) / 1000f);
+        System.out.println("\t99.9%  : " + histogram.getValueAtPercentile(99.9) / 1000f);
+        System.out.println("\t99.99% : " + histogram.getValueAtPercentile(99.99) / 1000f);
+        System.out.println("\t99.999%: " + histogram.getValueAtPercentile(99.999) / 1000f);
+        System.out.println("\tmax    : " + histogram.getMaxValue() / 1000f);
         System.out.println();
         System.out.println("Histogram (micros):");
-        histogram.outputPercentileDistribution(System.out, 1000.0);
+        //histogram.outputPercentileDistribution(System.out, 1000.0);
     }
 }
