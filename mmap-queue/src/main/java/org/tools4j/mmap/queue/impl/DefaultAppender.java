@@ -33,8 +33,8 @@ import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
 import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
+import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.appenderId;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.headerPosition;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.payloadPosition;
 
 public class DefaultAppender implements Appender {
@@ -110,7 +110,7 @@ public class DefaultAppender implements Appender {
 
                 final long appendIndex = currentIndex;
                 currentIndex++;
-                currentHeaderPosition = headerPosition(currentIndex);
+                currentHeaderPosition = HEADER_WORD.position(currentIndex);
                 currentPayloadPosition += length + LENGTH_LENGTH;
 
                 return appendIndex;
@@ -136,13 +136,13 @@ public class DefaultAppender implements Appender {
 
     private void moveToLastHeader() {
         currentIndex++;
-        currentHeaderPosition = headerPosition(currentIndex);
+        currentHeaderPosition = HEADER_WORD.position(currentIndex);
         long header;
         do {
             if (headerAccessor.wrap(currentHeaderPosition, headerBuffer)) {
                 header = headerBuffer.getLongVolatile(0);
                 if (header != 0) {
-                    currentHeaderPosition = headerPosition(++currentIndex);
+                    currentHeaderPosition = HEADER_WORD.position(++currentIndex);
                 }
             } else {
                 LOGGER.error("Failed to wrap header buffer for position {} when advancing to last append position",
@@ -155,13 +155,13 @@ public class DefaultAppender implements Appender {
     private boolean advanceToLastAppendPosition() {
         if (currentHeaderPosition == NOT_INITIALISED) {
             currentIndex = 0;
-            currentHeaderPosition = headerPosition(currentIndex);
+            currentHeaderPosition = HEADER_WORD.position(currentIndex);
             long header;
             do {
                 if (headerAccessor.wrap(currentHeaderPosition, headerBuffer)) {
                     header = headerBuffer.getLongVolatile(0);
                     if (header != 0) {
-                        currentHeaderPosition = headerPosition(++currentIndex);
+                        currentHeaderPosition = HEADER_WORD.position(++currentIndex);
                         short headerAppenderId = appenderId(header);
                         if (headerAppenderId == appenderId) {
                             currentPayloadPosition = payloadPosition(header);
@@ -254,7 +254,7 @@ public class DefaultAppender implements Appender {
 
                     final long appendIndex = currentIndex;
                     currentIndex++;
-                    currentHeaderPosition = headerPosition(currentIndex);
+                    currentHeaderPosition = HEADER_WORD.position(currentIndex);
                     currentPayloadPosition += length + LENGTH_LENGTH;
 
                     reset();

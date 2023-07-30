@@ -31,6 +31,7 @@ import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 
 public class DefaultReader implements Reader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultReader.class);
@@ -94,7 +95,7 @@ public class DefaultReader implements Reader {
      * @return header value
      */
     private long readHeader(final long index) {
-        long headerPosition = HeaderCodec.headerPosition(index);
+        long headerPosition = HEADER_WORD.position(index);
         if (!headerAccessor.wrap(headerPosition, headerBuffer)) {
             return NULL_HEADER;
         }

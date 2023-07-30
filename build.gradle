@@ -26,6 +26,8 @@ def mockitoVersion = '4.11.0'   //5.x requires Java 11
 def hdrHistogramVersion = '2.1.12'
 def spockitoVersion = '1.6'
 def assertjVersion = '3.24.2'
+def chronicleVersion = '5.21.98'//fastest now??
+
 
 ext {
     //gradle clean build publish -PossrhUsername=mterzer -PossrhPassword=xxx
@@ -288,6 +290,7 @@ project(':mmap-queue') {
 
         testImplementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+        testImplementation "net.openhft:chronicle-queue:${chronicleVersion}"
     }
 
     jar {

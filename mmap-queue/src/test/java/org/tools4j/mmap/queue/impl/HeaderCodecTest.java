@@ -59,39 +59,6 @@ public class HeaderCodecTest {
     }
 
     @Test
-    @Spockito.Unroll({
-            "| index           | position       |",
-            "|-----------------|----------------|",
-            "| 0               | 0              |",
-            "| 1               | 64             |",
-            "| 2               | 128            |",
-            "| 3               | 192            |",
-            "| 4               | 256            |",
-            "| 5               | 320            |",
-            "| 6               | 384            |",
-            "| 7               | 448            |",
-            "| 8               | 8              |",
-            "| 9               | 72             |",
-            "| 10              | 136            |",
-            "| 11              | 200            |",
-            "| 12              | 264            |",
-            "| 13              | 328            |",
-            "| 14              | 392            |",
-            "| 15              | 456            |",
-            "| 16              | 16             |",
-            "| 17              | 80             |",
-    })
-    @Spockito.Name("[{row}]: index={0}, position={1}")
-    public void headerPosition(final long index, final long position) {
-        assertEquals(position, HeaderCodec.headerPosition(index));
-    }
-
-    @Test
-    public void length() {
-        assertEquals(8, HeaderCodec.length());
-    }
-
-    @Test
     public void initialPayloadPosition() {
         assertEquals(64, HeaderCodec.initialPayloadPosition());
     }

@@ -21,31 +21,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.longQueue.api;
 
-import org.tools4j.mmap.region.impl.Word;
+import org.tools4j.mmap.longQueue.impl.LongQueueBuilder;
+import org.tools4j.mmap.region.api.RegionRingFactory;
 
-public class HeaderCodec {
-    private static final long PAYLOAD_POSITION_MASK = 0xFFFFFFFFFFFFFFL;
-    private static final int APPENDER_ID_BITS = Long.SIZE - 8;
-    private static final long INITIAL_PAYLOAD_POSITION = 64;
-    public static final Word HEADER_WORD = new Word(8, 64);
+/**
+ * A queue of long values.
+ */
+public interface LongQueue extends AutoCloseable {
+    long NULL_VALUE = 0;
 
+    /**
+     * @return new appender
+     */
+    LongAppender createAppender();
 
-    public static short appenderId(final long header) {
-        return (short) (header >>> APPENDER_ID_BITS);
+    /**
+     * Creates a poller.
+     *
+     * @return new instance of a poller.
+     */
+    LongPoller createPoller();
+
+    /**
+     * Creates a reader.
+     *
+     * @return new instance of a reader.
+     */
+    LongReader createReader();
+
+    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
+        return new LongQueueBuilder(name, directory, regionRingFactory);
     }
 
-    public static long payloadPosition(final long header) {
-        return header & PAYLOAD_POSITION_MASK;
-    }
-
-    public static long header(final short appenderId, final long payloadPosition) {
-        return  (((long) appenderId) << APPENDER_ID_BITS) | payloadPosition;
-    }
-
-    public static long initialPayloadPosition() {
-        return INITIAL_PAYLOAD_POSITION;
-    }
-
+    /**
+     * Overridden to suppress throwing checked exceptions
+     */
+    @Override
+    void close();
 }

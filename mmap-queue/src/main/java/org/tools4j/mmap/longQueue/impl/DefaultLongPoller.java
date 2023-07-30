@@ -21,60 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.longQueue.impl;
 
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.MessageHandler;
-import org.tools4j.mmap.queue.api.Poller;
+import org.tools4j.mmap.longQueue.api.EntryHandler;
+import org.tools4j.mmap.longQueue.api.LongPoller;
+import org.tools4j.mmap.longQueue.api.LongQueue;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.api.Poller.Result.ADVANCED;
-import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
-import static org.tools4j.mmap.queue.api.Poller.Result.NOT_AVAILABLE;
-import static org.tools4j.mmap.queue.api.Poller.Result.RETAINED;
-import static org.tools4j.mmap.queue.api.Poller.Result.RETREATED;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
+import static org.tools4j.mmap.longQueue.api.LongPoller.Result.ADVANCED;
+import static org.tools4j.mmap.longQueue.api.LongPoller.Result.NOT_AVAILABLE;
+import static org.tools4j.mmap.longQueue.api.LongPoller.Result.RETAINED;
+import static org.tools4j.mmap.longQueue.api.LongPoller.Result.RETREATED;
+import static org.tools4j.mmap.longQueue.impl.RegionAccessors.VALUE_WORD;
 
-public class DefaultPoller implements Poller {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPoller.class);
+public class DefaultLongPoller implements LongPoller {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongPoller.class);
 
-    private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final RegionAccessorSupplier regionAccessor;
-    private final RegionAccessor headerAccessor;
-    private final UnsafeBuffer headerBuffer;
-    private final UnsafeBuffer payloadBuffer;
-    private final UnsafeBuffer message;
-
+    private final RegionAccessor regionAccessor;
+    private final UnsafeBuffer buffer;
     private long currentIndex = 0;
-    private short currentAppenderId;
-    private long currentPayloadPosition;
 
-    public DefaultPoller(final String queueName, final RegionAccessorSupplier regionAccessor) {
+    public DefaultLongPoller(final String queueName, final RegionAccessor regionAccessor) {
         this.queueName = requireNonNull(queueName);
         this.regionAccessor = requireNonNull(regionAccessor);
-        this.headerAccessor = regionAccessor.header();
 
-        this.headerBuffer = new UnsafeBuffer();
-        this.payloadBuffer = new UnsafeBuffer();
-        this.message = new UnsafeBuffer();
+        this.buffer = new UnsafeBuffer();
     }
 
     @Override
-    public Result poll(final MessageHandler messageHandler) {
-        final long workingIndex = currentIndex;
-        if (initHeader(workingIndex)) {
-            if (!regionAccessor.payload(currentAppenderId).wrap(currentPayloadPosition, payloadBuffer)) {
-                LOGGER.error("Failed to wrap payload buffer to position {} of appender {}", currentPayloadPosition, currentAppenderId);
-                return ERROR;
-            }
-            final int length = payloadBuffer.getInt(0);
-            message.wrap(payloadBuffer, 4, length);
+    public Result poll(final EntryHandler entryHandler) {
+        final long value = readValue(currentIndex);
+        if (value != LongQueue.NULL_VALUE) {
 
-            final MessageHandler.NextMove nextMove = messageHandler.onMessage(currentIndex, message);
+            final EntryHandler.NextMove nextMove = entryHandler.onEntry(currentIndex, value);
             if (nextMove == null) {
                 return RETAINED;
             }
@@ -102,7 +86,7 @@ public class DefaultPoller implements Poller {
             throw new IllegalArgumentException("Index cannot be negative: " + index);
         }
 
-        if (initHeader(index)) {
+        if (init(index)) {
             return true;
         } else {
             //index could be the last one but having no entry yet,
@@ -117,7 +101,7 @@ public class DefaultPoller implements Poller {
 
     @Override
     public long moveToEnd() {
-        while (readHeader(currentIndex) != NULL_HEADER) {
+        while (readValue(currentIndex) != LongQueue.NULL_VALUE) {
             currentIndex++;
         }
         return currentIndex;
@@ -135,15 +119,13 @@ public class DefaultPoller implements Poller {
 
     @Override
     public boolean hasEntry(final long index) {
-        return readHeader(index) != NULL_HEADER;
+        return readValue(index) != LongQueue.NULL_VALUE;
     }
 
-    private boolean initHeader(final long index) {
-        final long header = readHeader(index);
-        if (header != NULL_HEADER) {
+    private boolean init(final long index) {
+        final long value = readValue(index);
+        if (value != LongQueue.NULL_VALUE) {
             currentIndex = index;
-            currentAppenderId = HeaderCodec.appenderId(header);
-            currentPayloadPosition = HeaderCodec.payloadPosition(header);
             return true;
         }
         return false;
@@ -154,12 +136,12 @@ public class DefaultPoller implements Poller {
      * @param index index value
      * @return header value
      */
-    private long readHeader(final long index) {
-        long headerPosition = HEADER_WORD.position(index);
-        if (!headerAccessor.wrap(headerPosition, headerBuffer)) {
-            return NULL_HEADER;
+    private long readValue(final long index) {
+        long valuePosition = VALUE_WORD.position(index);
+        if (!regionAccessor.wrap(valuePosition, buffer)) {
+            return LongQueue.NULL_VALUE;
         }
-        return headerBuffer.getLongVolatile(0);
+        return buffer.getLongVolatile(0);
     }
 
     @Override

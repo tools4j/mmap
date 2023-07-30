@@ -21,31 +21,59 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.longQueue.api;
 
-import org.tools4j.mmap.region.impl.Word;
+/**
+ * Random access reading interface.
+ */
+public interface LongReader extends AutoCloseable {
+    long NULL_INDEX = -1;
 
-public class HeaderCodec {
-    private static final long PAYLOAD_POSITION_MASK = 0xFFFFFFFFFFFFFFL;
-    private static final int APPENDER_ID_BITS = Long.SIZE - 8;
-    private static final long INITIAL_PAYLOAD_POSITION = 64;
-    public static final Word HEADER_WORD = new Word(8, 64);
+    /**
+     * Reading context
+     */
+    interface Entry {
+        /**
+         * @return positive index if entry is available, {@link #NULL_INDEX} otherwise
+         */
+        long index();
 
+        /**
+         * @return value
+         */
+        long value();
 
-    public static short appenderId(final long header) {
-        return (short) (header >>> APPENDER_ID_BITS);
+        boolean hasValue();
     }
 
-    public static long payloadPosition(final long header) {
-        return header & PAYLOAD_POSITION_MASK;
-    }
+    /**
+     * Returns last index.
+     * @return positive value if entry is available, {@link #NULL_INDEX} otherwise
+     */
+    long lastIndex();
 
-    public static long header(final short appenderId, final long payloadPosition) {
-        return  (((long) appenderId) << APPENDER_ID_BITS) | payloadPosition;
-    }
+    /**
+     * @param index zero-based index
+     * @return true if a value is available at the given index
+     */
+    boolean hasValue(long index);
 
-    public static long initialPayloadPosition() {
-        return INITIAL_PAYLOAD_POSITION;
-    }
+    /**
+     * @param index zero-based index
+     * @return reading context
+     */
+    Entry read(long index);
 
+    /**
+     * @return reading context of last entry
+     */
+    Entry readLast();
+
+    /**
+     * @return reading context of first entry
+     */
+    Entry readFirst();
+
+    @Override
+    void close();
 }
