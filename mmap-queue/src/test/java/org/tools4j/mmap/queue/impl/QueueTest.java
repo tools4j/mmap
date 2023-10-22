@@ -28,7 +28,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.queue.api.Appender;
-import org.tools4j.mmap.queue.api.MessageHandler;
+import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.util.FileUtil;
@@ -95,7 +95,7 @@ class QueueTest {
             poller.poll((index1, buffer) -> {
                 assertThat(index1).isEqualTo(index);
                 stringValue.set(buffer.getStringUtf8(0));
-                return MessageHandler.NextMove.RETAIN;
+                return NextMove.NONE;
             });
         }
         return stringValue.get();

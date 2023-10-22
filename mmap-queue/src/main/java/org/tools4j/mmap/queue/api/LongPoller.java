@@ -21,34 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
-
-import org.agrona.DirectBuffer;
-
-import java.io.Closeable;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Accessor to a file region.
+ * Queue poller for sequential retrieval of entries with callback to a {@link LongEntryHandler}.
  */
-public interface RegionAccessor extends Closeable {
+public interface LongPoller extends Poller {
     /**
-     * Wraps the buffer starting from given position to the end of the mapped region.
-     * Once mapped, {@code buffer.capacity} will indicate the length of the mapped memory.
+     * Polls the queue and invokes the entry handler if one is available.
      *
-     * @param position position in the file.
-     * @param buffer the direct buffer
-     * @return true if mapped successfully, otherwise false.
+     * @param entryHandler entry handler callback invoked if an entry is present
+     * @return result value as per {@link NextMove} if polled, otherwise {@link Result#IDLE}
      */
-    boolean wrap(long position, DirectBuffer buffer);
-
-    /**
-     * @return size of mappable memory region
-     */
-    int size();
-
-    /**
-     * Closes the region accessor resulting in an exception if subsequently used.
-     */
-    @Override
-    void close();
+    Result poll(LongEntryHandler entryHandler);
 }

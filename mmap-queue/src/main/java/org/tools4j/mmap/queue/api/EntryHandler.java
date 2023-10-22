@@ -21,43 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.longQueue.impl.LongQueueBuilder;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.agrona.DirectBuffer;
 
 /**
- * A queue of long values.
+ * Handler when {@link Poller#poll(EntryHandler) polling} entries from a {@link Queue}
  */
-public interface LongQueue extends AutoCloseable {
-    long NULL_VALUE = 0;
+public interface EntryHandler {
 
     /**
-     * @return new appender
-     */
-    LongAppender createAppender();
-
-    /**
-     * Creates a poller.
+     * Handles a entry and indicates the next entry move.
      *
-     * @return new instance of a poller.
+     * @param index - entry index in the queue
+     * @param buffer - buffer with access to entry data, with valid byte range from {@code [0...(capacity-1)]}
+     * @return next move {@link NextMove}
      */
-    LongPoller createPoller();
-
-    /**
-     * Creates a reader.
-     *
-     * @return new instance of a reader.
-     */
-    LongReader createReader();
-
-    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
-        return new LongQueueBuilder(name, directory, regionRingFactory);
-    }
-
-    /**
-     * Overridden to suppress throwing checked exceptions
-     */
-    @Override
-    void close();
+    NextMove onEntry(long index, DirectBuffer buffer);
 }

@@ -21,32 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Long appender.
+ * Random access reading interface.
  */
-public interface LongAppender extends AutoCloseable {
+public interface LongReader extends Reader {
     /**
-     * Failed to move to end of the queue
+     * Reading context
      */
-    long MOVE_TO_END_ERROR = -1;
-    /**
-     * Failed to wrap region for given position
-     */
-    long WRAP_REGION_ERROR = -2;
+    interface LongReadingContext extends ReadingContext {
+        /**
+         * @return the entry value if an entry is available, otherwise {@link LongQueue#nullValue()}
+         */
+        long value();
+    }
 
-    /**
-     * Appends a long value.
-     *
-     * @param value - value, must not be {@link LongQueue#NULL_VALUE}
-     * @return index at which value was appended, negative value if error occurred, see errors in {@link LongAppender}
-     */
-    long append(long value);
-
-    /**
-     * Override to avoid throwing checked exception.
-     */
     @Override
-    void close();
+    LongReadingContext read(long index);
+
+    @Override
+    LongReadingContext readLast();
+
+    @Override
+    LongReadingContext readFirst();
 }

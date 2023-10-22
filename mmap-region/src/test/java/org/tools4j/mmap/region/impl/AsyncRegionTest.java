@@ -24,31 +24,29 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.spockito.Spockito;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
-@Spockito.Unroll({
-        "| testFactory                         |",
-        "|-------------------------------------|",
-        "| VOLATILE_STATE_MACHINE_REGION       |",
-})
-@Spockito.Name("[{row}]: {testFactory}")
-@RunWith(Spockito.class)
 public class AsyncRegionTest {
 
     interface AsyncRegionFactory {
@@ -66,10 +64,6 @@ public class AsyncRegionTest {
         }
     }
 
-    @Spockito.Ref
-    @SuppressWarnings("unused")
-    private TestFactory testFactory;
-
     @Mock
     private DirectBuffer directBuffer;
     @Mock
@@ -81,12 +75,12 @@ public class AsyncRegionTest {
 
     private final int length = 128;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         openMocks(this);
 
         long timeoutMillis = 2000;
-        region = testFactory.factory.create(fileMapper, length, timeoutMillis, TimeUnit.MILLISECONDS);
+        region = TestFactory.VOLATILE_STATE_MACHINE_REGION.factory.create(fileMapper, length, timeoutMillis, TimeUnit.MILLISECONDS);
         inOrder = inOrder(directBuffer, fileMapper);
     }
 

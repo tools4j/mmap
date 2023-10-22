@@ -26,16 +26,17 @@ package org.tools4j.mmap.queue.impl;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.MessageHandler;
+import org.tools4j.mmap.queue.api.EntryHandler;
+import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.api.Poller.Result.ADVANCED;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
-import static org.tools4j.mmap.queue.api.Poller.Result.NOT_AVAILABLE;
-import static org.tools4j.mmap.queue.api.Poller.Result.RETAINED;
-import static org.tools4j.mmap.queue.api.Poller.Result.RETREATED;
+import static org.tools4j.mmap.queue.api.Poller.Result.IDLE;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_BACKWARD;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_FORWARD;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_NOT_MOVED;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 
 public class DefaultPoller implements Poller {
@@ -64,7 +65,7 @@ public class DefaultPoller implements Poller {
     }
 
     @Override
-    public Result poll(final MessageHandler messageHandler) {
+    public Result poll(final EntryHandler entryHandler) {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
             if (!regionAccessor.payload(currentAppenderId).wrap(currentPayloadPosition, payloadBuffer)) {
@@ -74,26 +75,22 @@ public class DefaultPoller implements Poller {
             final int length = payloadBuffer.getInt(0);
             message.wrap(payloadBuffer, 4, length);
 
-            final MessageHandler.NextMove nextMove = messageHandler.onMessage(currentIndex, message);
-            if (nextMove == null) {
-                return RETAINED;
-            }
-
-            switch (nextMove) {
-                case ADVANCE:
+            final NextMove nextMove = entryHandler.onEntry(currentIndex, message);
+            switch (nextMove != null ? nextMove : NextMove.NONE) {
+                case FORWARD:
                     currentIndex++;
-                    return ADVANCED;
-                case RETREAT:
+                    return POLLED_AND_MOVED_FORWARD;
+                case BACKWARD:
                     if (currentIndex > 0) {
                         currentIndex--;
-                        return RETREATED;
+                        return POLLED_AND_MOVED_BACKWARD;
                     }
-                    return RETAINED;
-                case RETAIN:
-                    return RETAINED;
+                    return POLLED_AND_NOT_MOVED;
+                case NONE:
+                    return POLLED_AND_NOT_MOVED;
             }
         }
-        return NOT_AVAILABLE;
+        return IDLE;
     }
 
     @Override

@@ -26,9 +26,12 @@ package org.tools4j.mmap.queue.api;
 import org.agrona.DirectBuffer;
 
 /**
- * Random access reading interface.
+ * Interface for random read access to entries in the {@link Queue}.
  */
 public interface Reader extends AutoCloseable {
+    /**
+     * Index returned by {@link ReadingContext#index()} if no entry is currently available for reading.
+     */
     long NULL_INDEX = -1;
 
     /**
@@ -55,33 +58,42 @@ public interface Reader extends AutoCloseable {
     }
 
     /**
-     * Returns last index.
-     * @return positive value if entry is available, {@link #NULL_INDEX} otherwise
+     * Returns the index of the last entry in the queue, or {@link #NULL_INDEX} if the queue is empty.  Note that
+     * consecutive calls may return different results if entries are appended in the background.
+     *
+     * @return a non-negative queue index of the last entry in the queue, or {@link #NULL_INDEX} if the queue is empty
      */
     long lastIndex();
 
     /**
-     * @param index zero-based index
-     * @return true if an entry is available at the given index
+     * Returns true if a valid entry exists at the specified queue index, and false otherwise.
+     * @param index zero-based queue index
+     * @return true if an entry is available at the given index, and false otherwise
      */
     boolean hasEntry(long index);
 
     /**
-     * @param index zero-based index
-     * @return reading context
+     * Initialises and returns context for reading the entry at the specified {@code index} in the queue.
+     * @param index zero-based queue index
+     * @return reading context to read queue entry at the given index
      */
     ReadingContext read(long index);
 
     /**
-     * @return reading context of last entry
+     * Initialises and returns context for reading the last entry in the queue.
+     * @return reading context to read last queue entry
      */
     ReadingContext readLast();
 
     /**
-     * @return reading context of first entry
+     * Initialises and returns context for reading the first entry in the queue.
+     * @return reading context to read first queue entry
      */
     ReadingContext readFirst();
 
+    /**
+     * Closes this reader.
+     */
     @Override
     void close();
 }

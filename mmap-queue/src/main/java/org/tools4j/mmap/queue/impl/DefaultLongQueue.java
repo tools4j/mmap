@@ -21,14 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.LongAppender;
-import org.tools4j.mmap.longQueue.api.LongPoller;
-import org.tools4j.mmap.longQueue.api.LongQueue;
-import org.tools4j.mmap.longQueue.api.LongReader;
+import org.tools4j.mmap.queue.api.LongAppender;
+import org.tools4j.mmap.queue.api.LongPoller;
+import org.tools4j.mmap.queue.api.LongQueue;
+import org.tools4j.mmap.queue.api.LongReader;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 
 import java.util.concurrent.TimeUnit;
@@ -47,6 +47,7 @@ public final class DefaultLongQueue implements LongQueue {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongQueue.class);
 
     private final String name;
+    private final long nullValue;
     private final Supplier<LongPoller> pollerFactory;
     private final Supplier<LongReader> readerFactory;
     private final Supplier<LongAppender> appenderFactory;
@@ -62,9 +63,11 @@ public final class DefaultLongQueue implements LongQueue {
                             final boolean rollFiles,
                             final long readTimeout,
                             final long writeTimeout,
-                            final TimeUnit timeUnit
+                            final TimeUnit timeUnit,
+                            final long nullValue
     ) {
         this.name = requireNonNull(name);
+        this.nullValue = nullValue;
         requireNonNull(directory);
         requireNonNull(regionRingFactory);
         requireNonNull(timeUnit);
@@ -77,15 +80,15 @@ public final class DefaultLongQueue implements LongQueue {
             throw new IllegalArgumentException("regionRingSize must be multiple of " + REGION_SIZE_GRANULARITY);
         }
 
-        this.pollerFactory = () -> new DefaultLongPoller(name,
+        this.pollerFactory = () -> new DefaultLongPoller(name, nullValue,
                 RegionAccessors.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,
                         regionsToMapAhead, maxFileSize, rollFiles, readTimeout, timeUnit));
 
-        this.readerFactory = () -> new DefaultLongReader(name,
+        this.readerFactory = () -> new DefaultLongReader(name, nullValue,
                 RegionAccessors.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,
                         regionsToMapAhead, maxFileSize, rollFiles, readTimeout, timeUnit));
 
-        this.appenderFactory = () -> new DefaultLongAppender(name,
+        this.appenderFactory = () -> new DefaultLongAppender(name, nullValue,
                 RegionAccessors.forReadWrite(name, directory, regionRingFactory, regionSize,
                         regionRingSize, regionsToMapAhead, maxFileSize, rollFiles, writeTimeout, timeUnit));
 
@@ -93,6 +96,20 @@ public final class DefaultLongQueue implements LongQueue {
                         + "regionRingSize=%d, regionsToMapAhead=%d, maxFileSize=%d, rollFiles=%s, readTimeout=%d, writeTimeout=%d, timeUnit=%s}",
                 name, directory, regionRingFactory, regionSize, regionRingSize, regionsToMapAhead, maxFileSize, rollFiles,
                 readTimeout, writeTimeout, timeUnit);
+    }
+
+    static long maskNullValue(final long value, final long nullValue) {
+        return value != DEFAULT_NULL_VALUE ? value : nullValue;
+    }
+
+    static long unmaskNullValue(final long value, final long nullValue) {
+        return value != nullValue ? value : DEFAULT_NULL_VALUE;
+    }
+
+
+    @Override
+    public long nullValue() {
+        return nullValue;
     }
 
     @Override

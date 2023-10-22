@@ -27,29 +27,28 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 
 /**
- * Message appender.
+ * Entry appender.
  */
 public interface Appender extends AutoCloseable {
     /**
-     * Flyweight provided by appender to append message
-     * to the final destination avoiding copy.
+     * Flyweight provided by appender to directly write the new entry to the destination buffer without need to copy
      */
     interface AppendingContext extends AutoCloseable {
         /**
-         * @return buffer to append the message
+         * @return buffer to write the entry data
          */
         MutableDirectBuffer buffer();
 
         /**
-         * Aborts appending message
+         * Aborts appending the entry
          */
         void abort();
 
         /**
-         * Commits message in encoded in the buffer.
+         * Commits the entry that was encoded via buffer
          *
-         * @param length - length of the message
-         * @return index at which message was appended, negative value if error occurred, see errors in {@link Appender}
+         * @param length - length of the entry in bytes
+         * @return queue index at which entry was appended, negative value if error occurred, see errors in {@link Appender}
          */
         long commit(int length);
 
@@ -58,6 +57,9 @@ public interface Appender extends AutoCloseable {
          */
         boolean isClosed();
 
+        /**
+         * Aborts appending if not closed or committed yet.
+         */
         @Override
         default void close() {
             if (!isClosed()) {
@@ -86,25 +88,26 @@ public interface Appender extends AutoCloseable {
     long APPENDING_CONTEXT_IN_USE = -6;
 
     /**
-     * Appends a message from given buffer.
+     * Appends an entry copied from the given buffer.
      * Note: for zero-copy use {@link #appending(int)}
      *
-     * @param buffer - direct buffer to read message from
-     * @param offset - offset of the message in the buffer
-     * @param length - length of the message
-     * @return index at which message was appended, negative value if error occurred, see errors in {@link Appender}
+     * @param buffer - direct buffer to read entry from
+     * @param offset - offset of the entry in the buffer
+     * @param length - length of the entry
+     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
+     *          {@link Appender}
      */
     long append(DirectBuffer buffer, int offset, int length);
 
     /**
-     * Provides appending context for zero-copy encoding.
-     * @param maxLength max length to be reserved
-     * @return appending context
+     * Provides appending context for zero-copy encoding of the appended entry.
+     * @param maxLength max byte length of the new entry to be reserved
+     * @return appending context for writing of entry data
      */
     AppendingContext appending(int maxLength);
 
     /**
-     * Override to avoid throwing checked exception.
+     * Closes the appender.
      */
     @Override
     void close();

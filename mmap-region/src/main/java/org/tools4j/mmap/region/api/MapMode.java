@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.region.api;
 
+import org.tools4j.mmap.region.impl.OS;
+
 import java.nio.channels.FileChannel;
 import java.util.Objects;
-
-import org.tools4j.mmap.region.impl.OS;
 
 public enum MapMode {
     READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),

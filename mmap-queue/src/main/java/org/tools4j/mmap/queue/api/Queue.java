@@ -23,15 +23,17 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.queue.impl.QueueBuilder;
+import org.tools4j.mmap.region.api.RegionRingFactory;
 
 /**
- * A queue of messages with index details.
+ * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
 public interface Queue extends AutoCloseable {
     /**
-     * @return new appender
+     * Creates an appender.
+     *
+     * @return new instance of an appender
      */
     Appender createAppender();
 
@@ -54,7 +56,7 @@ public interface Queue extends AutoCloseable {
     }
 
     /**
-     * Overridden to suppress throwing checked exceptions
+     * Closes the queue and all appender, pollers and readers.
      */
     @Override
     void close();

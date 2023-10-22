@@ -21,34 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
-
-import org.agrona.DirectBuffer;
-
-import java.io.Closeable;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Accessor to a file region.
+ * Indicator for how to move to the next entry when handling an entry in {@link EntryHandler}.
  */
-public interface RegionAccessor extends Closeable {
+public enum NextMove {
     /**
-     * Wraps the buffer starting from given position to the end of the mapped region.
-     * Once mapped, {@code buffer.capacity} will indicate the length of the mapped memory.
-     *
-     * @param position position in the file.
-     * @param buffer the direct buffer
-     * @return true if mapped successfully, otherwise false.
+     * Move forward to next higher entry index.
      */
-    boolean wrap(long position, DirectBuffer buffer);
-
+    FORWARD,
     /**
-     * @return size of mappable memory region
+     * Don't move and stay on current entry.
      */
-    int size();
-
+    NONE,
     /**
-     * Closes the region accessor resulting in an exception if subsequently used.
+     * Move backward to next lower entry index.
      */
-    @Override
-    void close();
+    BACKWARD
 }

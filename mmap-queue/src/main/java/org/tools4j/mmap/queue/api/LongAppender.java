@@ -21,59 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Random access reading interface.
+ * Long entry appender.
  */
-public interface LongReader extends AutoCloseable {
-    long NULL_INDEX = -1;
+public interface LongAppender extends Appender {
+    /**
+     * Failed to move to end of the queue
+     */
+    long MOVE_TO_END_ERROR = -1;
+    /**
+     * Failed to wrap region for given position
+     */
+    long WRAP_REGION_ERROR = -2;
 
     /**
-     * Reading context
+     * Appends an entry using the given entry value.
+     *
+     * @param value - entry value, must not be equal to {@link LongQueue#nullValue()}
+     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
+     *          {@link Appender}
      */
-    interface Entry {
-        /**
-         * @return positive index if entry is available, {@link #NULL_INDEX} otherwise
-         */
-        long index();
-
-        /**
-         * @return value
-         */
-        long value();
-
-        boolean hasValue();
-    }
-
-    /**
-     * Returns last index.
-     * @return positive value if entry is available, {@link #NULL_INDEX} otherwise
-     */
-    long lastIndex();
-
-    /**
-     * @param index zero-based index
-     * @return true if a value is available at the given index
-     */
-    boolean hasValue(long index);
-
-    /**
-     * @param index zero-based index
-     * @return reading context
-     */
-    Entry read(long index);
-
-    /**
-     * @return reading context of last entry
-     */
-    Entry readLast();
-
-    /**
-     * @return reading context of first entry
-     */
-    Entry readFirst();
-
-    @Override
-    void close();
+    long append(long value);
 }

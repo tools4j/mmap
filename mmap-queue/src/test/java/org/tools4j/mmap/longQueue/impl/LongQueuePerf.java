@@ -26,8 +26,9 @@ package org.tools4j.mmap.longQueue.impl;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.LongQueue;
-import org.tools4j.mmap.longQueue.api.LongReader;
+import org.tools4j.mmap.queue.api.LongQueue;
+import org.tools4j.mmap.queue.api.LongReader;
+import org.tools4j.mmap.queue.impl.LongQueueBuilder;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.region.api.AsyncRuntime;
@@ -38,7 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class LongQueuePerf {
     private static final Logger LOGGER = LoggerFactory.getLogger(LongQueuePerf.class);
@@ -95,7 +96,7 @@ public class LongQueuePerf {
                 }
             }
             HistogramPrinter.printHistogram("readAtIndex", histogram);
-            final boolean exists = reader.hasValue((long) messages * 2);
+            final boolean exists = reader.hasEntry((long) messages * 2);
             assertFalse(exists);
         }
     }

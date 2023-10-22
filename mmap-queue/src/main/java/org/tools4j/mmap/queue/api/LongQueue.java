@@ -23,33 +23,52 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
+import org.tools4j.mmap.queue.impl.LongQueueBuilder;
+import org.tools4j.mmap.region.api.RegionRingFactory;
 
 /**
- * Message handler for {@link Queue}
+ * A queue of long values.
  */
-public interface MessageHandler {
-    enum NextMove {
-        /**
-         * Advance to next message index.
-         */
-        ADVANCE,
-        /**
-         * Retain message index
-         */
-        RETAIN,
-        /**
-         * Retreat message index.
-         */
-        RETREAT
+public interface LongQueue extends AutoCloseable {
+    /**
+     * Default value used for null entry value.
+     */
+    long DEFAULT_NULL_VALUE = 0;
+
+    /**
+     * Value used for null entries by this queue.
+     * @return the null entry value
+     */
+    long nullValue();
+
+    /**
+     * Creates an appender.
+     *
+     * @return new instance of an appender
+     */
+    LongAppender createAppender();
+
+    /**
+     * Creates a poller.
+     *
+     * @return new instance of a poller.
+     */
+    LongPoller createPoller();
+
+    /**
+     * Creates a reader.
+     *
+     * @return new instance of a reader.
+     */
+    LongReader createReader();
+
+    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
+        return new LongQueueBuilder(name, directory, regionRingFactory);
     }
 
     /**
-     * Handles a message and indicates if index to be advanced.
-     *
-     * @param index - message index
-     * @param buffer - buffer index
-     * @return next move {@link NextMove}
+     * Closes the queue and all appender, pollers and readers.
      */
-    NextMove onMessage(long index, DirectBuffer buffer);
+    @Override
+    void close();
 }

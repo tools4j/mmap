@@ -24,59 +24,62 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * Queue poller
+ * Queue poller for sequential retrieval of entries with callback to an {@link EntryHandler}.
  */
 public interface Poller extends AutoCloseable {
     /**
-     * Result of message polling
+     * Result of polling an entry.
      */
     enum Result {
         /**
-         * Message was not available.
+         * No entry was available for polling.
          */
-        NOT_AVAILABLE,
+        IDLE,
         /**
-         * Message was handled and message index was advanced.
+         * Entry was polled and index was moved to next higher index.
+         * @see NextMove#FORWARD
          */
-        ADVANCED,
+        POLLED_AND_MOVED_FORWARD,
         /**
-         * Message was handled and message index was retained.
+         * Entry was polled and index was left unchanged.
+         * @see NextMove#NONE
          */
-        RETAINED,
+        POLLED_AND_NOT_MOVED,
         /**
-         * Message was handled and message index was retreated.
+         * Entry was polled and index  was moved to next lower index.
+         * @see NextMove#BACKWARD
          */
-        RETREATED,
+        POLLED_AND_MOVED_BACKWARD,
         /**
-         * Error occurred when attempting to access message payload.
+         * Error occurred when attempting to access entry payload.
          */
-        ERROR,
+        ERROR
     }
 
     /**
-     * Polls the queue and invokes the messageHandler if a message is available for consumption.
+     * Polls the queue and invokes the entry handler if one is available.
      *
-     * @param messageHandler message handler
-     * @return result value
+     * @param entryHandler entry handler callback invoked if an entry is present
+     * @return result value as per {@link NextMove} if polled, otherwise {@link Result#IDLE}
      */
-    Result poll(MessageHandler messageHandler);
+    Result poll(EntryHandler entryHandler);
 
     /**
-     * Move current cursor to given index.
+     * Move to given index for next entry to poll.
      *
-     * @param index to move the cursor to
+     * @param index index to move to for next poll operation
      * @return true if the move succeeded, false otherwise
      */
     boolean moveToIndex(long index);
 
     /**
-     * Move to end of the queue
-     * @return last index at which new message is expected
+     * Move to end of the queue after the last entry
+     * @return index at which next entry is expected to be appended in the future
      */
     long moveToEnd();
 
     /**
-     * Move to start
+     * Move to start of the queue, for polling the first entry next
      * @return true is succeeded
      */
     boolean moveToStart();
@@ -87,12 +90,15 @@ public interface Poller extends AutoCloseable {
     long currentIndex();
 
     /**
-     * Check if a message is available at the given index
-     * @param index message index
-     * @return true if message is available, false - otherwise
+     * Check if an entry is available at the given index
+     * @param index entry index
+     * @return true if entry is available at the given index, and false otherwise
      */
     boolean hasEntry(long index);
 
+    /**
+     * Closes the poller.
+     */
     @Override
     void close();
 }

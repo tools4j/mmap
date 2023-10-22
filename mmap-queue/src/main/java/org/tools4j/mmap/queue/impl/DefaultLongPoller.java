@@ -21,33 +21,40 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
+import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.EntryHandler;
-import org.tools4j.mmap.longQueue.api.LongPoller;
-import org.tools4j.mmap.longQueue.api.LongQueue;
+import org.tools4j.mmap.queue.api.EntryHandler;
+import org.tools4j.mmap.queue.api.LongEntryHandler;
+import org.tools4j.mmap.queue.api.LongPoller;
+import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.longQueue.api.LongPoller.Result.ADVANCED;
-import static org.tools4j.mmap.longQueue.api.LongPoller.Result.NOT_AVAILABLE;
-import static org.tools4j.mmap.longQueue.api.LongPoller.Result.RETAINED;
-import static org.tools4j.mmap.longQueue.api.LongPoller.Result.RETREATED;
-import static org.tools4j.mmap.longQueue.impl.RegionAccessors.VALUE_WORD;
+import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
+import static org.tools4j.mmap.queue.api.Poller.Result.IDLE;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_BACKWARD;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_FORWARD;
+import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_NOT_MOVED;
+import static org.tools4j.mmap.queue.impl.DefaultLongQueue.unmaskNullValue;
+import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
 
 public class DefaultLongPoller implements LongPoller {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongPoller.class);
 
     private final String queueName;
+    private final long nullValue;
     private final RegionAccessor regionAccessor;
     private final UnsafeBuffer buffer;
+    private final MutableDirectBuffer pollBuffer = new UnsafeBuffer(new byte[Long.BYTES]);
     private long currentIndex = 0;
 
-    public DefaultLongPoller(final String queueName, final RegionAccessor regionAccessor) {
+    public DefaultLongPoller(final String queueName, final long nullValue, final RegionAccessor regionAccessor) {
         this.queueName = requireNonNull(queueName);
+        this.nullValue = nullValue;
         this.regionAccessor = requireNonNull(regionAccessor);
 
         this.buffer = new UnsafeBuffer();
@@ -56,28 +63,43 @@ public class DefaultLongPoller implements LongPoller {
     @Override
     public Result poll(final EntryHandler entryHandler) {
         final long value = readValue(currentIndex);
-        if (value != LongQueue.NULL_VALUE) {
-
-            final EntryHandler.NextMove nextMove = entryHandler.onEntry(currentIndex, value);
-            if (nextMove == null) {
-                return RETAINED;
-            }
-
-            switch (nextMove) {
-                case ADVANCE:
-                    currentIndex++;
-                    return ADVANCED;
-                case RETREAT:
-                    if (currentIndex > 0) {
-                        currentIndex--;
-                        return RETREATED;
-                    }
-                    return RETAINED;
-                case RETAIN:
-                    return RETAINED;
-            }
+        if (value != DEFAULT_NULL_VALUE) {
+            pollBuffer.putLong(0, unmaskNullValue(value, nullValue));
+            final NextMove nextMove = entryHandler.onEntry(currentIndex, pollBuffer);
+            return moveAfterPoll(nextMove);
         }
-        return NOT_AVAILABLE;
+        return IDLE;
+    }
+
+    @Override
+    public Result poll(final LongEntryHandler entryHandler) {
+        final long value = readValue(currentIndex);
+        if (value != DEFAULT_NULL_VALUE) {
+            final NextMove nextMove = entryHandler.onEntry(currentIndex, unmaskNullValue(value, nullValue));
+            return moveAfterPoll(nextMove);
+        }
+        return IDLE;
+    }
+
+    private Result moveAfterPoll(final NextMove nextMove) {
+        if (nextMove == null) {
+            return POLLED_AND_NOT_MOVED;
+        }
+        switch (nextMove) {
+            case FORWARD:
+                currentIndex++;
+                return POLLED_AND_MOVED_FORWARD;
+            case BACKWARD:
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    return POLLED_AND_MOVED_BACKWARD;
+                }
+                return POLLED_AND_NOT_MOVED;
+            case NONE:
+                return POLLED_AND_NOT_MOVED;
+            default:
+                throw new IllegalArgumentException("Unsupported next move: " + nextMove);
+        }
     }
 
     @Override
@@ -101,7 +123,7 @@ public class DefaultLongPoller implements LongPoller {
 
     @Override
     public long moveToEnd() {
-        while (readValue(currentIndex) != LongQueue.NULL_VALUE) {
+        while (readValue(currentIndex) != DEFAULT_NULL_VALUE) {
             currentIndex++;
         }
         return currentIndex;
@@ -119,12 +141,12 @@ public class DefaultLongPoller implements LongPoller {
 
     @Override
     public boolean hasEntry(final long index) {
-        return readValue(index) != LongQueue.NULL_VALUE;
+        return readValue(index) != DEFAULT_NULL_VALUE;
     }
 
     private boolean init(final long index) {
         final long value = readValue(index);
-        if (value != LongQueue.NULL_VALUE) {
+        if (value != DEFAULT_NULL_VALUE) {
             currentIndex = index;
             return true;
         }
@@ -139,7 +161,7 @@ public class DefaultLongPoller implements LongPoller {
     private long readValue(final long index) {
         long valuePosition = VALUE_WORD.position(index);
         if (!regionAccessor.wrap(valuePosition, buffer)) {
-            return LongQueue.NULL_VALUE;
+            return DEFAULT_NULL_VALUE;
         }
         return buffer.getLongVolatile(0);
     }

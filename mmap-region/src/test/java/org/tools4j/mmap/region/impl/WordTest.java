@@ -23,17 +23,14 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.tools4j.spockito.Spockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.tools4j.spockito.jupiter.TableSource;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@RunWith(Spockito.class)
 public class WordTest {
 
-    @Test
-    @Spockito.Unroll({
+    @TableSource({
             "| wordLength      | sectorSize      | index           | position       |",
             "|-----------------|-----------------|-----------------|----------------|",
             "| 8               | 8               | 0               | 0              |",
@@ -55,7 +52,7 @@ public class WordTest {
             "| 8               | 8               | 16              | 16             |",
             "| 8               | 8               | 17              | 80             |",
     })
-    @Spockito.Name("[{row}]: wordLength={0}, sectorSize={1},  index={2}, position={3}")
+    @ParameterizedTest(name = "[{index}]: wordLength={0}, sectorSize={1},  index={2}, position={3}")
     public void wordPosition(final int wordLength, final int sectorSize, final long index, final long position) {
         Word word = new Word(wordLength, sectorSize);
         assertEquals(position, word.position(index));

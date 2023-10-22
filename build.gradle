@@ -19,12 +19,12 @@ defaultTasks 'clean', 'build'
 def projGroup = 'org.tools4j'
 def projVersion = file('version.txt').text.trim()
 
-def agronaVersion = '1.18.0'
-def slf4jVersion = '2.0.7'
+def agronaVersion = '1.19.2'
+def slf4jVersion = '2.0.9'
 def junitVersion = '5.9.2'
 def mockitoVersion = '4.11.0'   //5.x requires Java 11
 def hdrHistogramVersion = '2.1.12'
-def spockitoVersion = '1.6'
+def spockitoVersion = '2.0'
 def assertjVersion = '3.24.2'
 def chronicleVersion = '5.21.98'//fastest now??
 
@@ -104,7 +104,7 @@ subprojects {
         testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
         testImplementation "org.mockito:mockito-inline:${mockitoVersion}"
         testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-        testImplementation "org.tools4j:tools4j-spockito:${spockitoVersion}"
+        testImplementation "org.tools4j:spockito-junit5:${spockitoVersion}"
         testImplementation "org.assertj:assertj-core:${assertjVersion}"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     }

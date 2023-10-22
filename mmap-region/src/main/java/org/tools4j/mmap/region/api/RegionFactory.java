@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.util.concurrent.TimeUnit;
-
 import org.tools4j.mmap.region.impl.AsyncVolatileStateMachineRegion;
 import org.tools4j.mmap.region.impl.SyncRegion;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Region factory
