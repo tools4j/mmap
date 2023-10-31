@@ -88,7 +88,7 @@ public final class DefaultLongQueue implements LongQueue {
                 RegionAccessors.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,
                         regionsToMapAhead, maxFileSize, rollFiles, readTimeout, timeUnit));
 
-        this.appenderFactory = () -> new DefaultLongAppender(name, nullValue,
+        this.appenderFactory = () -> new DefaultLongAppender(nullValue,
                 RegionAccessors.forReadWrite(name, directory, regionRingFactory, regionSize,
                         regionRingSize, regionsToMapAhead, maxFileSize, rollFiles, writeTimeout, timeUnit));
 

@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 /**
  * Long entry appender.
  */
-public interface LongAppender extends Appender {
+public interface LongAppender {
     /**
      * Failed to move to end of the queue
      */

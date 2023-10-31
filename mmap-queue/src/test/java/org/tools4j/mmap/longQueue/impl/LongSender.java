@@ -45,23 +45,22 @@ public class LongSender {
 
         this.thread = new Thread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
-            try (LongAppender appender = appenderFactory.get()) {
+            final LongAppender appender = appenderFactory.get();
 
-                final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
+            final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
 
-                final long start = System.nanoTime();
-                for (int i = 0; i < messages; i++) {
-                    final long time = System.nanoTime();
-                    long index = appender.append(time);
-                    if (index < 0) {
-                        LOGGER.warn("Failed to append value {}, error code {}", time, index);
-                    }
+            final long start = System.nanoTime();
+            for (int i = 0; i < messages; i++) {
+                final long time = System.nanoTime();
+                long index = appender.append(time);
+                if (index < 0) {
+                    LOGGER.warn("Failed to append value {}, error code {}", time, index);
+                }
 
-                    long end = System.nanoTime();
-                    final long waitUntil = start + (long) ((i + 1) * maxNanosPerMessage);
-                    while (end < waitUntil) {
-                        end = System.nanoTime();
-                    }
+                long end = System.nanoTime();
+                final long waitUntil = start + (long) ((i + 1) * maxNanosPerMessage);
+                while (end < waitUntil) {
+                    end = System.nanoTime();
                 }
             }
         });
