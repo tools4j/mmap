@@ -29,6 +29,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongReader;
+import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
@@ -38,12 +39,12 @@ import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
 
 public class DefaultLongReader implements LongReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongReader.class);
-    private static final DirectBuffer EMPTY_BUFFER = new UnsafeBuffer(0, 0);
     private final String queueName;
     private final long nullValue;
     private final RegionAccessor regionAccessor;
-    private final UnsafeBuffer buffer;
-    private final DefaultLongReadingContext entry;
+    private final UnsafeBuffer buffer = new UnsafeBuffer();
+    private final DefaultLongReadingContext readingContext = new DefaultLongReadingContext();
+    private final DefaultLongIterableContext iterableContext = new DefaultLongIterableContext();
 
     private final LongReadingContext nullEntryContext = new NullEntryContext();
     private long lastIndex = NULL_INDEX;
@@ -52,11 +53,20 @@ public class DefaultLongReader implements LongReader {
         this.queueName = requireNonNull(queueName);
         this.nullValue = nullValue;
         this.regionAccessor = requireNonNull(regionAccessor);
-
-        this.buffer = new UnsafeBuffer();
-        this.entry = new DefaultLongReadingContext();
     }
 
+    @Override
+    public long firstIndex() {
+        long index = lastIndex;
+        if (index != NULL_INDEX) {
+            return 0;
+        }
+        if (readValue(++index) != DEFAULT_NULL_VALUE) {
+            lastIndex = index;
+            return 0;
+        }
+        return NULL_INDEX;
+    }
     @Override
     public long lastIndex() {
         long index = lastIndex;
@@ -68,26 +78,41 @@ public class DefaultLongReader implements LongReader {
 
     @Override
     public boolean hasEntry(final long index) {
-        return readValue(index) != DEFAULT_NULL_VALUE;
+        return index >= 0 && readValue(index) != DEFAULT_NULL_VALUE;
     }
 
     @Override
-    public LongReadingContext read(long index) {
-        return entry.init(index);
+    public LongReadingContext reading(final long index) {
+        return index >= 0 ? readingContext.init(index) : nullEntryContext;
     }
 
     @Override
-    public LongReadingContext readLast() {
+    public LongReadingContext readingFirst() {
+        return readingContext.init(0);
+    }
+
+    @Override
+    public LongReadingContext readingLast() {
         long last = lastIndex();
         if (last != NULL_INDEX) {
-            return entry.init(last);
+            return readingContext.init(last);
         }
         return nullEntryContext;
     }
 
     @Override
-    public LongReadingContext readFirst() {
-        return entry.init(0);
+    public LongIterableContext readingFrom(final long index) {
+        return iterableContext.init(index);
+    }
+
+    @Override
+    public LongIterableContext readingFromFirst() {
+        return iterableContext.init(0);
+    }
+
+    @Override
+    public LongIterableContext readingFromLast() {
+        return iterableContext.init(Long.MAX_VALUE);
     }
 
     /**
@@ -110,25 +135,41 @@ public class DefaultLongReader implements LongReader {
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 
-    private final class DefaultLongReadingContext implements LongReadingContext {
+    private final class DefaultLongReadingContext implements LongReadingContext, MutableReadingContext<LongEntry> {
         long index = NULL_INDEX;
         long value = nullValue;
 
         final MutableDirectBuffer buffer = new UnsafeBuffer(new byte[Long.BYTES]);
-        DirectBuffer bufferForReading = EMPTY_BUFFER;
+        DirectBuffer bufferForReading = EmptyBuffer.INSTANCE;
 
         DefaultLongReadingContext init(final long index) {
             if (index < 0) {
                 throw new IllegalArgumentException("Index cannot be negative: " + index);
             }
+            if (this.index != NULL_INDEX) {
+                close();
+                throw new IllegalStateException("ReadingContext is not closed");
+            }
+            if (!tryInit(index)) {
+                close();
+            }
+            return this;
+        }
 
+        @Override
+        public boolean tryInit(final long index) {
             final long value = readValue(index);
             if (value != DEFAULT_NULL_VALUE) {
                 this.index = index;
                 this.value = value;
-            } else {
-                close();
+                this.bufferForReading = EmptyBuffer.INSTANCE;
+                return true;
             }
+            return false;
+        }
+
+        @Override
+        public LongEntry entry() {
             return this;
         }
 
@@ -139,7 +180,7 @@ public class DefaultLongReader implements LongReader {
 
         @Override
         public DirectBuffer buffer() {
-            if (bufferForReading == EMPTY_BUFFER && index != NULL_INDEX) {
+            if (bufferForReading == EmptyBuffer.INSTANCE && index != NULL_INDEX) {
                 buffer.putLong(0, value());
                 bufferForReading = buffer;
             }
@@ -161,34 +202,28 @@ public class DefaultLongReader implements LongReader {
             if (index != NULL_INDEX) {
                 index = NULL_INDEX;
                 value = DEFAULT_NULL_VALUE;
-                bufferForReading = EMPTY_BUFFER;
+                bufferForReading = EmptyBuffer.INSTANCE;
             }
         }
     }
 
-    private final class NullEntryContext implements LongReadingContext {
-        @Override
-        public long index() {
-            return NULL_INDEX;
-        }
-        @Override
-        public DirectBuffer buffer() {
-            return EMPTY_BUFFER;
+    private final class DefaultLongIterableContext extends DefaultIterableContext<LongEntry> implements LongIterableContext {
+
+        DefaultLongIterableContext() {
+            super(DefaultLongReader.this, readingContext);
         }
 
+        @Override
+        DefaultLongIterableContext init(final long index) {
+            super.init(index);
+            return this;
+        }
+    }
+
+    private final class NullEntryContext extends EmptyReadingContext<LongEntry> implements LongReadingContext {
         @Override
         public long value() {
             return nullValue;
-        }
-
-        @Override
-        public boolean hasEntry() {
-            return false;
-        }
-
-        @Override
-        public void close() {
-            //no op
         }
     }
 }

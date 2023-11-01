@@ -27,9 +27,9 @@ import org.HdrHistogram.Histogram;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.LongEntryHandler;
 import org.tools4j.mmap.queue.api.LongPoller;
-import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 
 import java.util.Objects;
@@ -58,7 +58,7 @@ public class LongReceiver {
                 int received = 0;
 
                 @Override
-                public NextMove onEntry(long index, long sendingTime) {
+                public Direction onEntry(long index, long sendingTime) {
                     received++;
                     long end = System.nanoTime();
 
@@ -71,7 +71,7 @@ public class LongReceiver {
                     if (received == messages) {
                         finished.set(true);
                     }
-                    return NextMove.FORWARD;
+                    return Direction.FORWARD;
                 }
             };
 

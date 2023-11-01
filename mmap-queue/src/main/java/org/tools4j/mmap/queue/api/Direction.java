@@ -24,14 +24,19 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * Queue poller for sequential retrieval of entries with callback to a {@link LongEntryHandler}.
+ * Indicator for direction when moving to the next entry in the queue.
  */
-public interface LongPoller extends Poller {
+public enum Direction {
     /**
-     * Polls the queue and invokes the entry handler if one is available.
-     *
-     * @param entryHandler entry handler callback invoked if an entry is present
-     * @return result value as per {@link Direction} if polled, otherwise {@link Result#IDLE}
+     * Move forward to next higher entry index.
      */
-    Result poll(LongEntryHandler entryHandler);
+    FORWARD,
+    /**
+     * Don't move and stay on current entry.
+     */
+    NONE,
+    /**
+     * Move backward to next lower entry index.
+     */
+    BACKWARD
 }

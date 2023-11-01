@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
-import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
@@ -75,8 +75,8 @@ public class DefaultPoller implements Poller {
             final int length = payloadBuffer.getInt(0);
             message.wrap(payloadBuffer, 4, length);
 
-            final NextMove nextMove = entryHandler.onEntry(currentIndex, message);
-            switch (nextMove != null ? nextMove : NextMove.NONE) {
+            final Direction nextMove = entryHandler.onEntry(currentIndex, message);
+            switch (nextMove != null ? nextMove : Direction.NONE) {
                 case FORWARD:
                     currentIndex++;
                     return POLLED_AND_MOVED_FORWARD;

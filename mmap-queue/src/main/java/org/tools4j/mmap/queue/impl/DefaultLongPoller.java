@@ -27,10 +27,10 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.LongEntryHandler;
 import org.tools4j.mmap.queue.api.LongPoller;
-import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
@@ -65,7 +65,7 @@ public class DefaultLongPoller implements LongPoller {
         final long value = readValue(currentIndex);
         if (value != DEFAULT_NULL_VALUE) {
             pollBuffer.putLong(0, unmaskNullValue(value, nullValue));
-            final NextMove nextMove = entryHandler.onEntry(currentIndex, pollBuffer);
+            final Direction nextMove = entryHandler.onEntry(currentIndex, pollBuffer);
             return moveAfterPoll(nextMove);
         }
         return IDLE;
@@ -75,13 +75,13 @@ public class DefaultLongPoller implements LongPoller {
     public Result poll(final LongEntryHandler entryHandler) {
         final long value = readValue(currentIndex);
         if (value != DEFAULT_NULL_VALUE) {
-            final NextMove nextMove = entryHandler.onEntry(currentIndex, unmaskNullValue(value, nullValue));
+            final Direction nextMove = entryHandler.onEntry(currentIndex, unmaskNullValue(value, nullValue));
             return moveAfterPoll(nextMove);
         }
         return IDLE;
     }
 
-    private Result moveAfterPoll(final NextMove nextMove) {
+    private Result moveAfterPoll(final Direction nextMove) {
         if (nextMove == null) {
             return POLLED_AND_NOT_MOVED;
         }

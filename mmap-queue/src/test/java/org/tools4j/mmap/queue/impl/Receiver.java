@@ -28,8 +28,8 @@ import org.agrona.DirectBuffer;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
-import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
@@ -63,7 +63,7 @@ public class Receiver {
                 int received = 0;
 
                 @Override
-                public NextMove onEntry(long index, DirectBuffer messageBuffer) {
+                public Direction onEntry(long index, DirectBuffer messageBuffer) {
                     received++;
                     long end = System.nanoTime();
                     messageCodec.wrap(messageBuffer);
@@ -78,7 +78,7 @@ public class Receiver {
                     if (messageCodec.terminal()) {
                         finished.set(true);
                     }
-                    return NextMove.FORWARD;
+                    return Direction.FORWARD;
                 }
             };
 

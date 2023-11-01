@@ -32,7 +32,7 @@ public interface LongEntryHandler {
      *
      * @param index - entry index in the queue
      * @param value - the entry value
-     * @return next move {@link NextMove}
+     * @return next move {@link Direction}
      */
-    NextMove onEntry(long index, long value);
+    Direction onEntry(long index, long value);
 }

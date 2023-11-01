@@ -31,11 +31,11 @@ import org.agrona.DirectBuffer;
 public interface EntryHandler {
 
     /**
-     * Handles a entry and indicates the next entry move.
+     * Handles an entry and indicates the next entry move direction.
      *
      * @param index - entry index in the queue
      * @param buffer - buffer with access to entry data, with valid byte range from {@code [0...(capacity-1)]}
-     * @return next move {@link NextMove}
+     * @return next move {@link Direction}
      */
-    NextMove onEntry(long index, DirectBuffer buffer);
+    Direction onEntry(long index, DirectBuffer buffer);
 }

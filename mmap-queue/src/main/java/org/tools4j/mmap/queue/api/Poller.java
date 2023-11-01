@@ -37,17 +37,17 @@ public interface Poller extends AutoCloseable {
         IDLE,
         /**
          * Entry was polled and index was moved to next higher index.
-         * @see NextMove#FORWARD
+         * @see Direction#FORWARD
          */
         POLLED_AND_MOVED_FORWARD,
         /**
          * Entry was polled and index was left unchanged.
-         * @see NextMove#NONE
+         * @see Direction#NONE
          */
         POLLED_AND_NOT_MOVED,
         /**
          * Entry was polled and index  was moved to next lower index.
-         * @see NextMove#BACKWARD
+         * @see Direction#BACKWARD
          */
         POLLED_AND_MOVED_BACKWARD,
         /**
@@ -60,7 +60,7 @@ public interface Poller extends AutoCloseable {
      * Polls the queue and invokes the entry handler if one is available.
      *
      * @param entryHandler entry handler callback invoked if an entry is present
-     * @return result value as per {@link NextMove} if polled, otherwise {@link Result#IDLE}
+     * @return result value as per {@link Direction} if polled, otherwise {@link Result#IDLE}
      */
     Result poll(EntryHandler entryHandler);
 

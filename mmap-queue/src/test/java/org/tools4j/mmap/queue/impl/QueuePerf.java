@@ -26,8 +26,12 @@ package org.tools4j.mmap.queue.impl;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.queue.api.Reader.Entry;
+import org.tools4j.mmap.queue.api.Reader.IterableContext;
+import org.tools4j.mmap.queue.api.Reader.ReadingContext;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
@@ -54,7 +58,7 @@ public class QueuePerf {
 
             final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionRingFactory);
 
-            final long messagesPerSecond = 50_000;
+            final long messagesPerSecond = 2_000_000;
             final int messages = 20_000_000;
             final int warmup = 200_000;
             final int messageLength = 256;
@@ -77,6 +81,8 @@ public class QueuePerf {
                 receiver1.printHistogram();
 
                 readByIndex(queue, messages, warmup, messageLength);
+                readByIterate(queue, messages, warmup, messageLength, Direction.FORWARD);
+                readByIterate(queue, messages, warmup, messageLength, Direction.BACKWARD);
             }
         }
         FileUtil.deleteRecursively(tempDir.toFile());
@@ -90,8 +96,11 @@ public class QueuePerf {
             final byte[] payload = new byte[messageCodec.payloadLength()];
 
             for (int i = messages - 1; i >= 0; i--) {
+                if (i == messages - warmup - 1) {
+                    histogram.reset();
+                }
                 final long time = System.nanoTime();
-                try(Reader.ReadingContext context = reader.read(i)) {
+                try(ReadingContext context = reader.reading(i)) {
                     if (context.hasEntry()) {
                         messageCodec.wrap(context.buffer());
                         messageCodec.getPayload(payload);
@@ -99,11 +108,35 @@ public class QueuePerf {
                 }
                 final long timeNanos = System.nanoTime() - time;
                 histogram.recordValue(Math.min(timeNanos, maxValue));
-                if (i == messages - warmup) {
-                    histogram.reset();
-                }
             }
             HistogramPrinter.printHistogram("readAtIndex", histogram);
+            final boolean exists = reader.hasEntry((long) messages * 2);
+            assertFalse(exists);
+        }
+    }
+    private static void readByIterate(final Queue queue, final int messages, final int warmup, final int messageLength, final Direction direction) {
+        try (Reader reader = queue.createReader()) {
+            final long maxValue = TimeUnit.SECONDS.toNanos(1);
+            final Histogram histogram = new Histogram(1, maxValue, 3);
+            final MessageCodec messageCodec = new MessageCodec(messageLength);
+            final byte[] payload = new byte[messageCodec.payloadLength()];
+
+            final long resetPoint = direction == Direction.FORWARD ? warmup : messages - warmup - 1;
+            try (final IterableContext context = (direction == Direction.FORWARD ? reader.readingFromFirst() : reader.readingFromLast())) {
+                long time = System.nanoTime();
+                for (final Entry entry : context.iterate(direction)) {
+                    if (entry.index() == resetPoint) {
+                        histogram.reset();
+                        time = System.nanoTime();
+                    }
+                    messageCodec.wrap(entry.buffer());
+                    messageCodec.getPayload(payload);
+                    final long timeNanos = System.nanoTime() - time;
+                    histogram.recordValue(Math.min(timeNanos, maxValue));
+                    time = System.nanoTime();
+                }
+            }
+            HistogramPrinter.printHistogram("readByIterate(" + direction + ")", histogram);
             final boolean exists = reader.hasEntry((long) messages * 2);
             assertFalse(exists);
         }

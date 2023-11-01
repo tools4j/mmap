@@ -26,8 +26,12 @@ package org.tools4j.mmap.longQueue.impl;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.LongQueue;
 import org.tools4j.mmap.queue.api.LongReader;
+import org.tools4j.mmap.queue.api.LongReader.LongEntry;
+import org.tools4j.mmap.queue.api.LongReader.LongIterableContext;
+import org.tools4j.mmap.queue.api.Reader.ReadingContext;
 import org.tools4j.mmap.queue.impl.LongQueueBuilder;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
@@ -54,7 +58,7 @@ public class LongQueuePerf {
 
             final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionRingFactory);
 
-            final long messagesPerSecond = 50_000;
+            final long messagesPerSecond = 2_000_000;
             final int messages = 20_000_000;
             final int warmup = 200_000;
 
@@ -76,6 +80,8 @@ public class LongQueuePerf {
                 receiver1.printHistogram();
 
                 readByIndex(queue, messages, warmup);
+                readByIterate(queue, messages, warmup, Direction.FORWARD);
+                readByIterate(queue, messages, warmup, Direction.BACKWARD);
             }
         }
         FileUtil.deleteRecursively(tempDir.toFile());
@@ -87,15 +93,39 @@ public class LongQueuePerf {
             final Histogram histogram = new Histogram(1, maxValue, 3);
 
             for (int i = messages - 1; i >= 0; i--) {
-                final long time = System.nanoTime();
-                reader.read(i);
-                final long timeNanos = System.nanoTime() - time;
-                histogram.recordValue(Math.min(timeNanos, maxValue));
-                if (i == messages - warmup) {
+                if (i == messages - warmup - 1) {
                     histogram.reset();
+                }
+                final long time = System.nanoTime();
+                try (final ReadingContext ignored = reader.reading(i)) {
+                    final long timeNanos = System.nanoTime() - time;
+                    histogram.recordValue(Math.min(timeNanos, maxValue));
                 }
             }
             HistogramPrinter.printHistogram("readAtIndex", histogram);
+            final boolean exists = reader.hasEntry((long) messages * 2);
+            assertFalse(exists);
+        }
+    }
+    private static void readByIterate(final LongQueue queue, final int messages, final int warmup, final Direction direction) {
+        try (LongReader reader = queue.createReader()) {
+            final long maxValue = TimeUnit.SECONDS.toNanos(1);
+            final Histogram histogram = new Histogram(1, maxValue, 3);
+
+            final long resetPoint = direction == Direction.FORWARD ? warmup : messages - warmup - 1;
+            try (final LongIterableContext context = (direction == Direction.FORWARD ? reader.readingFromFirst() : reader.readingFromLast())) {
+                long time = System.nanoTime();
+                for (final LongEntry entry : context.iterate(direction)) {
+                    if (entry.index() == resetPoint) {
+                        histogram.reset();
+                        time = System.nanoTime();
+                    }
+                    final long timeNanos = System.nanoTime() - time;
+                    histogram.recordValue(Math.min(timeNanos, maxValue));
+                    time = System.nanoTime();
+                }
+            }
+            HistogramPrinter.printHistogram("readByIterate(" + direction + ")", histogram);
             final boolean exists = reader.hasEntry((long) messages * 2);
             assertFalse(exists);
         }

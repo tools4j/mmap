@@ -21,22 +21,48 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.queue.impl;
 
-/**
- * Indicator for how to move to the next entry when handling an entry in {@link EntryHandler}.
- */
-public enum NextMove {
-    /**
-     * Move forward to next higher entry index.
-     */
-    FORWARD,
-    /**
-     * Don't move and stay on current entry.
-     */
-    NONE,
-    /**
-     * Move backward to next lower entry index.
-     */
-    BACKWARD
+import org.agrona.DirectBuffer;
+import org.tools4j.mmap.queue.api.Direction;
+import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.queue.api.Reader.Entry;
+import org.tools4j.mmap.queue.api.Reader.IterableContext;
+import org.tools4j.mmap.queue.api.Reader.ReadingContext;
+
+import java.util.Collections;
+
+import static java.util.Objects.requireNonNull;
+
+class EmptyReadingContext<E extends Entry> implements ReadingContext, IterableContext {
+    @Override
+    public long index() {
+        return Reader.NULL_INDEX;
+    }
+
+    @Override
+    public DirectBuffer buffer() {
+        return EmptyBuffer.INSTANCE;
+    }
+
+    @Override
+    public boolean hasEntry() {
+        return false;
+    }
+
+    @Override
+    public void close() {
+        //no op
+    }
+
+    @Override
+    public long startIndex() {
+        return Reader.NULL_INDEX;
+    }
+
+    @Override
+    public Iterable<? extends Entry> iterate(final Direction direction) {
+        requireNonNull(direction);
+        return Collections.emptyList();
+    }
 }

@@ -24,25 +24,59 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * Random access reading interface.
+ * Random access reading interface for entries in the {@link LongQueue}.
  */
 public interface LongReader extends Reader {
     /**
-     * Reading context
+     * Entry in the long-queue, with data accessible through {@link #value()}.
      */
-    interface LongReadingContext extends ReadingContext {
+    interface LongEntry extends Entry {
         /**
-         * @return the entry value if an entry is available, otherwise {@link LongQueue#nullValue()}
+         * @return the entry value
          */
         long value();
     }
 
-    @Override
-    LongReadingContext read(long index);
+    /**
+     * Reading context with access to entry data and index if the requested long-queue entry was available; otherwise
+     * {@link #value()} will return {@link LongQueue#nullValue()}.
+     */
+    interface LongReadingContext extends LongEntry, ReadingContext {
+        /**
+         * @return non-negative index if entry is available, {@link #NULL_INDEX} otherwise
+         */
+        @Override
+        long index();
+        /**
+         * @return the entry value if an entry is available, otherwise {@link LongQueue#nullValue()}
+         */
+        @Override
+        long value();
+    }
+
+    /**
+     * Iterable context to iterate over long-queue entries.
+     */
+    interface LongIterableContext extends IterableContext {
+        @Override
+        Iterable<? extends LongEntry> iterate(Direction direction);
+    }
 
     @Override
-    LongReadingContext readLast();
+    LongReadingContext reading(long index);
 
     @Override
-    LongReadingContext readFirst();
+    LongReadingContext readingFirst();
+
+    @Override
+    LongReadingContext readingLast();
+
+    @Override
+    LongIterableContext readingFrom(long index);
+
+    @Override
+    LongIterableContext readingFromFirst();
+
+    @Override
+    LongIterableContext readingFromLast();
 }
