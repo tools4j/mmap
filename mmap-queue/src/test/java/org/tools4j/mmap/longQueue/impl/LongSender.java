@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongAppender;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -73,10 +74,11 @@ public class LongSender {
         thread.start();
     }
 
-    public void join() throws Throwable {
-        thread.join();
+    public boolean join(final long maxWaitTime, final TimeUnit timeUnit) throws Throwable {
+        thread.join(timeUnit.toMillis(maxWaitTime));
         if (uncaughtException.get() != null) {
             throw uncaughtException.get();
         }
+        return !thread.isAlive();
     }
 }

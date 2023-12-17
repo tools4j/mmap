@@ -99,11 +99,12 @@ public class Receiver {
         thread.start();
     }
 
-    public void join() throws Throwable {
-        thread.join();
+    public boolean join(final long maxWaitTime, final TimeUnit timeUnit) throws Throwable {
+        thread.join(timeUnit.toMillis(maxWaitTime));
         if (uncaughtException.get() != null) {
             throw uncaughtException.get();
         }
+        return !thread.isAlive();
     }
 
     public void printHistogram() {

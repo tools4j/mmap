@@ -23,14 +23,48 @@
  */
 package org.tools4j.mmap.region.impl;
 
-public class Requirements {
-    private Requirements() {
-        throw new IllegalStateException("Requirements is not instantiable");
+import org.agrona.BitUtil;
+import org.tools4j.mmap.region.api.RegionMetrics;
+
+public final class PowerOfTwoRegionMetrics implements RegionMetrics {
+
+    private final int regionSize;
+    private final int offsetMask;
+    private final long regionMask;
+    private final int regionShift;
+
+    public PowerOfTwoRegionMetrics(final int regionSize) {
+        if (!BitUtil.isPowerOfTwo(regionSize)) {
+            throw new IllegalArgumentException("Region size must be a positive power of 2: " + regionSize);
+        }
+        this.regionSize = regionSize;
+        this.offsetMask = regionSize - 1;
+        this.regionMask = -regionSize;
+        this.regionShift = Integer.numberOfTrailingZeros(regionSize);
     }
 
-    public static void greaterThanZero(long value, String name) {
-        if (value <= 0) {
-            throw new IllegalArgumentException(name + " must be > 0, given value " + value);
-        }
+    @Override
+    public int regionSize() {
+        return regionSize;
+    }
+
+    @Override
+    public int regionOffset(final long position) {
+        return (int)(position & offsetMask);
+    }
+
+    @Override
+    public long regionPosition(final long position) {
+        return position & regionMask;
+    }
+
+    @Override
+    public long regionIndex(final long position) {
+        return position >>> regionShift;
+    }
+
+    @Override
+    public String toString() {
+        return "RegionMetrics:regionSize=" + regionSize;
     }
 }

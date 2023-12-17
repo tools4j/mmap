@@ -23,31 +23,28 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongAppender;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
 import static org.tools4j.mmap.queue.impl.DefaultLongQueue.maskNullValue;
-import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
+import static org.tools4j.mmap.queue.impl.LongQueueRegionMappers.VALUE_WORD;
 
 public class DefaultLongAppender implements LongAppender {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongAppender.class);
     private static final long NOT_INITIALISED = -1;
-    private final UnsafeBuffer buffer;
     private final long nullValue;
-    private final RegionAccessor regionAccessor;
+    private final RegionMapper regionMapper;
     private long currentPosition = NOT_INITIALISED;
     private long currentIndex = NOT_INITIALISED;
 
-    public DefaultLongAppender(final long nullValue,
-                               final RegionAccessor regionAccessor) {
+    public DefaultLongAppender(final long nullValue, final RegionMapper regionMapper) {
         this.nullValue = nullValue;
-        this.buffer = new UnsafeBuffer();
-        this.regionAccessor = regionAccessor;
-
+        this.regionMapper = requireNonNull(regionMapper);
         advanceToLastAppendPosition();
     }
 
@@ -63,10 +60,12 @@ public class DefaultLongAppender implements LongAppender {
             return MOVE_TO_END_ERROR;
         }
 
-        if (regionAccessor.wrap(currentPosition, buffer)) {
-
-            while (!buffer.compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
-                moveToLastPosition();
+        Region region;
+        if ((region = regionMapper.map(currentPosition)).isReady()) {
+            while (!region.buffer().compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
+                if ((region = moveToLastPosition()) == null) {
+                    return WRAP_REGION_ERROR;
+                }
             }
 
             final long appendIndex = currentIndex;
@@ -80,22 +79,24 @@ public class DefaultLongAppender implements LongAppender {
         }
     }
 
-    private void moveToLastPosition() {
+    private Region moveToLastPosition() {
         currentIndex++;
         currentPosition = VALUE_WORD.position(currentIndex);
         long value;
+        Region region;
         do {
-            if (regionAccessor.wrap(currentPosition, buffer)) {
-                value = buffer.getLongVolatile(0);
+            if ((region = regionMapper.map(currentPosition)).isReady()) {
+                value = region.buffer().getLongVolatile(0);
                 if (value != DEFAULT_NULL_VALUE) {
                     currentPosition = VALUE_WORD.position(++currentIndex);
                 }
             } else {
-                LOGGER.error("Failed to wrap buffer for position {} when advancing to last append position",
+                LOGGER.error("Failed to map region at {} when advancing to last append position",
                         currentPosition);
-                return;
+                return null;
             }
         } while (value != DEFAULT_NULL_VALUE);
+        return region;
     }
 
     private boolean advanceToLastAppendPosition() {
@@ -104,8 +105,9 @@ public class DefaultLongAppender implements LongAppender {
             currentPosition = VALUE_WORD.position(currentIndex);
             long value;
             do {
-                if (regionAccessor.wrap(currentPosition, buffer)) {
-                    value = buffer.getLongVolatile(0);
+                final Region region;
+                if ((region = regionMapper.map(currentPosition)).isReady()) {
+                    value = region.buffer().getLongVolatile(0);
                     if (value != DEFAULT_NULL_VALUE) {
                         currentPosition = VALUE_WORD.position(++currentIndex);
                     }
@@ -117,5 +119,11 @@ public class DefaultLongAppender implements LongAppender {
             } while (value != DEFAULT_NULL_VALUE);
         }
         return true;
+    }
+
+    @Override
+    public void close() {
+        regionMapper.close();//TODO close or is this shared ?
+        LOGGER.info("Closed long appender.");
     }
 }

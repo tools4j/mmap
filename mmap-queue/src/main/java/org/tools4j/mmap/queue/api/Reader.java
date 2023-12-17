@@ -79,6 +79,7 @@ public interface Reader extends AutoCloseable {
     interface IterableContext extends AutoCloseable {
         /** @return the index of the first entry returned by iterators, or {@link #NULL_INDEX} if unavailable */
         long startIndex();
+
         /**
          * Returns an iterable for iteration over queue entries in the given {@code direction} starting at
          * {@link #startIndex() startIndex}. If direction is {@link Direction#NONE NONE}, only the start entry will be returned by
@@ -88,6 +89,7 @@ public interface Reader extends AutoCloseable {
          * @return an iterable to iterate over queue entries in the given {@code direction}
          */
         Iterable<? extends Entry> iterate(Direction direction);
+
         /** Closes any iterator associated with this iterable and unwraps the current entry's buffer */
         @Override
         void close();
@@ -189,9 +191,8 @@ public interface Reader extends AutoCloseable {
      * int the following example:
      * <pre>
      * long start = 123;
-     * Direction direction = Direction.FORWARD;
      * try (IterableContext context = queue.readingFrom(start)) {
-     *     for (Entry entry : context.iterate(direction) {
+     *     for (Entry entry : context.iterate(Direction.FORWARD) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
      *     }
@@ -225,8 +226,7 @@ public interface Reader extends AutoCloseable {
     IterableContext readingFromFirst();
 
     /**
-     * Returns the reading context to iterate over the entries of the queue starting from the last entry and iterating
-     * backwards towards the front of the queue.
+     * Returns the reading context to iterate over the entries of the queue starting from the last entry.
      * <p>
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * int the following example:

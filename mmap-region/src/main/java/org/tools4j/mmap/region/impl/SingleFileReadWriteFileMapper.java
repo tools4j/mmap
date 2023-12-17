@@ -85,7 +85,8 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
     private void preTouch(int length, long address) {
         preTouchBuffer.wrap(address, length);
         for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
-            preTouchBuffer.putByte(i, (byte)0);
+            preTouchBuffer.putInt(i, 0);
+            //preTouchBuffer.putByte(i, (byte)0);
         }
         preTouchBuffer.wrap(0, 0);
     }

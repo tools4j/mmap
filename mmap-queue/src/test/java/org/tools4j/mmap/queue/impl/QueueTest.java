@@ -24,6 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.ExpandableDirectByteBuffer;
+import org.agrona.concurrent.BusySpinIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +35,7 @@ import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.impl.RegionRingFactories;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,8 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class QueueTest {
-    private static final AsyncRuntime ASYNC_RUNTIME = AsyncRuntime.createDefault();
-
+    private static final IdleStrategy ASYNC_RUNTIME_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
+    private static final int REGIONS_TO_MAP_AHEAD = 1;
     private Path tempDir;
 
     @BeforeEach
@@ -60,7 +62,10 @@ class QueueTest {
 
     @Test
     void test() {
-        try (Queue queue = Queue.builder("test", tempDir.toString(), RegionRingFactories.async(ASYNC_RUNTIME)).build()) {
+        try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false);
+            //final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
+            final Queue queue = Queue.builder("test", tempDir.toString(), regionMapperFactory).build();
             try (Appender appender = queue.createAppender();
                  Poller poller1 = queue.createPoller();
                  Poller poller2 = queue.createPoller()) {

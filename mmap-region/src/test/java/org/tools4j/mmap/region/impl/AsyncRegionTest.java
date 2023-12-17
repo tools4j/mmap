@@ -24,300 +24,187 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.tools4j.mmap.region.api.AsyncRegion;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.verification.VerificationMode;
+import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionMetrics;
 
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.openMocks;
 
+@ExtendWith(MockitoExtension.class)
 public class AsyncRegionTest {
-
-    interface AsyncRegionFactory {
-        AsyncRegion create(FileMapper fileMapper, int length, long timeout, TimeUnit timeUnits);
-    }
-
-    @SuppressWarnings("unused")
-    enum TestFactory {
-        VOLATILE_STATE_MACHINE_REGION(AsyncVolatileStateMachineRegion::new);
-
-        private final AsyncRegionFactory factory;
-
-        TestFactory(final AsyncRegionFactory factory) {
-            this.factory = Objects.requireNonNull(factory);
-        }
-    }
-
+    private static final int MAX_DATA_LENGTH = 512;
     @Mock
-    private DirectBuffer directBuffer;
+    private AsyncRuntime asyncRuntime;
     @Mock
     private FileMapper fileMapper;
 
     private InOrder inOrder;
 
-    private AsyncRegion region;
+    private RegionMapper regionMapper;
 
-    private final int length = 128;
+    private Recurring asyncRecurring;
+
+    private final int regionSize = 128;
 
     @BeforeEach
     public void setUp() {
-        openMocks(this);
+        doAnswer(invocation -> {
+            asyncRecurring = invocation.getArgument(0);
+            return null;
+        }).when(asyncRuntime).register(any());
+        final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
+        when(fileMapper.map(anyLong(), eq(regionSize))).thenAnswer(invocation -> {
+            final long position = invocation.getArgument(0);
+            if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
+                return FileMapper.NULL_ADDRESS;
+            }
+            return data.addressOffset() + position;
+        });
+        final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
+        final int cacheSize = 1;
+        final int regionsToMapAhead = 0;
+        regionMapper = RegionMapperFactories.async(asyncRuntime, fileMapper, regionMetrics, cacheSize,
+                regionsToMapAhead, true);
+        inOrder = Mockito.inOrder(asyncRuntime, fileMapper);
+        assertNotNull(asyncRecurring);
+    }
 
-        long timeoutMillis = 2000;
-        region = TestFactory.VOLATILE_STATE_MACHINE_REGION.factory.create(fileMapper, length, timeoutMillis, TimeUnit.MILLISECONDS);
-        inOrder = inOrder(directBuffer, fileMapper);
+    @AfterEach
+    public void cleanup() {
+        regionMapper.close();
     }
 
     @Test
-    public void wrap_false_when_no_async_mapping() {
-
-        final boolean wrapped = region.wrap(10, directBuffer);
-
-        assertFalse(wrapped);
-        inOrder.verify(directBuffer, never()).wrap(anyLong(), anyInt());
-        inOrder.verify(fileMapper, never()).map(anyLong(), same(length));
-    }
-
-    @Test
-    public void wrap_map_and_unmap() throws Exception {
+    public void map_and_access_data() {
         //given
-        final AtomicBoolean wrapped = new AtomicBoolean();
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int)(position % length);
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-
-        //when - request mapping
-        final Thread thread1 = new Thread(() -> wrapped.set(region.wrap(position, directBuffer)));
-
-        //and when - process mapping request
-        final Thread thread2 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread1.start();
-        thread2.start();
-        thread1.join();
-        thread2.join();
+        //when
+        Region region = regionMapper.map(position);
+        asyncRecurring.execute();
 
         //then
-        assertTrue(wrapped.get());
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-        inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, length - positionInRegion);
-
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-        //check that region is mapped
-        assertTrue(region.map(regionStartPosition));
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        assertEquals(positionInRegion, region.offset());
+        assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
         //when - wrap again within the same region
         final int offset = 4;
-        region.wrap(regionStartPosition + offset, directBuffer);
+        region = region.mapFromRegionStart(offset);
 
         //then
-        inOrder.verify(directBuffer).wrap(expectedAddress + offset, length - offset);
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        assertEquals(offset, region.offset());
+        assertEquals(regionSize - offset, region.bytesAvailable());
 
-        //when
-        //check that region is mapped
-        assertTrue(region.map(regionStartPosition));
-        //then
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
-
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-
-        //when send unmap request
-        assertFalse(region.unmap());
-
-        //and when - process unmapping request
-        final Thread thread3 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread3.start();
-        thread3.join();
+        //when - wrap again at region start
+        region = region.map(regionStartPosition);
 
         //then
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        assertEquals(0, region.offset());
+        assertEquals(regionSize, region.bytesAvailable());
 
-        assertTrue(region.unmap());
-        inOrder.verify(fileMapper, times(0)).unmap(expectedAddress, regionStartPosition, length);
+        //when - close, causes unmap
+        final long address = region.buffer().addressOffset();
+        region.close();
+        asyncRecurring.execute();
+
+        //then
+        inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
     }
 
     @Test
-    public void map_and_unmap() throws Exception {
+    public void map_and_unmap() {
         //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int)(position % length);
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-
-        //when - request mapping
-        assertFalse(region.map(regionStartPosition));
-
-        //and when - process mapping request
-        final Thread thread1 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread1.start();
-        thread1.join();
+        //when
+        Region region = regionMapper.map(position);
+        asyncRecurring.execute();
 
         //then
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-
-        //once region is mapped, wrap should be non-blocking
-        assertTrue(region.wrap(position, directBuffer));
-        inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, length - positionInRegion);
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
-        assertTrue(region.map(regionStartPosition));
+        region.mapFromRegionStart(0);
 
         //then
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
 
-        //check that there is nothing to process
-        assertFalse(region.processRequest());
-
-        //when send unmap request
-        assertFalse(region.unmap());
-
-        //and when - process unmapping request
-        final Thread thread2 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread2.start();
-        thread2.join();
+        //when - close to unmap
+        long address = region.buffer().addressOffset();
+        region.close();
+        asyncRecurring.execute();
 
         //then
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
+        inOrder.verify(asyncRuntime, once()).stop(false);
+        inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
+        inOrder.verify(asyncRuntime, once()).deregister(asyncRecurring);
 
-        assertTrue(region.unmap());
-        inOrder.verify(fileMapper, times(0)).unmap(expectedAddress, regionStartPosition, length);
-    }
-
-    @Test
-    public void map_and_remap() throws Exception {
-        //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int)(position % length);
-        final long regionStartPosition = position - positionInRegion;
-
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //when - request mapping
-        assertFalse(region.map(regionStartPosition));
-
-        //and when - process mapping request
-        final Thread thread1 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread1.start();
-        thread1.join();
-
-        //then
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-
-        //when send unmap request
-        final long prevRegionStartPosition = regionStartPosition - length;
-        final long prevExpectedAddress = expectedAddress - length;
-        when(fileMapper.map(prevRegionStartPosition, length)).thenReturn(prevExpectedAddress);
-
-        assertFalse(region.map(prevRegionStartPosition));
-
-        //and when - process unmapping request
-        final Thread thread2 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread2.start();
-        thread2.join();
-
-        //then
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
-        inOrder.verify(fileMapper, times(1)).map(prevRegionStartPosition, length);
-    }
-
-    @Test
-    public void map_and_close() throws Exception {
-        //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int)(position % length);
-        final long regionStartPosition = position - positionInRegion;
-        assertEquals(length, region.size());
-
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //when - request mapping
-        assertFalse(region.map(regionStartPosition));
-
-        //and when - process mapping request
-        final Thread thread1 = new Thread(() -> {
-            boolean processed;
-            do {
-                processed = region.processRequest();
-            } while (!processed);
-        });
-        thread1.start();
-        thread1.join();
-
-        //then
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-
-        //when
+        //when - close again should have no effect
+        region.close();
         region.close();
 
-        //and
-        assertTrue(region.processRequest());
+        //then
+        inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    public void map_and_remap() {
+        //given
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
+        final long regionStartPosition = position - positionInRegion;
+
+        //when
+        Region region = regionMapper.map(position);
+        asyncRecurring.execute();
 
         //then
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+
+        //when - map previous region, causing current to unmap
+        final long unmapAddress = region.buffer().addressOffset() - region.offset();
+        final long prevRegionStartPosition = regionStartPosition - regionSize;
+        region.mapPreviousRegion();
+        asyncRecurring.execute();
+
+        //then
+        inOrder.verify(fileMapper, once()).unmap(unmapAddress, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
+    }
+
+    private static VerificationMode once() {
+        return Mockito.times(1);
     }
 
 }

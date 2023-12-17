@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.tools4j.mmap.queue.impl.QueueBuilder;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
@@ -51,8 +51,8 @@ public interface Queue extends AutoCloseable {
      */
     Reader createReader();
 
-    static QueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
-        return new QueueBuilder(name, directory, regionRingFactory);
+    static QueueBuilder builder(final String name, final String directory, final RegionMapperFactory mapperFactory) {
+        return new QueueBuilder(name, directory, mapperFactory);
     }
 
     /**

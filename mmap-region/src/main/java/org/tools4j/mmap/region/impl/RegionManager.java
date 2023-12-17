@@ -21,33 +21,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.impl.AsyncVolatileStateMachineRegion;
-import org.tools4j.mmap.region.impl.SyncRegion;
-
-import java.util.concurrent.TimeUnit;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 /**
- * Region factory
- *
- * @param <T> type of the region, sync or async.
+ * Extension of {@link RegionMapper} with map operations to unmap and re-map a region if necessary.
  */
-public interface RegionFactory<T extends Region> {
-    RegionFactory<AsyncRegion> ASYNC_VOLATILE_STATE_MACHINE = new RegionFactory<AsyncRegion>() {
-        @Override
-        public AsyncRegion create(int size, FileMapper fileMapper, long timeout, TimeUnit timeUnit) {
-            return new AsyncVolatileStateMachineRegion(fileMapper, size, timeout, timeUnit);
-        }
-
-        @Override
-        public String toString() {
-            return "ASYNC_VOLATILE_STATE_MACHINE";
-        }
-    };
-
-    RegionFactory<Region> SYNC = (size, fileMapper, timeout, timeUnit) -> new SyncRegion(fileMapper, size);
-
-    T create(int size, FileMapper fileMapper, long timeout, TimeUnit timeUnit);
-
+interface RegionManager extends RegionMapper {
+    /**
+     * Same as {@link #map(long)} but with additional information of previous region from which the map request
+     * originated.  Region mapper implementations may use this information to predict the mapping direction and pre-map
+     * additional pages other than the one requested here.
+     *
+     * @param position start position of the region, or of viewport within the region if not aligned with region size
+     * @param from the region from which the map request was initiated
+     * @return the region, guaranteed to be immediately mapped for synchronous region
+     */
+    Region mapFrom(long position, MutableRegion from);
 }

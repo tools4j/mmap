@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.BusySpinIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,33 +35,38 @@ import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.api.RegionRingFactory;
-import org.tools4j.mmap.region.impl.RegionRingFactories;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class QueueLatencyTest {
 
+    private static final IdleStrategy ASYNC_RUNTIME_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
+    //private static final IdleStrategy ASYNC_RUNTIME_IDLE_STRATEGY = new BackoffIdleStrategy();
+    //private static final int REGION_SIZE = QueueBuilder.DEFAULT_REGION_SIZE;
+    private static final int REGION_SIZE = 128 * 1024;//fast latencies, but high outliers due to many mappings
+    //private static final int MAX_FILE_SIZE = QueueBuilder.DEFAULT_MAX_FILE_SIZE;
+    private static final int MAX_FILE_SIZE = 64 * 1024 * 1024;//good to test file rolling
+    private static final int REGION_CACHE_SIZE = 4;
+    private static final int REGIONS_TO_MAP_AHEAD = -1;//cacheSize-1
+    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(20);
     private static AsyncRuntime asyncRuntime;
 
     private static class TestRuntime {
-        public TestRuntime(final long messagesPerSecond,
-                           final int messageLength,
-                           final RegionRingFactory regionRingFactory) throws Exception {
-            this.messagesPerSecond = messagesPerSecond;
-            this.messageLength = messageLength;
-            this.regionRingFactory = Objects.requireNonNull(regionRingFactory);
+        public TestRuntime(final RegionMapperFactory regionMapperFactory) throws Exception {
+            this.regionMapperFactory = Objects.requireNonNull(regionMapperFactory);
             setup();
         }
 
-        private final long messagesPerSecond;
-        private final int messageLength;
-        private final RegionRingFactory regionRingFactory;
+        private final RegionMapperFactory regionMapperFactory;
 
         private Queue queue;
         private Appender appender;
@@ -71,7 +78,12 @@ public class QueueLatencyTest {
             tempDir = Files.createTempDirectory(QueueLatencyTest.class.getSimpleName());
             tempDir.toFile().deleteOnExit();
 
-            queue = Queue.builder("regiontest", tempDir.toString(), regionRingFactory).build();
+            queue = Queue
+                    .builder("queue-latency-test", tempDir.toString(), regionMapperFactory)
+                    .maxFileSize(MAX_FILE_SIZE)
+                    .regionSize(REGION_SIZE)
+                    .regionCacheSize(REGION_CACHE_SIZE)
+                    .build();
 
             appender = queue.createAppender();
             poller = queue.createPoller();
@@ -93,18 +105,26 @@ public class QueueLatencyTest {
     private TestRuntime testRuntime;
 
     public static Stream<Arguments> testRunParameters() {
-        asyncRuntime = AsyncRuntime.createDefault();
+        asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY);
 
         return Stream.of(
-                Arguments.of(160000, 100, RegionRingFactories.sync()),
-                Arguments.of(500000, 100, RegionRingFactories.sync()),
-                Arguments.of(160000, 1000, RegionRingFactories.sync()),
-                Arguments.of(500000, 1000, RegionRingFactories.sync()),
+                Arguments.of(200_000, 100, RegionMapperFactory.SYNC),
+                Arguments.of(500_000, 100, RegionMapperFactory.SYNC),
+                Arguments.of(1_000_000, 100, RegionMapperFactory.SYNC),
+                Arguments.of(2_000_000, 100, RegionMapperFactory.SYNC),
+                Arguments.of(200_000, 1000, RegionMapperFactory.SYNC),
+                Arguments.of(500_000, 1000, RegionMapperFactory.SYNC),
+                Arguments.of(1_000_000, 1000, RegionMapperFactory.SYNC),
+                Arguments.of(2_000_000, 1000, RegionMapperFactory.SYNC),
 
-                Arguments.of(160000, 100, RegionRingFactories.async(asyncRuntime)),
-                Arguments.of(500000, 100, RegionRingFactories.async(asyncRuntime)),
-                Arguments.of(160000, 1000, RegionRingFactories.async(asyncRuntime)),
-                Arguments.of(500000, 1000, RegionRingFactories.async(asyncRuntime))
+                Arguments.of(200_000, 100, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(500_000, 100, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(1_000_000, 100, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(2_000_000, 100, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(200_000, 1000, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(500_000, 1000, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(1_000_000, 1000, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false)),
+                Arguments.of(2_000_000, 1000, RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false))
         );
     }
 
@@ -127,11 +147,11 @@ public class QueueLatencyTest {
     @MethodSource("testRunParameters")
     public void latencyTest(final long messagesPerSecond,
                             final int messageLength,
-                            final RegionRingFactory regionRingFactory) throws Throwable {
+                            final RegionMapperFactory regionMapperFactory) throws Throwable {
         //given
-        testRuntime = new TestRuntime(messagesPerSecond, messageLength, regionRingFactory);
-        final int warmup = 100000;
-        final int hot = 200000;
+        testRuntime = new TestRuntime(regionMapperFactory);
+        final int warmup = 100_000;
+        final int hot = 200_000;
         final int messages = warmup + hot;
 
         System.out.println("\twarmup + count      : " + warmup + " + " + hot + " = " + messages);
@@ -145,21 +165,24 @@ public class QueueLatencyTest {
         sender.start();
         receiver0.start();
 
-        sender.join();
-        receiver0.join();
+        final long maxWaitNanos = TimeUnit.MILLISECONDS.toNanos(MAX_WAIT_MILLIS);
+        final long startTime = System.nanoTime();
+        assertTrue(sender.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+        assertTrue(receiver0.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+
         receiver0.printHistogram();
     }
 
     public static void main(String... args) throws Throwable {
         final int byteLen = 2000;
-        final int[] messagesPerSec = {160000, 160000, 160000, 160000, 160000, 160000};
-        try (AsyncRuntime asyncRuntime = AsyncRuntime.createDefault()) {
-            for (final RegionRingFactory regionRingFactory : Arrays.asList(RegionRingFactories.sync(),
-                    RegionRingFactories.async(asyncRuntime))) {
+        final int[] messagesPerSec = {200_000, 500_000, 1_000_000, 2_000_000};
+        try (AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
+            for (final RegionMapperFactory regionMapperFactory : Arrays.asList(RegionMapperFactory.SYNC,
+                    RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false))) {
                 for (final int mps : messagesPerSec) {
                     final QueueLatencyTest latencyTest = new QueueLatencyTest();
                     try {
-                        latencyTest.latencyTest(mps, byteLen, regionRingFactory);
+                        latencyTest.latencyTest(mps, byteLen, regionMapperFactory);
                     } finally {
                         latencyTest.tearDown();
                     }

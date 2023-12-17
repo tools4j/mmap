@@ -23,22 +23,32 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+
+import static java.util.Objects.requireNonNull;
 
 /**
- * Region ring factory.
+ * Defines static methods to create {@link TimeoutHandler} instances.
  */
-@FunctionalInterface
-public interface RegionRingFactory {
-    /**
-     * Creates array of regions based on the length of the array and size of a region.
-     *
-     * @param ringSize how many regions to buffer in the ring
-     * @param regionSize bytes per region
-     * @param fileMapper file mapper
-     * @param timeout timeout time
-     * @param timeUnit time unit
-     * @return array of regions
-     */
-    Region[] create(int ringSize, int regionSize, FileMapper fileMapper, long timeout, TimeUnit timeUnit);
+enum TimeoutHandlers {
+    ;
+    private static final TimeoutHandler<?> NO_OP = (state, policy) -> state;
+
+    @SuppressWarnings("unchecked")
+    static <T> TimeoutHandler<T> noOp() {
+        return (TimeoutHandler<T>) NO_OP;
+    }
+
+    static <T> TimeoutHandler<T> exception(final BiFunction<T, ? super WaitingPolicy, ? extends RuntimeException> exceptionFactory) {
+        requireNonNull(exceptionFactory);
+        return (state, waitingPolicy) -> {
+            throw exceptionFactory.apply(state, waitingPolicy);
+        } ;
+    }
+
+    static <T> TimeoutHandler<T> consecutive(final TimeoutHandler<T> first, final TimeoutHandler<T> second) {
+        requireNonNull(first);
+        requireNonNull(second);
+        return (state, waitingPolicy) -> second.handleTimeout(first.handleTimeout(state, waitingPolicy), waitingPolicy);
+    }
 }

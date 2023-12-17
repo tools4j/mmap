@@ -31,8 +31,12 @@ import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ChronicleLongQueuePerf {
+    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(15);
     private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleLongQueuePerf.class);
 
     public static void main(final String... args) throws Throwable {
@@ -47,9 +51,9 @@ public class ChronicleLongQueuePerf {
                 .wireType(WireType.BINARY_LIGHT)
                 .build()) {
 
-            final long messagesPerSecond = 50_000;
-            final int messages = 20_000_000;
-            final int warmup = 200_000;
+            final long messagesPerSecond = 1_000_000;
+            final int messages = 11_000_000;
+            final int warmup = 1_000_000;
 
             LOGGER.info("Queue created: {}", queue);
 
@@ -61,9 +65,11 @@ public class ChronicleLongQueuePerf {
             receiver0.start();
             receiver1.start();
 
-            sender.join();
-            receiver0.join();
-            receiver1.join();
+            final long maxWaitNanos = TimeUnit.MILLISECONDS.toNanos(MAX_WAIT_MILLIS);
+            final long startTime = System.nanoTime();
+            assertTrue(sender.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+            assertTrue(receiver0.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+            assertTrue(receiver1.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
             receiver0.printHistogram();
             receiver1.printHistogram();
         }

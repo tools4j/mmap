@@ -23,21 +23,23 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.CloseHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongAppender;
 import org.tools4j.mmap.queue.api.LongPoller;
 import org.tools4j.mmap.queue.api.LongQueue;
 import org.tools4j.mmap.queue.api.LongReader;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.api.WaitingPolicy;
 
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.region.impl.Requirements.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 
 /**
  * Implementation of {@link LongQueue} that allows a multiple writing threads and
@@ -52,50 +54,64 @@ public final class DefaultLongQueue implements LongQueue {
     private final Supplier<LongReader> readerFactory;
     private final Supplier<LongAppender> appenderFactory;
     private final String description;
+    private final List<AutoCloseable> closeables = new CopyOnWriteArrayList<>();
 
     public DefaultLongQueue(final String name,
                             final String directory,
-                            final RegionRingFactory regionRingFactory,
+                            final RegionMapperFactory regionMapperFactory,
                             final int regionSize,
-                            final int regionRingSize,
-                            final int regionsToMapAhead,
+                            final int regionCacheSize,
                             final long maxFileSize,
                             final boolean rollFiles,
-                            final long readTimeout,
-                            final long writeTimeout,
-                            final TimeUnit timeUnit,
-                            final long nullValue
-    ) {
+                            final long nullValue,
+                            final WaitingPolicy readWaitingPolicy,
+                            final WaitingPolicy writeWaitingPolicy,
+                            final boolean exceptionOnTimeout) {
         this.name = requireNonNull(name);
         this.nullValue = nullValue;
         requireNonNull(directory);
-        requireNonNull(regionRingFactory);
-        requireNonNull(timeUnit);
+        requireNonNull(regionMapperFactory);
+        requireNonNull(readWaitingPolicy);
+        requireNonNull(writeWaitingPolicy);
         greaterThanZero(regionSize, "regionSize");
-        greaterThanZero(regionRingSize, "regionRingSize");
-        greaterThanZero(regionsToMapAhead, "regionsToMapAhead");
+        greaterThanZero(regionCacheSize, "regionCacheSize");
         greaterThanZero(maxFileSize, "maxFileSize");
 
         if (regionSize % REGION_SIZE_GRANULARITY != 0) {
-            throw new IllegalArgumentException("regionRingSize must be multiple of " + REGION_SIZE_GRANULARITY);
+            throw new IllegalArgumentException("regionCacheSize must be multiple of " + REGION_SIZE_GRANULARITY);
         }
+        final RegionMapperFactory readMapperFactory = regionMapperFactory.isAsync() ?
+                RegionMapperFactory.async(regionMapperFactory, readWaitingPolicy,
+                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
+                : regionMapperFactory;
+        final RegionMapperFactory writeMapperFactory = regionMapperFactory.isAsync() ?
+                RegionMapperFactory.async(regionMapperFactory, writeWaitingPolicy,
+                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
+                : regionMapperFactory;
 
-        this.pollerFactory = () -> new DefaultLongPoller(name, nullValue,
-                RegionAccessors.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, readTimeout, timeUnit));
+        this.pollerFactory = () -> open(new DefaultLongPoller(name, nullValue,
+                LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
+                        maxFileSize, rollFiles)));
 
-        this.readerFactory = () -> new DefaultLongReader(name, nullValue,
-                RegionAccessors.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, readTimeout, timeUnit));
+        this.readerFactory = () -> open(new DefaultLongReader(name, nullValue,
+                LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
+                        maxFileSize, rollFiles)));
 
-        this.appenderFactory = () -> new DefaultLongAppender(nullValue,
-                RegionAccessors.forReadWrite(name, directory, regionRingFactory, regionSize,
-                        regionRingSize, regionsToMapAhead, maxFileSize, rollFiles, writeTimeout, timeUnit));
+        this.appenderFactory = () -> open(new DefaultLongAppender(nullValue,
+                LongQueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
+                        maxFileSize, rollFiles)));
 
-        this.description = format("LongQueue{name=%s, directory=%s, regionRingFactory=%s, regionSize=%d, "
-                        + "regionRingSize=%d, regionsToMapAhead=%d, maxFileSize=%d, rollFiles=%s, readTimeout=%d, writeTimeout=%d, timeUnit=%s}",
-                name, directory, regionRingFactory, regionSize, regionRingSize, regionsToMapAhead, maxFileSize, rollFiles,
-                readTimeout, writeTimeout, timeUnit);
+        final String asyncInfo = regionMapperFactory.isAsync() ?
+                String.format(", readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
+                        readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
+        this.description = String.format("LongQueue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
+                        "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s%s}", name, directory, regionMapperFactory,
+                regionSize, regionCacheSize, maxFileSize, rollFiles, asyncInfo);
+    }
+
+    private <T extends AutoCloseable> T open(final T closeable) {
+        closeables.add(closeable);
+        return closeable;
     }
 
     static long maskNullValue(final long value, final long nullValue) {
@@ -134,6 +150,10 @@ public final class DefaultLongQueue implements LongQueue {
 
     @Override
     public void close() {
+        if (closeables.isEmpty()) {
+            return;
+        }
+        CloseHelper.quietCloseAll(closeables);
         LOGGER.info("Closed queue {}", name);
     }
 }

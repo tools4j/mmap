@@ -23,43 +23,67 @@
  */
 package org.tools4j.mmap.region.api;
 
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
 
 /**
- * Enables async region mappings to be registered and executed in a separate thread.
+ * Async runtime to perform recurring operations in the background, such as async mapping and unmapping operations.
  */
 public interface AsyncRuntime extends AutoCloseable {
-  /**
-   * Abstraction for execution of region mapping of a ring of regions.
-   */
-  interface Executable {
     /**
-     * Executes mapping/unmapping of regions that belong to one region ring.
-     *
-     * @return number of executed mapping/unmapping done
+     * A recurring executable invoked repeatedly until it is removed from the runtime.
      */
-    int execute();
-  }
+    interface Recurring {
+        /**
+         * Executes an async operation and returns the work count executed.
+         *
+         * @return work count, zero if it was a no-op and a positive value otherwise
+         */
+        int execute();
+    }
 
-  /**
-   * Register mapping/unmapping of ring regions.
-   *
-   * @param executable - logic to map or unmap regions in a single ring that a requested for mapping/unmapping.
-   */
-  void register(Executable executable);
+    /**
+     * Register a recurring executable for continuous execution.
+     *
+     * @param recurring a recurring executable to be invoked until deregistered
+     */
+    void register(Recurring recurring);
 
-  /**
-   * Provides default runtime backed by a thread watching to execute registered mapping tasks.
-   *
-   * @return default
-   */
-  static AsyncRuntime createDefault() {
-    return new DefaultAsyncRuntime();
-  }
+    /**
+     * Deregisters the given recurring executable.
+     *
+     * @param recurring the recurring executable to deregister
+     */
+    void deregister(Recurring recurring);
 
-  /**
-   * Closes the runtime.
-   */
-  @Override
-  void close();
+    /**
+     * Creates an async runtime backed by a thread watching to execute registered mapping tasks.
+     *
+     * @param idleStrategy the strategy to use by the runtime when it is idle
+     * @return a new async runtime for the given idle strategy
+     */
+    static AsyncRuntime create(final IdleStrategy idleStrategy) {
+        return new DefaultAsyncRuntime(idleStrategy);
+    }
+
+    /**
+     * Closes the runtime, with or without first finishing jobs.
+     * @param immediately stop occurs immediately if true, or when no more jobs are found to be executed otherwise
+     */
+    void stop(boolean immediately);
+
+    /**
+     * Returns true if this runtime is currently running, that is, {@link #stop(boolean)} has not been invoked yet.
+     * @return true if running, and false if stop has been called
+     */
+    boolean isRunning();
+
+    /**
+     * Closes the runtime, stopping immediately without finishing jobs
+     * @see #stop(boolean)
+     */
+    @Override
+    default void close() {
+        stop(true);
+    }
 }

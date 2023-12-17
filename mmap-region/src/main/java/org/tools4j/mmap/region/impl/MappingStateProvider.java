@@ -21,27 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.region.impl;
 
-/**
- * Long entry appender.
- */
-public interface LongAppender extends AutoCloseable {
-    /**
-     * Failed to move to end of the queue
-     */
-    long MOVE_TO_END_ERROR = -1;
-    /**
-     * Failed to wrap region for given position
-     */
-    long WRAP_REGION_ERROR = -2;
+import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.RegionMetrics;
 
-    /**
-     * Appends an entry using the given entry value.
-     *
-     * @param value - entry value, must not be equal to {@link LongQueue#nullValue()}
-     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
-     *          {@link Appender}
-     */
-    long append(long value);
+interface MappingStateProvider {
+    MappingState mappingState();
+
+    interface Factory {
+        MappingStateProvider create(FileMapper fileMapper, RegionMetrics metrics);
+    }
 }

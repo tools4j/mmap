@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.tools4j.mmap.queue.impl.LongQueueBuilder;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 /**
  * A queue of long values.
@@ -62,8 +62,8 @@ public interface LongQueue extends AutoCloseable {
      */
     LongReader createReader();
 
-    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
-        return new LongQueueBuilder(name, directory, regionRingFactory);
+    static LongQueueBuilder builder(final String name, final String directory, final RegionMapperFactory mapperFactory) {
+        return new LongQueueBuilder(name, directory, mapperFactory);
     }
 
     /**

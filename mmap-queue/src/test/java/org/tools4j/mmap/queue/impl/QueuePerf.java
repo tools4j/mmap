@@ -24,6 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.HdrHistogram.Histogram;
+import org.agrona.concurrent.BusySpinIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Direction;
@@ -36,31 +38,34 @@ import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.api.RegionRingFactory;
-import org.tools4j.mmap.region.impl.RegionRingFactories;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class QueuePerf {
+    private static final IdleStrategy ASYNC_RUNTIME_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
+    private static final int REGIONS_TO_MAP_AHEAD = -1;
+    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(15);
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);
 
     public static void main(final String... args) throws Throwable {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());
         tempDir.toFile().deleteOnExit();
 
-        try (AsyncRuntime asyncRuntime = AsyncRuntime.createDefault()) {
-            final RegionRingFactory regionRingFactory = RegionRingFactories.async(asyncRuntime);
+        try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false);
             final String name = "sample";
 
-            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionRingFactory);
+            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory);
 
-            final long messagesPerSecond = 2_000_000;
-            final int messages = 20_000_000;
-            final int warmup = 200_000;
+            final long messagesPerSecond = 1_000_000;
+            final int messages = 11_000_000;
+            final int warmup = 1_000_000;
             final int messageLength = 256;
 
             try (Queue queue = builder.build()) {
@@ -74,9 +79,11 @@ public class QueuePerf {
                 receiver0.start();
                 receiver1.start();
 
-                sender.join();
-                receiver0.join();
-                receiver1.join();
+                final long maxWaitNanos = TimeUnit.MILLISECONDS.toNanos(MAX_WAIT_MILLIS);
+                final long startTime = System.nanoTime();
+                assertTrue(sender.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+                assertTrue(receiver0.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+                assertTrue(receiver1.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
                 receiver0.printHistogram();
                 receiver1.printHistogram();
 

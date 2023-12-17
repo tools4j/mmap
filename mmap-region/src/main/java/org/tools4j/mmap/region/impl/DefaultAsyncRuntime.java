@@ -23,60 +23,114 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.concurrent.BackoffIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.Objects.requireNonNull;
 
 
 public class DefaultAsyncRuntime implements AsyncRuntime {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
+    private static final Recurring[] EMPTY = {};
 
-  private final List<Executable> regionRingProcessors = new CopyOnWriteArrayList<>();
-  private final AtomicBoolean finished = new AtomicBoolean(false);
+    private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
 
-  public DefaultAsyncRuntime() {
+    private enum StopStatus {
+        WHEN_IDLE,
+        IMMEDIATELY,
+        STOPPED
+    }
+    private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
-    final Thread thread = new Thread(() -> {
-      LOGGER.info("Started async region mapping runtime");
-      BackoffIdleStrategy idleStrategy = new BackoffIdleStrategy(100, 100, 100, 100);
-      while (!finished.get()) {
-        int workCount = 0;
-        for (int index = 0; index < regionRingProcessors.size(); index++) {
-          final Executable regionRingProcessor = regionRingProcessors.get(index);
-          try {
-            workCount += regionRingProcessor.execute();
-          } catch (Exception ex) {
-            ex.printStackTrace();
-          }
+    public DefaultAsyncRuntime(final IdleStrategy idleStrategy) {
+        requireNonNull(idleStrategy);
+        final Thread thread = new Thread(() -> {
+            LOGGER.info("Started async region mapping runtime");
+            idleStrategy.reset();
+            StopStatus stopSignal;
+            int workCount = 0;
+            while ((stopSignal = stop.get()) == null || (stopSignal == StopStatus.WHEN_IDLE && workCount != 0)) {
+                workCount = 0;
+                for (final Recurring executable : executables.get()) {
+                    try {
+                        workCount += executable.execute();
+                    } catch (final Exception ex) {
+                        LOGGER.error("Uncaught error: {}", ex, ex);
+                    }
+                }
+                idleStrategy.idle(workCount);
+            }
+            stop.set(StopStatus.STOPPED);
+            LOGGER.info("Stopped async region mapping runtime");
+        });
+        thread.setName("region-mapper");
+        thread.setDaemon(true);
+        thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
+        thread.start();
+    }
+
+    @Override
+    public void register(final Recurring recurring) {
+        requireNonNull(recurring);
+        Recurring[] current, modified;
+        do {
+            current = executables.get();
+            final int length = current.length;
+            modified = Arrays.copyOf(current,  length + 1);
+            modified[length] = recurring;
+        } while (!executables.compareAndSet(current, modified));
+    }
+
+    @Override
+    public void deregister(final Recurring recurring) {
+        Recurring[] current, modified;
+        do {
+            current = executables.get();
+            final int index = indexOf(current, recurring);
+            if (index < 0) {
+                return;
+            }
+            final int length = current.length - 1;
+            modified = Arrays.copyOf(current, length);
+            if (index < length) {
+                modified[index] = current[length];
+            }
+        } while (!executables.compareAndSet(current, modified));
+    }
+
+    private static int indexOf(final Recurring[] array, final Recurring find) {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == find) {
+                return i;
+            }
         }
-        idleStrategy.idle(workCount);
-      }
-      LOGGER.info("Stopped async region mapping runtime");
-    });
-    thread.setName("region-mapper");
-    thread.setDaemon(true);
-    thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
-    thread.start();
-  }
+        return -1;
+    }
 
-  @Override
-  public void register(Executable executable) {
-    regionRingProcessors.add(executable);
-  }
+    @Override
+    public void stop(final boolean immediately) {
+        if (immediately) {
+            StopStatus current;
+            while ((current = stop.get()) != StopStatus.IMMEDIATELY && current != StopStatus.STOPPED) {
+                stop.compareAndSet(current, StopStatus.IMMEDIATELY);
+            }
+        } else {
+            stop.compareAndSet(null, StopStatus.WHEN_IDLE);
+        }
+    }
 
-  @Override
-  public void close() {
-    finished.set(true);
-  }
+    @Override
+    public boolean isRunning() {
+        return stop.get() == null;
+    }
 
-  @Override
-  public String toString() {
-    return "Default AsyncRuntime";
-  }
-
+    @Override
+    public String toString() {
+        return "DefaultAsyncRuntime";
+    }
 }

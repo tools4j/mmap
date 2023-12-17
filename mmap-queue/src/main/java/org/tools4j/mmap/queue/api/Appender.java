@@ -79,11 +79,11 @@ public interface Appender extends AutoCloseable {
     /**
      * Failed to wrap header region for given position
      */
-    long WRAP_HEADER_REGION_ERROR = -3;
+    long MAP_HEADER_REGION_ERROR = -3;
     /**
      * Failed to wrap payload region for given position
      */
-    long WRAP_PAYLOAD_REGION_ERROR = -4;
+    long MAP_PAYLOAD_REGION_ERROR = -4;
     long APPENDING_CONTEXT_CLOSED = -5;
     long APPENDING_CONTEXT_IN_USE = -6;
 

@@ -23,18 +23,22 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.concurrent.UnsafeBuffer;
+import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.impl.FileInitialiser;
-import org.tools4j.mmap.region.impl.FixedSizeRegion;
 import org.tools4j.mmap.region.impl.InitialBytes;
+import org.tools4j.mmap.region.impl.RegionMapperFactories;
+import org.tools4j.mmap.region.impl.SingleFileReadWriteFileMapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -53,24 +57,22 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
     private static final int MAX_APPENDERS = 256;
     private static final int REGION_SIZE = 8;
     private static final String FILE_SUFFIX = "open_appenders";
-    private final RegionAccessor region;
-    private final UnsafeBuffer buffer = new UnsafeBuffer();
+    private final Region region;
     private final String queueName;
-    private volatile boolean closed = false;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     public DefaultAppenderIdPool(final String directory, final String queueName) {
         this.queueName = requireNonNull(queueName);
-        region = FixedSizeRegion.open(directory, queueName + "_" + FILE_SUFFIX,
-                REGION_SIZE, fileInitialiser());
-
-        region.wrap(0, buffer);
+        this.region = fixedRegion(directory, queueName);
     }
+
 
     @Override
     public short acquire() {
-        if (closed) {
+        if (closed.get()) {
             throw new IllegalStateException(format("Appender id pool for %s queue is closed", queueName));
         }
+        final AtomicBuffer buffer = region.buffer();
 
         int currentAppenderCounter;
         do {
@@ -86,9 +88,10 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
 
     @Override
     public void release(final short appenderId) {
-        if (closed) {
+        if (closed.get()) {
             throw new IllegalStateException(format("Appender id pool for %s queue is closed", queueName));
         }
+        final AtomicBuffer buffer = region.buffer();
 
         int currentAppenderCounter;
         do {
@@ -99,10 +102,21 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
 
     @Override
     public void close() {
-        this.closed = true;
-        int currentCounter = buffer.getIntVolatile(0);
-        region.close();
-        LOGGER.info("Closed appender id pool. queue={}, open appenders={}", queueName, currentCounter);
+        if (closed.compareAndSet(false, true)) {
+            final int currentCounter = region.buffer().getIntVolatile(0);
+            region.close();
+            LOGGER.info("Closed appender id pool. queue={}, open appenders={}", queueName, currentCounter);
+        }
+    }
+
+    private static Region fixedRegion(final String directory, final String queueName) {
+        final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
+        final FileMapper fileMapper = new SingleFileReadWriteFileMapper(file, REGION_SIZE, fileInitialiser());
+        final Region region = RegionMapperFactories.sync(fileMapper, REGION_SIZE, 1).map(0);
+        if (region.isReady()) {
+            return region;
+        }
+        throw new IllegalStateException("Could not map fixed region: " + region);
     }
 
     private static FileInitialiser fileInitialiser() {

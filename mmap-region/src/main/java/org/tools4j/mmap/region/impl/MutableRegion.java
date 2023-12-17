@@ -21,11 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.impl;
 
-/**
- * A region that performs map and unmap operations asynchronously as
- * described in {@link AsyncRegionMapper}.
- */
-public interface AsyncRegion extends Region, AsyncRegionMapper {
+import org.tools4j.mmap.region.api.Region;
+
+interface MutableRegion extends Region {
+    MappingState mappingState();
 }

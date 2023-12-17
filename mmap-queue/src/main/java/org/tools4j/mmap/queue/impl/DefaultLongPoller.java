@@ -31,7 +31,8 @@ import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.LongEntryHandler;
 import org.tools4j.mmap.queue.api.LongPoller;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
@@ -40,24 +41,21 @@ import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_BACKWARD
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_FORWARD;
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_NOT_MOVED;
 import static org.tools4j.mmap.queue.impl.DefaultLongQueue.unmaskNullValue;
-import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
+import static org.tools4j.mmap.queue.impl.LongQueueRegionMappers.VALUE_WORD;
 
 public class DefaultLongPoller implements LongPoller {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongPoller.class);
 
     private final String queueName;
     private final long nullValue;
-    private final RegionAccessor regionAccessor;
-    private final UnsafeBuffer buffer;
+    private final RegionMapper regionMapper;
     private final MutableDirectBuffer pollBuffer = new UnsafeBuffer(new byte[Long.BYTES]);
     private long currentIndex = 0;
 
-    public DefaultLongPoller(final String queueName, final long nullValue, final RegionAccessor regionAccessor) {
+    public DefaultLongPoller(final String queueName, final long nullValue, final RegionMapper regionMapper) {
         this.queueName = requireNonNull(queueName);
         this.nullValue = nullValue;
-        this.regionAccessor = requireNonNull(regionAccessor);
-
-        this.buffer = new UnsafeBuffer();
+        this.regionMapper = requireNonNull(regionMapper);
     }
 
     @Override
@@ -159,16 +157,17 @@ public class DefaultLongPoller implements LongPoller {
      * @return header value
      */
     private long readValue(final long index) {
-        long valuePosition = VALUE_WORD.position(index);
-        if (!regionAccessor.wrap(valuePosition, buffer)) {
+        final Region region;
+        final long valuePosition = VALUE_WORD.position(index);
+        if (!(region = regionMapper.map(valuePosition)).isReady()) {
             return DEFAULT_NULL_VALUE;
         }
-        return buffer.getLongVolatile(0);
+        return region.buffer().getLongVolatile(0);
     }
 
     @Override
     public void close() {
-        regionAccessor.close();
+        regionMapper.close();//TODO close or shared ?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 }

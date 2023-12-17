@@ -24,44 +24,49 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.api.WaitingPolicy;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class QueueBuilder {
-    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //4MB
-    public static final int DEFAULT_REGION_RING_SIZE = 4;
-    public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
-    public static final long DEFAULT_MAX_FILE_SIZE = ((long)DEFAULT_REGION_SIZE) * 256; //1GB
+    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //~4MB
+    public static final int DEFAULT_REGION_CACHE_SIZE = 4;
+    public static final long DEFAULT_MAX_FILE_SIZE = 1L<<30;//1GB
     public static final boolean DEFAULT_ROLL_FILES = true;
     public static final boolean DEFAULT_MANY_APPENDERS = false;
-    private static final long DEFAULT_READ_TIMEOUT = 100;
-    private static final long DEFAULT_WRITE_TIMEOUT = 2000;
-    private static final TimeUnit DEFAULT_TIME_UNIT = TimeUnit.MILLISECONDS;
+    private static final long DEFAULT_READ_TIMEOUT_MILLIS = 500;
+    private static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 2000;
+    private static final boolean DEFAULT_EXCEPTION_ON_TIMEOUT = true;
 
     // required params
     private String directory;
     private String name;
-    private RegionRingFactory regionRingFactory;
+    private RegionMapperFactory regionMapperFactory;
 
     //defaulted params
     private int regionSize = DEFAULT_REGION_SIZE;
-    private int regionRingSize = DEFAULT_REGION_RING_SIZE;
-    private int regionsToMapAhead = DEFAULT_REGIONS_TO_MAP_AHEAD;
+    private int regionCacheSize = DEFAULT_REGION_CACHE_SIZE;
     private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
     private boolean rollFiles = DEFAULT_ROLL_FILES;
     private boolean manyAppenders = DEFAULT_MANY_APPENDERS;
-    private long readTimeout = DEFAULT_READ_TIMEOUT;
-    private long writeTimeout = DEFAULT_WRITE_TIMEOUT;
-    private TimeUnit timeUnit = DEFAULT_TIME_UNIT;
+    private WaitingPolicy readWaitingPolicy;
+    private WaitingPolicy writeWaitingPolicy;
+    private boolean exceptionOnTimeout;
 
-    public QueueBuilder(final String name, final String directory, final RegionRingFactory regionRingFactory) {
+    public QueueBuilder(final String name, final String directory, final RegionMapperFactory regionMapperFactory) {
         this.name = requireNonNull(name);
         this.directory = requireNonNull(directory);
-        this.regionRingFactory = requireNonNull(regionRingFactory);
+        this.regionMapperFactory = requireNonNull(regionMapperFactory);
+        this.readWaitingPolicy = regionMapperFactory.isAsync() ?
+                WaitingPolicy.busySpinWaiting(DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS) : WaitingPolicy.noWait();
+        this.writeWaitingPolicy = regionMapperFactory.isAsync() ?
+                WaitingPolicy.busySpinWaiting(DEFAULT_WRITE_TIMEOUT_MILLIS, MILLISECONDS) : WaitingPolicy.noWait();
+        this.exceptionOnTimeout = !regionMapperFactory.isAsync() || DEFAULT_EXCEPTION_ON_TIMEOUT;
     }
 
     public QueueBuilder directory(final String directory) {
@@ -69,13 +74,8 @@ public final class QueueBuilder {
         return this;
     }
 
-    QueueBuilder name(final String name) {
+    public QueueBuilder name(final String name) {
         this.name = requireNonNull(name);
-        return this;
-    }
-
-    public QueueBuilder regionRingFactory(final RegionRingFactory regionRingFactory) {
-        this.regionRingFactory = requireNonNull(regionRingFactory);
         return this;
     }
 
@@ -84,13 +84,8 @@ public final class QueueBuilder {
         return this;
     }
 
-    public QueueBuilder regionRingSize(final int regionRingSize) {
-        this.regionRingSize = regionRingSize;
-        return this;
-    }
-
-    public QueueBuilder regionsToMapAhead(final int regionsToMapAhead) {
-        this.regionsToMapAhead = regionsToMapAhead;
+    public QueueBuilder regionCacheSize(final int regionCacheSize) {
+        this.regionCacheSize = regionCacheSize;
         return this;
     }
 
@@ -109,23 +104,31 @@ public final class QueueBuilder {
         return this;
     }
 
-    public QueueBuilder readTimeout(final long readTimeout) {
-        this.readTimeout = readTimeout;
+    public QueueBuilder readWaitingPolicy(final WaitingPolicy waitingPolicy) {
+        this.readWaitingPolicy = requireNonNull(waitingPolicy);
         return this;
     }
 
-    public QueueBuilder writeTimeout(final long writeTimeout) {
-        this.writeTimeout = writeTimeout;
+    public QueueBuilder readTimeout(final long readTimeout, final TimeUnit unit) {
+        return readWaitingPolicy(WaitingPolicy.busySpinWaiting(readTimeout, unit));
+    }
+
+    public QueueBuilder writeWaitingPolicy(final WaitingPolicy waitingPolicy) {
+        this.writeWaitingPolicy = requireNonNull(waitingPolicy);
         return this;
     }
 
-    public QueueBuilder timeUnit(final TimeUnit timeUnit) {
-        this.timeUnit = timeUnit;
+    public QueueBuilder writeTimeout(final long writeTimeout, final TimeUnit unit) {
+        return writeWaitingPolicy(WaitingPolicy.busySpinWaiting(writeTimeout, unit));
+    }
+
+    public QueueBuilder exceptionOnTimeout(final boolean exceptionOnTimeout) {
+        this.exceptionOnTimeout = exceptionOnTimeout;
         return this;
     }
 
     public Queue build() {
-        return new DefaultQueue(name, directory, manyAppenders, regionRingFactory, regionSize,
-                regionRingSize, regionsToMapAhead, maxFileSize, rollFiles, readTimeout, writeTimeout, timeUnit);
+        return new DefaultQueue(name, directory, regionMapperFactory, manyAppenders, regionSize, regionCacheSize,
+                maxFileSize, rollFiles, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout);
     }
 }

@@ -24,155 +24,162 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
+
+import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class SyncRegionTest {
-    @Mock
-    private DirectBuffer directBuffer;
+    private static final int MAX_DATA_LENGTH = 512;
     @Mock
     private FileMapper fileMapper;
 
     private InOrder inOrder;
 
-    private Region region;
+    private RegionMapper regionMapper;
 
-    private final int length = 128;
+    private final int regionSize = 128;
 
     @BeforeEach
     public void setUp() {
-        region = new SyncRegion(fileMapper, length);
-        inOrder = inOrder(directBuffer, fileMapper);
+        final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
+        when(fileMapper.map(anyLong(), eq(regionSize))).thenAnswer(invocation -> {
+            final long position = invocation.getArgument(0);
+            if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
+                return FileMapper.NULL_ADDRESS;
+            }
+            return data.addressOffset() + position;
+        });
+        final int cacheSize = 1;
+        regionMapper = RegionMapperFactories.sync(fileMapper, regionSize, cacheSize);
+        inOrder = Mockito.inOrder(fileMapper);
+    }
+
+    @AfterEach
+    public void cleanup() {
+        regionMapper.close();
     }
 
     @Test
-    public void wrap_map_and_unmap() {
+    public void map_and_access_data() {
         //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
+        //when
+        Region region = regionMapper.map(position);
 
-        //when and then
-        assertTrue(region.wrap(position, directBuffer));
-
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-        inOrder.verify(directBuffer).wrap(expectedAddress + positionInRegion, length - positionInRegion);
+        //then
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        assertEquals(positionInRegion, region.offset());
+        assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
         //when - wrap again within the same region
         final int offset = 4;
-        region.wrap(regionStartPosition + offset, directBuffer);
+        region = region.mapFromRegionStart(offset);
 
         //then
-        inOrder.verify(directBuffer).wrap(expectedAddress + offset, length - offset);
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        assertEquals(offset, region.offset());
+        assertEquals(regionSize - offset, region.bytesAvailable());
 
-        //when
-        region.map(regionStartPosition);
+        //when - wrap again at region start
+        region = region.map(regionStartPosition);
+
         //then
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        assertEquals(0, region.offset());
+        assertEquals(regionSize, region.bytesAvailable());
 
-        //when unmap request
-        assertTrue(region.unmap());
+        //when - close, causes unmap
+        final long address = region.buffer().addressOffset();
+        region.close();
 
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
-
-        assertTrue(region.unmap());
-        inOrder.verify(fileMapper, times(0)).unmap(expectedAddress, regionStartPosition, length);
+        //then
+        inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
     }
 
     @Test
     public void map_and_unmap() {
         //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
 
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        assertTrue(region.map(regionStartPosition));
-
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-
-        //when - map again within the same region and check if had been mapped
-        assertTrue(region.map(regionStartPosition));
+        //when
+        Region region = regionMapper.map(position);
 
         //then
-        inOrder.verify(fileMapper, times(0)).map(regionStartPosition, length);
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
-        assertTrue(region.unmap());
+        //when - map again within the same region and check if had been mapped
+        region.mapFromRegionStart(0);
 
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
+        //then
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
 
-        assertTrue(region.unmap());
-        inOrder.verify(fileMapper, times(0)).unmap(expectedAddress, regionStartPosition, length);
+        //when - close to unmap
+        long address = region.buffer().addressOffset();
+        region.close();
+
+        //then
+        inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
+
+        //when - close again should have no effect
+        region.close();
+        region.close();
+
+        //then
+        inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
     }
 
     @Test
     public void map_and_remap() {
         //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int) (position % length);
+        final long position = 456;
+        final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //when - request mapping
-        assertTrue(region.map(regionStartPosition));
-
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
-
-        //when send unmap request
-        final long prevRegionStartPosition = regionStartPosition - length;
-        final long prevExpectedAddress = expectedAddress - length;
-        when(fileMapper.map(prevRegionStartPosition, length)).thenReturn(prevExpectedAddress);
-
-        assertTrue(region.map(prevRegionStartPosition));
-
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
-        inOrder.verify(fileMapper, times(1)).map(prevRegionStartPosition, length);
-
-    }
-
-    @Test
-    public void map_and_close() {
-        //given
-        final long expectedAddress = 1024;
-        final long position = 4567;
-        final int positionInRegion = (int) (position % length);
-        final long regionStartPosition = position - positionInRegion;
-        assertEquals(length, region.size());
-
-        when(fileMapper.map(regionStartPosition, length)).thenReturn(expectedAddress);
-
-        //when - request mapping
-        assertTrue(region.map(regionStartPosition));
-
-        //then
-        inOrder.verify(fileMapper, times(1)).map(regionStartPosition, length);
 
         //when
-        region.close();
+        Region region = regionMapper.map(position);
 
         //then
-        inOrder.verify(fileMapper, times(1)).unmap(expectedAddress, regionStartPosition, length);
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+
+        //when - map previous region, causing current to unmap
+        final long unmapAddress = region.buffer().addressOffset() - region.offset();
+        final long prevRegionStartPosition = regionStartPosition - regionSize;
+        region.mapPreviousRegion();
+
+        //then
+        inOrder.verify(fileMapper, once()).unmap(unmapAddress, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
+    }
+
+    private static VerificationMode once() {
+        return Mockito.times(1);
     }
 
 }

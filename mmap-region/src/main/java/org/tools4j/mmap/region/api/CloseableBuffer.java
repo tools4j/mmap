@@ -21,59 +21,65 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.api;
 
 import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.agrona.concurrent.AtomicBuffer;
 
 import java.nio.ByteBuffer;
 
-/**
- * Buffer with zero capacity; all wrap(..) methods are overridden to throw {@link UnsupportedOperationException}.
- */
-public final class EmptyBuffer extends UnsafeBuffer {
+public interface CloseableBuffer extends AtomicBuffer, AutoCloseable {
 
-    /** Default singleton instance */
-    public static final EmptyBuffer INSTANCE = new EmptyBuffer();
-
-    public EmptyBuffer() {
-        super(0, 0);
+    @Override
+    default void wrap(byte[] buffer) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final byte[] buffer) {
-        throw new UnsupportedOperationException();
+    default void wrap(byte[] buffer, int offset, int length) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final byte[] buffer, final int offset, final int length) {
-        throw new UnsupportedOperationException();
+    default void wrap(ByteBuffer buffer) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final ByteBuffer buffer) {
-        throw new UnsupportedOperationException();
+    default void wrap(ByteBuffer buffer, int offset, int length) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final ByteBuffer buffer, final int offset, final int length) {
-        throw new UnsupportedOperationException();
+    default void wrap(DirectBuffer buffer) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final DirectBuffer buffer) {
-        throw new UnsupportedOperationException();
+    default void wrap(DirectBuffer buffer, int offset, int length) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final DirectBuffer buffer, final int offset, final int length) {
-        throw new UnsupportedOperationException();
+    default void wrap(long address, int length) {
+        throw new UnsupportedOperationException("Wrap is not supported");
     }
 
     @Override
-    public void wrap(final long address, final int length) {
-        if (address != 0 || length != 0) {
-            throw new UnsupportedOperationException();
-        }
+    default long addressOffset() {
+        return 0;
     }
+
+    @Override
+    default byte[] byteArray() {
+        return null;
+    }
+
+    @Override
+    default ByteBuffer byteBuffer() {
+        return null;
+    }
+
+    @Override
+    void close();
 }

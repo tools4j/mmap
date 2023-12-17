@@ -29,29 +29,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 
-public class DefaultReader implements Reader {
+final class DefaultReader implements Reader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultReader.class);
     private static final ReadingContext EMPTY_READING_CONTEXT = new EmptyReadingContext<>();
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final RegionAccessorSupplier regionAccessor;
-    private final RegionAccessor headerAccessor;
-    private final UnsafeBuffer headerBuffer = new UnsafeBuffer();
-    private final UnsafeBuffer payloadBuffer = new UnsafeBuffer();
+    private final QueueRegionMappers regionMappers;
+    private final RegionMapper headerMapper;
     private final DefaultReadingContext readingContext = new DefaultReadingContext();
     private final DefaultIterableContext<Entry> iterableContext = new DefaultIterableContext<>(this, readingContext);
 
     private long lastIndex = NULL_INDEX;
 
-    public DefaultReader(final String queueName, final RegionAccessorSupplier regionAccessor) {
+    DefaultReader(final String queueName, final QueueRegionMappers regionMappers) {
         this.queueName = requireNonNull(queueName);
-        this.regionAccessor = requireNonNull(regionAccessor);
-        this.headerAccessor = regionAccessor.header();
+        this.regionMappers = requireNonNull(regionMappers);
+        this.headerMapper = requireNonNull(regionMappers.header());
     }
 
     @Override
@@ -121,23 +120,24 @@ public class DefaultReader implements Reader {
      * @return header value
      */
     private long readHeader(final long index) {
-        long headerPosition = HEADER_WORD.position(index);
-        if (!headerAccessor.wrap(headerPosition, headerBuffer)) {
+        final Region header;
+        final long headerPosition = HEADER_WORD.position(index);
+        if (!(header = headerMapper.map(headerPosition)).isReady()) {
             return NULL_HEADER;
         }
-        return headerBuffer.getLongVolatile(0);
+        return header.buffer().getLongVolatile(0);
     }
 
     @Override
     public void close() {
         readingContext.close();
-        regionAccessor.close();
+        regionMappers.close();//TODO close or is this shared?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 
     private final class DefaultReadingContext implements MutableReadingContext<Entry> {
         long index = NULL_INDEX;
-        DirectBuffer buffer = new UnsafeBuffer();
+        DirectBuffer buffer = new UnsafeBuffer(0, 0);
 
         DefaultReadingContext init(final long index) {
             if (index < 0) {
@@ -159,13 +159,13 @@ public class DefaultReader implements Reader {
             if (header != NULL_HEADER) {
                 final short appenderId = HeaderCodec.appenderId(header);
                 final long payloadPosition = HeaderCodec.payloadPosition(header);
-                if (regionAccessor.payload(appenderId).wrap(payloadPosition, payloadBuffer)) {
-                    final int length = payloadBuffer.getInt(0);
-                    buffer.wrap(payloadBuffer, 4, length);
+                final Region payload = regionMappers.payload(appenderId).map(payloadPosition);
+                if (payload.isReady()) {
+                    final int length = payload.buffer().getInt(0);
+                    buffer.wrap(payload.buffer(), 4, length);
                     this.index = index;
                     return true;
                 }
-                LOGGER.error("Failed to wrap payload buffer to position {} of appender {}", payloadPosition, appenderId);
             }
             return false;
         }

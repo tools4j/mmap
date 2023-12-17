@@ -29,6 +29,7 @@ import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.api.Reader.Entry;
 import org.tools4j.mmap.queue.api.Reader.IterableContext;
 import org.tools4j.mmap.queue.api.Reader.ReadingContext;
+import org.tools4j.mmap.region.impl.EmptyBuffer;
 
 import java.util.Collections;
 

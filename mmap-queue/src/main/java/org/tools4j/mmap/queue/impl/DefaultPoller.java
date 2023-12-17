@@ -29,7 +29,8 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.RegionAccessor;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
@@ -39,55 +40,52 @@ import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_FORWARD;
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_NOT_MOVED;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 
-public class DefaultPoller implements Poller {
+final class DefaultPoller implements Poller {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPoller.class);
 
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final RegionAccessorSupplier regionAccessor;
-    private final RegionAccessor headerAccessor;
-    private final UnsafeBuffer headerBuffer;
-    private final UnsafeBuffer payloadBuffer;
-    private final UnsafeBuffer message;
+    private final QueueRegionMappers regionMappers;
+    private final RegionMapper headerMapper;
+    private final UnsafeBuffer message = new UnsafeBuffer(0, 0);
 
     private long currentIndex = 0;
     private short currentAppenderId;
     private long currentPayloadPosition;
 
-    public DefaultPoller(final String queueName, final RegionAccessorSupplier regionAccessor) {
+    DefaultPoller(final String queueName, final QueueRegionMappers regionMappers) {
         this.queueName = requireNonNull(queueName);
-        this.regionAccessor = requireNonNull(regionAccessor);
-        this.headerAccessor = regionAccessor.header();
-
-        this.headerBuffer = new UnsafeBuffer();
-        this.payloadBuffer = new UnsafeBuffer();
-        this.message = new UnsafeBuffer();
+        this.regionMappers = requireNonNull(regionMappers);
+        this.headerMapper = requireNonNull(regionMappers.header());
     }
 
     @Override
     public Result poll(final EntryHandler entryHandler) {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
-            if (!regionAccessor.payload(currentAppenderId).wrap(currentPayloadPosition, payloadBuffer)) {
-                LOGGER.error("Failed to wrap payload buffer to position {} of appender {}", currentPayloadPosition, currentAppenderId);
+            final Region payload = regionMappers.payload(currentAppenderId).map(currentPayloadPosition);
+            if (!payload.isReady()) {
                 return ERROR;
             }
-            final int length = payloadBuffer.getInt(0);
-            message.wrap(payloadBuffer, 4, length);
-
-            final Direction nextMove = entryHandler.onEntry(currentIndex, message);
-            switch (nextMove != null ? nextMove : Direction.NONE) {
-                case FORWARD:
-                    currentIndex++;
-                    return POLLED_AND_MOVED_FORWARD;
-                case BACKWARD:
-                    if (currentIndex > 0) {
-                        currentIndex--;
-                        return POLLED_AND_MOVED_BACKWARD;
-                    }
-                    return POLLED_AND_NOT_MOVED;
-                case NONE:
-                    return POLLED_AND_NOT_MOVED;
+            final int length = payload.buffer().getInt(0);
+            message.wrap(payload.buffer(), 4, length);
+            try {
+                final Direction nextMove = entryHandler.onEntry(currentIndex, message);
+                switch (nextMove != null ? nextMove : Direction.NONE) {
+                    case FORWARD:
+                        currentIndex++;
+                        return POLLED_AND_MOVED_FORWARD;
+                    case BACKWARD:
+                        if (currentIndex > 0) {
+                            currentIndex--;
+                            return POLLED_AND_MOVED_BACKWARD;
+                        }
+                        return POLLED_AND_NOT_MOVED;
+                    case NONE:
+                        return POLLED_AND_NOT_MOVED;
+                }
+            } finally {
+                message.wrap(0, 0);
             }
         }
         return IDLE;
@@ -152,16 +150,17 @@ public class DefaultPoller implements Poller {
      * @return header value
      */
     private long readHeader(final long index) {
-        long headerPosition = HEADER_WORD.position(index);
-        if (!headerAccessor.wrap(headerPosition, headerBuffer)) {
+        final Region header;
+        final long headerPosition = HEADER_WORD.position(index);
+        if (!(header = headerMapper.map(headerPosition)).isReady()) {
             return NULL_HEADER;
         }
-        return headerBuffer.getLongVolatile(0);
+        return header.buffer().getLongVolatile(0);
     }
 
     @Override
     public void close() {
-        regionAccessor.close();
+        headerMapper.close();//TODO close or is this shared?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 }

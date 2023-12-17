@@ -32,7 +32,7 @@ import org.tools4j.mmap.region.api.MapMode;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Requirements.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 
 public class RolledFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(RolledFileMapper.class);
@@ -62,20 +62,22 @@ public class RolledFileMapper implements FileMapper {
         this.mapMode = mapMode;
     }
 
-    public static FileMapper forReadOnly(String filePrefix,
-                                          long maxFileSize,
-                                          int regionSize,
-                                          FileInitialiser fileInitialiser)
-    {
+    public static FileMapper forReadOnly(final String filePrefix,
+                                         final long maxFileSize,
+                                         final int regionSize,
+                                         final FileInitialiser fileInitialiser) {
+        requireNonNull(filePrefix);
+        requireNonNull(fileInitialiser);
         return new RolledFileMapper(filePrefix, index -> new SingleFileReadOnlyFileMapper(filePrefix + "_" + index, fileInitialiser),
                 maxFileSize, regionSize, MapMode.READ_ONLY);
     }
 
-    public static FileMapper forReadWrite(String filePrefix,
-                                           long maxFileSize,
-                                           int regionSize,
-                                           FileInitialiser fileInitialiser)
-    {
+    public static FileMapper forReadWrite(final String filePrefix,
+                                          final long maxFileSize,
+                                          final int regionSize,
+                                          final FileInitialiser fileInitialiser) {
+        requireNonNull(filePrefix);
+        requireNonNull(fileInitialiser);
         return new RolledFileMapper(filePrefix,
                 index -> new SingleFileReadWriteFileMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser), maxFileSize,
                 regionSize, MapMode.READ_WRITE);

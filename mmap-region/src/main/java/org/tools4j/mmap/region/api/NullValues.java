@@ -24,14 +24,16 @@
 package org.tools4j.mmap.region.api;
 
 /**
- * AsyncRegion version of region mapper delaying map and unmap requests until
- * later.  An Outstanding request is processed (usually in a different thread) via
- * {@link #processRequest()}.
+ * Defines null constants for undefined values.
  */
-public interface AsyncRegionMapper extends RegionMapper {
+public enum NullValues {
+    ;
     /**
-     * Process outstanding {@link #map(long)} or {@link #unmap()} operations if any have been requested.
-     * @return true if an operation has been processed, and false if no request was outstanding
+     * Null value used for undefined position.
      */
-    boolean processRequest();
+    public static final long NULL_POSITION = -1;
+    /**
+     * Null value used for undefined address.
+     */
+    public static final long NULL_ADDRESS = 0;
 }

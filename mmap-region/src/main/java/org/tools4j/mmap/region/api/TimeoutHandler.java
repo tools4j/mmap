@@ -23,32 +23,23 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.agrona.DirectBuffer;
-
-import java.io.Closeable;
+import java.util.function.BiFunction;
 
 /**
- * Accessor to a file region.
+ * Handlers timeouts when failing to meet a condition using a {@link WaitingPolicy}.
  */
-public interface RegionAccessor extends Closeable {
-    /**
-     * Wraps the buffer starting from given position to the end of the mapped region.
-     * Once mapped, {@code buffer.capacity} will indicate the length of the mapped memory.
-     *
-     * @param position position in the file.
-     * @param buffer the direct buffer
-     * @return true if mapped successfully, otherwise false.
-     */
-    boolean wrap(long position, DirectBuffer buffer);
+public interface TimeoutHandler<T> {
+    T handleTimeout(T state, WaitingPolicy waitingPolicy);
 
-    /**
-     * @return size of mappable memory region
-     */
-    int size();
+    static <T> TimeoutHandler<T> noOp() {
+        return TimeoutHandlers.noOp();
+    }
 
-    /**
-     * Closes the region accessor resulting in an exception if subsequently used.
-     */
-    @Override
-    void close();
+    static <T> TimeoutHandler<T> exception(final BiFunction<T, ? super WaitingPolicy, ? extends RuntimeException> exceptionFactory) {
+        return TimeoutHandlers.exception(exceptionFactory);
+    }
+
+    static <T> TimeoutHandler<T> consecutive(final TimeoutHandler<T> first, final TimeoutHandler<T> second) {
+        return TimeoutHandlers.consecutive(first, second);
+    }
 }

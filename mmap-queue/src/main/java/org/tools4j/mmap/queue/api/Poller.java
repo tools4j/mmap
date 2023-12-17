@@ -51,7 +51,7 @@ public interface Poller extends AutoCloseable {
          */
         POLLED_AND_MOVED_BACKWARD,
         /**
-         * Error occurred when attempting to access entry payload.
+         * Error occurred when attempting to access entry or payload.
          */
         ERROR
     }
