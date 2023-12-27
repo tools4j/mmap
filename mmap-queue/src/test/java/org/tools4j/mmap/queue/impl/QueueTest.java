@@ -57,7 +57,11 @@ class QueueTest {
 
     @AfterEach
     void tearDown() throws IOException {
-        FileUtil.deleteRecursively(tempDir.toFile());
+        try {
+            FileUtil.deleteRecursively(tempDir.toFile());
+        } catch (final IOException e) {
+            System.err.println("Deleting temp files failed: tempDir=" + tempDir + ", e=" + e);
+        }
     }
 
     @Test

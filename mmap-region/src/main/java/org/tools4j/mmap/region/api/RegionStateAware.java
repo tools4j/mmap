@@ -34,29 +34,38 @@ import java.util.concurrent.TimeUnit;
  */
 public interface RegionStateAware {
     /**
-     * Returns the state of the region
+     * Returns the state of the region.
      * @return the region state
      */
     RegionState regionState();
 
-    /** @return true if the region is ready for data access, which is when the region state is MAPPED */
+    /**
+     * Returns true if the region is ready for data access.
+     * @return true if {@link #regionState()} == {@link RegionState#MAPPED}
+     */
     default boolean isReady() {
         return regionState().isReady();
     }
 
-    /** @return true if the region is closed */
+    /**
+     * Returns true if the region is closed.
+     * @return true if {@link #regionState()} == {@link RegionState#CLOSED}
+     */
     default boolean isClosed() {
         return regionState().isClosed();
     }
 
-    /** @return true if the region is not yet ready for data access due to an async mapping operation */
+    /**
+     * Returns true if the region is not yet ready for data access due to an async mapping operation.
+     * @return true if {@link #regionState()} == {@link RegionState#REQUESTED}
+     */
     default boolean isPending() {
         return regionState().isPending();
     }
 
     /**
      * Returns true if this state is associated with asynchronous mapping or unmapping operation.
-     * @return true for a state related to asynchronous mapping or unmapping
+     * @return true if {@link #regionState()} is {@link RegionState#REQUESTED} or {@link RegionState#CLOSING}
      */
     default boolean isAsync() {
         return regionState().isAsync();

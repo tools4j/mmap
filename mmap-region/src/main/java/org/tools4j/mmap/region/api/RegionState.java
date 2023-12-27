@@ -80,7 +80,7 @@ public enum RegionState {
     private static final RegionState[] VALUES = values();
 
     /**
-     * Returns the number of region state constants
+     * Returns the number of region state constants.
      * @return the number of constants
      */
     public static int valueCount() {
@@ -99,14 +99,14 @@ public enum RegionState {
 
     /**
      * Returns true if this state is associated with asynchronous mapping or unmapping operation.
-     * @return true for {@link #REQUESTED} and {@link #CLOSING}
+     * @return true if the state is {@link #REQUESTED} or {@link #CLOSING}
      */
     public boolean isAsync() {
         return this == REQUESTED || this == CLOSING;
     }
 
     /**
-     * Returns true if the region is ready for data access
+     * Returns true if the region is ready for data access.
      * @return true if the state is {@link #MAPPED}
      */
     public boolean isReady() {
@@ -115,24 +115,24 @@ public enum RegionState {
 
     /**
      * Returns true if the region can be mapped, which is only not true if the region is closed or close has been
-     * requested
-     * @return true for {@link #CLOSED} and {@link #CLOSING}
+     * requested.
+     * @return true if the state is {@link #CLOSED} or {@link #CLOSING}
      */
     public boolean isMappable() {
         return this != CLOSED && this != CLOSING;
     }
 
     /**
-     * Returns true if the region is closed
-     * @return true for {@link #CLOSED}
+     * Returns true if the region is closed.
+     * @return true if the state is {@link #CLOSED}
      */
     public boolean isClosed() {
         return this == CLOSED;
     }
 
     /**
-     * Returns true if the region is not yet ready for data access due to an async mapping operation
-     * @return true for {@link #REQUESTED}
+     * Returns true if the region is not yet ready for data access due to an async mapping operation.
+     * @return true if the state is {@link #REQUESTED}
      */
     public boolean isPending() {
         return this == REQUESTED;

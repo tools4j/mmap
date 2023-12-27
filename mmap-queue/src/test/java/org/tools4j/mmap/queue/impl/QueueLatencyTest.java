@@ -158,6 +158,7 @@ public class QueueLatencyTest {
         final int hot = 200_000;
         final int messages = warmup + hot;
 
+        System.out.println("\tregionMapperFactory : " + regionMapperFactory);
         System.out.println("\twarmup + count      : " + warmup + " + " + hot + " = " + messages);
         System.out.println("\tmessagesPerSecond   : " + messagesPerSecond);
         System.out.println("\tmessageSize         : " + messageLength + " bytes");
