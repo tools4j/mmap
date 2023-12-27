@@ -36,6 +36,7 @@ import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.impl.OS;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -78,11 +79,15 @@ public class QueueLatencyTest {
             tempDir = Files.createTempDirectory(QueueLatencyTest.class.getSimpleName());
             tempDir.toFile().deleteOnExit();
 
+            //NOTE: build fails sometimes on Windows when initializing appender
+            final long writeTimeout = (OS.WINDOWS ? 5 : 1) * QueueBuilder.DEFAULT_WRITE_TIMEOUT_MILLIS;
+
             queue = Queue
                     .builder("queue-latency-test", tempDir.toString(), regionMapperFactory)
                     .maxFileSize(MAX_FILE_SIZE)
                     .regionSize(REGION_SIZE)
                     .regionCacheSize(REGION_CACHE_SIZE)
+                    .writeTimeout(writeTimeout, TimeUnit.MILLISECONDS)
                     .build();
 
             appender = queue.createAppender();

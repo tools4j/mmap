@@ -39,9 +39,9 @@ public final class QueueBuilder {
     public static final long DEFAULT_MAX_FILE_SIZE = 1L<<30;//1GB
     public static final boolean DEFAULT_ROLL_FILES = true;
     public static final boolean DEFAULT_MANY_APPENDERS = false;
-    private static final long DEFAULT_READ_TIMEOUT_MILLIS = 500;
-    private static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 2000;
-    private static final boolean DEFAULT_EXCEPTION_ON_TIMEOUT = true;
+    public static final long DEFAULT_READ_TIMEOUT_MILLIS = 500;
+    public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 2000;
+    public static final boolean DEFAULT_EXCEPTION_ON_TIMEOUT = true;
 
     // required params
     private String directory;
