@@ -24,8 +24,8 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.IoUtil;
-import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.MutableLong;
+import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,7 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
     private final File file;
     private final FileInitialiser fileInitialiser;
     private final long maxSize;
-    private final MutableDirectBuffer preTouchBuffer = new UnsafeBuffer();
+    private final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
 
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
@@ -85,8 +85,9 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
     private void preTouch(int length, long address) {
         preTouchBuffer.wrap(address, length);
         for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
-            preTouchBuffer.putInt(i, 0);
+            //preTouchBuffer.putInt(i, 0);
             //preTouchBuffer.putByte(i, (byte)0);
+            preTouchBuffer.compareAndSetLong(i, 0L, 0L);
         }
         preTouchBuffer.wrap(0, 0);
     }

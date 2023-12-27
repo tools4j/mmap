@@ -40,6 +40,7 @@ import org.tools4j.mmap.region.api.RegionMapperFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +57,7 @@ class QueueTest {
     }
 
     @AfterEach
-    void tearDown() throws IOException {
+    void tearDown() {
         try {
             FileUtil.deleteRecursively(tempDir.toFile());
         } catch (final IOException e) {
@@ -69,7 +70,9 @@ class QueueTest {
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
             final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false);
             //final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
-            final Queue queue = Queue.builder("test", tempDir.toString(), regionMapperFactory).build();
+            final Queue queue = Queue.builder("test", tempDir.toString(), regionMapperFactory)
+                    .writeTimeout(10, TimeUnit.SECONDS) // for windows build
+                    .build();
             try (Appender appender = queue.createAppender();
                  Poller poller1 = queue.createPoller();
                  Poller poller2 = queue.createPoller()) {

@@ -94,7 +94,7 @@ public class QueueLatencyTest {
             poller = queue.createPoller();
         }
 
-        void tearDown() throws IOException {
+        void tearDown() {
             if (appender != null) {
                 appender.close();
                 appender = null;
