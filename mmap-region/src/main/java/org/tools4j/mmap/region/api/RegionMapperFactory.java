@@ -29,7 +29,7 @@ import org.tools4j.mmap.region.impl.RegionMapperFactories;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Region mapper factory with static methods delegating to {@link RegionMapperFactories}.
+ * Region mapper factory with constants and static methods delegating to {@link RegionMapperFactories}.
  */
 public interface RegionMapperFactory {
     RegionMapper create(FileMapper fileMapper, int regionSize, final int regionCacheSize);
@@ -47,7 +47,7 @@ public interface RegionMapperFactory {
      * Alternative ways to create region mappers are available through the static {@code sync(..)} factory methods
      * provided by {@link RegionMapperFactories}.
      */
-    SyncFactory SYNC = RegionMapperFactories::sync;
+    SyncFactory SYNC = SyncFactory.create("SyncFactory:default", RegionMapperFactories::sync);
 
     /**
      * Factory constant for async region mapping as described in {@link RegionState}.
@@ -55,7 +55,7 @@ public interface RegionMapperFactory {
      * Alternative ways to create region mappers are available through the static {@code async(..)} factory methods
      * provided by {@link RegionMapperFactories}.
      */
-    AsyncFactory ASYNC = RegionMapperFactories::async;
+    AsyncFactory ASYNC = AsyncFactory.create("AsyncFactory:default", RegionMapperFactories::async);
 
     /**
      * Returns a new async region factory for the provided arguments.
@@ -68,9 +68,11 @@ public interface RegionMapperFactory {
                               final int regionsToMapAhead,
                               final boolean stopRuntimeOnClose) {
         requireNonNull(asyncRuntime);
-        return (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
-                asyncRuntime, fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize, regionsToMapAhead,
-                stopRuntimeOnClose
+        return AsyncFactory.create("AsyncFactory:regionsToMapAhead=" + regionsToMapAhead,
+                (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
+                        asyncRuntime, fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize,
+                        regionsToMapAhead, stopRuntimeOnClose
+                )
         );
     }
 
@@ -91,9 +93,12 @@ public interface RegionMapperFactory {
         requireNonNull(asyncRuntime);
         requireNonNull(waitingPolicy);
         requireNonNull(timeoutHandler);
-        return (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
-                asyncRuntime, fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize, regionsToMapAhead,
-                stopRuntimeOnClose, waitingPolicy, timeoutHandler
+        return AsyncFactory.create("AsyncFactory:regionsToMapAhead=" + regionsToMapAhead + "|waitingPolicy=" +
+                        waitingPolicy + "|timeoutHandler=" + timeoutHandler,
+                (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
+                        asyncRuntime, fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize,
+                        regionsToMapAhead, stopRuntimeOnClose, waitingPolicy, timeoutHandler
+                )
         );
     }
 
@@ -110,9 +115,11 @@ public interface RegionMapperFactory {
         requireNonNull(baseFactory);
         requireNonNull(waitingPolicy);
         requireNonNull(timeoutHandler);
-        return (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
-                baseFactory.create(fileMapper, regionSize, regionCacheSize),
-                waitingPolicy, timeoutHandler
+        return AsyncFactory.create("AsyncFactory:baseFactory=" + baseFactory + "|waitingPolicy=" +
+                waitingPolicy + "|timeoutHandler=" + timeoutHandler,
+                (fileMapper, regionSize, regionCacheSize) -> RegionMapperFactories.async(
+                        baseFactory.create(fileMapper, regionSize, regionCacheSize), waitingPolicy, timeoutHandler
+                )
         );
     }
 
@@ -125,6 +132,28 @@ public interface RegionMapperFactory {
         default boolean isAsync() {
             return false;
         }
+
+        /**
+         * Returns a factory with {@code toString()} returning the provided factory name for nicer printing.
+         * @param name      the name for the factory
+         * @param factory   the actual factory
+         * @return a delegate factory that returns the provided name in {@code #toString()}
+         */
+        static SyncFactory create(final String name, final SyncFactory factory) {
+            requireNonNull(name);
+            requireNonNull(factory);
+            return new SyncFactory() {
+                @Override
+                public RegionMapper create(final FileMapper fileMapper, final int regionSize, final int regionCacheSize) {
+                    return factory.create(fileMapper, regionSize, regionCacheSize);
+                }
+
+                @Override
+                public String toString() {
+                    return name;
+                }
+            };
+        }
     }
 
     /**
@@ -135,6 +164,28 @@ public interface RegionMapperFactory {
         @Override
         default boolean isAsync() {
             return true;
+        }
+
+        /**
+         * Returns a factory with {@code toString()} returning the provided factory name for nicer printing.
+         * @param name      the name for the factory
+         * @param factory   the actual factory
+         * @return a delegate factory that returns the provided name in {@code #toString()}
+         */
+        static AsyncFactory create(final String name, final AsyncFactory factory) {
+            requireNonNull(name);
+            requireNonNull(factory);
+            return new AsyncFactory() {
+                @Override
+                public RegionMapper create(final FileMapper fileMapper, final int regionSize, final int regionCacheSize) {
+                    return factory.create(fileMapper, regionSize, regionCacheSize);
+                }
+
+                @Override
+                public String toString() {
+                    return name;
+                }
+            };
         }
     }
 }
