@@ -55,8 +55,8 @@ public class QueueLatencyTest {
     private static final int REGION_SIZE = 128 * 1024;//fast latencies, but high outliers due to many mappings
     //private static final int MAX_FILE_SIZE = QueueBuilder.DEFAULT_MAX_FILE_SIZE;
     private static final int MAX_FILE_SIZE = 64 * 1024 * 1024;//good to test file rolling
-    private static final int REGION_CACHE_SIZE = 4;
-    private static final int REGIONS_TO_MAP_AHEAD = -1;//cacheSize-1
+    private static final int REGION_CACHE_SIZE = 2;
+    private static final int REGIONS_TO_MAP_AHEAD = 1;
     private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(20);
     private static AsyncRuntime asyncRuntime;
 

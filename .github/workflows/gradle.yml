@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11', '17', '18' ]
+        java: [ '8', '11', '17', '21' ]
         os: ['ubuntu-latest', 'windows-latest']
     steps:
       - name: Checkout code
@@ -76,7 +76,7 @@ jobs:
         id: copy_test_logs
         if: failure()
         run: |
-          echo "::set-output name=file::build/distributions/test_logs.tbz2"
+          echo "name=file::build/distributions/test_logs.tbz2" >> $GITHUB_OUTPUT
           ./gradlew tarTestLogs
       - name: Upload crash logs
         if: always() && steps.copy_test_logs.outputs.file == 'build/distributions/test_logs.tbz2'

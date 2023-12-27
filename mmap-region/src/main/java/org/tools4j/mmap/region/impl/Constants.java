@@ -43,15 +43,15 @@ public class Constants {
      * @return memory page size
      */
     public static long regionSizeGranularity() {
-      try {
-        Class<?> fileChannelImplClass = Class.forName("sun.nio.ch.FileChannelImpl");
-        final Method method = fileChannelImplClass.getDeclaredMethod("initIDs");
-        method.setAccessible(true);
-        final long result = (long)method.invoke(null);
-        method.setAccessible(false);
-        return result;
-      } catch (final Exception e) {
-        throw new RuntimeException(e);
-      }
+        try {
+            Class<?> fileChannelImplClass = Class.forName("sun.nio.ch.FileChannelImpl");
+            final Method method = fileChannelImplClass.getDeclaredMethod("initIDs");
+            method.setAccessible(true);
+            final long result = (long)method.invoke(null);
+            method.setAccessible(false);
+            return result;
+        } catch (final Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -62,8 +62,10 @@ public interface Region extends RegionStateAware {
     }
 
     /**
-     * @return  the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
-     *          {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been requested yet
+     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
+     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
+
+     * @return the region's start position, a non-negative multiple of the region size if it is ready for data access
      */
     default long regionStartPosition() {
         final long position = position();
@@ -72,14 +74,14 @@ public interface Region extends RegionStateAware {
 
     /**
      * Returns the absolute start position of the {@linkplain #buffer() buffer}, or
-     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been requested yet.  Note that the region may
+     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.  Note that the region may
      * not yet be ready for data access, which can be checked through {@link #isReady()} or through one of the await
      * methods.
      * <p>
      * If {@linkplain RegionState#isReady() ready} for data access, the returned position is mapped to the
      * {@linkplain #buffer() buffer}'s zero byte.
      *
-     * @return the buffer's start position, negative only if no position has been requested yet
+     * @return the buffer's start position, a non-negative value if the region is ready for data access
      */
     long position();
 
@@ -115,30 +117,79 @@ public interface Region extends RegionStateAware {
      *
      * @param position the position to read from (absolute, not relative to current position or region start)
      * @return the region for accessing data from the given position (can be the same or a different region instance)
+     * @throws IllegalArgumentException if position is negative
      */
     Region map(long position);
 
+    /**
+     * Maps this or a new region at an offset from the current position and returns it. Delegates to {@link #map(long)}
+     * if the current position is valid, and throws an error if the region is not currently mapped.
+     *
+     * @param delta the position delta relative to the current position
+     * @return the region for accessing data from the new position (can be the same or a different region instance)
+     * @throws IllegalStateException if this region has no current position
+     * @throws IllegalArgumentException if the provided delta value results in a negative position
+     */
     default Region mapFromCurrentPosition(final long delta) {
         final long position = position();
         validPositionState(position);
         return map(position + delta);
     }
 
-    default Region mapFromRegionStart(final int offset) {
-        validRegionOffset(offset, regionSize());
-        return map(regionStartPosition() + offset);
+    /**
+     * Maps this or a new region at an offset from the current region start and returns it. Delegates to
+     * {@link #map(long)} if the current region start position is valid, and throws an error if the region is not
+     * currently mapped.
+     *
+     * @param delta the position delta relative to the current position
+     * @return the region for accessing data from the new position (can be the same or a different region instance)
+     * @throws IllegalStateException if this region has no current position
+     * @throws IllegalArgumentException if the provided delta value results in a negative position
+     */
+    default Region mapFromRegionStart(final int delta) {
+        final long regionStartPosition = regionStartPosition();
+        validPositionState(regionStartPosition);
+        return map(regionStartPosition + delta);
     }
 
+    /**
+     * Maps the next region returns it, or the first region if no region is currently mapped. Mapping the new region can
+     * occur synchronously or asynchronously, and readiness for data access can be checked through {@link #isReady()}.
+     *
+     * @return the next region for accessing data (can be the same or a different region instance)
+     * @throws IllegalArgumentException if the provided delta value results in a negative position
+     * @see #mapNextRegion(int)
+     */
     default Region mapNextRegion() {
-        return map(Math.max(0, regionStartPosition()) + regionSize());
+        final long regionStartPosition = regionStartPosition();
+        final long nextStartPosition = regionStartPosition >= 0 ? regionStartPosition + regionSize() : 0;
+        return map(nextStartPosition);
     }
 
+    /**
+     * Maps the next region at an offset and returns it, or the first region if no region is currently mapped. Mapping
+     * the new region can occur synchronously or asynchronously, and readiness for data access can be checked through
+     * {@link #isReady()}.
+     *
+     * @param offset the position offset within the next region, a non-negative value less than regionSize
+     * @return the next region for accessing data from the given offset (can be the same or a different region instance)
+     * @throws IllegalArgumentException if the provided offset is not in {@code [0..(regionSize-1)]}
+     */
     default Region mapNextRegion(final int offset) {
         final int regionSize = regionSize();
         validRegionOffset(offset, regionSize);
-        return map(Math.max(0, regionStartPosition()) + regionSize + offset);
+        final long regionStartPosition = regionStartPosition();
+        final long nextStartPosition = regionStartPosition >= 0 ? regionStartPosition + regionSize() : 0;
+        return map(nextStartPosition + offset);
     }
 
+    /**
+     * Maps the previous region and returns it. Delegates to {@link #map(long)} if there is a previous region, and
+     * throws an error if this region is not currently mapped or if it is the first region.
+     *
+     * @return the next region for accessing data from the given offset (can be the same or a different region instance)
+     * @throws IllegalStateException if this region is not currently mapped, or if it is the first region
+     */
     default Region mapPreviousRegion() {
         final long startPosition = regionStartPosition();
         final int regionSize = regionSize();
@@ -148,6 +199,15 @@ public interface Region extends RegionStateAware {
         return map(startPosition - regionSize);
     }
 
+    /**
+     * Maps the previous region at an offset and returns it. Delegates to {@link #map(long)} if there is a previous
+     * region, and throws an error if this region is not currently mapped or if it is the first region.
+     *
+     * @param offset the position offset within the previous region, a non-negative value less than regionSize
+     * @return the next region for accessing data from the given offset (can be the same or a different region instance)
+     * @throws IllegalStateException if this region is not currently mapped, or if it is the first region
+     * @throws IllegalArgumentException if the provided offset is not in {@code [0..(regionSize-1)]}
+     */
     default Region mapPreviousRegion(final int offset) {
         final long startPosition = regionStartPosition();
         final int regionSize = regionSize();
