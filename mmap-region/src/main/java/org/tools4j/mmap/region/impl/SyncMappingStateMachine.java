@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.api.RegionState.CLOSED;
-import static org.tools4j.mmap.region.api.RegionState.ERROR;
+import static org.tools4j.mmap.region.api.RegionState.FAILED;
 import static org.tools4j.mmap.region.api.RegionState.MAPPED;
 import static org.tools4j.mmap.region.api.RegionState.UNMAPPED;
 import static org.tools4j.mmap.region.impl.Constraints.validPosition;
@@ -111,8 +111,8 @@ final class SyncMappingStateMachine implements MappingStateProvider {
         }
 
         @Override
-        public boolean request(final long requestedPosition) {
-            if (requestLocal(requestedPosition)) {
+        public boolean request(final long position) {
+            if (requestLocal(position)) {
                 return true;
             }
             if (state == CLOSED) {
@@ -121,23 +121,25 @@ final class SyncMappingStateMachine implements MappingStateProvider {
             try {
                 unmapIfNecessary();
                 final int regionSize = regionMetrics.regionSize();
-                final long regionPosition = regionMetrics.regionPosition(requestedPosition);
-                final int offset = regionMetrics.regionOffset(requestedPosition);
+                final long regionPosition = regionMetrics.regionPosition(position);
+                final int offset = regionMetrics.regionOffset(position);
                 final long addr = fileMapper.map(regionPosition, regionSize);
                 if (addr > 0) {
                     mappedAddress = addr;
-                    mappedPosition = requestedPosition;
+                    mappedPosition = position;
                     buffer.wrapInternal(addr + offset, regionSize - offset);
                     state = MAPPED;
                     return true;
                 }
+                //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
+                state = FAILED;
+                return false;
             } catch (final Exception exception) {
-                //ignore, handle below
+                mappedAddress = NULL_ADDRESS;
+                mappedPosition = NULL_POSITION;
+                state = FAILED;
+                return false;
             }
-            mappedAddress = NULL_ADDRESS;
-            mappedPosition = NULL_POSITION;
-            state = ERROR;
-            return false;
         }
 
         @Override

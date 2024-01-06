@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ package org.tools4j.mmap.region.api;
 
 
 /**
- * The region metrics are defined by the region size and values such as region start position, offset and index can be
+ * The region metrics are defined by the region size, and values such as region start position, offset and index can be
  * derived from an arbitrary byte position value.
  */
 public interface RegionMetrics {

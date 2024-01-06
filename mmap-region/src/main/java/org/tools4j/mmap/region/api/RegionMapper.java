@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ public interface RegionMapper extends AutoCloseable {
      * Mapping can be performed synchronously or asynchronously; readiness for data access can be checked through
      * {@link Region#isReady()}.
      *
-     * @param position absolute start position
+     * @param position absolute start position, does not have to be a multiple of region size
      * @return the region, guaranteed to be immediately mapped if synchronous mapping is used
      */
     Region map(long position);

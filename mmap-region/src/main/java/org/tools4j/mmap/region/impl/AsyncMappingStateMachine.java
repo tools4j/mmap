@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.api.RegionState.CLOSED;
 import static org.tools4j.mmap.region.api.RegionState.CLOSING;
-import static org.tools4j.mmap.region.api.RegionState.ERROR;
+import static org.tools4j.mmap.region.api.RegionState.FAILED;
 import static org.tools4j.mmap.region.api.RegionState.MAPPED;
 import static org.tools4j.mmap.region.api.RegionState.REQUESTED;
 import static org.tools4j.mmap.region.api.RegionState.UNMAPPED;
@@ -50,16 +50,31 @@ final class AsyncMappingStateMachine implements MappingStateProvider {
 
     private static final long UNMAPPED_VALUE = valueByState(UNMAPPED);
     private static final long MAPPED_VALUE = valueByState(MAPPED);
+    private static final long FAILED_VALUE = valueByState(FAILED);
     private static final long CLOSED_VALUE = valueByState(CLOSED);
     private static final long CLOSING_VALUE = valueByState(CLOSING);
 
     private final MappingState mappingState;
 
+    /**
+     * Returns the negative region state value given the state.  State shall not be REQUESTED as we use the requested
+     * position in that case.
+     *
+     * @param state the state
+     * @return the negative state value
+     */
     private static long valueByState(final RegionState state) {
         assert state != REQUESTED;
         return Long.MIN_VALUE + state.ordinal();
     }
 
+    /**
+     * Returns the region state given the state value.  If the state value is non-negative, it represents the requested
+     * position, hence the resulting state is REQUESTED.  If negative, it is a derivative of the state ordinal.
+     *
+     * @param stateValue the state value
+     * @return the region state
+     */
     private static RegionState stateByValue(final long stateValue) {
         if (stateValue >= 0) {
             return REQUESTED;
@@ -191,40 +206,51 @@ final class AsyncMappingStateMachine implements MappingStateProvider {
         @Override
         public int execute() {
             long curValue, newValue;
+            long deferredUnmapAddr, deferredUnmapPos;
             do {
                 curValue = state.get();
                 if (curValue == CLOSING_VALUE) {
-                    newValue = unmapIfNecessary(CLOSED_VALUE);
+                    unmapIfNecessary();
+                    deferredUnmapAddr = NULL_ADDRESS;
+                    deferredUnmapPos = NULL_POSITION;
+                    newValue = CLOSED_VALUE;
                 } else if (curValue >= 0) {
-                    newValue = unmapIfNecessary(MAPPED_VALUE);
+                    //NOTE: defer unmapping for better mapping latency
+                    deferredUnmapAddr = mappedAddress;
+                    deferredUnmapPos = mappedPosition;
+                    mappedAddress = NULL_ADDRESS;
+                    mappedPosition = NULL_POSITION;
+                    newValue = map(curValue);
                 } else {
                     return 0;
                 }
-                if (newValue == MAPPED_VALUE) {
-                    newValue = map(curValue);
-                }
             } while (!state.compareAndSet(curValue, newValue));
+            unmapIfNecessary(deferredUnmapAddr, deferredUnmapPos);
             if (newValue == CLOSED_VALUE) {
                 asyncRuntime.deregister(this);
             }
             return 1;
         }
 
-        long unmapIfNecessary(final long newStateValue) {
+        void unmapIfNecessary() {
             if (mappedAddress != NULL_ADDRESS) {
                 regionBuffer.unwrapInternal();
                 try {
                     assert mappedPosition >= 0;
                     final long regionPosition = regionMetrics.regionPosition(mappedPosition);
                     fileMapper.unmap(mappedAddress, regionPosition, regionMetrics.regionSize());
-                } catch (final Exception e) {
-                    return valueByState(ERROR);
                 } finally {
                     mappedAddress = NULL_ADDRESS;
                     mappedPosition = NULL_POSITION;
                 }
             }
-            return newStateValue;
+        }
+        void unmapIfNecessary(final long addr, final long pos) {
+            if (addr != NULL_ADDRESS) {
+                assert pos >= 0;
+                final long regionPosition = regionMetrics.regionPosition(pos);
+                fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
+            }
         }
 
         long map(final long position) {
@@ -240,10 +266,13 @@ final class AsyncMappingStateMachine implements MappingStateProvider {
                     regionBuffer.wrapInternal(mappedAddress + offset, regionSize - offset);
                     return MAPPED_VALUE;
                 }
+                //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
+                return FAILED_VALUE;
             } catch (final Exception e) {
-                //ignore, return error state value below
+                mappedAddress = NULL_ADDRESS;
+                mappedPosition = NULL_POSITION;
+                return FAILED_VALUE;
             }
-            return valueByState(ERROR);
         }
     }
 

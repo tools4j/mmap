@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,8 @@ import java.util.function.BiFunction;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Defines static methods to create {@link TimeoutHandler} instances.
+ * Defines static methods to create {@link TimeoutHandler} instances; access is exposed through the static methods of
+ * {@link TimeoutHandler}.
  */
 enum TimeoutHandlers {
     ;
@@ -43,7 +44,7 @@ enum TimeoutHandlers {
         requireNonNull(exceptionFactory);
         return (state, waitingPolicy) -> {
             throw exceptionFactory.apply(state, waitingPolicy);
-        } ;
+        };
     }
 
     static <T> TimeoutHandler<T> consecutive(final TimeoutHandler<T> first, final TimeoutHandler<T> second) {

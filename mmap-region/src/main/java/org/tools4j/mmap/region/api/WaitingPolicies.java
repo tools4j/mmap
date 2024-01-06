@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,6 @@ import org.agrona.concurrent.IdleStrategy;
 import org.agrona.concurrent.NoOpIdleStrategy;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -36,7 +35,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 /**
- * Defines static methods to create {@link WaitingPolicy} instances and to await a condition.
+ * Defines static methods to create {@link WaitingPolicy} instances and to await a condition. The implementations are
+ * package private and are used by {@link WaitingPolicy} and {@link RegionStateAware}.
  */
 enum WaitingPolicies {
     ;
@@ -72,11 +72,18 @@ enum WaitingPolicies {
         };
     }
 
-    static boolean await(final BooleanSupplier condition,
-                         final long maxWaitTime,
-                         final TimeUnit timeUnit,
-                         final IdleStrategy waitingStrategy) {
-        return await(condition, BooleanSupplier::getAsBoolean, maxWaitTime, timeUnit, waitingStrategy);
+    static <T> boolean await(final T state,
+                             final Predicate<? super T> condition,
+                             final WaitingPolicy waitingPolicy) {
+        //state is nullable
+        if (condition.test(state)) {
+            return true;
+        }
+        final long maxWaitTime = waitingPolicy.maxWaitTime();
+        if (maxWaitTime == 0) {
+            return false;
+        }
+        return awaitCondition(state, condition, maxWaitTime, waitingPolicy.timeUnit(), waitingPolicy.waitingStrategy());
     }
 
     static <T> boolean await(final T state,

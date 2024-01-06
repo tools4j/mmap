@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,9 +35,9 @@ interface RegionManager extends RegionMapper {
      * originated.  Region mapper implementations may use this information to predict the mapping direction and pre-map
      * additional pages other than the one requested here.
      *
-     * @param position start position of the region, or of viewport within the region if not aligned with region size
+     * @param position absolute start position, does not have to be a multiple of region size
      * @param from the region from which the map request was initiated
-     * @return the region, guaranteed to be immediately mapped for synchronous region
+     * @return the region, guaranteed to be immediately mapped if synchronous mapping is used
      */
     Region mapFrom(long position, MutableRegion from);
 }

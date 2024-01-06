@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -68,10 +68,10 @@ public enum RegionState {
     UNMAPPED,
     /** The region is mapped and ready for data access. */
     MAPPED,
+    /** Mapping attempt failed, for instance because the region requested for read-access does not exist. */
+    FAILED,
     /** The region has been closed. */
     CLOSED,
-    /** An error occurred when attempting to map or unmap the region. */
-    ERROR,
     /** Mapping of the region has been requested and will be performed asynchronously. */
     REQUESTED,
     /** Closing of the region has been initiated and will be performed asynchronously. */

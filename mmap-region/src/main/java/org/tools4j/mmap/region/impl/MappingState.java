@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,8 +26,6 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.concurrent.AtomicBuffer;
 import org.tools4j.mmap.region.api.RegionState;
 
-import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-
 interface MappingState extends AutoCloseable {
 
     long position();
@@ -36,57 +34,23 @@ interface MappingState extends AutoCloseable {
     RegionState state();
 
     /**
-     * Local mapping if possible without unmapping of current page, meaning that only the viewport {@link #buffer()}
+     * Local mapping if possible without unmapping of current page, meaning that only the region {@link #buffer()}
      * will be adjusted.
      * @param position the new position requested
      * @return true if local mapping was possible, and false otherwise
      */
     boolean requestLocal(long position);
+
     /**
      * Maps the requested position after first unmapping the region currently mapped for this region.
      * @param position the new position requested
      * @return true if successful, and false if mapping is not currently possible, either because the region is already
-     *         closed or because it is in an async state that does not support mapping to a new position
+     *         closed or because the region requested for read-access does not exist
      */
     boolean request(long position);
 
     /**
-     * Unmaps currently mapped region and closes the region.
+     * Unmaps and closes the currently mapped region.
      */
     void close();
-
-    /**
-     * Mapping state with default implementations for terminal CLOSED state.
-     * @see RegionState#CLOSED
-     */
-    interface ClosedState extends MappingState {
-        @Override
-        default long position() {
-            return NULL_POSITION;
-        }
-
-        @Override
-        default AtomicBuffer buffer() {
-            return EmptyBuffer.INSTANCE;
-        }
-
-        @Override
-        default RegionState state() {
-            return RegionState.CLOSED;
-        }
-
-        @Override
-        default boolean requestLocal(final long position) {
-            return false;
-        }
-
-        @Override
-        default boolean request(final long position) {
-            return false;
-        }
-        @Override
-        default void close() {
-            //no-op
-        }
-    }
 }

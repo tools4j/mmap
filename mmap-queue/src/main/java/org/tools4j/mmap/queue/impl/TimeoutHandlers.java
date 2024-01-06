@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,11 +43,11 @@ public enum TimeoutHandlers {
     public static TimeoutHandler<Region> log(final Logger logger, final String name) {
         requireNonNull(logger);
         requireNonNull(name);
-        return (viewport, waitingPolicy) -> {
+        return (region, waitingPolicy) -> {
             logger.error("Moving {} region to position {} failed: readiness not achieved after {} {}",
-                    name, viewport.position(), waitingPolicy.maxWaitTime(), waitingPolicy.timeUnit()
+                    name, region.position(), waitingPolicy.maxWaitTime(), waitingPolicy.timeUnit()
             );
-            return viewport;
+            return region;
         };
     }
 
@@ -57,7 +57,7 @@ public enum TimeoutHandlers {
 
     public static TimeoutHandler<Region> exception(final String name) {
         requireNonNull(name);
-        return TimeoutHandler.exception((viewport, policy) -> illegalStateException(name, viewport, policy));
+        return TimeoutHandler.exception((region, policy) -> illegalStateException(name, region, policy));
     }
 
     public static IllegalStateException illegalStateException(final String name,
