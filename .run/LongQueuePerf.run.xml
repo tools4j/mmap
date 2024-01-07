@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="LongQueuePerf" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="org.tools4j.mmap.queue.perf.LongQueuePerf" />
+    <module name="mmap.mmap-queue.test" />
+    <option name="VM_PARAMETERS" value="-Djvm.resource.tracing=false -Ddisable.thread.safety=true -Dagrona.disable.bounds.checks=true" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="org.tools4j.mmap.chronicle.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

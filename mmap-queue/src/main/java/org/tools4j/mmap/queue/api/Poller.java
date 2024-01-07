@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,11 +23,82 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import java.io.Closeable;
+/**
+ * Queue poller for sequential retrieval of entries with callback to an {@link EntryHandler}.
+ */
+public interface Poller extends AutoCloseable {
+    /**
+     * Result of polling an entry.
+     */
+    enum Result {
+        /**
+         * No entry was available for polling.
+         */
+        IDLE,
+        /**
+         * Entry was polled and index was moved to next higher index.
+         * @see Direction#FORWARD
+         */
+        POLLED_AND_MOVED_FORWARD,
+        /**
+         * Entry was polled and index was left unchanged.
+         * @see Direction#NONE
+         */
+        POLLED_AND_NOT_MOVED,
+        /**
+         * Entry was polled and index  was moved to next lower index.
+         * @see Direction#BACKWARD
+         */
+        POLLED_AND_MOVED_BACKWARD,
+        /**
+         * Error occurred when attempting to access entry or payload.
+         */
+        ERROR
+    }
 
-import org.agrona.DirectBuffer;
+    /**
+     * Polls the queue and invokes the entry handler if one is available.
+     *
+     * @param entryHandler entry handler callback invoked if an entry is present
+     * @return result value as per {@link Direction} if polled, otherwise {@link Result#IDLE}
+     */
+    Result poll(EntryHandler entryHandler);
 
-public interface Poller extends Closeable {
-    boolean poll(DirectBuffer buffer);
+    /**
+     * Move to given index for next entry to poll.
+     *
+     * @param index index to move to for next poll operation
+     * @return true if the move succeeded, false otherwise
+     */
+    boolean moveToIndex(long index);
+
+    /**
+     * Move to end of the queue after the last entry
+     * @return index at which next entry is expected to be appended in the future
+     */
+    long moveToEnd();
+
+    /**
+     * Move to start of the queue, for polling the first entry next
+     * @return true is succeeded
+     */
+    boolean moveToStart();
+
+    /**
+     * @return current index
+     */
+    long currentIndex();
+
+    /**
+     * Check if an entry is available at the given index
+     * @param index entry index
+     * @return true if entry is available at the given index, and false otherwise
+     */
+    boolean hasEntry(long index);
+
+    /**
+     * Closes the poller.
+     */
+    @Override
     void close();
 }

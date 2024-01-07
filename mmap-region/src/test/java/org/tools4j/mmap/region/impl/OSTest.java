@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,20 +23,18 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OSTest {
     @Test
     public void ifWindows() {
-        assertThat(OS.ifWindows("win", "nonwin")).isEqualTo("nonwin");
+        boolean isWindows = System.getProperty("os.name", "unknown").toLowerCase().startsWith("win");
+        if (isWindows) {
+            assertEquals("win", OS.ifWindows("win", "nonwin"));
+        } else {
+            assertEquals("nonwin", OS.ifWindows("win", "nonwin"));
+        }
     }
-
-    @Test
-    public void isWindows() {
-        assertThat(OS.isWindows()).isEqualTo(false);
-    }
-
 }

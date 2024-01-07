@@ -1,7 +1,7 @@
-/**
+/*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2018 mmap (tools4j), Marco Terzer, Anton Anufriev
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,49 +23,39 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.nio.channels.FileChannel;
-
-import org.agrona.IoUtil;
-
 /**
- * Interface offering operations to map or unmap a region.
+ * Interface with method to map a region.  Subsequent mappings can be achieved directly through one of the
+ * {@link Region}'s {@code map(..)} methods.
  */
-public interface RegionMapper {
+public interface RegionMapper extends AutoCloseable {
     /**
-     * Attempts to map a region.
-     * In synchronous implementations, it is expected to be mapped immediately,
-     *    if not mapped yet, and true is returned.
-     * In asynchronous implementations, if the region is not mapped yet, mapping
-     *    will be performed asynchronously and false will be returned.
-     *
-     * @param regionStartPosition - start position of a region, must be power of two and aligned with
-     *                            the length of the region.
-     * @return true if the region is mapped after the call, otherwise - false.
+     * Returns the metrics of regions mapped by this region mapper.
+     * @return metrics of regions mapped by this class
      */
-    boolean map(final long regionStartPosition);
+    RegionMetrics regionMetrics();
+
     /**
-     * Attempts to unmap a region.
-     * In synchronous implementations, it is expected to be unmapped immediately,
-     *    if not unmapped yet.
-     * In asynchronous implementations, if the region is not unmapped yet, mapping
-     *    will be performed asynchronously and false will be returned.
+     * Maps a region given the absolute byte position. If the position is not a multiple of region size, the region's
+     * {@linkplain Region#buffer() buffer} will be wrapped at an according offset.
+     * <p>
+     * Mapping can be performed synchronously or asynchronously; readiness for data access can be checked through
+     * {@link Region#isReady()}.
      *
-     * @return true if the region is unmapped after the call, otherwise - false.
+     * @param position absolute start position, does not have to be a multiple of region size
+     * @return the region, guaranteed to be immediately mapped if synchronous mapping is used
      */
-    boolean unmap();
+    Region map(long position);
 
-    @FunctionalInterface
-    interface IoMapper {
-        IoMapper DEFAULT = IoUtil::map;
+    /**
+     * Returns true if this region mapper performs asynchronous mapping in the background, and false if mappings are
+     * performed synchronously.
+     * @return true if this mapper performs asynchronous mapping, and false if it performs synchronous mapping
+     */
+    boolean isAsync();
 
-        long map(FileChannel fileChannel, FileChannel.MapMode mapMode, long offset, long length);
-    }
-
-    @FunctionalInterface
-    interface IoUnmapper {
-        IoUnmapper DEFAULT = IoUtil::unmap;
-
-        void unmap(FileChannel fileChannel, long address, long length);
-    }
-
+    /**
+     * Closes all regions that have been mapped directly or indirectly mapped through this region mapper
+     */
+    @Override
+    void close();
 }
