@@ -21,34 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.chronicle.queue;
+package org.tools4j.mmap.queue.perf;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.wire.DocumentContext;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class ChronicleSender {
+public class ChronicleLongSender {
     private static final double NANOS_IN_SECOND = 1_000_000_000.0;
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleSender.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleLongSender.class);
 
     private final Thread thread;
-    private final UnsafeBuffer bytesWrapper = new UnsafeBuffer(0, 0);
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public ChronicleSender(final byte publisherId,
-                           final Supplier<ExcerptAppender> appenderFactory,
-                           final long messagesPerSecond,
-                           final long messages,
-                           final int messageLength) {
+    public ChronicleLongSender(final Supplier<ExcerptAppender> appenderFactory,
+                               final long messagesPerSecond,
+                               final long messages) {
         Objects.requireNonNull(appenderFactory);
 
         this.thread = new Thread(() -> {
@@ -56,28 +51,16 @@ public class ChronicleSender {
             try (ExcerptAppender appender = appenderFactory.get()) {
 
                 final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
-                final MessageCodec testMessage = new MessageCodec(messageLength);
-                final byte[] payload = new byte[testMessage.payloadLength()];
 
                 final long start = System.nanoTime();
                 for (int i = 0; i < messages; i++) {
 
-                    final long lastMessageIdx = messages - 1;
-                    long time = System.nanoTime();
+                    long createdTime = System.nanoTime();
                     try (final DocumentContext context = appender.writingDocument()) {
                         try {
                             final Bytes<?> bytes = context.wire().bytes();
-                            bytes.ensureCapacity(messageLength);
-                            final long dstOffset = bytes.writePosition();
-                            final long addr = bytes.addressForWrite(dstOffset);
-                            bytesWrapper.wrap(addr, messageLength);
-                            testMessage.wrap(bytesWrapper)
-                              .publisherId(publisherId)
-                              .putPayload(payload)
-                              .terminal(i == lastMessageIdx)
-                              .timestamp(time);
-                            bytesWrapper.wrap(0, 0);
-                            bytes.writeSkip(messageLength);
+                            bytes.ensureCapacity(8);
+                            bytes.writeLong(createdTime);
                         } catch (final Throwable t) {
                             context.rollbackOnClose();
                             throw t;

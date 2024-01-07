@@ -21,54 +21,61 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.chronicle.longQueue;
+package org.tools4j.mmap.queue.perf;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.queue.ExcerptAppender;
-import net.openhft.chronicle.wire.DocumentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class ChronicleLongSender {
+public class Sender {
     private static final double NANOS_IN_SECOND = 1_000_000_000.0;
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleLongSender.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Sender.class);
 
     private final Thread thread;
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public ChronicleLongSender(final Supplier<ExcerptAppender> appenderFactory,
-                               final long messagesPerSecond,
-                               final long messages) {
+    public Sender(final byte publisherId,
+                  final Supplier<Appender> appenderFactory,
+                  final long messagesPerSecond,
+                  final long messages,
+                  final int messageLength) {
         Objects.requireNonNull(appenderFactory);
 
         this.thread = new Thread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
-            try (ExcerptAppender appender = appenderFactory.get()) {
+            try (Appender appender = appenderFactory.get()) {
 
                 final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
 
-                final long start = System.nanoTime();
-                for (int i = 0; i < messages; i++) {
+                final MessageCodec testMessage = new MessageCodec(messageLength);
+                final byte[] payload = new byte[testMessage.payloadLength()];
 
-                    long createdTime = System.nanoTime();
-                    try (final DocumentContext context = appender.writingDocument()) {
-                        try {
-                            final Bytes<?> bytes = context.wire().bytes();
-                            bytes.ensureCapacity(8);
-                            bytes.writeLong(createdTime);
-                        } catch (final Throwable t) {
-                            context.rollbackOnClose();
-                            throw t;
+                final long start = System.nanoTime();
+                final long lastMessageIdx = messages - 1;
+                for (int i = 0; i < messages; i++) {
+                    final long time = System.nanoTime();
+                    try (Appender.AppendingContext context = appender.appending(messageLength)) {
+                        testMessage
+                                .wrap(context.buffer())
+                                .publisherId(publisherId)
+                                .putPayload(payload)
+                                .terminal(i == lastMessageIdx)
+                                .timestamp(time);
+
+                        long index = context.commit(messageLength);
+                        if (index < 0) {
+                            LOGGER.warn("Failed to append message {}, error code {}", i, index);
                         }
                     }
 
                     long end = System.nanoTime();
-                    final long waitUntil = start + (long) ((i + 1) * maxNanosPerMessage);
+                    final long waitUntil = start + (long)((i + 1) * maxNanosPerMessage);
                     while (end < waitUntil) {
                         end = System.nanoTime();
                     }

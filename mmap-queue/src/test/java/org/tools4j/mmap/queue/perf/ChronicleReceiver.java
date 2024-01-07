@@ -21,31 +21,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.chronicle.longQueue;
+package org.tools4j.mmap.queue.perf;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.wire.DocumentContext;
 import org.HdrHistogram.Histogram;
+import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.MutableBoolean;
+import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
+import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class ChronicleLongReceiver {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleLongReceiver.class);
+public class ChronicleReceiver {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleReceiver.class);
 
     private final int id;
     private final Thread thread;
+    private final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+
     private final AtomicReference<Histogram> atomicHistogram = new AtomicReference<>(null);
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public ChronicleLongReceiver(final int id, final Supplier<ExcerptTailer> pollerFactory, final long warmup, final long messages) {
+    public ChronicleReceiver(final int id, final Supplier<ExcerptTailer> pollerFactory, final long warmup, final long messages, final int messageLength) {
         Objects.requireNonNull(pollerFactory);
         this.id = id;
         this.thread = new Thread(() -> {
@@ -56,17 +61,26 @@ public class ChronicleLongReceiver {
 
             try (ExcerptTailer tailer = pollerFactory.get()) {
                 int received = 0;
+                final MessageCodec messageCodec = new MessageCodec(messageLength);
+                final byte[] payload = new byte[messageCodec.payloadLength()];
+
 
                 while (!finished.get()) {
                     try (DocumentContext context = tailer.readingDocument()) {
                         if (context.isData()) {
                             final Bytes<?> bytes = context.wire().bytes();
-                            final long createdTime = bytes.readLong();
-                            long receivedTime = System.nanoTime();
+                            final long offset = bytes.readPosition();
+                            final long addr = bytes.addressForRead(offset);
+                            buffer.wrap(addr, messageLength);
+                            messageCodec.wrap(buffer);
+                            messageCodec.getPayload(payload);
+                            buffer.wrap(0, 0);
+                            bytes.readPosition(offset + messageLength);
 
+                            long receivedTime = System.nanoTime();
                             received++;
 
-                            final long timeNanos = receivedTime - createdTime;
+                            final long timeNanos = receivedTime - messageCodec.timestamp();
                             histogram.recordValue(Math.min(timeNanos, maxValue));
 
                             if (received == warmup) {

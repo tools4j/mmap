@@ -21,69 +21,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.perf;
 
-import org.HdrHistogram.Histogram;
-import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.Direction;
-import org.tools4j.mmap.queue.api.LongEntryHandler;
-import org.tools4j.mmap.queue.api.LongPoller;
-import org.tools4j.mmap.queue.util.HistogramPrinter;
+import org.tools4j.mmap.queue.api.LongAppender;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class LongReceiver {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LongReceiver.class);
+public class LongSender {
+    private static final double NANOS_IN_SECOND = 1_000_000_000.0;
+    private static final Logger LOGGER = LoggerFactory.getLogger(LongSender.class);
 
-    private final int id;
     private final Thread thread;
-    private final AtomicReference<Histogram> atomicHistogram = new AtomicReference<>(null);
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public LongReceiver(final int id, final Supplier<LongPoller> pollerFactory, final long warmup, final long messages) {
-        Objects.requireNonNull(pollerFactory);
-        this.id = id;
+    public LongSender(final Supplier<LongAppender> appenderFactory,
+                      final long messagesPerSecond,
+                      final long messages) {
+        Objects.requireNonNull(appenderFactory);
+
         this.thread = new Thread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
-            final long maxValue = TimeUnit.SECONDS.toNanos(1);
-            final Histogram histogram = new Histogram(1, maxValue, 3);
-            final MutableBoolean finished = new MutableBoolean(false);
+            final LongAppender appender = appenderFactory.get();
 
-            final LongEntryHandler entryHandler = new LongEntryHandler() {
-                int received = 0;
+            final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
 
-                @Override
-                public Direction onEntry(long index, long sendingTime) {
-                    received++;
-                    long end = System.nanoTime();
-
-                    final long timeNanos = end - sendingTime;
-                    histogram.recordValue(Math.min(timeNanos, maxValue));
-
-                    if (received == warmup) {
-                        histogram.reset();
-                    }
-                    if (received == messages) {
-                        finished.set(true);
-                    }
-                    return Direction.FORWARD;
+            final long start = System.nanoTime();
+            for (int i = 0; i < messages; i++) {
+                final long time = System.nanoTime();
+                long index = appender.append(time);
+                if (index < 0) {
+                    LOGGER.warn("Failed to append value {}, error code {}", time, index);
                 }
-            };
 
-            try (LongPoller poller = pollerFactory.get()) {
-                while (!finished.get()) {
-                    poller.poll(entryHandler);
+                long end = System.nanoTime();
+                final long waitUntil = start + (long) ((i + 1) * maxNanosPerMessage);
+                while (end < waitUntil) {
+                    end = System.nanoTime();
                 }
-                atomicHistogram.set(histogram);
             }
-
         });
-        thread.setName("receiver-" + id);
+        thread.setName("sender");
         thread.setDaemon(true);
         thread.setUncaughtExceptionHandler((t, e) -> uncaughtException.set(e));
     }
@@ -98,12 +80,5 @@ public class LongReceiver {
             throw uncaughtException.get();
         }
         return !thread.isAlive();
-    }
-
-    public void printHistogram() {
-        final Histogram histogram = atomicHistogram.get();
-        if (histogram != null) {
-            HistogramPrinter.printHistogram("receiver-" + id, histogram);
-        }
     }
 }

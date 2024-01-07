@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 /**
  * A pool of appender ids.
  */
-public interface AppenderIdPool extends AutoCloseable {
+interface AppenderIdPool extends AutoCloseable {
     short SINGLE_APPENDER_ID = 0;
     AppenderIdPool SINGLE_APPENDER = new AppenderIdPool() {
         @Override

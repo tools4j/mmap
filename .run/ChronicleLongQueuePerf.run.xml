@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="ChronicleLongQueuePerf" type="Application" factoryName="Application" nameIsGenerated="true">
-    <option name="MAIN_CLASS_NAME" value="org.tools4j.mmap.chronicle.longQueue.ChronicleLongQueuePerf" />
+  <configuration default="false" name="ChronicleLongQueuePerf" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="org.tools4j.mmap.queue.perf.ChronicleLongQueuePerf" />
     <module name="mmap.mmap-queue.test" />
     <option name="VM_PARAMETERS" value="-Djvm.resource.tracing=false -Ddisable.thread.safety=true -Dagrona.disable.bounds.checks=true" />
     <extension name="coverage">

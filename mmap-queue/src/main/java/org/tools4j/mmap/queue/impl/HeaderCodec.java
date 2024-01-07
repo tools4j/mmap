@@ -25,7 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.region.impl.Word;
 
-public class HeaderCodec {
+final class HeaderCodec {
     private static final long PAYLOAD_POSITION_MASK = 0xFFFFFFFFFFFFFFL;
     private static final int APPENDER_ID_BITS = Long.SIZE - 8;
     private static final long INITIAL_PAYLOAD_POSITION = 64;

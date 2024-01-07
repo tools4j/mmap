@@ -28,26 +28,26 @@ import org.agrona.concurrent.UnsafeBuffer;
 
 import java.nio.ByteBuffer;
 
-import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
-
 /**
  * Buffer with zero capacity; all wrap(..) methods are overridden to throw {@link UnsupportedOperationException}.
  */
 public final class EmptyBuffer extends UnsafeBuffer {
+    private static final byte[] EMPTY_ARRAY = {};
 
     /** Default singleton instance */
     public static final EmptyBuffer INSTANCE = new EmptyBuffer();
 
     public EmptyBuffer() {
-        super();
+        super(EMPTY_ARRAY);
     }
 
     @Override
     public void wrap(final byte[] buffer) {
-        if (buffer != EMPTY_BYTE_ARRAY || byteArray() != null) {
-            throw new UnsupportedOperationException();
+        if (buffer == EMPTY_ARRAY) {
+            //invocation from constructor
+            return;
         }
-        super.wrap(buffer);
+        throw new UnsupportedOperationException();
     }
 
     @Override

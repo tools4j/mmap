@@ -34,11 +34,6 @@ import java.nio.ByteBuffer;
 public final class RegionBuffer extends UnsafeBuffer {
     private static final byte[] EMPTY_ARRAY = {};
 
-    /**
-     * Constant for empty buffer.
-     */
-    public static final RegionBuffer EMPTY = new RegionBuffer();
-
     public RegionBuffer() {
         super(EMPTY_ARRAY);
     }

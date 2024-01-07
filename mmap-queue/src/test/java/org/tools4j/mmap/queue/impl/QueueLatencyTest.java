@@ -30,6 +30,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.tools4j.mmap.queue.perf.Receiver;
+import org.tools4j.mmap.queue.perf.Sender;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
@@ -79,7 +81,8 @@ public class QueueLatencyTest {
             tempDir = Files.createTempDirectory(QueueLatencyTest.class.getSimpleName());
             tempDir.toFile().deleteOnExit();
 
-            //NOTE: build fails sometimes on Windows when initializing appender
+            //NOTE: build fails sometimes on Windows, hence we increase the timeouts
+            final long readTimeout = (OS.WINDOWS ? 5 : 1) * QueueBuilder.DEFAULT_READ_TIMEOUT_MILLIS;
             final long writeTimeout = (OS.WINDOWS ? 5 : 1) * QueueBuilder.DEFAULT_WRITE_TIMEOUT_MILLIS;
 
             queue = Queue
@@ -87,6 +90,7 @@ public class QueueLatencyTest {
                     .maxFileSize(MAX_FILE_SIZE)
                     .regionSize(REGION_SIZE)
                     .regionCacheSize(REGION_CACHE_SIZE)
+                    .writeTimeout(readTimeout, TimeUnit.MILLISECONDS)
                     .writeTimeout(writeTimeout, TimeUnit.MILLISECONDS)
                     .build();
 

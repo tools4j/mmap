@@ -21,36 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.chronicle.queue;
+package org.tools4j.mmap.queue.perf;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.queue.ExcerptTailer;
-import net.openhft.chronicle.wire.DocumentContext;
 import org.HdrHistogram.Histogram;
-import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.MutableBoolean;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Direction;
+import org.tools4j.mmap.queue.api.LongEntryHandler;
+import org.tools4j.mmap.queue.api.LongPoller;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
-import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class ChronicleReceiver {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChronicleReceiver.class);
+public class LongReceiver {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LongReceiver.class);
 
     private final int id;
     private final Thread thread;
-    private final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
-
     private final AtomicReference<Histogram> atomicHistogram = new AtomicReference<>(null);
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public ChronicleReceiver(final int id, final Supplier<ExcerptTailer> pollerFactory, final long warmup, final long messages, final int messageLength) {
+    public LongReceiver(final int id, final Supplier<LongPoller> pollerFactory, final long warmup, final long messages) {
         Objects.requireNonNull(pollerFactory);
         this.id = id;
         this.thread = new Thread(() -> {
@@ -59,38 +54,30 @@ public class ChronicleReceiver {
             final Histogram histogram = new Histogram(1, maxValue, 3);
             final MutableBoolean finished = new MutableBoolean(false);
 
-            try (ExcerptTailer tailer = pollerFactory.get()) {
+            final LongEntryHandler entryHandler = new LongEntryHandler() {
                 int received = 0;
-                final MessageCodec messageCodec = new MessageCodec(messageLength);
-                final byte[] payload = new byte[messageCodec.payloadLength()];
 
+                @Override
+                public Direction onEntry(long index, long sendingTime) {
+                    received++;
+                    long end = System.nanoTime();
 
-                while (!finished.get()) {
-                    try (DocumentContext context = tailer.readingDocument()) {
-                        if (context.isData()) {
-                            final Bytes<?> bytes = context.wire().bytes();
-                            final long offset = bytes.readPosition();
-                            final long addr = bytes.addressForRead(offset);
-                            buffer.wrap(addr, messageLength);
-                            messageCodec.wrap(buffer);
-                            messageCodec.getPayload(payload);
-                            buffer.wrap(0, 0);
-                            bytes.readPosition(offset + messageLength);
+                    final long timeNanos = end - sendingTime;
+                    histogram.recordValue(Math.min(timeNanos, maxValue));
 
-                            long receivedTime = System.nanoTime();
-                            received++;
-
-                            final long timeNanos = receivedTime - messageCodec.timestamp();
-                            histogram.recordValue(Math.min(timeNanos, maxValue));
-
-                            if (received == warmup) {
-                                histogram.reset();
-                            }
-                            if (received == messages) {
-                                finished.set(true);
-                            }
-                        }
+                    if (received == warmup) {
+                        histogram.reset();
                     }
+                    if (received == messages) {
+                        finished.set(true);
+                    }
+                    return Direction.FORWARD;
+                }
+            };
+
+            try (LongPoller poller = pollerFactory.get()) {
+                while (!finished.get()) {
+                    poller.poll(entryHandler);
                 }
                 atomicHistogram.set(histogram);
             }

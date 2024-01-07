@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.queue.perf;
 
 import org.HdrHistogram.Histogram;
 import org.agrona.concurrent.BusySpinIdleStrategy;
@@ -34,6 +34,7 @@ import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.api.Reader.Entry;
 import org.tools4j.mmap.queue.api.Reader.IterableContext;
 import org.tools4j.mmap.queue.api.Reader.ReadingContext;
+import org.tools4j.mmap.queue.impl.QueueBuilder;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
