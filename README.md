@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.org/tools4j/mmap.svg?branch=master)](https://travis-ci.org/tools4j/mmap)
-[![Coverage Status](https://coveralls.io/repos/github/tools4j/mmap/badge.svg?branch=master)](https://coveralls.io/github/tools4j/mmap?branch=master)
+[![Continuous Integration](https://github.com/tools4j/mmap/workflows/Continuous%20Integration/badge.svg)](https://github.com/tools4j/mmap/actions?query=workflow%3A%22Continuous+Integration%22)
 
 ## tools4j/mmap
 Memory mapped files used to implement off-heap low latency utilities such as queues.
