@@ -30,11 +30,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.tools4j.mmap.queue.perf.Receiver;
-import org.tools4j.mmap.queue.perf.Sender;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.perf.Receiver;
+import org.tools4j.mmap.queue.perf.Sender;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
@@ -57,9 +57,9 @@ public class QueueLatencyTest {
     //private static final int REGION_SIZE = QueueBuilder.DEFAULT_REGION_SIZE;
     private static final int REGION_SIZE = 128 * 1024;//fast latencies, but high outliers due to many mappings
     //private static final int MAX_FILE_SIZE = QueueBuilder.DEFAULT_MAX_FILE_SIZE;
-    private static final int MAX_FILE_SIZE = 64 * 1024 * 1024;//good to test file rolling
-    private static final int REGION_CACHE_SIZE = 2;
-    private static final int REGIONS_TO_MAP_AHEAD = 1;
+    private static final int MAX_FILE_SIZE = 4 * 1024 * 1024;//good to test file rolling
+    private static final int REGION_CACHE_SIZE = 4;
+    private static final int REGIONS_TO_MAP_AHEAD = -1;
     private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(20);
     private static AsyncRuntime asyncRuntime;
 
@@ -90,7 +90,7 @@ public class QueueLatencyTest {
                     .maxFileSize(MAX_FILE_SIZE)
                     .regionSize(REGION_SIZE)
                     .regionCacheSize(REGION_CACHE_SIZE)
-                    .writeTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                    .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
                     .writeTimeout(writeTimeout, TimeUnit.MILLISECONDS)
                     .build();
 
@@ -142,7 +142,7 @@ public class QueueLatencyTest {
     }
 
     @AfterEach
-    public void tearDown() throws IOException {
+    public void tearDown() {
         if (testRuntime != null) {
             testRuntime.tearDown();
             testRuntime = null;

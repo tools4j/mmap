@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class QueuePerf {
     private static final IdleStrategy ASYNC_RUNTIME_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
     private static final int REGIONS_TO_MAP_AHEAD = -1;
-    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(15);
+    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(30);
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);
 
     public static void main(final String... args) throws Throwable {
@@ -62,7 +62,12 @@ public class QueuePerf {
             final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false);
             final String name = "sample";
 
-            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory);
+            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory)
+                    .regionSize(8 * 1024)
+                    .regionCacheSize(4)
+                    .maxFileSize(8 * 1024 * 1024)
+                    .filesToCreateAhead(2)
+                    ;
 
             final long messagesPerSecond = 1_000_000;
             final int messages = 11_000_000;

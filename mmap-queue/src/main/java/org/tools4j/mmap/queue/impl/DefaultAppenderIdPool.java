@@ -31,7 +31,7 @@ import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
 import org.tools4j.mmap.region.impl.RegionMapperFactories;
-import org.tools4j.mmap.region.impl.SingleFileReadWriteFileMapper;
+import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -111,7 +111,7 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
 
     private static Region fixedRegion(final String directory, final String queueName) {
         final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
-        final FileMapper fileMapper = new SingleFileReadWriteFileMapper(file, REGION_SIZE, fileInitialiser());
+        final FileMapper fileMapper = new SingleFileReadWriteMapper(file, REGION_SIZE, fileInitialiser());
         final Region region = RegionMapperFactories.sync(fileMapper, REGION_SIZE, 1).map(0);
         if (region.isReady()) {
             return region;

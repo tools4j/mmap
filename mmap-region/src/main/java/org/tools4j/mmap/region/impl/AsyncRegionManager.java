@@ -51,7 +51,7 @@ final class AsyncRegionManager implements RegionManager {
         this.stopRuntimeOnClose = stopRuntimeOnClose;
     }
 
-    private static MappingStateProvider.Factory asyncStateMachineFactory(final AsyncRuntime asyncRuntime) {
+    private static MappingStateMachine.Factory asyncStateMachineFactory(final AsyncRuntime asyncRuntime) {
         requireNonNull(asyncRuntime);
         return (mapper, metrics) -> new AsyncMappingStateMachine(mapper, metrics, asyncRuntime);
     }

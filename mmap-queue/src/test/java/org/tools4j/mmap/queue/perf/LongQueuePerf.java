@@ -61,7 +61,12 @@ public class LongQueuePerf {
             final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, REGIONS_TO_MAP_AHEAD, false);
             final String name = "perf";
 
-            final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionMapperFactory);
+            final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionMapperFactory)
+                    .regionSize(8 * 1024)
+                    .regionCacheSize(4)
+                    .maxFileSize(8 * 1024 * 1024)
+                    .filesToCreateAhead(2)
+                    ;
 
             final long messagesPerSecond = 1_000_000;
             final int messages = 11_000_000;

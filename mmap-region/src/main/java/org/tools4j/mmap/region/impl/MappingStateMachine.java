@@ -26,10 +26,30 @@ package org.tools4j.mmap.region.impl;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
-interface MappingStateProvider {
-    MappingState mappingState();
+interface MappingStateMachine extends MappingState, AutoCloseable {
+    /**
+     * Local mapping if possible without unmapping of current page, meaning that only the region {@link #buffer()}
+     * will be adjusted.
+     * @param position the new position requested
+     * @return true if local mapping was possible, and false otherwise
+     */
+    boolean requestLocal(long position);
+
+    /**
+     * Maps the requested position after first unmapping the region currently mapped for this region.
+     * @param position the new position requested
+     * @return true if successful, and false if mapping is not currently possible, either because the region is already
+     *         closed or because the region requested for read-access does not exist
+     */
+    boolean request(long position);
+
+    /**
+     * Unmaps and closes the currently mapped region.
+     */
+    void close();
 
     interface Factory {
-        MappingStateProvider create(FileMapper fileMapper, RegionMetrics metrics);
+        MappingStateMachine create(FileMapper fileMapper, RegionMetrics metrics);
     }
+
 }

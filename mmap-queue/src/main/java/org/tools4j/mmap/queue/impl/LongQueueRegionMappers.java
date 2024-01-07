@@ -30,8 +30,8 @@ import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
 import org.tools4j.mmap.region.impl.RolledFileMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadOnlyFileMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadWriteFileMapper;
+import org.tools4j.mmap.region.impl.SingleFileReadOnlyMapper;
+import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
 import org.tools4j.mmap.region.impl.Word;
 
 import java.nio.channels.FileLock;
@@ -39,6 +39,7 @@ import java.nio.channels.FileLock;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 /**
  * Region mappers for long queues.
@@ -86,7 +87,7 @@ enum LongQueueRegionMappers {
         if (rollFiles) {
             readOnlyMapper = RolledFileMapper.forReadOnly(fileName, maxFileSize, regionSize, fileInitialiser);
         } else {
-            readOnlyMapper = new SingleFileReadOnlyFileMapper(fileName, fileInitialiser);
+            readOnlyMapper = new SingleFileReadOnlyMapper(fileName, fileInitialiser);
         }
 
         return regionMapperFactory.create(readOnlyMapper, regionSize, regionCacheSize);
@@ -103,6 +104,7 @@ enum LongQueueRegionMappers {
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
+     * @param filesToCreateAhead    how many payload files should be pre-created (ignored if rollFiles=false)
      * @return an instance of RegionMapper
      */
     static RegionMapper forReadWrite(final String queueName,
@@ -111,13 +113,15 @@ enum LongQueueRegionMappers {
                                      final int regionSize,
                                      final int regionCacheSize,
                                      final long maxFileSize,
-                                     final boolean rollFiles) {
+                                     final boolean rollFiles,
+                                     final int filesToCreateAhead) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
         greaterThanZero(regionSize, "regionSize");
         greaterThanZero(regionCacheSize, "regionCacheSize");
         greaterThanZero(maxFileSize, "maxFileSize");
+        nonNegative(filesToCreateAhead, "filesToCreateAhead");
         if (regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("regionSize must be multiple of " + REGION_SIZE_GRANULARITY);
         }
@@ -129,9 +133,9 @@ enum LongQueueRegionMappers {
 
         final FileMapper readWriteMapper;
         if (rollFiles) {
-            readWriteMapper = RolledFileMapper.forReadWrite(fileName, maxFileSize, regionSize, fileInitialiser);
+            readWriteMapper = RolledFileMapper.forReadWrite(fileName, maxFileSize, regionSize, filesToCreateAhead, fileInitialiser);
         } else {
-            readWriteMapper = new SingleFileReadWriteFileMapper(fileName, maxFileSize, fileInitialiser);
+            readWriteMapper = new SingleFileReadWriteMapper(fileName, maxFileSize, fileInitialiser);
         }
 
         return regionMapperFactory.create(readWriteMapper, regionSize, regionCacheSize);

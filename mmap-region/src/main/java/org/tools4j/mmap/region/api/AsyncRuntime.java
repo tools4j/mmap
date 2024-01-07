@@ -50,7 +50,7 @@ public interface AsyncRuntime extends AutoCloseable {
     void register(Recurring recurring);
 
     /**
-     * Deregisters the given recurring executable.
+     * De-registers the given recurring executable.
      *
      * @param recurring the recurring executable to deregister
      */

@@ -32,8 +32,8 @@ import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
 import org.tools4j.mmap.region.impl.RolledFileMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadOnlyFileMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadWriteFileMapper;
+import org.tools4j.mmap.region.impl.SingleFileReadOnlyMapper;
+import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
 
 import java.nio.channels.FileLock;
 import java.util.function.IntFunction;
@@ -41,6 +41,7 @@ import java.util.function.IntFunction;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 /**
  * Header and payload region mapper for queues.
@@ -101,7 +102,7 @@ interface QueueRegionMappers extends AutoCloseable {
         if (rollFiles) {
             headerReadOnlyMapper = RolledFileMapper.forReadOnly(headerFileName, maxFileSize, regionSize, headerInitialiser);
         } else {
-            headerReadOnlyMapper = new SingleFileReadOnlyFileMapper(headerFileName, headerInitialiser);
+            headerReadOnlyMapper = new SingleFileReadOnlyMapper(headerFileName, headerInitialiser);
         }
 
         try {
@@ -115,7 +116,7 @@ interface QueueRegionMappers extends AutoCloseable {
                     payloadReadOnlyMapper = RolledFileMapper.forReadOnly(payloadFileName, maxFileSize, regionSize, (file, mode) -> {
                     });
                 } else {
-                    payloadReadOnlyMapper = new SingleFileReadOnlyFileMapper(payloadFileName, (file, mode) -> {
+                    payloadReadOnlyMapper = new SingleFileReadOnlyMapper(payloadFileName, (file, mode) -> {
                     });
                 }
 
@@ -160,6 +161,7 @@ interface QueueRegionMappers extends AutoCloseable {
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
+     * @param filesToCreateAhead    how many payload files should be pre-created (ignored if rollFiles=false)
      * @param logger                logger
      * @return an instance of QueueRegionMappers
      */
@@ -170,6 +172,7 @@ interface QueueRegionMappers extends AutoCloseable {
                                            final int regionCacheSize,
                                            final long maxFileSize,
                                            final boolean rollFiles,
+                                           final int filesToCreateAhead,
                                            final Logger logger) {
         requireNonNull(queueName);
         requireNonNull(directory);
@@ -177,6 +180,7 @@ interface QueueRegionMappers extends AutoCloseable {
         greaterThanZero(regionSize, "regionSize");
         greaterThanZero(regionCacheSize, "regionCacheSize");
         greaterThanZero(maxFileSize, "maxFileSize");
+        nonNegative(filesToCreateAhead, "filesToCreateAhead");
         if (regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("regionSize must be multiple of " + REGION_SIZE_GRANULARITY);
         }
@@ -188,9 +192,9 @@ interface QueueRegionMappers extends AutoCloseable {
 
         final FileMapper headerReadWriteMapper;
         if (rollFiles) {
-            headerReadWriteMapper = RolledFileMapper.forReadWrite(headerFileName, maxFileSize, regionSize, headerInitialiser);
+            headerReadWriteMapper = RolledFileMapper.forReadWrite(headerFileName, maxFileSize, regionSize, 0, headerInitialiser);
         } else {
-            headerReadWriteMapper = new SingleFileReadWriteFileMapper(headerFileName, maxFileSize, headerInitialiser);
+            headerReadWriteMapper = new SingleFileReadWriteMapper(headerFileName, maxFileSize, headerInitialiser);
         }
 
         try {
@@ -203,10 +207,10 @@ interface QueueRegionMappers extends AutoCloseable {
 
                 final FileMapper payloadReadWriteMapper;
                 if (rollFiles) {
-                    payloadReadWriteMapper = RolledFileMapper.forReadWrite(payloadFileName, maxFileSize, regionSize, (file, mode) -> {
-                    });
+                    payloadReadWriteMapper = RolledFileMapper.forReadWrite(payloadFileName, maxFileSize, regionSize,
+                            filesToCreateAhead, (file, mode) -> {});
                 } else {
-                    payloadReadWriteMapper = new SingleFileReadWriteFileMapper(payloadFileName, maxFileSize, (file, mode) -> {
+                    payloadReadWriteMapper = new SingleFileReadWriteMapper(payloadFileName, maxFileSize, (file, mode) -> {
                     });
                 }
 

@@ -46,7 +46,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validPosition;
 /**
  * Async state machine as described in {@link RegionState}
  */
-final class AsyncMappingStateMachine implements MappingStateProvider {
+final class AsyncMappingStateMachine implements MappingStateMachine {
 
     private static final long UNMAPPED_VALUE = valueByState(UNMAPPED);
     private static final long MAPPED_VALUE = valueByState(MAPPED);
@@ -54,7 +54,7 @@ final class AsyncMappingStateMachine implements MappingStateProvider {
     private static final long CLOSED_VALUE = valueByState(CLOSED);
     private static final long CLOSING_VALUE = valueByState(CLOSING);
 
-    private final MappingState mappingState;
+    private final Recurring asyncRecurring = this::execute;
 
     /**
      * Returns the negative region state value given the state.  State shall not be REQUESTED as we use the requested
@@ -90,190 +90,175 @@ final class AsyncMappingStateMachine implements MappingStateProvider {
     AsyncMappingStateMachine(final FileMapper fileMapper,
                              final RegionMetrics regionMetrics,
                              final AsyncRuntime asyncRuntime) {
-        mappingState = new AsyncMappingState(fileMapper, regionMetrics, asyncRuntime);
+        this.fileMapper = requireNonNull(fileMapper);
+        this.regionMetrics = requireNonNull(regionMetrics);
+        this.asyncRuntime = requireNonNull(asyncRuntime);
+        asyncRuntime.register(asyncRecurring);
+    }
+
+    private final FileMapper fileMapper;
+    private final RegionMetrics regionMetrics;
+    private final AsyncRuntime asyncRuntime;
+    private final RegionBuffer regionBuffer = new RegionBuffer();
+    private final AtomicLong state = new AtomicLong(UNMAPPED_VALUE);
+    private long mappedAddress = NULL_ADDRESS;
+    private long mappedPosition = NULL_POSITION;
+
+    @Override
+    public long position() {
+        return position(state.get());
+    }
+
+    long position(final long stateValue) {
+        return stateValue == MAPPED_VALUE ? mappedPosition : NULL_POSITION;
     }
 
     @Override
-    public MappingState mappingState() {
-        return mappingState;
+    public AtomicBuffer buffer() {
+        return regionBuffer;
     }
 
-    private static final class AsyncMappingState implements MappingState, Recurring {
-        final FileMapper fileMapper;
-        final RegionMetrics regionMetrics;
-        final AsyncRuntime asyncRuntime;
-        final RegionBuffer regionBuffer = new RegionBuffer();
-        final AtomicLong state = new AtomicLong(UNMAPPED_VALUE);
-        long mappedAddress = NULL_ADDRESS;
-        long mappedPosition = NULL_POSITION;
+    @Override
+    public RegionState state() {
+        return stateByValue(state.get());
+    }
 
-        AsyncMappingState(final FileMapper fileMapper,
-                          final RegionMetrics regionMetrics,
-                          final AsyncRuntime asyncRuntime) {
-            this.fileMapper = requireNonNull(fileMapper);
-            this.regionMetrics = requireNonNull(regionMetrics);
-            this.asyncRuntime = requireNonNull(asyncRuntime);
-            asyncRuntime.register(this);
-        }
-
-        @Override
-        public long position() {
-            return position(state.get());
-        }
-
-        long position(final long stateValue) {
-            return stateValue == MAPPED_VALUE ? mappedPosition : NULL_POSITION;
-        }
-
-        @Override
-        public AtomicBuffer buffer() {
-            return regionBuffer;
-        }
-
-        @Override
-        public RegionState state() {
-            return stateByValue(state.get());
-        }
-
-        @Override
-        public boolean requestLocal(final long position) {
-            validPosition(position);
-            final long curValue = state.get();
-            if (position == curValue) {
-                //same as already requested
-                return true;
-            }
-            if (isClosedOrClosing(curValue)) {
-                return false;
-            }
-            final long curPosition = position(curValue);
-            if (curPosition == NULL_POSITION) {
-                return false;
-            }
-            if (position == curPosition) {
-                //same as already mapped
-                return true;
-            }
-            final long newRegionPosition = regionMetrics.regionPosition(position);
-            final long prevRegionPosition = regionMetrics.regionPosition(curPosition);
-            if (newRegionPosition == prevRegionPosition) {
-                final int regionSize = regionMetrics.regionSize();
-                final int offset = regionMetrics.regionOffset(position);
-                mappedPosition = position;
-                regionBuffer.wrapInternal(mappedAddress + offset, regionSize - offset);
-                return true;
-            }
-            return false;
-        }
-
-        @Override
-        public boolean request(final long position) {
-            if (requestLocal(position)) {
-                return true;
-            }
-            long curValue = state.get();
-            if (isClosedOrClosing(curValue)) {
-                return false;
-            }
-            while (!state.compareAndSet(curValue, position)) {
-                curValue = state.get();
-                if (isClosedOrClosing(curValue)) {
-                    return false;
-                }
-            }
+    @Override
+    public boolean requestLocal(final long position) {
+        validPosition(position);
+        final long curValue = state.get();
+        if (position == curValue) {
+            //same as already requested
             return true;
         }
+        if (isClosedOrClosing(curValue)) {
+            return false;
+        }
+        final long curPosition = position(curValue);
+        if (curPosition == NULL_POSITION) {
+            return false;
+        }
+        if (position == curPosition) {
+            //same as already mapped
+            return true;
+        }
+        final long newRegionPosition = regionMetrics.regionPosition(position);
+        final long prevRegionPosition = regionMetrics.regionPosition(curPosition);
+        if (newRegionPosition == prevRegionPosition) {
+            final int regionSize = regionMetrics.regionSize();
+            final int offset = regionMetrics.regionOffset(position);
+            mappedPosition = position;
+            regionBuffer.wrapInternal(mappedAddress + offset, regionSize - offset);
+            return true;
+        }
+        return false;
+    }
 
-        @Override
-        public void close() {
-            long curValue = state.get();
+    @Override
+    public boolean request(final long position) {
+        if (requestLocal(position)) {
+            return true;
+        }
+        long curValue = state.get();
+        if (isClosedOrClosing(curValue)) {
+            return false;
+        }
+        while (!state.compareAndSet(curValue, position)) {
+            curValue = state.get();
+            if (isClosedOrClosing(curValue)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void close() {
+        long curValue = state.get();
+        if (isClosedOrClosing(curValue)) {
+            return;
+        }
+        long newValue = curValue == UNMAPPED_VALUE ? CLOSED_VALUE : CLOSING_VALUE;
+        while (!state.compareAndSet(curValue, newValue)) {
+            curValue = state.get();
             if (isClosedOrClosing(curValue)) {
                 return;
             }
-            long newValue = curValue == UNMAPPED_VALUE ? CLOSED_VALUE : CLOSING_VALUE;
-            while (!state.compareAndSet(curValue, newValue)) {
-                curValue = state.get();
-                if (isClosedOrClosing(curValue)) {
-                    return;
-                }
-                newValue = CLOSING_VALUE;
-            }
-            if (newValue == CLOSED_VALUE) {
-                asyncRuntime.deregister(this);
-            }
+            newValue = CLOSING_VALUE;
         }
-
-        @Override
-        public int execute() {
-            long curValue, newValue;
-            long deferredUnmapAddr, deferredUnmapPos;
-            do {
-                curValue = state.get();
-                if (curValue == CLOSING_VALUE) {
-                    unmapIfNecessary();
-                    deferredUnmapAddr = NULL_ADDRESS;
-                    deferredUnmapPos = NULL_POSITION;
-                    newValue = CLOSED_VALUE;
-                } else if (curValue >= 0) {
-                    //NOTE: defer unmapping for better mapping latency
-                    deferredUnmapAddr = mappedAddress;
-                    deferredUnmapPos = mappedPosition;
-                    mappedAddress = NULL_ADDRESS;
-                    mappedPosition = NULL_POSITION;
-                    newValue = map(curValue);
-                } else {
-                    return 0;
-                }
-            } while (!state.compareAndSet(curValue, newValue));
-            unmapIfNecessary(deferredUnmapAddr, deferredUnmapPos);
-            if (newValue == CLOSED_VALUE) {
-                asyncRuntime.deregister(this);
-            }
-            return 1;
-        }
-
-        void unmapIfNecessary() {
-            if (mappedAddress != NULL_ADDRESS) {
-                regionBuffer.unwrapInternal();
-                try {
-                    assert mappedPosition >= 0;
-                    final long regionPosition = regionMetrics.regionPosition(mappedPosition);
-                    fileMapper.unmap(mappedAddress, regionPosition, regionMetrics.regionSize());
-                } finally {
-                    mappedAddress = NULL_ADDRESS;
-                    mappedPosition = NULL_POSITION;
-                }
-            }
-        }
-        void unmapIfNecessary(final long addr, final long pos) {
-            if (addr != NULL_ADDRESS) {
-                assert pos >= 0;
-                final long regionPosition = regionMetrics.regionPosition(pos);
-                fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
-            }
-        }
-
-        long map(final long position) {
-            try {
-                assert position >= 0;
-                final int regionSize = regionMetrics.regionSize();
-                final long regionPosition = regionMetrics.regionPosition(position);
-                final int offset = regionMetrics.regionOffset(position);
-                final long address = fileMapper.map(regionPosition, regionSize);
-                if (address > 0) {
-                    mappedAddress = address;
-                    mappedPosition = position;
-                    regionBuffer.wrapInternal(mappedAddress + offset, regionSize - offset);
-                    return MAPPED_VALUE;
-                }
-                //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
-                return FAILED_VALUE;
-            } catch (final Exception e) {
-                mappedAddress = NULL_ADDRESS;
-                mappedPosition = NULL_POSITION;
-                return FAILED_VALUE;
-            }
+        if (newValue == CLOSED_VALUE) {
+            asyncRuntime.deregister(asyncRecurring);
         }
     }
 
+    private int execute() {
+        long curValue, newValue;
+        long deferredUnmapAddr, deferredUnmapPos;
+        do {
+            curValue = state.get();
+            if (curValue == CLOSING_VALUE) {
+                unmapIfNecessary();
+                deferredUnmapAddr = NULL_ADDRESS;
+                deferredUnmapPos = NULL_POSITION;
+                newValue = CLOSED_VALUE;
+            } else if (curValue >= 0) {
+                //NOTE: defer unmapping for better mapping latency
+                deferredUnmapAddr = mappedAddress;
+                deferredUnmapPos = mappedPosition;
+                mappedAddress = NULL_ADDRESS;
+                mappedPosition = NULL_POSITION;
+                newValue = map(curValue);
+            } else {
+                return 0;
+            }
+        } while (!state.compareAndSet(curValue, newValue));
+        unmapIfNecessary(deferredUnmapAddr, deferredUnmapPos);
+        if (newValue == CLOSED_VALUE) {
+            asyncRuntime.deregister(asyncRecurring);
+        }
+        return 1;
+    }
+
+    private void unmapIfNecessary() {
+        if (mappedAddress != NULL_ADDRESS) {
+            regionBuffer.unwrapInternal();
+            try {
+                assert mappedPosition >= 0;
+                final long regionPosition = regionMetrics.regionPosition(mappedPosition);
+                fileMapper.unmap(mappedAddress, regionPosition, regionMetrics.regionSize());
+            } finally {
+                mappedAddress = NULL_ADDRESS;
+                mappedPosition = NULL_POSITION;
+            }
+        }
+    }
+    private void unmapIfNecessary(final long addr, final long pos) {
+        if (addr != NULL_ADDRESS) {
+            assert pos >= 0;
+            final long regionPosition = regionMetrics.regionPosition(pos);
+            fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
+        }
+    }
+
+    private long map(final long position) {
+        try {
+            assert position >= 0;
+            final int regionSize = regionMetrics.regionSize();
+            final long regionPosition = regionMetrics.regionPosition(position);
+            final int offset = regionMetrics.regionOffset(position);
+            final long address = fileMapper.map(regionPosition, regionSize);
+            if (address > 0) {
+                mappedAddress = address;
+                mappedPosition = position;
+                regionBuffer.wrapInternal(mappedAddress + offset, regionSize - offset);
+                return MAPPED_VALUE;
+            }
+            //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
+            return FAILED_VALUE;
+        } catch (final Exception e) {
+            mappedAddress = NULL_ADDRESS;
+            mappedPosition = NULL_POSITION;
+            return FAILED_VALUE;
+        }
+    }
 }

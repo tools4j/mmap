@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 /**
  * Implementation of {@link LongQueue} that allows a multiple writing threads and
@@ -63,6 +64,7 @@ public final class DefaultLongQueue implements LongQueue {
                             final int regionCacheSize,
                             final long maxFileSize,
                             final boolean rollFiles,
+                            final int filesToCreateAhead,
                             final long nullValue,
                             final WaitingPolicy readWaitingPolicy,
                             final WaitingPolicy writeWaitingPolicy,
@@ -76,6 +78,7 @@ public final class DefaultLongQueue implements LongQueue {
         greaterThanZero(regionSize, "regionSize");
         greaterThanZero(regionCacheSize, "regionCacheSize");
         greaterThanZero(maxFileSize, "maxFileSize");
+        nonNegative(filesToCreateAhead, "filesToCreateAhead");
 
         if (regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("regionCacheSize must be multiple of " + REGION_SIZE_GRANULARITY);
@@ -99,14 +102,14 @@ public final class DefaultLongQueue implements LongQueue {
 
         this.appenderFactory = () -> open(new DefaultLongAppender(nullValue,
                 LongQueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles)));
+                        maxFileSize, rollFiles, filesToCreateAhead)));
 
         final String asyncInfo = regionMapperFactory.isAsync() ?
                 String.format(", readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
                         readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
         this.description = String.format("LongQueue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
-                        "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s%s}", name, directory, regionMapperFactory,
-                regionSize, regionCacheSize, maxFileSize, rollFiles, asyncInfo);
+                        "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
+                regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);
     }
 
     private <T extends AutoCloseable> T open(final T closeable) {

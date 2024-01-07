@@ -24,9 +24,6 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.IoUtil;
-import org.agrona.collections.MutableLong;
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.FileMapper;
@@ -37,82 +34,69 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Objects;
 
-public class SingleFileReadWriteFileMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadWriteFileMapper.class);
-    private static final MapMode MAP_MODE = MapMode.READ_WRITE;
+public class SingleFileReadOnlyMapper implements FileMapper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadOnlyMapper.class);
+
     private final File file;
+    private final Path filePath;
     private final FileInitialiser fileInitialiser;
-    private final long maxSize;
-    private final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
+
+    private static final MapMode MAP_MODE = MapMode.READ_ONLY;
 
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
 
-    private final MutableLong fileSizeCache = new MutableLong(0);
-
-    public SingleFileReadWriteFileMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
+    public SingleFileReadOnlyMapper(final File file, FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
-        this.maxSize = maxSize;
+        this.filePath = file.toPath();
         this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
     }
 
-    public SingleFileReadWriteFileMapper(String fileName, long maxSize, FileInitialiser fileInitialiser) {
-        this(new File(fileName), maxSize, fileInitialiser);
+    public SingleFileReadOnlyMapper(String fileName, FileInitialiser fileInitialiser) {
+        this(new File(fileName), fileInitialiser);
     }
-
     @Override
     public long map(long position, int length) {
         if (!init()) {
             return NULL_ADDRESS;
         }
 
-        FileSizeResult result = ensureFileSize(position + length);
-        if (result != FileSizeResult.ERROR) {
-            long address = IoUtil.map(fileChannel, MAP_MODE.getMapMode(), position, length);
-
-            if (result == FileSizeResult.EXTENDED) {
-                preTouch(length, address);
+        try {
+            if (fileChannel != null && fileChannel.isOpen()) {
+                if (position < fileChannel.size()) {
+                    return IoUtil.map(fileChannel, MAP_MODE.getMapMode(), position, length);
+                }
             }
-
-            return address;
+        } catch (IOException e) {
+            LOGGER.error("Failed to get fileChannel size " + file, e);
         }
-
         return NULL_ADDRESS;
     }
 
-    private void preTouch(int length, long address) {
-        preTouchBuffer.wrap(address, length);
-        for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
-            //preTouchBuffer.putInt(i, 0);
-            //preTouchBuffer.putByte(i, (byte)0);
-            preTouchBuffer.compareAndSetLong(i, 0L, 0L);
-        }
-        preTouchBuffer.wrap(0, 0);
+    @Override
+    public void unmap(long address, long position, int length) {
+        IoUtil.unmap(fileChannel, address, length);
     }
 
-    /**
-     * Initialisation is expected to be performed in region-mapper thread.
-     * @return true if already initialised or the initialisation is succeeded
-     */
     private boolean init() {
         if (rafFile == null) {
             if (!file.exists()) {
-                try {
-                    if (!file.createNewFile()) {
-                        if (!file.exists()) {
-                            LOGGER.error("Could not create new file {}", file);
-                            return false;
-                        }
-                    } else {
-                        LOGGER.info("Created new file {}", file);
-                    }
-                } catch (IOException e) {
-                    LOGGER.error("Failed to create new file " + file, e);
+                return false;
+            }
+
+            try {
+                if (Files.size(filePath) == 0) {
                     return false;
                 }
+            } catch (IOException e) {
+                LOGGER.error("Failed to check file size" + file, e);
+                return false;
             }
+
             final RandomAccessFile raf;
             try {
                 raf = new RandomAccessFile(file, MAP_MODE.getRandomAccessMode());
@@ -146,55 +130,6 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
     }
 
     @Override
-    public void unmap(long address, long position, int length) {
-        IoUtil.unmap(fileChannel, address, length);
-    }
-
-    private long fileLength() {
-        try {
-            return rafFile.length();
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private boolean extendFileLength(final long length) {
-        try {
-            rafFile.setLength(length);
-            return true;
-        } catch (final IOException e) {
-            LOGGER.error("Could not extend length to " + length + " for file " + file, e);
-            return false;
-        }
-    }
-
-    enum FileSizeResult {
-        OK,
-        ERROR,
-        EXTENDED
-    }
-
-    private FileSizeResult ensureFileSize(long minSize) {
-        if (fileSizeCache.get() < minSize) {
-            final long len = fileLength();
-            if (len < minSize) {
-                if (minSize > maxSize) {
-                    LOGGER.error("Exceeded max file size {}, requested size {} for file {}", maxSize, minSize, file);
-                    return FileSizeResult.ERROR;
-                }
-                if (extendFileLength(minSize)) {
-                    fileSizeCache.set(minSize);
-                    return FileSizeResult.EXTENDED;
-                }
-                return FileSizeResult.ERROR;
-            } else {
-                fileSizeCache.set(len);
-            }
-        }
-        return FileSizeResult.OK;
-    }
-
-    @Override
     public void close() {
         try {
             if (fileChannel != null) {
@@ -206,7 +141,6 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        LOGGER.info("Closed read-write file mapper. file={}", file);
+        LOGGER.info("Closed read-only file mapper. file={}", file);
     }
-
 }

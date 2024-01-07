@@ -32,12 +32,15 @@ import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 public final class QueueBuilder {
-    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //~4MB
+    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 64; //~256K
     public static final int DEFAULT_REGION_CACHE_SIZE = 4;
-    public static final long DEFAULT_MAX_FILE_SIZE = 1L<<30;//1GB
+    public static final long DEFAULT_MAX_FILE_SIZE = 64 * 1024 * 1024;
     public static final boolean DEFAULT_ROLL_FILES = true;
+    public static final int DEFAULT_FILES_TO_CREATE_AHEAD = 1;
     public static final boolean DEFAULT_MANY_APPENDERS = false;
     public static final long DEFAULT_READ_TIMEOUT_MILLIS = 500;
     public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 2000;
@@ -53,6 +56,7 @@ public final class QueueBuilder {
     private int regionCacheSize = DEFAULT_REGION_CACHE_SIZE;
     private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
     private boolean rollFiles = DEFAULT_ROLL_FILES;
+    private int filesToCreateAhead = DEFAULT_FILES_TO_CREATE_AHEAD;
     private boolean manyAppenders = DEFAULT_MANY_APPENDERS;
     private WaitingPolicy readWaitingPolicy;
     private WaitingPolicy writeWaitingPolicy;
@@ -80,22 +84,31 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder regionSize(final int regionSize) {
+        greaterThanZero(regionSize, "regionSize");
         this.regionSize = regionSize;
         return this;
     }
 
     public QueueBuilder regionCacheSize(final int regionCacheSize) {
+        greaterThanZero(regionCacheSize, "regionCacheSize");
         this.regionCacheSize = regionCacheSize;
         return this;
     }
 
     public QueueBuilder maxFileSize(final long maxFileSize) {
+        greaterThanZero(maxFileSize, "maxFileSize");
         this.maxFileSize = maxFileSize;
         return this;
     }
 
     public QueueBuilder rollFiles(final boolean rollFiles) {
         this.rollFiles = rollFiles;
+        return this;
+    }
+
+    public QueueBuilder filesToCreateAhead(final int nFiles) {
+        nonNegative(nFiles, "filesToCreateAhead");
+        this.filesToCreateAhead = nFiles;
         return this;
     }
 
@@ -129,6 +142,6 @@ public final class QueueBuilder {
 
     public Queue build() {
         return new DefaultQueue(name, directory, regionMapperFactory, manyAppenders, regionSize, regionCacheSize,
-                maxFileSize, rollFiles, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout);
+                maxFileSize, rollFiles, filesToCreateAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout);
     }
 }

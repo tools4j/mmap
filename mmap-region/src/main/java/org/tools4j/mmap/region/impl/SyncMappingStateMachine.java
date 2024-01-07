@@ -37,123 +37,110 @@ import static org.tools4j.mmap.region.api.RegionState.MAPPED;
 import static org.tools4j.mmap.region.api.RegionState.UNMAPPED;
 import static org.tools4j.mmap.region.impl.Constraints.validPosition;
 
-final class SyncMappingStateMachine implements MappingStateProvider {
-    private final MappingState state;
+final class SyncMappingStateMachine implements MappingStateMachine {
 
-    public SyncMappingStateMachine(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
-        state = new SyncState(fileMapper, regionMetrics);
+    private final FileMapper fileMapper;
+    private final RegionMetrics regionMetrics;
+    private final RegionBuffer buffer = new RegionBuffer();
+    private long mappedAddress = NULL_ADDRESS;
+    private long mappedPosition = NULL_POSITION;
+    private RegionState state = UNMAPPED;
+
+    SyncMappingStateMachine(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
+        this.fileMapper = requireNonNull(fileMapper);
+        this.regionMetrics = requireNonNull(regionMetrics);
     }
 
     @Override
-    public MappingState mappingState() {
+    public long position() {
+        return mappedPosition;
+    }
+
+    @Override
+    public AtomicBuffer buffer() {
+        return buffer;
+    }
+
+    @Override
+    public RegionState state() {
         return state;
     }
 
-    private static final class SyncState implements MappingState {
-        final FileMapper fileMapper;
-        final RegionMetrics regionMetrics;
-        final RegionBuffer buffer = new RegionBuffer();
-        long mappedAddress = NULL_ADDRESS;
-        long mappedPosition = NULL_POSITION;
-        RegionState state = UNMAPPED;
-
-        SyncState(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
-            this.fileMapper = requireNonNull(fileMapper);
-            this.regionMetrics = requireNonNull(regionMetrics);
-        }
-
-        @Override
-        public long position() {
-            return mappedPosition;
-        }
-
-        @Override
-        public AtomicBuffer buffer() {
-            return buffer;
-        }
-
-        @Override
-        public RegionState state() {
-            return state;
-        }
-
-        @Override
-        public boolean requestLocal(final long position) {
-            validPosition(position);
-            if (state != MAPPED) {
-                return false;
-            }
-            final long reqRegionPosition = regionMetrics.regionPosition(position);
-            final long curRegionPosition = regionMetrics.regionPosition(mappedPosition);
-            if (reqRegionPosition == curRegionPosition) {
-                final int regionSize = regionMetrics.regionSize();
-                final int offset = regionMetrics.regionOffset(position);
-                mappedPosition = position;
-                buffer.wrapInternal(mappedAddress + offset, regionSize - offset);
-                return true;
-            }
+    @Override
+    public boolean requestLocal(final long position) {
+        validPosition(position);
+        if (state != MAPPED) {
             return false;
         }
-
-        private void unmapIfNecessary() {
-            final long addr = mappedAddress;
-            final long pos = mappedPosition;
-            if (addr != NULL_ADDRESS) {
-                assert pos != NULL_POSITION;
-                buffer.unwrapInternal();
-                mappedAddress = NULL_ADDRESS;
-                mappedPosition = NULL_POSITION;
-                final long regionPosition = regionMetrics.regionPosition(pos);
-                fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
-            } else {
-                assert pos == NULL_POSITION;
-            }
+        final long reqRegionPosition = regionMetrics.regionPosition(position);
+        final long curRegionPosition = regionMetrics.regionPosition(mappedPosition);
+        if (reqRegionPosition == curRegionPosition) {
+            final int regionSize = regionMetrics.regionSize();
+            final int offset = regionMetrics.regionOffset(position);
+            mappedPosition = position;
+            buffer.wrapInternal(mappedAddress + offset, regionSize - offset);
+            return true;
         }
+        return false;
+    }
 
-        @Override
-        public boolean request(final long position) {
-            if (requestLocal(position)) {
-                return true;
-            }
-            if (state == CLOSED) {
-                return false;
-            }
-            try {
-                unmapIfNecessary();
-                final int regionSize = regionMetrics.regionSize();
-                final long regionPosition = regionMetrics.regionPosition(position);
-                final int offset = regionMetrics.regionOffset(position);
-                final long addr = fileMapper.map(regionPosition, regionSize);
-                if (addr > 0) {
-                    mappedAddress = addr;
-                    mappedPosition = position;
-                    buffer.wrapInternal(addr + offset, regionSize - offset);
-                    state = MAPPED;
-                    return true;
-                }
-                //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
-                state = FAILED;
-                return false;
-            } catch (final Exception exception) {
-                mappedAddress = NULL_ADDRESS;
-                mappedPosition = NULL_POSITION;
-                state = FAILED;
-                return false;
-            }
-        }
-
-        @Override
-        public void close() {
-            if (state != CLOSED) {
-                unmapIfNecessary();
-                state = CLOSED;
-            }
-        }
-
-        @Override
-        public String toString() {
-            return state().name();
+    private void unmapIfNecessary() {
+        final long addr = mappedAddress;
+        final long pos = mappedPosition;
+        if (addr != NULL_ADDRESS) {
+            assert pos != NULL_POSITION;
+            buffer.unwrapInternal();
+            mappedAddress = NULL_ADDRESS;
+            mappedPosition = NULL_POSITION;
+            final long regionPosition = regionMetrics.regionPosition(pos);
+            fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
+        } else {
+            assert pos == NULL_POSITION;
         }
     }
 
+    @Override
+    public boolean request(final long position) {
+        if (requestLocal(position)) {
+            return true;
+        }
+        if (state == CLOSED) {
+            return false;
+        }
+        try {
+            unmapIfNecessary();
+            final int regionSize = regionMetrics.regionSize();
+            final long regionPosition = regionMetrics.regionPosition(position);
+            final int offset = regionMetrics.regionOffset(position);
+            final long addr = fileMapper.map(regionPosition, regionSize);
+            if (addr > 0) {
+                mappedAddress = addr;
+                mappedPosition = position;
+                buffer.wrapInternal(addr + offset, regionSize - offset);
+                state = MAPPED;
+                return true;
+            }
+            //NOTE: this can e.g. happen for attempted read mapping when section does not exist yet
+            state = FAILED;
+            return false;
+        } catch (final Exception exception) {
+            mappedAddress = NULL_ADDRESS;
+            mappedPosition = NULL_POSITION;
+            state = FAILED;
+            return false;
+        }
+    }
+
+    @Override
+    public void close() {
+        if (state != CLOSED) {
+            unmapIfNecessary();
+            state = CLOSED;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return state().name();
+    }
 }

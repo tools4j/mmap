@@ -27,7 +27,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
-import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
 import java.util.ArrayList;
