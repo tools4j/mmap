@@ -32,9 +32,9 @@ import static java.util.Objects.requireNonNull;
 
 final class DefaultRegion implements MutableRegion {
     private final RegionManager regionManager;
-    private final MappingState mappingState;
+    private final MutableMappingState mappingState;
 
-    DefaultRegion(final RegionManager regionManager, final MappingState mappingState) {
+    DefaultRegion(final RegionManager regionManager, final MutableMappingState mappingState) {
         this.regionManager = requireNonNull(regionManager);
         this.mappingState = requireNonNull(mappingState);
     }
@@ -45,23 +45,23 @@ final class DefaultRegion implements MutableRegion {
     }
 
     @Override
-    public MappingState mappingState() {
+    public MutableMappingState mappingState() {
         return mappingState;
     }
 
     @Override
     public RegionState regionState() {
-        return mappingState().state();
+        return mappingState.state();
     }
 
     @Override
     public AtomicBuffer buffer() {
-        return mappingState().buffer();
+        return mappingState.buffer();
     }
 
     @Override
     public long position() {
-        return mappingState().position();
+        return mappingState.position();
     }
 
     @Override

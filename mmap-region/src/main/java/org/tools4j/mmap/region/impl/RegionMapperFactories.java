@@ -40,19 +40,22 @@ import org.tools4j.mmap.region.api.WaitingPolicy;
 public enum RegionMapperFactories {
     ;
     public static final IdleStrategy DEFAULT_ASYNC_RUNTIME_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
-    public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
+
     public static RegionMapper sync(final FileMapper fileMapper, final int regionSize, final int regionCacheSize) {
         return sync(fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize);
+    }
+
+    public static RegionMapper sync(final FileMapper fileMapper,
+                                    final int regionSize,
+                                    final int regionCacheSize,
+                                    final int ignoredRegionsToMapAhead) {
+        return sync(fileMapper, regionSize, regionCacheSize);
     }
 
     public static RegionMapper sync(final FileMapper fileMapper,
                                     final RegionMetrics regionMetrics,
                                     final int regionCacheSize) {
         return new SyncRegionManager(fileMapper, regionMetrics, regionCacheSize);
-    }
-
-    public static RegionMapper async(final FileMapper fileMapper, final int regionSize, final int regionCacheSize) {
-        return async(fileMapper, regionSize, regionCacheSize, Math.min(regionCacheSize - 1, DEFAULT_REGIONS_TO_MAP_AHEAD));
     }
 
     public static RegionMapper async(final FileMapper fileMapper,

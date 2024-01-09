@@ -58,7 +58,7 @@ final class SyncRegionManager implements RegionManager {
     @Override
     public Region mapFrom(final long position, final MutableRegion from) {
         validPosition(position);
-        final MappingState mappingState = from.mappingState();
+        final MutableMappingState mappingState = from.mappingState();
         if (mappingState.requestLocal(position)) {
             return from;
         }

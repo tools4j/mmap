@@ -108,14 +108,20 @@ public class RolledFileMapper implements FileMapper {
         if (mapMode == MapMode.READ_WRITE) {
             for (int i = 1; i <= filesToCreateAhead; i++) {
                 if (fileMappers.get(fileIndex + i) == null) {
-                    final SingleFileReadWriteMapper nextMapper = (SingleFileReadWriteMapper)fileMappers.computeIfAbsent(
-                            fileIndex + i, factory);
-                    nextMapper.init();
-                    nextMapper.ensureFileSize(maxFileSize);
+                    computeIfAbsent(fileIndex + i);
                 }
             }
         }
         return mapperForIndex.map(positionWithinFile, length);
+    }
+
+    private FileMapper computeIfAbsent(final int fileIndex) {
+        final SingleFileReadWriteMapper mapper = (SingleFileReadWriteMapper)fileMappers.computeIfAbsent(fileIndex, factory);
+        if (mapMode == MapMode.READ_WRITE) {
+            mapper.init();
+            mapper.ensureFileSize(maxFileSize);
+        }
+        return mapper;
     }
 
     @Override

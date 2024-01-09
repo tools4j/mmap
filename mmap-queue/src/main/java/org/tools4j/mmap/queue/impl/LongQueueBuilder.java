@@ -35,10 +35,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 public final class LongQueueBuilder {
     public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 64; //~256K
     public static final int DEFAULT_REGION_CACHE_SIZE = 4;
+    public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
     public static final long DEFAULT_MAX_FILE_SIZE = 64 * 1024 * 1024;
     public static final boolean DEFAULT_ROLL_FILES = true;
     public static final int DEFAULT_FILES_TO_CREATE_AHEAD = 1;
@@ -53,6 +56,7 @@ public final class LongQueueBuilder {
     //defaulted params
     private int regionSize = DEFAULT_REGION_SIZE;
     private int regionCacheSize = DEFAULT_REGION_CACHE_SIZE;
+    private int regionsToMapAhead = DEFAULT_REGIONS_TO_MAP_AHEAD;
     private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
     private boolean rollFiles = DEFAULT_ROLL_FILES;
     private int filesToCreateAhead = DEFAULT_FILES_TO_CREATE_AHEAD;
@@ -83,14 +87,19 @@ public final class LongQueueBuilder {
     }
 
     public LongQueueBuilder regionSize(final int regionSize) {
-        greaterThanZero(regionSize, "regionSize");
+        validRegionSize(regionSize);
         this.regionSize = regionSize;
         return this;
     }
 
     public LongQueueBuilder regionCacheSize(final int regionCacheSize) {
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionCacheSize(regionCacheSize);
         this.regionCacheSize = regionCacheSize;
+        return this;
+    }
+
+    public LongQueueBuilder regionsToMapAhead(final int regionsToMapAhead) {
+        this.regionsToMapAhead = regionsToMapAhead;
         return this;
     }
 
@@ -140,7 +149,9 @@ public final class LongQueueBuilder {
     }
 
     public LongQueue build() {
-        return new DefaultLongQueue(name, directory, regionMapperFactory, regionSize, regionCacheSize, maxFileSize,
-                rollFiles, filesToCreateAhead, nullValue, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout);
+        return new DefaultLongQueue(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, filesToCreateAhead, nullValue, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout
+        );
     }
 }

@@ -34,10 +34,13 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 public final class QueueBuilder {
     public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 64; //~256K
     public static final int DEFAULT_REGION_CACHE_SIZE = 4;
+    private static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
     public static final long DEFAULT_MAX_FILE_SIZE = 64 * 1024 * 1024;
     public static final boolean DEFAULT_ROLL_FILES = true;
     public static final int DEFAULT_FILES_TO_CREATE_AHEAD = 1;
@@ -54,6 +57,7 @@ public final class QueueBuilder {
     //defaulted params
     private int regionSize = DEFAULT_REGION_SIZE;
     private int regionCacheSize = DEFAULT_REGION_CACHE_SIZE;
+    private int regionsToMapAhead = DEFAULT_REGIONS_TO_MAP_AHEAD;
     private long maxFileSize = DEFAULT_MAX_FILE_SIZE;
     private boolean rollFiles = DEFAULT_ROLL_FILES;
     private int filesToCreateAhead = DEFAULT_FILES_TO_CREATE_AHEAD;
@@ -84,14 +88,19 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder regionSize(final int regionSize) {
-        greaterThanZero(regionSize, "regionSize");
+        validRegionSize(regionSize);
         this.regionSize = regionSize;
         return this;
     }
 
     public QueueBuilder regionCacheSize(final int regionCacheSize) {
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionCacheSize(regionCacheSize);
         this.regionCacheSize = regionCacheSize;
+        return this;
+    }
+
+    public QueueBuilder regionsToMapAhead(final int regionsToMapAhead) {
+        this.regionsToMapAhead = regionsToMapAhead;
         return this;
     }
 
@@ -141,7 +150,9 @@ public final class QueueBuilder {
     }
 
     public Queue build() {
-        return new DefaultQueue(name, directory, regionMapperFactory, manyAppenders, regionSize, regionCacheSize,
-                maxFileSize, rollFiles, filesToCreateAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout);
+        return new DefaultQueue(
+                name, directory, regionMapperFactory, manyAppenders, regionSize, regionCacheSize, regionsToMapAhead,
+                maxFileSize, rollFiles, filesToCreateAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout
+        );
     }
 }

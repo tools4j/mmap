@@ -37,9 +37,10 @@ import org.tools4j.mmap.region.impl.Word;
 import java.nio.channels.FileLock;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 /**
  * Region mappers for long queues.
@@ -57,6 +58,7 @@ enum LongQueueRegionMappers {
      * @param regionMapperFactory   factory to create region mappers
      * @param regionSize            region size in bytes
      * @param regionCacheSize       number of regions to cache
+     * @param regionsToMapAhead     regions to map-ahead if async mapping is used (ignored in sync mode)
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
@@ -67,17 +69,15 @@ enum LongQueueRegionMappers {
                                     final RegionMapperFactory regionMapperFactory,
                                     final int regionSize,
                                     final int regionCacheSize,
+                                    final int regionsToMapAhead,
                                     final long maxFileSize,
                                     final boolean rollFiles) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        greaterThanZero(regionSize, "regionSize");
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionSize(regionSize);
+        validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
-        if (regionSize % REGION_SIZE_GRANULARITY != 0) {
-            throw new IllegalArgumentException("regionSize must be multiple of " + REGION_SIZE_GRANULARITY);
-        }
 
         final String fileName = directory + "/" + queueName;
 
@@ -90,7 +90,7 @@ enum LongQueueRegionMappers {
             readOnlyMapper = new SingleFileReadOnlyMapper(fileName, fileInitialiser);
         }
 
-        return regionMapperFactory.create(readOnlyMapper, regionSize, regionCacheSize);
+        return regionMapperFactory.create(readOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead);
     }
 
     /**
@@ -101,6 +101,7 @@ enum LongQueueRegionMappers {
      * @param regionMapperFactory   factory to create region mappers
      * @param regionSize            region size in bytes
      * @param regionCacheSize       number of regions to cache
+     * @param regionsToMapAhead     regions to map-ahead if async mapping is used (ignored in sync mode)
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
@@ -112,19 +113,17 @@ enum LongQueueRegionMappers {
                                      final RegionMapperFactory regionMapperFactory,
                                      final int regionSize,
                                      final int regionCacheSize,
+                                     final int regionsToMapAhead,
                                      final long maxFileSize,
                                      final boolean rollFiles,
                                      final int filesToCreateAhead) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        greaterThanZero(regionSize, "regionSize");
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionSize(regionSize);
+        validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
-        if (regionSize % REGION_SIZE_GRANULARITY != 0) {
-            throw new IllegalArgumentException("regionSize must be multiple of " + REGION_SIZE_GRANULARITY);
-        }
 
         final String fileName = directory + "/" + queueName;
         final MapMode mapMode = MapMode.READ_WRITE;
@@ -138,7 +137,7 @@ enum LongQueueRegionMappers {
             readWriteMapper = new SingleFileReadWriteMapper(fileName, maxFileSize, fileInitialiser);
         }
 
-        return regionMapperFactory.create(readWriteMapper, regionSize, regionCacheSize);
+        return regionMapperFactory.create(readWriteMapper, regionSize, regionCacheSize, regionsToMapAhead);
     }
 
     static FileInitialiser headerInitialiser(final MapMode mode) {

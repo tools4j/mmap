@@ -23,30 +23,33 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.agrona.BitUtil;
 import org.tools4j.mmap.region.api.RegionMetrics;
+
+import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 public enum Constraints {
     ;
     public static void nonNegative(final long value, final String name) {
         if (value < 0) {
-            throw new IllegalArgumentException(name + " must be >= 0, given value " + value);
+            throw new IllegalArgumentException(name + " value annot be negative, but was " + value);
         }
     }
     public static void greaterThanZero(final long value, final String name) {
         if (value <= 0) {
-            throw new IllegalArgumentException(name + " must be > 0, given value " + value);
+            throw new IllegalArgumentException(name + " value must be positive, but was " + value);
         }
     }
 
     public static void validPosition(final long position) {
         if (position < 0) {
-            throw new IllegalArgumentException("Invalid position " + position);
+            throw new IllegalArgumentException("Position cannot be negative, but was " + position);
         }
     }
 
     public static void validPositionState(final long position) {
         if (position < 0) {
-            throw new IllegalStateException("Invalid current position " + position);
+            throw new IllegalStateException("Invalid current position");
         }
     }
 
@@ -59,4 +62,18 @@ public enum Constraints {
             throw new IllegalArgumentException("Invalid region offset " + offset + " for region size " + regionSize);
         }
     }
+
+    public static void validRegionSize(final int regionSize) {
+        if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
+            throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +
+                    REGION_SIZE_GRANULARITY + " but was " + regionSize);
+        }
+    }
+
+    public static void validRegionCacheSize(final int regionCacheSize) {
+        if (!BitUtil.isPowerOfTwo(regionCacheSize)) {
+            throw new IllegalArgumentException("Region cache size must be a power of two but was " + regionCacheSize);
+        }
+    }
+
 }

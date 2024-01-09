@@ -38,9 +38,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 /**
  * Implementation of {@link LongQueue} that allows a multiple writing threads and
@@ -62,6 +63,7 @@ public final class DefaultLongQueue implements LongQueue {
                             final RegionMapperFactory regionMapperFactory,
                             final int regionSize,
                             final int regionCacheSize,
+                            final int regionsToMapAhead,
                             final long maxFileSize,
                             final boolean rollFiles,
                             final int filesToCreateAhead,
@@ -75,14 +77,11 @@ public final class DefaultLongQueue implements LongQueue {
         requireNonNull(regionMapperFactory);
         requireNonNull(readWaitingPolicy);
         requireNonNull(writeWaitingPolicy);
-        greaterThanZero(regionSize, "regionSize");
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionSize(regionSize);
+        validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
 
-        if (regionSize % REGION_SIZE_GRANULARITY != 0) {
-            throw new IllegalArgumentException("regionCacheSize must be multiple of " + REGION_SIZE_GRANULARITY);
-        }
         final RegionMapperFactory readMapperFactory = regionMapperFactory.isAsync() ?
                 RegionMapperFactory.async(regionMapperFactory, readWaitingPolicy,
                         exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
@@ -94,19 +93,19 @@ public final class DefaultLongQueue implements LongQueue {
 
         this.pollerFactory = () -> open(new DefaultLongPoller(name, nullValue,
                 LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles)));
+                        regionsToMapAhead, maxFileSize, rollFiles)));
 
         this.readerFactory = () -> open(new DefaultLongReader(name, nullValue,
                 LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles)));
+                        regionsToMapAhead, maxFileSize, rollFiles)));
 
         this.appenderFactory = () -> open(new DefaultLongAppender(nullValue,
                 LongQueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles, filesToCreateAhead)));
+                        regionsToMapAhead, maxFileSize, rollFiles, filesToCreateAhead)));
 
-        final String asyncInfo = regionMapperFactory.isAsync() ?
-                String.format(", readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
-                        readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
+        final String asyncInfo = regionMapperFactory.isAsync() ? String.format(
+                ", regionsToMapAhead=%s, readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
+                regionsToMapAhead, readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
         this.description = String.format("LongQueue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
                         "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
                 regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);

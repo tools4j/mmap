@@ -38,9 +38,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 /**
  * Implementation of {@link Queue} that allows a multiple writing threads and
@@ -62,6 +63,7 @@ public final class DefaultQueue implements Queue {
                         final boolean manyAppenders,
                         final int regionSize,
                         final int regionCacheSize,
+                        final int regionsToMapAhead,
                         final long maxFileSize,
                         final boolean rollFiles,
                         final int filesToCreateAhead,
@@ -71,14 +73,10 @@ public final class DefaultQueue implements Queue {
         this.name = requireNonNull(name);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        greaterThanZero(regionSize, "regionSize");
-        greaterThanZero(regionCacheSize, "regionCacheSize");
+        validRegionSize(regionSize);
+        validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
-
-        if (regionSize % REGION_SIZE_GRANULARITY != 0) {
-            throw new IllegalArgumentException("regionCacheSize must be multiple of " + REGION_SIZE_GRANULARITY);
-        }
 
         final AppenderIdPool appenderIdPool = open(manyAppenders ?
                 new DefaultAppenderIdPool(directory, name) : AppenderIdPool.SINGLE_APPENDER);
@@ -92,19 +90,19 @@ public final class DefaultQueue implements Queue {
                 : regionMapperFactory;
         this.pollerFactory = () -> open(new DefaultPoller(name,
                 QueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles, LOGGER)));
+                        regionsToMapAhead, maxFileSize, rollFiles, LOGGER)));
 
         this.readerFactory = () -> open(new DefaultReader(name,
                 QueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles, LOGGER)));
+                        regionsToMapAhead, maxFileSize, rollFiles, LOGGER)));
 
         this.appenderFactory = () -> open(new DefaultAppender(name,
                 QueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
-                        maxFileSize, rollFiles, filesToCreateAhead, LOGGER), appenderIdPool));
+                        regionsToMapAhead, maxFileSize, rollFiles, filesToCreateAhead, LOGGER), appenderIdPool));
 
-        final String asyncInfo = regionMapperFactory.isAsync() ?
-                String.format(", readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
-                        readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
+        final String asyncInfo = regionMapperFactory.isAsync() ? String.format(
+                ", regionsToMapAhead=%s, readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
+                regionsToMapAhead, readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
         this.description = String.format("Queue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
                         "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
                 regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);

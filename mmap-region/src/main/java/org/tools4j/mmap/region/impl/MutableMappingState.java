@@ -26,7 +26,10 @@ package org.tools4j.mmap.region.impl;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
-interface MappingStateMachine extends MappingState, AutoCloseable {
+/**
+ * Mapping state that can be changed so that the region maps a different position.
+ */
+interface MutableMappingState extends MappingState, AutoCloseable {
     /**
      * Local mapping if possible without unmapping of current page, meaning that only the region {@link #buffer()}
      * will be adjusted.
@@ -48,8 +51,16 @@ interface MappingStateMachine extends MappingState, AutoCloseable {
      */
     void close();
 
+    /** Factory for mapping state */
     interface Factory {
-        MappingStateMachine create(FileMapper fileMapper, RegionMetrics metrics);
+        /**
+         * Returns a new mutable mapping state instance.
+         *
+         * @param fileMapper the file mapper to map and unmap file regions
+         * @param metrics the region metrics defined by the region size
+         * @return new mapping state (machine) using the given file mapper and region metrics
+         */
+        MutableMappingState create(FileMapper fileMapper, RegionMetrics metrics);
     }
 
 }

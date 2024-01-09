@@ -26,5 +26,5 @@ package org.tools4j.mmap.region.impl;
 import org.tools4j.mmap.region.api.Region;
 
 interface MutableRegion extends Region {
-    MappingState mappingState();
+    MutableMappingState mappingState();
 }

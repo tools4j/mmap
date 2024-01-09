@@ -54,7 +54,7 @@ public class RingRegionCacheTest {
         final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
         regionCache = new RingRegionCache(regionMetrics, metrics -> {
             final MutableRegion region = Mockito.mock(MutableRegion.class);
-            final MappingState mappingState = Mockito.mock(MappingState.class);
+            final MutableMappingState mappingState = Mockito.mock(MutableMappingState.class);
             when(region.mappingState()).thenReturn(mappingState);
             regions.add(region);
             return region;

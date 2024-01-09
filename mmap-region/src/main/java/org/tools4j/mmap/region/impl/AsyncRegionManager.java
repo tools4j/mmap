@@ -51,7 +51,7 @@ final class AsyncRegionManager implements RegionManager {
         this.stopRuntimeOnClose = stopRuntimeOnClose;
     }
 
-    private static MappingStateMachine.Factory asyncStateMachineFactory(final AsyncRuntime asyncRuntime) {
+    private static MutableMappingState.Factory asyncStateMachineFactory(final AsyncRuntime asyncRuntime) {
         requireNonNull(asyncRuntime);
         return (mapper, metrics) -> new AsyncMappingStateMachine(mapper, metrics, asyncRuntime);
     }
@@ -75,7 +75,7 @@ final class AsyncRegionManager implements RegionManager {
     @Override
     public Region mapFrom(final long position, final MutableRegion from) {
         validPosition(position);
-        final MappingState mappingState = from.mappingState();
+        final MutableMappingState mappingState = from.mappingState();
         if (mappingState.requestLocal(position)) {
             return from;
         }

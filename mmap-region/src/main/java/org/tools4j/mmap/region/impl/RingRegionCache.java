@@ -39,7 +39,7 @@ final class RingRegionCache implements RegionCache {
 
     public RingRegionCache(final RegionMetrics regionMetrics,
                            final FileMapper fileMapper,
-                           final MappingStateMachine.Factory mappingStateProviderFactory,
+                           final MutableMappingState.Factory mappingStateProviderFactory,
                            final RegionManager regionManager,
                            final int cacheSize) {
         this(regionMetrics, defaultRegionFactory(fileMapper, mappingStateProviderFactory, regionManager), cacheSize);
@@ -54,7 +54,7 @@ final class RingRegionCache implements RegionCache {
     }
 
     private static Function<RegionMetrics, DefaultRegion> defaultRegionFactory(final FileMapper fileMapper,
-                                                                               final MappingStateMachine.Factory mappingStateProviderFactory,
+                                                                               final MutableMappingState.Factory mappingStateProviderFactory,
                                                                                final RegionManager regionManager) {
         requireNonNull(fileMapper);
         requireNonNull(mappingStateProviderFactory);

@@ -37,7 +37,7 @@ import static org.tools4j.mmap.region.api.RegionState.MAPPED;
 import static org.tools4j.mmap.region.api.RegionState.UNMAPPED;
 import static org.tools4j.mmap.region.impl.Constraints.validPosition;
 
-final class SyncMappingStateMachine implements MappingStateMachine {
+final class SyncMappingStateMachine implements MutableMappingState {
 
     private final FileMapper fileMapper;
     private final RegionMetrics regionMetrics;
