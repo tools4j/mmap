@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@ package org.tools4j.mmap.queue.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.concurrent.api.UniqueIdPool;
+import org.tools4j.mmap.concurrent.imp.DefaultUniqueIdPool;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
@@ -45,9 +47,10 @@ import static org.tools4j.mmap.region.impl.Requirements.greaterThanZero;
  */
 public final class DefaultQueue implements Queue {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultQueue.class);
+    private static final int MAX_APPENDER_IDS = 256;
 
     private final String name;
-    private final AppenderIdPool appenderIdPool;
+    private final UniqueIdPool appenderIdPool;
     private final Supplier<Poller> pollerFactory;
     private final Supplier<Reader> readerFactory;
     private final Supplier<Appender> appenderFactory;
@@ -79,7 +82,7 @@ public final class DefaultQueue implements Queue {
             throw new IllegalArgumentException("regionRingSize must be multiple of " + REGION_SIZE_GRANULARITY);
         }
 
-        this.appenderIdPool = manyAppenders ? new DefaultAppenderIdPool(directory, name) : AppenderIdPool.SINGLE_APPENDER;
+        this.appenderIdPool = manyAppenders ? new DefaultUniqueIdPool(directory, name, MAX_APPENDER_IDS) : UniqueIdPool.SINGLE_ID_POOL;
 
         this.pollerFactory = () -> new DefaultPoller(name,
                 RegionAccessorSupplier.forReadOnly(name, directory, regionRingFactory, regionSize, regionRingSize,

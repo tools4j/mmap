@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.MapMode;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
@@ -47,6 +48,7 @@ public class RolledFileMapper implements FileMapper {
     private final IntFunction<FileMapper> factory;
     private final String filePrefix;
     private final MapMode mapMode;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     RolledFileMapper(String filePrefix, IndexedFactory indexedFactory, long maxFileSize, int regionSize, MapMode mapMode) {
         greaterThanZero(maxFileSize, "maxFileSize");
@@ -83,6 +85,9 @@ public class RolledFileMapper implements FileMapper {
 
     @Override
     public long map(long position, int length) {
+        if (closed.get()) {
+            throw new IllegalStateException("RolledFileMapper is closed");
+        }
         if (length != regionSize) {
             LOGGER.error("Length {} to map should match region size {}", length, regionSize);
             return NULL_ADDRESS;
@@ -96,6 +101,9 @@ public class RolledFileMapper implements FileMapper {
 
     @Override
     public void unmap(long address, long position, int length) {
+        if (closed.get()) {
+            throw new IllegalStateException("RolledFileMapper is closed");
+        }
         if (length != regionSize) {
             LOGGER.warn("Length {} to map should match region size {}", length, regionSize);
         }
@@ -120,9 +128,11 @@ public class RolledFileMapper implements FileMapper {
 
     @Override
     public void close() {
-        fileMappers.forEachInt((index, fileMapper) -> fileMapper.close());
-        fileMappers.clear();
-        LOGGER.info("Closed file mapper. mapMode={}  filePrefix={}", mapMode, filePrefix);
+        if (closed.compareAndSet(false, true)) {
+            fileMappers.forEachInt((index, fileMapper) -> fileMapper.close());
+            fileMappers.clear();
+            LOGGER.info("Closed file mapper. mapMode={}  filePrefix={}", mapMode, filePrefix);
+        }
     }
 
 }

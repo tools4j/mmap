@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@ package org.tools4j.mmap.region.impl;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.slf4j.Logger;
@@ -35,10 +37,32 @@ import org.tools4j.mmap.region.api.AsyncRuntime;
 
 public class DefaultAsyncRuntime implements AsyncRuntime {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
+  private static final AtomicInteger ID_SEED = new AtomicInteger(0);
+
+  private static final AtomicReference<AsyncRuntime> LAZY_INSTANCE = new AtomicReference<>();
+
+  /**
+   * @return singleton async runtime
+   */
+  public static AsyncRuntime getInstance() {
+    if (LAZY_INSTANCE.get() == null) {
+      synchronized (LAZY_INSTANCE) {
+        if (LAZY_INSTANCE.get() == null) {
+          LAZY_INSTANCE.compareAndSet(null, AsyncRuntime.createDefault());
+        }
+      }
+    }
+    return LAZY_INSTANCE.get();
+  }
 
   private final List<Executable> regionRingProcessors = new CopyOnWriteArrayList<>();
   private final AtomicBoolean finished = new AtomicBoolean(false);
 
+  /**
+   * There are 2 ways to use the async runtime:
+   * - use singleton object {@link #getInstance()}
+   * - or create many objects if required.
+   */
   public DefaultAsyncRuntime() {
 
     final Thread thread = new Thread(() -> {
@@ -58,7 +82,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
       }
       LOGGER.info("Stopped async region mapping runtime");
     });
-    thread.setName("region-mapper");
+    thread.setName("region-mapper-" + ID_SEED.getAndIncrement());
     thread.setDaemon(true);
     thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
     thread.start();

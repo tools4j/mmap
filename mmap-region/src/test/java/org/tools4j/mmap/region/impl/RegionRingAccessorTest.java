@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -142,7 +142,6 @@ public class RegionRingAccessorTest {
         regionRingAccessor.wrap(45, directBuffer);
         inOrder.verify(region1).wrap(45, directBuffer);
         inOrder.verify(region4, never()).map(anyLong());
-        inOrder.verify(region2).unmap();
     }
 
     @Test

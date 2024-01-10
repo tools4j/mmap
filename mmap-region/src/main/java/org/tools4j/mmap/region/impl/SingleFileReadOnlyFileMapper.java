@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,7 @@ public class SingleFileReadOnlyFileMapper implements FileMapper {
 
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+    private boolean closed;
 
     public SingleFileReadOnlyFileMapper(final File file, FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
@@ -61,6 +62,10 @@ public class SingleFileReadOnlyFileMapper implements FileMapper {
     }
     @Override
     public long map(long position, int length) {
+        if (closed) {
+            throw new IllegalStateException("FileMapper is closed");
+        }
+
         if (!init()) {
             return NULL_ADDRESS;
         }
@@ -79,6 +84,10 @@ public class SingleFileReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void unmap(long address, long position, int length) {
+        if (closed) {
+            throw new IllegalStateException("FileMapper is closed");
+        }
+
         IoUtil.unmap(fileChannel, address, length);
     }
 
@@ -131,16 +140,18 @@ public class SingleFileReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void close() {
-        try {
-            if (fileChannel != null) {
-                fileChannel.close();
+        if (!closed) {
+            try {
+                if (fileChannel != null) {
+                    fileChannel.close();
+                }
+                if (rafFile != null) {
+                    rafFile.close();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-            if (rafFile != null) {
-                rafFile.close();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOGGER.info("Closed read-only file mapper. file={}", file);
         }
-        LOGGER.info("Closed read-only file mapper. file={}", file);
     }
 }

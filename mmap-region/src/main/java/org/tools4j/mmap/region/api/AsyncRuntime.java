@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,12 +49,20 @@ public interface AsyncRuntime extends AutoCloseable {
   void register(Executable executable);
 
   /**
-   * Provides default runtime backed by a thread watching to execute registered mapping tasks.
+   * Provides a new instance of default runtime backed by a thread watching to execute registered mapping tasks.
    *
    * @return default
    */
   static AsyncRuntime createDefault() {
     return new DefaultAsyncRuntime();
+  }
+
+  /**
+   *
+   * @return a singleton instance of default runtime
+   */
+  static AsyncRuntime getSingleton() {
+    return DefaultAsyncRuntime.getInstance();
   }
 
   /**

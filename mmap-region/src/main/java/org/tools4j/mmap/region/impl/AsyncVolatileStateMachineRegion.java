@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -79,22 +79,42 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     private boolean awaitMapped(final long position) {
-        if (this.position != position) {
-            final long timeOutTimeNanos = System.nanoTime() + timeoutNanos;
+        if (!mapped(position)) {
+            final long startTimeNanos = System.nanoTime();
             while (!map(position)) {
-                if (timeOutTimeNanos <= System.nanoTime())
+                if (System.nanoTime() - startTimeNanos >= timeoutNanos)
                     return false;
             }
         }
         return true;
     }
 
+    /**
+     * Checks if given position is already mapped.
+     * Note: in sequential access it is enough to check if "{@code this.position == position}",
+     * and it is less expensive.
+     * However, as this implementation is also used for random access, then we need to also
+     * do sync "{@code currentState == mapped}", which is more expensive.
+     *
+     * @param position starting position of a region
+     * @return true if region is mapped, false - otherwise
+     */
+    private boolean mapped(final long position) {
+        return currentState == mapped && this.position == position;
+    }
+
     private void awaitUnMapped() {
-        final long timeOutTimeNanos = System.nanoTime() + timeoutNanos;
-        while (!unmap()) {
-            if (timeOutTimeNanos <= System.nanoTime())
-                return;
+        if (!unmapped()) {
+            final long startTimeNanos = System.nanoTime() + timeoutNanos;
+            while (!unmap()) {
+                if (System.nanoTime() - startTimeNanos >= timeoutNanos)
+                    return;
+            }
         }
+    }
+
+    private boolean unmapped() {
+        return currentState == unmapped;
     }
 
     @Override
@@ -183,7 +203,8 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
                 return mapped;
 
             } else {
-                return this;
+                requestedPosition = NULL;
+                return unmapped;
             }
         }
     }
@@ -222,9 +243,12 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            fileMapper.unmap(address, position, length);
-            address = NULL;
-            position = NULL;
+            if (address != NULL && position != NULL) {
+                fileMapper.unmap(address, position, length);
+                address = NULL;
+                position = NULL;
+                requestedPosition = NULL;
+            }
             return unmapped;
         }
     }

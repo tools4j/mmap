@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,8 @@ import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 
+import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
+
 public class SingleFileReadWriteFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadWriteFileMapper.class);
     private static final MapMode MAP_MODE = MapMode.READ_WRITE;
@@ -49,6 +51,7 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
 
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+    private boolean closed;
 
     private final MutableLong fileSizeCache = new MutableLong(0);
 
@@ -64,6 +67,10 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
 
     @Override
     public long map(long position, int length) {
+        if (closed) {
+            throw new IllegalStateException("FileMapper is closed");
+        }
+
         if (!init()) {
             return NULL_ADDRESS;
         }
@@ -87,7 +94,7 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
         for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
             preTouchBuffer.putByte(i, (byte)0);
         }
-        preTouchBuffer.wrap(0, 0);
+        preTouchBuffer.wrap(EMPTY_BYTE_ARRAY);
     }
 
     /**
@@ -145,6 +152,9 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
 
     @Override
     public void unmap(long address, long position, int length) {
+        if (closed) {
+            throw new IllegalStateException("FileMapper is closed");
+        }
         IoUtil.unmap(fileChannel, address, length);
     }
 

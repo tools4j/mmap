@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
+import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
 import static org.tools4j.mmap.queue.api.Poller.Result.ADVANCED;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
 import static org.tools4j.mmap.queue.api.Poller.Result.NOT_AVAILABLE;
@@ -75,6 +76,8 @@ public class DefaultPoller implements Poller {
             message.wrap(payloadBuffer, 4, length);
 
             final MessageHandler.NextMove nextMove = messageHandler.onMessage(currentIndex, message);
+            message.wrap(EMPTY_BYTE_ARRAY);
+
             if (nextMove == null) {
                 return RETAINED;
             }
@@ -124,8 +127,17 @@ public class DefaultPoller implements Poller {
     }
 
     @Override
-    public boolean moveToStart() {
-        return moveToIndex(0);
+    public long moveToLastExisting() {
+        long index = currentIndex;
+        while (initHeader(index)) {
+            index++;
+        }
+        return currentIndex == index ? NULL_INDEX : currentIndex;
+    }
+
+    @Override
+    public void moveToStart() {
+        currentIndex = 0;
     }
 
     @Override

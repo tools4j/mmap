@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,8 @@ package org.tools4j.mmap.queue.api;
  * Queue poller
  */
 public interface Poller extends AutoCloseable {
+    long NULL_INDEX = -1;
+
     /**
      * Result of message polling
      */
@@ -70,16 +72,21 @@ public interface Poller extends AutoCloseable {
     boolean moveToIndex(long index);
 
     /**
-     * Move to end of the queue
-     * @return last index at which new message is expected
+     * Move to end of the queue, where value may not exist
+     * @return last index at which new message is expected but may not exist
      */
     long moveToEnd();
 
     /**
-     * Move to start
-     * @return true is succeeded
+     * Move to last containing value index
+     * @return last index at which a value exists, -1 if empty
      */
-    boolean moveToStart();
+    long moveToLastExisting();
+
+    /**
+     * Move to start where value may not exist
+     */
+    void moveToStart();
 
     /**
      * @return current index

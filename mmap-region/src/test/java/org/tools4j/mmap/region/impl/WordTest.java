@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,6 +54,8 @@ public class WordTest {
             "| 8               | 8               | 15              | 456            |",
             "| 8               | 8               | 16              | 16             |",
             "| 8               | 8               | 17              | 80             |",
+            "| 1               | 4               | 11              | 14             |",
+            "| 1               | 4               | 3               | 12             |",
     })
     @Spockito.Name("[{row}]: wordLength={0}, sectorSize={1},  index={2}, position={3}")
     public void wordPosition(final int wordLength, final int sectorSize, final long index, final long position) {

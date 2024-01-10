@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,9 +53,9 @@ public class LongQueuePerf {
 
             final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionRingFactory);
 
-            final long messagesPerSecond = 50_000;
-            final int messages = 20_000_000;
-            final int warmup = 200_000;
+            final long messagesPerSecond = 1_000_000;
+            final int messages = 11_000_000;
+            final int warmup = 1_000_000;
 
             try (LongQueue queue = builder.build()) {
                 LOGGER.info("Queue created: {}", queue);

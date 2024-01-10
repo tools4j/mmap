@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,21 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.concurrent.api;
 
 /**
- * A pool of appender ids.
+ * A pool of unique ids.
  */
-public interface AppenderIdPool extends AutoCloseable {
-    short SINGLE_APPENDER_ID = 0;
-    AppenderIdPool SINGLE_APPENDER = new AppenderIdPool() {
+public interface UniqueIdPool extends AutoCloseable {
+    int SINGLE_ID = 0;
+    UniqueIdPool SINGLE_ID_POOL = new UniqueIdPool() {
         @Override
-        public short acquire() {
-            return SINGLE_APPENDER_ID;
+        public int acquire() {
+            return SINGLE_ID;
         }
 
         @Override
-        public void release(final short appenderId) {
+        public void release(final int idValue) {
             //no op
         }
 
@@ -46,19 +46,19 @@ public interface AppenderIdPool extends AutoCloseable {
     };
 
     /**
-     * Acquire appender id
-     * @return numeric value [0 .. 255]
+     * Acquire id value
+     * @return numeric value
      */
-    short acquire();
+    int acquire();
 
     /**
-     * Release appender id
-     * @param appenderId appender id
+     * Release id value
+     * @param idValue id value
      */
-    void release(short appenderId);
+    void release(int idValue);
 
     /**
-     * Overriding to suppress throwing checked exceptions.
+     * Close the pool and release resources.
      */
     @Override
     void close();

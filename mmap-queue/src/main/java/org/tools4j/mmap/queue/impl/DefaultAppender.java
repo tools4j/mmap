@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,9 +28,11 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.concurrent.api.UniqueIdPool;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
@@ -47,7 +49,7 @@ public class DefaultAppender implements Appender {
     private final UnsafeBuffer headerBuffer;
     private final UnsafeBuffer payloadBuffer;
     private final short appenderId;
-    private final AppenderIdPool appenderIdPool;
+    private final UniqueIdPool appenderIdPool;
 
     private final String queueName;
     private final RegionAccessorSupplier regionAccessor;
@@ -58,13 +60,14 @@ public class DefaultAppender implements Appender {
     private long currentHeaderPosition = NOT_INITIALISED;
     private long currentIndex = NOT_INITIALISED;
     private long currentPayloadPosition = HeaderCodec.initialPayloadPosition();
+    private boolean closed = false;
 
     public DefaultAppender(final String queueName,
                            final RegionAccessorSupplier regionAccessor,
-                           final AppenderIdPool appenderIdPool) {
+                           final UniqueIdPool appenderIdPool) {
         this.queueName = requireNonNull(queueName);
         this.appenderIdPool = requireNonNull(appenderIdPool);
-        this.appenderId = appenderIdPool.acquire();
+        this.appenderId = (short) appenderIdPool.acquire();
 
         this.headerBuffer = new UnsafeBuffer();
         this.payloadBuffer = new UnsafeBuffer();
@@ -78,6 +81,10 @@ public class DefaultAppender implements Appender {
 
     @Override
     public long append(final DirectBuffer buffer, final int offset, final int length) {
+        if (closed) {
+            throw new IllegalStateException(format("Appender %d for queue %s is closed", appenderId, queueName));
+        }
+
         if (!appendingContext.isClosed()) {
             return APPENDING_CONTEXT_IN_USE;
         }
@@ -192,9 +199,15 @@ public class DefaultAppender implements Appender {
 
     @Override
     public void close() {
-        regionAccessor.close();
-        appenderIdPool.release(appenderId);
-        LOGGER.info("Closed appender. id={} for queue={}", appenderId, queueName);
+        if (!closed) {
+            appendingContext.close();
+            regionAccessor.close();
+            appenderIdPool.release(appenderId);
+            LOGGER.info("Closed appender. id={} for queue={}", appenderId, queueName);
+            closed = true;
+        } else {
+            LOGGER.warn("Appender is already closed. id={} for queue={}", appenderId, queueName);
+        }
     }
 
     private class MaxLengthAppendingContext implements AppendingContext {

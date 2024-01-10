@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2023 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ public final class QueueBuilder {
     public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
     public static final long DEFAULT_MAX_FILE_SIZE = ((long)DEFAULT_REGION_SIZE) * 256; //1GB
     public static final boolean DEFAULT_ROLL_FILES = true;
-    public static final boolean DEFAULT_MANY_APPENDERS = false;
+    public static final boolean DEFAULT_MANY_APPENDERS = true;
     private static final long DEFAULT_READ_TIMEOUT = 100;
     private static final long DEFAULT_WRITE_TIMEOUT = 2000;
     private static final TimeUnit DEFAULT_TIME_UNIT = TimeUnit.MILLISECONDS;
