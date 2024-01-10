@@ -21,59 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Random access reading interface.
+ * Indicator for how to move to the next entry when handling an entry in {@link EntryHandler}.
  */
-public interface LongReader extends AutoCloseable {
-    long NULL_INDEX = -1;
-
+public enum NextMove {
     /**
-     * Reading context
+     * Move forward to next higher entry index.
      */
-    interface Entry {
-        /**
-         * @return positive index if entry is available, {@link #NULL_INDEX} otherwise
-         */
-        long index();
-
-        /**
-         * @return value
-         */
-        long value();
-
-        boolean hasValue();
-    }
-
+    FORWARD,
     /**
-     * Returns last index.
-     * @return positive value if entry is available, {@link #NULL_INDEX} otherwise
+     * Don't move and stay on current entry.
      */
-    long lastIndex();
-
+    NONE,
     /**
-     * @param index zero-based index
-     * @return true if a value is available at the given index
+     * Move backward to next lower entry index.
      */
-    boolean hasValue(long index);
-
-    /**
-     * @param index zero-based index
-     * @return reading context
-     */
-    Entry read(long index);
-
-    /**
-     * @return reading context of last entry
-     */
-    Entry readLast();
-
-    /**
-     * @return reading context of first entry
-     */
-    Entry readFirst();
-
-    @Override
-    void close();
+    BACKWARD
 }

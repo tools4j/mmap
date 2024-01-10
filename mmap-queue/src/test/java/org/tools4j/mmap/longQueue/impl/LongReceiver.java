@@ -27,8 +27,9 @@ import org.HdrHistogram.Histogram;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.EntryHandler;
-import org.tools4j.mmap.longQueue.api.LongPoller;
+import org.tools4j.mmap.queue.api.LongEntryHandler;
+import org.tools4j.mmap.queue.api.LongPoller;
+import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 
 import java.util.Objects;
@@ -53,7 +54,7 @@ public class LongReceiver {
             final Histogram histogram = new Histogram(1, maxValue, 3);
             final MutableBoolean finished = new MutableBoolean(false);
 
-            final EntryHandler entryHandler = new EntryHandler() {
+            final LongEntryHandler entryHandler = new LongEntryHandler() {
                 int received = 0;
 
                 @Override
@@ -70,7 +71,7 @@ public class LongReceiver {
                     if (received == messages) {
                         finished.set(true);
                     }
-                    return NextMove.ADVANCE;
+                    return NextMove.FORWARD;
                 }
             };
 

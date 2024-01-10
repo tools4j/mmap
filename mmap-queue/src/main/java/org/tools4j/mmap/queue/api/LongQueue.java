@@ -21,35 +21,54 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.OS;
+import org.tools4j.mmap.queue.impl.LongQueueBuilder;
+import org.tools4j.mmap.region.api.RegionRingFactory;
 
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-
-public enum MapMode {
-    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
-    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
+/**
+ * A queue of long values.
+ */
+public interface LongQueue extends AutoCloseable {
     /**
-     * Delete io contents on open
+     * Default value used for null entry value.
      */
-    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
+    long DEFAULT_NULL_VALUE = 0;
 
-    private final String rasMode;
-    private final FileChannel.MapMode mapMode;
+    /**
+     * Value used for null entries by this queue.
+     * @return the null entry value
+     */
+    long nullValue();
 
-    MapMode(final String rasMode, final FileChannel.MapMode mapMode) {
-        this.rasMode = Objects.requireNonNull(rasMode);
-        this.mapMode = Objects.requireNonNull(mapMode);
+    /**
+     * Creates an appender.
+     *
+     * @return new instance of an appender
+     */
+    LongAppender createAppender();
+
+    /**
+     * Creates a poller.
+     *
+     * @return new instance of a poller.
+     */
+    LongPoller createPoller();
+
+    /**
+     * Creates a reader.
+     *
+     * @return new instance of a reader.
+     */
+    LongReader createReader();
+
+    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
+        return new LongQueueBuilder(name, directory, regionRingFactory);
     }
 
-    public String getRandomAccessMode() {
-        return rasMode;
-    }
-
-    public FileChannel.MapMode getMapMode() {
-        return mapMode;
-    }
-
+    /**
+     * Closes the queue and all appender, pollers and readers.
+     */
+    @Override
+    void close();
 }

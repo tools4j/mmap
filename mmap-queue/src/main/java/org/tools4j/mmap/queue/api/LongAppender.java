@@ -21,35 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.OS;
-
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-
-public enum MapMode {
-    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
-    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
+/**
+ * Long entry appender.
+ */
+public interface LongAppender extends Appender {
     /**
-     * Delete io contents on open
+     * Failed to move to end of the queue
      */
-    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
+    long MOVE_TO_END_ERROR = -1;
+    /**
+     * Failed to wrap region for given position
+     */
+    long WRAP_REGION_ERROR = -2;
 
-    private final String rasMode;
-    private final FileChannel.MapMode mapMode;
-
-    MapMode(final String rasMode, final FileChannel.MapMode mapMode) {
-        this.rasMode = Objects.requireNonNull(rasMode);
-        this.mapMode = Objects.requireNonNull(mapMode);
-    }
-
-    public String getRandomAccessMode() {
-        return rasMode;
-    }
-
-    public FileChannel.MapMode getMapMode() {
-        return mapMode;
-    }
-
+    /**
+     * Appends an entry using the given entry value.
+     *
+     * @param value - entry value, must not be equal to {@link LongQueue#nullValue()}
+     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
+     *          {@link Appender}
+     */
+    long append(long value);
 }

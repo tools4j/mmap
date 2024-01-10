@@ -26,30 +26,16 @@ package org.tools4j.mmap.queue.api;
 import org.agrona.DirectBuffer;
 
 /**
- * Message handler for {@link Queue}
+ * Handler when {@link Poller#poll(EntryHandler) polling} entries from a {@link Queue}
  */
-public interface MessageHandler {
-    enum NextMove {
-        /**
-         * Advance to next message index.
-         */
-        ADVANCE,
-        /**
-         * Retain message index
-         */
-        RETAIN,
-        /**
-         * Retreat message index.
-         */
-        RETREAT
-    }
+public interface EntryHandler {
 
     /**
-     * Handles a message and indicates if index to be advanced.
+     * Handles a entry and indicates the next entry move.
      *
-     * @param index - message index
-     * @param buffer - buffer index
+     * @param index - entry index in the queue
+     * @param buffer - buffer with access to entry data, with valid byte range from {@code [0...(capacity-1)]}
      * @return next move {@link NextMove}
      */
-    NextMove onMessage(long index, DirectBuffer buffer);
+    NextMove onEntry(long index, DirectBuffer buffer);
 }

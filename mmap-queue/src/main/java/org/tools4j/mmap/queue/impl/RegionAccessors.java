@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.MapMode;

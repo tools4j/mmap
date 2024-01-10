@@ -21,15 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.longQueue.api.LongQueue;
+import org.tools4j.mmap.queue.api.LongQueue;
 import org.tools4j.mmap.region.api.RegionRingFactory;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
 
 public final class LongQueueBuilder {
     public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //4MB
@@ -55,6 +56,7 @@ public final class LongQueueBuilder {
     private long readTimeout = DEFAULT_READ_TIMEOUT;
     private long writeTimeout = DEFAULT_WRITE_TIMEOUT;
     private TimeUnit timeUnit = DEFAULT_TIME_UNIT;
+    private long nullValue = DEFAULT_NULL_VALUE;
 
     public LongQueueBuilder(final String name, final String directory, final RegionRingFactory regionRingFactory) {
         this.name = requireNonNull(name);
@@ -117,8 +119,13 @@ public final class LongQueueBuilder {
         return this;
     }
 
+    public LongQueueBuilder nullValue(final long nullValue) {
+        this.nullValue = nullValue;
+        return this;
+    }
+
     public LongQueue build() {
-        return new DefaultLongQueue(name, directory, regionRingFactory, regionSize,
-                regionRingSize, regionsToMapAhead, maxFileSize, rollFiles, readTimeout, writeTimeout, timeUnit);
+        return new DefaultLongQueue(name, directory, regionRingFactory, regionSize, regionRingSize, regionsToMapAhead,
+                maxFileSize, rollFiles, readTimeout, writeTimeout, timeUnit, nullValue);
     }
 }

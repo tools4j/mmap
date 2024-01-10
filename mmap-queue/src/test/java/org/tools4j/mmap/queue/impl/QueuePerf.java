@@ -39,7 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class QueuePerf {
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);

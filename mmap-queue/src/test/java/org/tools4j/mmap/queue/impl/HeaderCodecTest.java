@@ -23,17 +23,15 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.tools4j.spockito.Spockito;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.tools4j.spockito.jupiter.TableSource;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@RunWith(Spockito.class)
 public class HeaderCodecTest {
 
-    @Test
-    @Spockito.Unroll({
+    @TableSource({
             "| appenderId      | payloadPosition | header              |",
             "|-----------------|-----------------|---------------------|",
             "| 0               | 0               | 0                   |",
@@ -43,7 +41,7 @@ public class HeaderCodecTest {
             "| 127             | 352368422634    | 9151314795185270506 |",
             "| 255             | 352368422634    | -72057241669505302  |",
     })
-    @Spockito.Name("[{row}]: appenderId={0}, payloadPosition={1}, header={2}")
+    @ParameterizedTest(name = "[{index}]: appenderId={0}, payloadPosition={1}, header={2}")
     public void header_appenderId_payloadPosition(final short appenderId, final long payloadPosition, final long header) {
         System.out.println("header = " + header);
         System.out.println("appenderId = " + (header >>> 56));

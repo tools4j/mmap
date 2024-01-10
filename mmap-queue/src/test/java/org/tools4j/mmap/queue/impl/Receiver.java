@@ -28,7 +28,8 @@ import org.agrona.DirectBuffer;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.MessageHandler;
+import org.tools4j.mmap.queue.api.EntryHandler;
+import org.tools4j.mmap.queue.api.NextMove;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
@@ -55,14 +56,14 @@ public class Receiver {
             final Histogram histogram = new Histogram(1, maxValue, 3);
             final MutableBoolean finished = new MutableBoolean(false);
 
-            final MessageHandler messageHandler = new MessageHandler() {
+            final EntryHandler messageHandler = new EntryHandler() {
                 final MessageCodec messageCodec = new MessageCodec(messageLength);
                 final byte[] payload = new byte[messageCodec.payloadLength()];
 
                 int received = 0;
 
                 @Override
-                public NextMove onMessage(long index, DirectBuffer messageBuffer) {
+                public NextMove onEntry(long index, DirectBuffer messageBuffer) {
                     received++;
                     long end = System.nanoTime();
                     messageCodec.wrap(messageBuffer);
@@ -77,7 +78,7 @@ public class Receiver {
                     if (messageCodec.terminal()) {
                         finished.set(true);
                     }
-                    return NextMove.ADVANCE;
+                    return NextMove.FORWARD;
                 }
             };
 

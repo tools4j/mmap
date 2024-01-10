@@ -21,32 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Long appender.
+ * Queue poller for sequential retrieval of entries with callback to a {@link LongEntryHandler}.
  */
-public interface LongAppender extends AutoCloseable {
+public interface LongPoller extends Poller {
     /**
-     * Failed to move to end of the queue
-     */
-    long MOVE_TO_END_ERROR = -1;
-    /**
-     * Failed to wrap region for given position
-     */
-    long WRAP_REGION_ERROR = -2;
-
-    /**
-     * Appends a long value.
+     * Polls the queue and invokes the entry handler if one is available.
      *
-     * @param value - value, must not be {@link LongQueue#NULL_VALUE}
-     * @return index at which value was appended, negative value if error occurred, see errors in {@link LongAppender}
+     * @param entryHandler entry handler callback invoked if an entry is present
+     * @return result value as per {@link NextMove} if polled, otherwise {@link Result#IDLE}
      */
-    long append(long value);
-
-    /**
-     * Override to avoid throwing checked exception.
-     */
-    @Override
-    void close();
+    Result poll(LongEntryHandler entryHandler);
 }
