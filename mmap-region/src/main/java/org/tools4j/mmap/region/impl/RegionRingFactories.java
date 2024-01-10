@@ -23,7 +23,13 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.*;
+import org.tools4j.mmap.region.api.AsyncRegion;
+import org.tools4j.mmap.region.api.AsyncRegionMapper;
+import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionFactory;
+import org.tools4j.mmap.region.api.RegionRingFactory;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -106,7 +112,7 @@ public class RegionRingFactories {
     }
 
     public static RegionRingFactory async(final AsyncRuntime asyncRuntime) {
-        return async(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE, asyncRuntime);
+        return async(RegionFactory.ASYNC, asyncRuntime);
     }
 
     public static RegionRingFactory sync() {

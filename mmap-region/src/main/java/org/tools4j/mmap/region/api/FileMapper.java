@@ -54,7 +54,7 @@ public interface FileMapper extends AutoCloseable {
   void unmap(long address, long position, int length);
 
   /**
-   * Override close to suppress checked exception throwing
+   * Closes this file mapper and all underlying resources.
    */
   @Override
   void close();

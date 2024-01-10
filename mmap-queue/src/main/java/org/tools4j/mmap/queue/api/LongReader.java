@@ -21,43 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
-
-import org.tools4j.mmap.longQueue.impl.LongQueueBuilder;
-import org.tools4j.mmap.region.api.RegionRingFactory;
+package org.tools4j.mmap.queue.api;
 
 /**
- * A queue of long values.
+ * Random access reading interface.
  */
-public interface LongQueue extends AutoCloseable {
-    long NULL_VALUE = 0;
-
+public interface LongReader extends Reader {
     /**
-     * @return new appender
+     * Reading context
      */
-    LongAppender createAppender();
-
-    /**
-     * Creates a poller.
-     *
-     * @return new instance of a poller.
-     */
-    LongPoller createPoller();
-
-    /**
-     * Creates a reader.
-     *
-     * @return new instance of a reader.
-     */
-    LongReader createReader();
-
-    static LongQueueBuilder builder(String name, String directory, RegionRingFactory regionRingFactory) {
-        return new LongQueueBuilder(name, directory, regionRingFactory);
+    interface LongReadingContext extends ReadingContext {
+        /**
+         * @return the entry value if an entry is available, otherwise {@link LongQueue#nullValue()}
+         */
+        long value();
     }
 
-    /**
-     * Overridden to suppress throwing checked exceptions
-     */
     @Override
-    void close();
+    LongReadingContext read(long index);
+
+    @Override
+    LongReadingContext readLast();
+
+    @Override
+    LongReadingContext readFirst();
 }

@@ -21,31 +21,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.LongAppender;
+import org.tools4j.mmap.queue.api.LongAppender;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.longQueue.api.LongQueue.NULL_VALUE;
-import static org.tools4j.mmap.longQueue.impl.RegionAccessors.VALUE_WORD;
+import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
+import static org.tools4j.mmap.queue.impl.DefaultLongQueue.maskNullValue;
+import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
 
 public class DefaultLongAppender implements LongAppender {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongAppender.class);
     private static final long NOT_INITIALISED = -1;
     private final UnsafeBuffer buffer;
     private final String queueName;
+    private final long nullValue;
     private final RegionAccessor regionAccessor;
+    private final LongAppendingContext appendingContext = new LongAppendingContext();
 
     private long currentPosition = NOT_INITIALISED;
     private long currentIndex = NOT_INITIALISED;
 
     public DefaultLongAppender(final String queueName,
+                               final long nullValue,
                                final RegionAccessor regionAccessor) {
         this.queueName = requireNonNull(queueName);
+        this.nullValue = nullValue;
         this.buffer = new UnsafeBuffer();
         this.regionAccessor = regionAccessor;
 
@@ -53,10 +60,27 @@ public class DefaultLongAppender implements LongAppender {
     }
 
     @Override
-    public long append(final long value) {
-        if (value == NULL_VALUE) {
-            throw new IllegalArgumentException("Value must be equal to " + NULL_VALUE);
+    public AppendingContext appending(final int maxLength) {
+        if (maxLength != Long.BYTES) {
+            throw new IllegalArgumentException("Max length must be equal to long length: " + maxLength);
         }
+        return appendingContext.init();
+    }
+
+    @Override
+    public long append(final DirectBuffer buffer, final int offset, final int length) {
+        if (length != Long.BYTES) {
+            throw new IllegalArgumentException("Can only append long entries: " + length);
+        }
+        return append(buffer.getLong(offset));
+    }
+
+    @Override
+    public long append(final long value) {
+        if (value == nullValue) {
+            throw new IllegalArgumentException("Value cannot be equal to null value: " + nullValue);
+        }
+        final long maskedValue = maskNullValue(value, nullValue);
 
         boolean onLastAppendPosition = advanceToLastAppendPosition();
         if (!onLastAppendPosition) {
@@ -65,7 +89,7 @@ public class DefaultLongAppender implements LongAppender {
 
         if (regionAccessor.wrap(currentPosition, buffer)) {
 
-            while (!buffer.compareAndSetLong(0, NULL_VALUE, value)) {
+            while (!buffer.compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
                 moveToLastPosition();
             }
 
@@ -87,7 +111,7 @@ public class DefaultLongAppender implements LongAppender {
         do {
             if (regionAccessor.wrap(currentPosition, buffer)) {
                 value = buffer.getLongVolatile(0);
-                if (value != NULL_VALUE) {
+                if (value != DEFAULT_NULL_VALUE) {
                     currentPosition = VALUE_WORD.position(++currentIndex);
                 }
             } else {
@@ -95,7 +119,7 @@ public class DefaultLongAppender implements LongAppender {
                         currentPosition);
                 return;
             }
-        } while (value != NULL_VALUE);
+        } while (value != DEFAULT_NULL_VALUE);
     }
 
     private boolean advanceToLastAppendPosition() {
@@ -106,7 +130,7 @@ public class DefaultLongAppender implements LongAppender {
             do {
                 if (regionAccessor.wrap(currentPosition, buffer)) {
                     value = buffer.getLongVolatile(0);
-                    if (value != NULL_VALUE) {
+                    if (value != DEFAULT_NULL_VALUE) {
                         currentPosition = VALUE_WORD.position(++currentIndex);
                     }
                 } else {
@@ -114,7 +138,7 @@ public class DefaultLongAppender implements LongAppender {
                             currentPosition);
                     return false;
                 }
-            } while (value != NULL_VALUE);
+            } while (value != DEFAULT_NULL_VALUE);
         }
         return true;
     }
@@ -123,5 +147,53 @@ public class DefaultLongAppender implements LongAppender {
     public void close() {
         regionAccessor.close();
         LOGGER.info("Closed appender for queue={}", queueName);
+    }
+
+    private final class LongAppendingContext implements AppendingContext {
+        final byte[] bytes = new byte[Long.BYTES];
+        final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+
+        LongAppendingContext init() {
+            buffer.wrap(bytes);
+            buffer.putLong(0, nullValue);
+            return this;
+        }
+
+        @Override
+        public MutableDirectBuffer buffer() {
+            if (!isClosed()) {
+                return buffer;
+            }
+            throw new IllegalStateException("Appending context is closed");
+        }
+
+        @Override
+        public void abort() {
+            close();
+        }
+
+        @Override
+        public void close() {
+            if (!isClosed()) {
+                buffer.wrap(0, 0);
+            }
+        }
+
+        @Override
+        public long commit(final int length) {
+            if (length != Long.BYTES) {
+                throw new IllegalArgumentException("Can only commit long entries: " + length);
+            }
+            if (!isClosed()) {
+                final long value = buffer.getLong(0);
+                return append(value);
+            }
+            return APPENDING_CONTEXT_CLOSED;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return buffer.capacity() > 0;
+        }
     }
 }

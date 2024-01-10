@@ -140,18 +140,21 @@ public class SingleFileReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void close() {
-        if (!closed) {
-            try {
-                if (fileChannel != null) {
-                    fileChannel.close();
-                }
-                if (rafFile != null) {
-                    rafFile.close();
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            LOGGER.info("Closed read-only file mapper. file={}", file);
+        if (closed) {
+            return;
         }
+        try {
+            if (fileChannel != null) {
+                fileChannel.close();
+            }
+            if (rafFile != null) {
+                rafFile.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            closed = true;
+        }
+        LOGGER.info("Closed read-only file mapper. file={}", file);
     }
 }

@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.region.api;
 
-import java.io.Closeable;
-
 import org.agrona.DirectBuffer;
+
+import java.io.Closeable;
 
 /**
  * Accessor to a file region.
@@ -33,7 +33,7 @@ import org.agrona.DirectBuffer;
 public interface RegionAccessor extends Closeable {
     /**
      * Wraps the buffer starting from given position to the end of the mapped region.
-     * Once mapped, buffer.capacity will indicate the length of the mapped memory.
+     * Once mapped, {@code buffer.capacity} will indicate the length of the mapped memory.
      *
      * @param position position in the file.
      * @param buffer the direct buffer
@@ -47,7 +47,7 @@ public interface RegionAccessor extends Closeable {
     int size();
 
     /**
-     * Override close to suppress checked exceptions.
+     * Closes the region accessor resulting in an exception if subsequently used.
      */
     @Override
     void close();

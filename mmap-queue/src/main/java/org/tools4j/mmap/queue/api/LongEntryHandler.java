@@ -21,32 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Message handler for {@link LongQueue}
+ * Handler when {@link LongPoller#poll(LongEntryHandler)} polling} entries from a {@link LongQueue}
  */
-public interface EntryHandler {
-    enum NextMove {
-        /**
-         * Advance to next entry index.
-         */
-        ADVANCE,
-        /**
-         * Retain entry index
-         */
-        RETAIN,
-        /**
-         * Retreat entry index.
-         */
-        RETREAT
-    }
-
+public interface LongEntryHandler {
     /**
-     * Handles an entry and indicates if index to be advanced.
+     * Handles a entry and indicates the next entry move.
      *
-     * @param index - index
-     * @param value - value
+     * @param index - entry index in the queue
+     * @param value - the entry value
      * @return next move {@link NextMove}
      */
     NextMove onEntry(long index, long value);

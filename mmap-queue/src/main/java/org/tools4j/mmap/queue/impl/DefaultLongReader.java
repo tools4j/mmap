@@ -21,66 +21,72 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.impl;
+package org.tools4j.mmap.queue.impl;
 
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.longQueue.api.LongReader;
+import org.tools4j.mmap.queue.api.LongReader;
 import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.longQueue.api.LongQueue.NULL_VALUE;
-import static org.tools4j.mmap.longQueue.impl.RegionAccessors.VALUE_WORD;
+import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
+import static org.tools4j.mmap.queue.impl.DefaultLongQueue.unmaskNullValue;
+import static org.tools4j.mmap.queue.impl.RegionAccessors.VALUE_WORD;
 
 public class DefaultLongReader implements LongReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongReader.class);
-    private static final Entry EMPTY_ENTRY = new EmptyEntry();
+    private static final DirectBuffer EMPTY_BUFFER = new UnsafeBuffer(0, 0);
     private final String queueName;
+    private final long nullValue;
     private final RegionAccessor regionAccessor;
     private final UnsafeBuffer buffer;
-    private final DefaultEntry entry;
+    private final DefaultLongReadingContext entry;
 
+    private final LongReadingContext nullEntryContext = new NullEntryContext();
     private long lastIndex = NULL_INDEX;
 
-    public DefaultLongReader(final String queueName, final RegionAccessor regionAccessor) {
+    public DefaultLongReader(final String queueName, final long nullValue, final RegionAccessor regionAccessor) {
         this.queueName = requireNonNull(queueName);
+        this.nullValue = nullValue;
         this.regionAccessor = requireNonNull(regionAccessor);
 
         this.buffer = new UnsafeBuffer();
-        this.entry = new DefaultEntry();
+        this.entry = new DefaultLongReadingContext();
     }
 
     @Override
     public long lastIndex() {
         long index = lastIndex;
-        while (readValue(++index) != NULL_VALUE) {
+        while (readValue(++index) != DEFAULT_NULL_VALUE) {
             lastIndex = index;
         }
         return lastIndex;
     }
 
     @Override
-    public boolean hasValue(final long index) {
-        return readValue(index) != NULL_VALUE;
+    public boolean hasEntry(final long index) {
+        return readValue(index) != DEFAULT_NULL_VALUE;
     }
 
     @Override
-    public Entry read(long index) {
+    public LongReadingContext read(long index) {
         return entry.init(index);
     }
 
     @Override
-    public Entry readLast() {
+    public LongReadingContext readLast() {
         long last = lastIndex();
         if (last != NULL_INDEX) {
             return entry.init(last);
         }
-        return EMPTY_ENTRY;
+        return nullEntryContext;
     }
 
     @Override
-    public Entry readFirst() {
+    public LongReadingContext readFirst() {
         return entry.init(0);
     }
 
@@ -93,7 +99,7 @@ public class DefaultLongReader implements LongReader {
     private long readValue(final long index) {
         long position = VALUE_WORD.position(index);
         if (!regionAccessor.wrap(position, buffer)) {
-            return NULL_VALUE;
+            return DEFAULT_NULL_VALUE;
         }
         return buffer.getLongVolatile(0);
     }
@@ -104,21 +110,24 @@ public class DefaultLongReader implements LongReader {
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 
-    private class DefaultEntry implements Entry {
+    private final class DefaultLongReadingContext implements LongReadingContext {
         long index = NULL_INDEX;
-        long value = NULL_VALUE;
+        long value = nullValue;
 
-        DefaultEntry init(long index) {
+        final MutableDirectBuffer buffer = new UnsafeBuffer(new byte[Long.BYTES]);
+        DirectBuffer bufferForReading = EMPTY_BUFFER;
+
+        DefaultLongReadingContext init(final long index) {
             if (index < 0) {
                 throw new IllegalArgumentException("Index cannot be negative: " + index);
             }
 
             final long value = readValue(index);
-            if (value != NULL_VALUE) {
+            if (value != DEFAULT_NULL_VALUE) {
                 this.index = index;
                 this.value = value;
             } else {
-                reset();
+                close();
             }
             return this;
         }
@@ -129,35 +138,57 @@ public class DefaultLongReader implements LongReader {
         }
 
         @Override
-        public long value() {
-            return value;
+        public DirectBuffer buffer() {
+            if (bufferForReading == EMPTY_BUFFER && index != NULL_INDEX) {
+                buffer.putLong(0, value());
+                bufferForReading = buffer;
+            }
+            return bufferForReading;
         }
 
         @Override
-        public boolean hasValue() {
+        public long value() {
+            return unmaskNullValue(value, nullValue);
+        }
+
+        @Override
+        public boolean hasEntry() {
             return index != NULL_INDEX;
         }
 
-        private void reset() {
-            index = NULL_INDEX;
-            value = NULL_VALUE;
+        @Override
+        public void close() {
+            if (index != NULL_INDEX) {
+                index = NULL_INDEX;
+                value = DEFAULT_NULL_VALUE;
+                bufferForReading = EMPTY_BUFFER;
+            }
         }
     }
 
-    private static class EmptyEntry implements Entry {
+    private final class NullEntryContext implements LongReadingContext {
         @Override
         public long index() {
             return NULL_INDEX;
         }
-
         @Override
-        public long value() {
-            return NULL_VALUE;
+        public DirectBuffer buffer() {
+            return EMPTY_BUFFER;
         }
 
         @Override
-        public boolean hasValue() {
+        public long value() {
+            return nullValue;
+        }
+
+        @Override
+        public boolean hasEntry() {
             return false;
+        }
+
+        @Override
+        public void close() {
+            //no op
         }
     }
 }

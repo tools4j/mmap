@@ -21,32 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.longQueue.api;
+package org.tools4j.mmap.queue.api;
 
 /**
- * Long appender.
+ * Indicator for how to move to the next entry when handling an entry in {@link EntryHandler}.
  */
-public interface LongAppender extends AutoCloseable {
+public enum NextMove {
     /**
-     * Failed to move to end of the queue
+     * Move forward to next higher entry index.
      */
-    long MOVE_TO_END_ERROR = -1;
+    FORWARD,
     /**
-     * Failed to wrap region for given position
+     * Don't move and stay on current entry.
      */
-    long WRAP_REGION_ERROR = -2;
-
+    NONE,
     /**
-     * Appends a long value.
-     *
-     * @param value - value, must not be {@link LongQueue#NULL_VALUE}
-     * @return index at which value was appended, negative value if error occurred, see errors in {@link LongAppender}
+     * Move backward to next lower entry index.
      */
-    long append(long value);
-
-    /**
-     * Override to avoid throwing checked exception.
-     */
-    @Override
-    void close();
+    BACKWARD
 }

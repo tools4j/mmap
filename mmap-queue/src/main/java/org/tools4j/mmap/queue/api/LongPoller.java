@@ -21,28 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.api;
 
-public interface AsyncRegionState {
+/**
+ * Queue poller for sequential retrieval of entries with callback to a {@link LongEntryHandler}.
+ */
+public interface LongPoller extends Poller {
     /**
-     * Request region mapping.
+     * Polls the queue and invokes the entry handler if one is available.
      *
-     * @param position starting position of the region
-     * @return next state to transition to
+     * @param entryHandler entry handler callback invoked if an entry is present
+     * @return result value as per {@link NextMove} if polled, otherwise {@link Result#IDLE}
      */
-    AsyncRegionState requestMap(long position);
-
-    /**
-     * Request region unmapping if applicable
-     *
-     * @return next state to transition to
-     */
-    AsyncRegionState requestUnmap();
-
-    /**
-     * Process request
-     *
-     * @return next state to transition to
-     */
-    AsyncRegionState processRequest();
+    Result poll(LongEntryHandler entryHandler);
 }

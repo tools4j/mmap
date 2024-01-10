@@ -34,7 +34,6 @@ import org.tools4j.mmap.region.api.RegionAccessor;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.agrona.collections.ArrayUtil.EMPTY_BYTE_ARRAY;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.appenderId;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.payloadPosition;
@@ -240,7 +239,7 @@ public class DefaultAppender implements Appender {
             if (!closed) {
                 return messageBuffer;
             }
-            throw new RuntimeException("Appending context is closed");
+            throw new IllegalStateException("Appending context is closed");
         }
 
         @Override
@@ -250,7 +249,7 @@ public class DefaultAppender implements Appender {
 
         private void reset() {
             closed = true;
-            messageBuffer.wrap(EMPTY_BYTE_ARRAY);
+            messageBuffer.wrap(0, 0);
         }
 
         @Override
