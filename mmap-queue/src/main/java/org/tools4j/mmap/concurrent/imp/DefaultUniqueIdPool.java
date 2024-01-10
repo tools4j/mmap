@@ -119,6 +119,9 @@ public class DefaultUniqueIdPool implements UniqueIdPool {
             int updatedValue;
             do {
                 currentValue = buffer.getIntVolatile(intIndex);
+                if (isBitNotSet(currentValue, bitPosition)) {
+                    return;
+                }
                 updatedValue = clearBit(currentValue, bitPosition);
             } while (!buffer.compareAndSetInt(intIndex, currentValue, updatedValue));
             LOGGER.info("Released id value {} for pool {}", idValue, name);
