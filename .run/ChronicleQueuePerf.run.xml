@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="ChronicleQueuePerf" type="Application" factoryName="Application" nameIsGenerated="true">
+  <configuration default="false" name="ChronicleQueuePerf" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="org.tools4j.mmap.chronicle.queue.ChronicleQueuePerf" />
     <module name="mmap.mmap-queue.test" />
     <option name="VM_PARAMETERS" value="-Djvm.resource.tracing=false -Ddisable.thread.safety=true -Dagrona.disable.bounds.checks=true" />

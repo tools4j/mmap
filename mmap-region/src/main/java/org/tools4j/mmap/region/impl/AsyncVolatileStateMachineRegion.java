@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.agrona.BitUtil;
 import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.AsyncRegion;
 import org.tools4j.mmap.region.api.AsyncRegionState;
@@ -31,24 +32,22 @@ import org.tools4j.mmap.region.api.FileMapper;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import static org.agrona.UnsafeAccess.UNSAFE;
+
 public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private static final long NULL = -1;
 
     private final FileMapper fileMapper;
     private final int length;
     private final long timeoutNanos;
+    private DirectBuffer lastWrapped;
 
-    private final UnmappedRegionState unmapped;
-    private final MapRequestedRegionState mapRequested;
-    private final MappedRegionState mapped;
-    private final UnMapRequestedRegionState unmapRequested;
+    private final UnmappedRegionState unmapped = new UnmappedRegionState();
+    private final MapRequestedRegionState mapRequested = new MapRequestedRegionState();
+    private final MappedRegionState mapped = new MappedRegionState();
+    private final UnMapRequestedRegionState unmapRequested = new UnMapRequestedRegionState();
+    private final SharedValues sharedValues = new SharedValues(unmapped);
 
-    //@Contended
-    private volatile AsyncRegionState currentState;
-
-    private long position = NULL;
-    private long address = NULL;
-    private long requestedPosition;
 
     public AsyncVolatileStateMachineRegion(final FileMapper fileMapper,
                                            final int length,
@@ -57,22 +56,32 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         this.fileMapper = Objects.requireNonNull(fileMapper);
         this.length = length;
         this.timeoutNanos = timeUnits.toNanos(timeout);
-
-        this.unmapped = new UnmappedRegionState();
-        this.mapRequested = new MapRequestedRegionState();
-        this.mapped = new MappedRegionState();
-        this.unmapRequested = new UnMapRequestedRegionState();
-        this.currentState = unmapped;
-        if (Integer.bitCount(length) > 1)
+        if (!BitUtil.isPowerOfTwo(length)) {
             throw new IllegalArgumentException("length must be power of two");
+        }
     }
 
     @Override
     public boolean wrap(final long position, final DirectBuffer source) {
-        final int regionOffset = (int) (position & (this.length - 1));
+        final DirectBuffer last = lastWrapped;
+        final int len = length;
+        final int regionOffset = ((int)position) & (len - 1);
         final long regionStartPosition = position - regionOffset;
+        if (mapped(regionStartPosition)) {
+            source.wrap(sharedValues.address + regionOffset, len - regionOffset);
+            lastWrapped = source;
+            if (last != source && last != null) {
+                last.wrap(0, 0);
+            }
+            return true;
+        }
+        if (last != null) {
+            last.wrap(0, 0);
+            lastWrapped = null;
+        }
         if (awaitMapped(regionStartPosition)) {
-            source.wrap(address + regionOffset, this.length - regionOffset);
+            source.wrap(sharedValues.address + regionOffset, len - regionOffset);
+            lastWrapped = source;
             return true;
         }
         return false;
@@ -82,8 +91,9 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         if (!mapped(position)) {
             final long startTimeNanos = System.nanoTime();
             while (!map(position)) {
-                if (System.nanoTime() - startTimeNanos >= timeoutNanos)
+                if (System.nanoTime() - startTimeNanos >= timeoutNanos) {
                     return false;
+                }
             }
         }
         return true;
@@ -100,12 +110,12 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
      * @return true if region is mapped, false - otherwise
      */
     private boolean mapped(final long position) {
-        return currentState == mapped && this.position == position;
+        return sharedValues.state == mapped & sharedValues.position == position;
     }
 
     private void awaitUnMapped() {
         if (!unmapped()) {
-            final long startTimeNanos = System.nanoTime() + timeoutNanos;
+            final long startTimeNanos = System.nanoTime();
             while (!unmap()) {
                 if (System.nanoTime() - startTimeNanos >= timeoutNanos)
                     return;
@@ -114,7 +124,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     private boolean unmapped() {
-        return currentState == unmapped;
+        return sharedValues.state == unmapped;
     }
 
     @Override
@@ -129,10 +139,10 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
     @Override
     public boolean processRequest() {
-        final AsyncRegionState readState = this.currentState;
+        final AsyncRegionState readState = sharedValues.state;
         final AsyncRegionState nextState = readState.processRequest();
         if (readState != nextState) {
-            this.currentState = nextState;
+            sharedValues.putOrderedState(nextState);
             return true;
         }
         return false;
@@ -140,26 +150,28 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
     @Override
     public boolean map(final long position) {
-        final AsyncRegionState readState = this.currentState;
+        final AsyncRegionState readState = sharedValues.state;
         final AsyncRegionState nextState = readState.requestMap(position);
-        if (readState != nextState)
-            this.currentState = nextState;
+        if (readState != nextState) {
+            sharedValues.putOrderedState(nextState);
+        }
         return nextState == mapped;
     }
 
     @Override
     public boolean unmap() {
-        final AsyncRegionState readState = this.currentState;
+        final AsyncRegionState readState = sharedValues.state;
         final AsyncRegionState nextState = readState.requestUnmap();
-        if (readState != nextState)
-            this.currentState = nextState;
+        if (readState != nextState) {
+            sharedValues.putOrderedState(nextState);
+        }
         return nextState == unmapped;
     }
 
     private final class UnmappedRegionState implements AsyncRegionState {
         @Override
         public AsyncRegionState requestMap(final long position) {
-            requestedPosition = position;
+            sharedValues.requestedPosition = position;
             return mapRequested;
         }
 
@@ -188,22 +200,21 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            if (address != NULL && position != NULL) {
-                fileMapper.unmap(address, position, length);
-                address = NULL;
-                position = NULL;
+            final long addr = sharedValues.address;
+            final long pos = sharedValues.position;
+            final long req = sharedValues.requestedPosition;
+            if (addr != NULL && pos != NULL) {
+                fileMapper.unmap(addr, pos, length);
+                sharedValues.address = NULL;
+                sharedValues.position = NULL;
             }
-
-            final long mappedAddress = fileMapper.map(requestedPosition, length);
+            final long mappedAddress = fileMapper.map(req, length);
+            sharedValues.requestedPosition = NULL;
             if (mappedAddress > 0) {
-                address = mappedAddress;
-                position = requestedPosition;
-                requestedPosition = NULL;
-
+                sharedValues.address = mappedAddress;
+                sharedValues.position = req;
                 return mapped;
-
             } else {
-                requestedPosition = NULL;
                 return unmapped;
             }
         }
@@ -212,8 +223,8 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private final class MappedRegionState implements AsyncRegionState {
         @Override
         public AsyncRegionState requestMap(final long position) {
-            if (AsyncVolatileStateMachineRegion.this.position != position) {
-                requestedPosition = position;
+            if (sharedValues.position != position) {
+                sharedValues.requestedPosition = position;
                 return mapRequested;
             }
             return this;
@@ -243,13 +254,57 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
 
         @Override
         public AsyncRegionState processRequest() {
-            if (address != NULL && position != NULL) {
-                fileMapper.unmap(address, position, length);
-                address = NULL;
-                position = NULL;
-                requestedPosition = NULL;
+            if (sharedValues.address != NULL && sharedValues.position != NULL) {
+                fileMapper.unmap(sharedValues.address, sharedValues.position, length);
+                sharedValues.address = NULL;
+                sharedValues.position = NULL;
+                sharedValues.requestedPosition = NULL;
             }
             return unmapped;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static abstract class AbstractSharedPadding1 {
+        byte p000, p001, p002, p003, p004, p005, p006, p007, p008, p009, p010, p011, p012, p013, p014, p015;
+        byte p016, p017, p018, p019, p020, p021, p022, p023, p024, p025, p026, p027, p028, p029, p030, p031;
+        byte p032, p033, p034, p035, p036, p037, p038, p039, p040, p041, p042, p043, p044, p045, p046, p047;
+        byte p048, p049, p050, p051, p052, p053, p054, p055, p056, p057, p058, p059, p060, p061, p062, p063;
+    }
+
+    private static abstract class AbstractSharedValues extends AbstractSharedPadding1 {
+        //@Contended
+        volatile AsyncRegionState state;
+        long position = NULL;
+        long address = NULL;
+        long requestedPosition;
+    }
+
+    @SuppressWarnings("unused")
+    private static abstract class AbstractSharedPadding2 extends AbstractSharedValues {
+        byte p064, p065, p066, p067, p068, p069, p070, p071, p072, p073, p074, p075, p076, p077, p078, p079;
+        byte p080, p081, p082, p083, p084, p085, p086, p087, p088, p089, p090, p091, p092, p093, p094, p095;
+        byte p096, p097, p098, p099, p100, p101, p102, p103, p104, p105, p106, p107, p108, p109, p110, p111;
+        byte p112, p113, p114, p115, p116, p117, p118, p119, p120, p121, p122, p123, p124, p125, p126, p127;
+    }
+
+    private static class SharedValues extends AbstractSharedPadding2 {
+        private static final long STATE_OFFSET;
+
+        SharedValues(final UnmappedRegionState unmapped) {
+            state = unmapped;
+        }
+
+        void putOrderedState(final AsyncRegionState state) {
+            UNSAFE.putOrderedObject(this, STATE_OFFSET, state);
+        }
+
+        static {
+            try {
+                STATE_OFFSET = UNSAFE.objectFieldOffset(AbstractSharedValues.class.getDeclaredField("state"));
+            } catch (final Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

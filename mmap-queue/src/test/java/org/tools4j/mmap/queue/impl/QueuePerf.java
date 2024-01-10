@@ -52,11 +52,14 @@ public class QueuePerf {
             final RegionRingFactory regionRingFactory = RegionRingFactories.async(asyncRuntime);
             final String name = "sample";
 
-            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionRingFactory);
+            final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionRingFactory)
+//                    .regionSize(64 * 1024)
+//                    .maxFileSize(64 * 1024 * 1024)
+                    ;
 
-            final long messagesPerSecond = 50_000;
-            final int messages = 20_000_000;
-            final int warmup = 200_000;
+            final long messagesPerSecond = 1_000_000;
+            final int messages = 11_000_000;
+            final int warmup = 1_000_000;
             final int messageLength = 256;
 
             try (Queue queue = builder.build()) {

@@ -52,7 +52,10 @@ public class LongQueuePerf {
             final RegionRingFactory regionRingFactory = RegionRingFactories.async(asyncRuntime);
             final String name = "perf";
 
-            final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionRingFactory);
+            final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionRingFactory)
+//                    .regionSize(64 * 1024)
+//                    .maxFileSize(64 * 1024 * 1024)
+                    ;
 
             final long messagesPerSecond = 1_000_000;
             final int messages = 11_000_000;
