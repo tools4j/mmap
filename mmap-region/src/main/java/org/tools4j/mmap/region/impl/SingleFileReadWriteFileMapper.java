@@ -204,6 +204,9 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
 
     @Override
     public void close() {
+        if (closed) {
+            return;
+        }
         try {
             if (fileChannel != null) {
                 fileChannel.close();
@@ -213,6 +216,8 @@ public class SingleFileReadWriteFileMapper implements FileMapper {
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            closed = true;
         }
         LOGGER.info("Closed read-write file mapper. file={}", file);
     }

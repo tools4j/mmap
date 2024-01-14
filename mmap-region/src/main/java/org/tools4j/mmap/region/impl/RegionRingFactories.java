@@ -112,7 +112,7 @@ public class RegionRingFactories {
     }
 
     public static RegionRingFactory async(final AsyncRuntime asyncRuntime) {
-        return async(RegionFactory.ASYNC_VOLATILE_STATE_MACHINE, asyncRuntime);
+        return async(RegionFactory.ASYNC, asyncRuntime);
     }
 
     public static RegionRingFactory sync() {

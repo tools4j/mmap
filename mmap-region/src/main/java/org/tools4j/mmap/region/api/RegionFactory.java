@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  * @param <T> type of the region, sync or async.
  */
 public interface RegionFactory<T extends Region> {
-    RegionFactory<AsyncRegion> ASYNC_VOLATILE_STATE_MACHINE = new RegionFactory<AsyncRegion>() {
+    RegionFactory<AsyncRegion> ASYNC = new RegionFactory<AsyncRegion>() {
         @Override
         public AsyncRegion create(int size, FileMapper fileMapper, long timeout, TimeUnit timeUnit) {
             return new AsyncVolatileStateMachineRegion(fileMapper, size, timeout, timeUnit);
@@ -42,11 +42,21 @@ public interface RegionFactory<T extends Region> {
 
         @Override
         public String toString() {
-            return "ASYNC_VOLATILE_STATE_MACHINE";
+            return "ASYNC";
         }
     };
 
-    RegionFactory<Region> SYNC = (size, fileMapper, timeout, timeUnit) -> new SyncRegion(fileMapper, size);
+    RegionFactory<Region> SYNC = new RegionFactory<Region>() {
+        @Override
+        public Region create(final int size, final FileMapper fileMapper, final long timeout, final TimeUnit timeUnit) {
+            return new SyncRegion(fileMapper, size);
+        }
+
+        @Override
+        public String toString() {
+            return "SYNC";
+        }
+    };
 
     T create(int size, FileMapper fileMapper, long timeout, TimeUnit timeUnit);
 
