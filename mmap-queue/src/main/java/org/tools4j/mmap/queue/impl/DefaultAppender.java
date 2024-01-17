@@ -83,17 +83,17 @@ final class DefaultAppender implements Appender {
             return MOVE_TO_END_ERROR;
         }
 
-        if (!(payload = payloadMapper.map(currentPayloadPosition)).isReady()) {
+        if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
             return MAP_PAYLOAD_REGION_ERROR;
         }
-        if (!(header = headerMapper.map(currentHeaderPosition)).isReady()) {
+        if (!(header = headerMapper.map(currentHeaderPosition)).isMapped()) {
             return MAP_HEADER_REGION_ERROR;
         }
 
         if (payload.bytesAvailable() < length + LENGTH_SIZE) { //message does not fit capacity of payload buffer
             //should re-map the payload buffer to the new memory region
             currentPayloadPosition += payload.bytesAvailable();
-            if (!(payload = payloadMapper.map(currentHeaderPosition)).isReady()) {
+            if (!(payload = payloadMapper.map(currentHeaderPosition)).isMapped()) {
                 return MAP_PAYLOAD_REGION_ERROR;
             }
         }
@@ -129,7 +129,7 @@ final class DefaultAppender implements Appender {
         currentIndex++;
         currentHeaderPosition = HEADER_WORD.position(currentIndex);
         Region header;
-        while ((header = headerMapper.map(currentHeaderPosition)).isReady()) {
+        while ((header = headerMapper.map(currentHeaderPosition)).isMapped()) {
             final long headerValues = header.buffer().getLongVolatile(0);
             if (headerValues == 0) {
                 return header;
@@ -186,14 +186,14 @@ final class DefaultAppender implements Appender {
                 reset();
             }
             ;
-            if (!(payload = payloadMapper.map(currentPayloadPosition)).isReady()) {
+            if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
                 throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                         currentPayloadPosition + " failed: readiness not achieved in time");
             }
             if (payload.bytesAvailable() < maxLength + LENGTH_SIZE) { //maxLength does not fit capacity of payload buffer
                 //should re-map the payload buffer to the new memory region
                 currentPayloadPosition += payload.bytesAvailable();
-                if (!(payload = payloadMapper.map(currentPayloadPosition)).isReady()) {
+                if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
                     throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                             currentPayloadPosition + " failed: readiness not achieved in time");
                 }
@@ -228,7 +228,7 @@ final class DefaultAppender implements Appender {
                 final long headerValue = HeaderCodec.header(appenderId, currentPayloadPosition);
 
                 Region header;
-                if (!(header = headerMapper.map(currentHeaderPosition)).isReady()) {
+                if (!(header = headerMapper.map(currentHeaderPosition)).isMapped()) {
                     throw new IllegalStateException("Mapping " + queueName + " header to position " +
                             currentHeaderPosition + " failed: readiness not achieved in time");
                 }

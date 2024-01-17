@@ -159,7 +159,7 @@ public class DefaultLongPoller implements LongPoller {
     private long readValue(final long index) {
         final Region region;
         final long valuePosition = VALUE_WORD.position(index);
-        if (!(region = regionMapper.map(valuePosition)).isReady()) {
+        if (!(region = regionMapper.map(valuePosition)).isMapped()) {
             return DEFAULT_NULL_VALUE;
         }
         return region.buffer().getLongVolatile(0);

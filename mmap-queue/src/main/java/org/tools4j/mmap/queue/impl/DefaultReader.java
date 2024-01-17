@@ -122,7 +122,7 @@ final class DefaultReader implements Reader {
     private long readHeader(final long index) {
         final Region header;
         final long headerPosition = HEADER_WORD.position(index);
-        if (!(header = headerMapper.map(headerPosition)).isReady()) {
+        if (!(header = headerMapper.map(headerPosition)).isMapped()) {
             return NULL_HEADER;
         }
         return header.buffer().getLongVolatile(0);
@@ -160,7 +160,7 @@ final class DefaultReader implements Reader {
                 final short appenderId = HeaderCodec.appenderId(header);
                 final long payloadPosition = HeaderCodec.payloadPosition(header);
                 final Region payload = regionMappers.payload(appenderId).map(payloadPosition);
-                if (payload.isReady()) {
+                if (payload.isMapped()) {
                     final int length = payload.buffer().getInt(0);
                     buffer.wrap(payload.buffer(), 4, length);
                     this.index = index;

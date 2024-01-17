@@ -113,7 +113,7 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
         final FileMapper fileMapper = new SingleFileReadWriteMapper(file, REGION_SIZE, fileInitialiser());
         final Region region = RegionMapperFactories.sync(fileMapper, REGION_SIZE, 1).map(0);
-        if (region.isReady()) {
+        if (region.isMapped()) {
             return region;
         }
         throw new IllegalStateException("Could not map fixed region: " + region);

@@ -75,10 +75,10 @@ public interface Region extends RegionStateAware {
     /**
      * Returns the absolute start position of the {@linkplain #buffer() buffer}, or
      * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.  Note that the region may
-     * not yet be ready for data access, which can be checked through {@link #isReady()} or through one of the await
+     * not yet be ready for data access, which can be checked through {@link #isMapped()} or through one of the await
      * methods.
      * <p>
-     * If {@linkplain RegionState#isReady() ready} for data access, the returned position is mapped to the
+     * If {@linkplain RegionState#isMapped() ready} for data access, the returned position is mapped to the
      * {@linkplain #buffer() buffer}'s zero byte.
      *
      * @return the buffer's start position, a non-negative value if the region is ready for data access
@@ -114,7 +114,7 @@ public interface Region extends RegionStateAware {
      * Maps this or a new region at the specified position and returns it. If the position lies within this region,
      * the buffer offset will be adjusted locally without an actual map operation. Otherwise, a new region is mapped
      * which can occur synchronously or asynchronously. Readiness for data access can be checked through
-     * {@link #isReady()}.
+     * {@link #isMapped()}.
      *
      * @param position the position to read from (absolute, not relative to current position or region start)
      * @return the region for accessing data from the given position (can be the same or a different region instance)
@@ -155,7 +155,7 @@ public interface Region extends RegionStateAware {
 
     /**
      * Maps the next region returns it, or the first region if no region is currently mapped. Mapping the new region can
-     * occur synchronously or asynchronously, and readiness for data access can be checked through {@link #isReady()}.
+     * occur synchronously or asynchronously, and readiness for data access can be checked through {@link #isMapped()}.
      *
      * @return the next region for accessing data (can be the same or a different region instance)
      * @throws IllegalArgumentException if the provided delta value results in a negative position
@@ -170,7 +170,7 @@ public interface Region extends RegionStateAware {
     /**
      * Maps the next region at an offset and returns it, or the first region if no region is currently mapped. Mapping
      * the new region can occur synchronously or asynchronously, and readiness for data access can be checked through
-     * {@link #isReady()}.
+     * {@link #isMapped()}.
      *
      * @param offset the position offset within the next region, a non-negative value less than regionSize
      * @return the next region for accessing data from the given offset (can be the same or a different region instance)

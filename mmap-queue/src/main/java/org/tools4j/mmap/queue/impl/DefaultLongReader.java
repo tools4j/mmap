@@ -125,7 +125,7 @@ public class DefaultLongReader implements LongReader {
     private long readValue(final long index) {
         final Region region;
         final long position = VALUE_WORD.position(index);
-        if (!(region = regionMapper.map(position)).isReady()) {
+        if (!(region = regionMapper.map(position)).isMapped()) {
             return DEFAULT_NULL_VALUE;
         }
         return region.buffer().getLongVolatile(0);

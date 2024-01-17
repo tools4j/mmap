@@ -106,10 +106,10 @@ public enum RegionState {
     }
 
     /**
-     * Returns true if the region is ready for data access.
+     * Returns true if the region is mapped and ready for data access.
      * @return true if the state is {@link #MAPPED}
      */
-    public boolean isReady() {
+    public boolean isMapped() {
         return this == MAPPED;
     }
 

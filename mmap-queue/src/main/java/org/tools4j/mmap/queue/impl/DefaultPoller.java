@@ -64,7 +64,7 @@ final class DefaultPoller implements Poller {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
             final Region payload = regionMappers.payload(currentAppenderId).map(currentPayloadPosition);
-            if (!payload.isReady()) {
+            if (!payload.isMapped()) {
                 return ERROR;
             }
             final int length = payload.buffer().getInt(0);
@@ -152,7 +152,7 @@ final class DefaultPoller implements Poller {
     private long readHeader(final long index) {
         final Region header;
         final long headerPosition = HEADER_WORD.position(index);
-        if (!(header = headerMapper.map(headerPosition)).isReady()) {
+        if (!(header = headerMapper.map(headerPosition)).isMapped()) {
             return NULL_HEADER;
         }
         return header.buffer().getLongVolatile(0);

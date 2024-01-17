@@ -23,35 +23,25 @@
  */
 package org.tools4j.mmap.region.api;
 
-/**
- * Interface with method to map a region.  Subsequent mappings can be achieved directly through one of the
- * {@link Region}'s {@code map(..)} methods.
- */
-public interface RegionMapper extends AutoCloseable {
+import org.agrona.DirectBuffer;
+
+public interface RegionMapper extends RegionStateAware, AutoCloseable {
     /**
      * Returns the metrics of regions mapped by this region mapper.
      * @return metrics of regions mapped by this class
      */
     RegionMetrics regionMetrics();
 
-    /**
-     * Maps a region given the absolute byte position. If the position is not a multiple of region size, the region's
-     * {@linkplain Region#buffer() buffer} will be wrapped at an according offset.
-     * <p>
-     * Mapping can be performed synchronously or asynchronously; readiness for data access can be checked through
-     * {@link Region#isReady()}.
-     *
-     * @param position absolute start position, does not have to be a multiple of region size
-     * @return the region, guaranteed to be immediately mapped if synchronous mapping is used
-     */
-    Region map(long position);
+    long position();
+    boolean map(long position);
+    boolean mapFrom(long position, long previous);
+    boolean mapSubsequently(long position, int sequence);
 
-    /**
-     * Returns true if this region mapper performs asynchronous mapping in the background, and false if mappings are
-     * performed synchronously.
-     * @return true if this mapper performs asynchronous mapping, and false if it performs synchronous mapping
-     */
-    boolean isAsync();
+    boolean wrap(DirectBuffer buffer);
+
+    boolean wrap(DirectBuffer buffer, int offset);
+
+    boolean wrap(DirectBuffer buffer, int offset, int length);
 
     /**
      * Closes all regions that have been mapped directly or indirectly mapped through this region mapper

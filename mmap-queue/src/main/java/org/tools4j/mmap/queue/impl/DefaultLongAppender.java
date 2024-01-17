@@ -61,7 +61,7 @@ public class DefaultLongAppender implements LongAppender {
         }
 
         Region region;
-        if ((region = regionMapper.map(currentPosition)).isReady()) {
+        if ((region = regionMapper.map(currentPosition)).isMapped()) {
             while (!region.buffer().compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
                 if ((region = moveToLastPosition()) == null) {
                     return WRAP_REGION_ERROR;
@@ -85,7 +85,7 @@ public class DefaultLongAppender implements LongAppender {
         long value;
         Region region;
         do {
-            if ((region = regionMapper.map(currentPosition)).isReady()) {
+            if ((region = regionMapper.map(currentPosition)).isMapped()) {
                 value = region.buffer().getLongVolatile(0);
                 if (value != DEFAULT_NULL_VALUE) {
                     currentPosition = VALUE_WORD.position(++currentIndex);
@@ -106,7 +106,7 @@ public class DefaultLongAppender implements LongAppender {
             long value;
             do {
                 final Region region;
-                if ((region = regionMapper.map(currentPosition)).isReady()) {
+                if ((region = regionMapper.map(currentPosition)).isMapped()) {
                     value = region.buffer().getLongVolatile(0);
                     if (value != DEFAULT_NULL_VALUE) {
                         currentPosition = VALUE_WORD.position(++currentIndex);

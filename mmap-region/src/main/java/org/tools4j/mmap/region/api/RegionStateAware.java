@@ -40,11 +40,11 @@ public interface RegionStateAware {
     RegionState regionState();
 
     /**
-     * Returns true if the region is ready for data access.
+     * Returns true if the region is mapped and ready for data access.
      * @return true if {@link #regionState()} == {@link RegionState#MAPPED}
      */
-    default boolean isReady() {
-        return regionState().isReady();
+    default boolean isMapped() {
+        return regionState().isMapped();
     }
 
     /**
@@ -72,18 +72,18 @@ public interface RegionStateAware {
     }
 
     /**
-     * Await {@linkplain #isReady() readiness} for data access, but no longer than what is specified in the waiting
+     * Await {@linkplain #isMapped() readiness} for data access, but no longer than what is specified in the waiting
      * policy. The waiting strategy provided by the policy is while waiting if necessary.
      *
      * @param waitingPolicy policy definign maximum time to wait and idle strategy to use while waiting
      * @return true if readiness has been achieved, and false otherwise
      */
     default boolean awaitReadiness(final WaitingPolicy waitingPolicy) {
-        return waitingPolicy.await(this, state -> !state.isPending()) && isReady();
+        return waitingPolicy.await(this, state -> !state.isPending()) && isMapped();
     }
 
     /**
-     * Await {@linkplain #isReady() readiness} for data access, but no longer than the given time. A
+     * Await {@linkplain #isMapped() readiness} for data access, but no longer than the given time. A
      * {@link BusySpinIdleStrategy} is used while waiting if necessary. The method returns immediately if the region is
      * not in a {@linkplain #isPending() pending} state.
      *
@@ -96,7 +96,7 @@ public interface RegionStateAware {
     }
 
     /**
-     * Await {@linkplain #isReady() readiness} for data access, but no longer than the given time. The provided idle
+     * Await {@linkplain #isMapped() readiness} for data access, but no longer than the given time. The provided idle
      * strategy is used while waiting if necessary. The method returns immediately if the region is not in a
      * {@linkplain #isPending() pending} state.
      *
@@ -106,6 +106,6 @@ public interface RegionStateAware {
      * @return true if readiness has been achieved, and false otherwise
      */
     default boolean awaitReadiness(final long time, final TimeUnit unit, final IdleStrategy idleStrategy) {
-        return WaitingPolicies.await(this, state -> !state.isPending(), time, unit, idleStrategy) && isReady();
+        return WaitingPolicies.await(this, state -> !state.isPending(), time, unit, idleStrategy) && isMapped();
     }
 }
