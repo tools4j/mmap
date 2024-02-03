@@ -37,9 +37,10 @@ import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.api.RegionCursor;
 
 import java.nio.ByteBuffer;
 
@@ -84,10 +85,7 @@ public class AsyncRegionTest {
             return data.addressOffset() + position;
         });
         final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
-        final int cacheSize = 1;
-        final int regionsToMapAhead = 0;
-        regionMapper = RegionMapperFactories.async(asyncRuntime, fileMapper, regionMetrics, cacheSize,
-                regionsToMapAhead, true);
+        regionMapper = RegionMapperFactory.async("ASYNC", asyncRuntime).create(fileMapper, regionMetrics);
         inOrder = Mockito.inOrder(asyncRuntime, fileMapper);
         assertNotNull(asyncRecurring);
     }
@@ -103,36 +101,38 @@ public class AsyncRegionTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
+        final RegionCursor rider = RegionCursor.noWait(regionMapper);
 
         //when
-        Region region = regionMapper.map(position);
+        rider.moveTo(position);
         asyncRecurring.execute();
+        rider.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
-        assertEquals(positionInRegion, region.offset());
-        assertEquals(regionSize - positionInRegion, region.bytesAvailable());
+        assertEquals(positionInRegion, rider.offset());
+        assertEquals(regionSize - positionInRegion, rider.bytesAvailable());
 
         //when - wrap again within the same region
         final int offset = 4;
-        region = region.mapFromRegionStart(offset);
+        rider.moveRelativeToRegionStart(offset);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(offset, region.offset());
-        assertEquals(regionSize - offset, region.bytesAvailable());
+        assertEquals(offset, rider.offset());
+        assertEquals(regionSize - offset, rider.bytesAvailable());
 
         //when - wrap again at region start
-        region = region.map(regionStartPosition);
+        rider.moveTo(regionStartPosition);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(0, region.offset());
-        assertEquals(regionSize, region.bytesAvailable());
+        assertEquals(0, rider.offset());
+        assertEquals(regionSize, rider.bytesAvailable());
 
         //when - close, causes unmap
-        final long address = region.buffer().addressOffset();
-        region.close();
+        final long address = rider.buffer().addressOffset();
+        rider.close();
         asyncRecurring.execute();
 
         //then
@@ -146,23 +146,25 @@ public class AsyncRegionTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
+        final RegionCursor rider = RegionCursor.noWait(regionMapper);
 
         //when
-        Region region = regionMapper.map(position);
+        rider.moveTo(position);
         asyncRecurring.execute();
+        rider.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
-        region.mapFromRegionStart(0);
+        rider.moveRelativeToRegionStart(0);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
 
         //when - close to unmap
-        long address = region.buffer().addressOffset();
-        region.close();
+        long address = rider.buffer().addressOffset();
+        rider.close();
         asyncRecurring.execute();
 
         //then
@@ -171,8 +173,8 @@ public class AsyncRegionTest {
         inOrder.verify(asyncRuntime, once()).deregister(asyncRecurring);
 
         //when - close again should have no effect
-        region.close();
-        region.close();
+        rider.close();
+        rider.close();
 
         //then
         inOrder.verifyNoMoreInteractions();
@@ -184,23 +186,25 @@ public class AsyncRegionTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
+        final RegionCursor rider = RegionCursor.noWait(regionMapper);
 
         //when
-        Region region = regionMapper.map(position);
+        rider.moveTo(position);
         asyncRecurring.execute();
+        rider.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when - map previous region, causing current to unmap
-        final long unmapAddress = region.buffer().addressOffset() - region.offset();
+        final long unmapAddress = rider.buffer().addressOffset() - rider.offset();
         final long prevRegionStartPosition = regionStartPosition - regionSize;
-        region.mapPreviousRegion();
+        rider.moveToPreviousRegion();
         asyncRecurring.execute();
 
         //then
-        inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
         inOrder.verify(fileMapper, once()).unmap(unmapAddress, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
     }
 
     private static VerificationMode once() {

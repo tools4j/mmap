@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.slf4j.Logger;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.TimeoutHandler;
 import org.tools4j.mmap.region.api.WaitingPolicy;
 
@@ -32,41 +32,40 @@ import static java.util.Objects.requireNonNull;
 
 public enum TimeoutHandlers {
     ;
-    public static TimeoutHandler<Region> noOp() {
+    public static TimeoutHandler<RegionCursor> noOp() {
         return TimeoutHandler.noOp();
     }
 
-    public static TimeoutHandler<Region> log(final Logger logger, final String name, final boolean exception) {
+    public static TimeoutHandler<RegionCursor> log(final Logger logger, final String name, final boolean exception) {
         return exception ? logAndException(logger, name) : log(logger, name);
     }
 
-    public static TimeoutHandler<Region> log(final Logger logger, final String name) {
+    public static TimeoutHandler<RegionCursor> log(final Logger logger, final String name) {
         requireNonNull(logger);
         requireNonNull(name);
-        return (region, waitingPolicy) -> {
-            logger.error("Moving {} region to position {} failed: readiness not achieved after {} {}",
-                    name, region.position(), waitingPolicy.maxWaitTime(), waitingPolicy.timeUnit()
+        return (cursor, waitingPolicy) -> {
+            logger.error("Moving {} cursor to position {} failed: readiness not achieved after {} {}",
+                    name, cursor.position(), waitingPolicy.maxWaitTime(), waitingPolicy.timeUnit()
             );
-            return region;
         };
     }
 
-    public static TimeoutHandler<Region> logAndException(final Logger logger, final String name) {
+    public static TimeoutHandler<RegionCursor> logAndException(final Logger logger, final String name) {
         return TimeoutHandler.consecutive(log(logger, name), exception(name));
     }
 
-    public static TimeoutHandler<Region> exception(final String name) {
+    public static TimeoutHandler<RegionCursor> exception(final String name) {
         requireNonNull(name);
-        return TimeoutHandler.exception((region, policy) -> illegalStateException(name, region, policy));
+        return TimeoutHandler.exception((cursor, policy) -> illegalStateException(name, cursor, policy));
     }
 
     public static IllegalStateException illegalStateException(final String name,
-                                                              final Region region,
+                                                              final RegionCursor cursor,
                                                               final WaitingPolicy waitingPolicy) {
         requireNonNull(name);
-        requireNonNull(region);
+        requireNonNull(cursor);
         requireNonNull(waitingPolicy);
-        return new IllegalStateException("Mapping " + name + " region to position " + region.position() +
+        return new IllegalStateException("Mapping " + name + " cursor to position " + cursor.position() +
                 " failed: readiness not achieved after " + waitingPolicy.maxWaitTime() + " " + waitingPolicy.timeUnit()
         );
     }

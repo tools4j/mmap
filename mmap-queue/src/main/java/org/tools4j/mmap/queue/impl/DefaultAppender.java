@@ -29,8 +29,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
@@ -48,8 +47,8 @@ final class DefaultAppender implements Appender {
     private final AppenderIdPool appenderIdPool;
 
     private final String queueName;
-    private final RegionMapper headerMapper;
-    private final RegionMapper payloadMapper;
+    private final RegionCursor headerCursor;
+    private final RegionCursor payloadCursor;
     private final MaxLengthAppendingContext appendingContext;
 
     private long currentHeaderPosition = NOT_INITIALISED;
@@ -57,13 +56,13 @@ final class DefaultAppender implements Appender {
     private long currentPayloadPosition = HeaderCodec.initialPayloadPosition();
 
     DefaultAppender(final String queueName,
-                    final QueueRegionMappers regionAccessor,
+                    final QueueRegionCursors regionAccessor,
                     final AppenderIdPool appenderIdPool) {
         this.queueName = requireNonNull(queueName);
         this.appenderIdPool = requireNonNull(appenderIdPool);
         this.appenderId = appenderIdPool.acquire();
-        this.headerMapper = regionAccessor.header();
-        this.payloadMapper = regionAccessor.payload(appenderId);
+        this.headerCursor = regionAccessor.header();
+        this.payloadCursor = regionAccessor.payload(appenderId);
         this.appendingContext = new MaxLengthAppendingContext();
 
         advanceToLastAppendPosition();
@@ -75,25 +74,25 @@ final class DefaultAppender implements Appender {
             return APPENDING_CONTEXT_IN_USE;
         }
 
-        Region header;
-        Region payload;
+        final RegionCursor header = headerCursor;
+        final RegionCursor payload = payloadCursor;
 
         boolean onLastAppendPosition = advanceToLastAppendPosition();
         if (!onLastAppendPosition) {
             return MOVE_TO_END_ERROR;
         }
 
-        if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
+        if (!payload.moveTo(currentPayloadPosition)) {
             return MAP_PAYLOAD_REGION_ERROR;
         }
-        if (!(header = headerMapper.map(currentHeaderPosition)).isMapped()) {
+        if (!header.moveTo(currentHeaderPosition)) {
             return MAP_HEADER_REGION_ERROR;
         }
 
         if (payload.bytesAvailable() < length + LENGTH_SIZE) { //message does not fit capacity of payload buffer
             //should re-map the payload buffer to the new memory region
             currentPayloadPosition += payload.bytesAvailable();
-            if (!(payload = payloadMapper.map(currentHeaderPosition)).isMapped()) {
+            if (!payload.moveTo(currentHeaderPosition)) {
                 return MAP_PAYLOAD_REGION_ERROR;
             }
         }
@@ -104,7 +103,7 @@ final class DefaultAppender implements Appender {
         final long headerValue = HeaderCodec.header(appenderId, currentPayloadPosition);
 
         while (!header.buffer().compareAndSetLong(0, 0, headerValue)) {
-            if ((header = moveToLastHeader()) == null) {
+            if (!moveToLastHeader()) {
                 return MAP_HEADER_REGION_ERROR;
             }
         }
@@ -125,29 +124,29 @@ final class DefaultAppender implements Appender {
         return appendingContext.init(maxLength);
     }
 
-    private Region moveToLastHeader() {
+    private boolean moveToLastHeader() {
         currentIndex++;
         currentHeaderPosition = HEADER_WORD.position(currentIndex);
-        Region header;
-        while ((header = headerMapper.map(currentHeaderPosition)).isMapped()) {
+        final RegionCursor header = headerCursor;
+        while (header.moveTo(currentHeaderPosition)) {
             final long headerValues = header.buffer().getLongVolatile(0);
             if (headerValues == 0) {
-                return header;
+                return true;
             }
             currentHeaderPosition = HEADER_WORD.position(++currentIndex);
         }
-        return null;
+        return false;
     }
 
     private boolean advanceToLastAppendPosition() {
         if (currentHeaderPosition == NOT_INITIALISED) {
             currentIndex = 0;
             currentHeaderPosition = HEADER_WORD.position(currentIndex);
+            final RegionCursor hdrCursor = headerCursor;
             long header;
             do {
-                header = this.headerMapper.map(currentHeaderPosition)
-                        .buffer()
-                        .getLongVolatile(0);
+                assert hdrCursor.moveTo(currentHeaderPosition);
+                header = hdrCursor.buffer().getLongVolatile(0);
                 if (header != 0) {
                     currentHeaderPosition = HEADER_WORD.position(++currentIndex);
                     short headerAppenderId = appenderId(header);
@@ -159,55 +158,54 @@ final class DefaultAppender implements Appender {
 
             if (currentPayloadPosition != HeaderCodec.initialPayloadPosition()) {
                 //load payload length and add to currentPayloadPosition
-                final int payloadLength = payloadMapper.map(currentPayloadPosition)
-                        .buffer()
-                        .getInt(0);
+                assert payloadCursor.moveTo(currentPayloadPosition);
+                final int payloadLength = payloadCursor.buffer().getInt(0);
                 currentPayloadPosition += payloadLength + LENGTH_SIZE;
             }
-
         }
         return true;
     }
 
     @Override
     public void close() {
-        headerMapper.close();//TODO close or is this shared ?
-        payloadMapper.close();//TODO close or is this shared ?
+        headerCursor.close();//TODO close or is this shared ?
+        payloadCursor.close();//TODO close or is this shared ?
         appenderIdPool.release(appenderId);
         LOGGER.info("Closed appender. id={} for queue={}", appenderId, queueName);
     }
 
     private class MaxLengthAppendingContext implements AppendingContext {
         final UnsafeBuffer messageBuffer = new UnsafeBuffer();
-        Region payload;
+        boolean inUse;
 
         MaxLengthAppendingContext init(final int maxLength) {
-            if (payload != null) {
+            if (inUse) {
                 reset();
             }
-            ;
-            if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
+            final RegionCursor payload = payloadCursor;
+            if (!payload.moveTo(currentPayloadPosition)) {
                 throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                         currentPayloadPosition + " failed: readiness not achieved in time");
             }
             if (payload.bytesAvailable() < maxLength + LENGTH_SIZE) { //maxLength does not fit capacity of payload buffer
                 //should re-map the payload buffer to the new memory region
                 currentPayloadPosition += payload.bytesAvailable();
-                if (!(payload = payloadMapper.map(currentPayloadPosition)).isMapped()) {
+                if (!(payload.moveTo(currentPayloadPosition))) {
                     throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                             currentPayloadPosition + " failed: readiness not achieved in time");
                 }
             }
             messageBuffer.wrap(payload.buffer(), PAYLOAD_OFFSET, maxLength);
+            inUse = true;
             return this;
         }
 
         @Override
         public MutableDirectBuffer buffer() {
-            if (payload != null) {
-                return messageBuffer;
+            if (!inUse) {
+                throw new IllegalStateException("Appending context is closed");
             }
-            throw new IllegalStateException("Appending context is closed");
+            return messageBuffer;
         }
 
         @Override
@@ -216,24 +214,25 @@ final class DefaultAppender implements Appender {
         }
 
         private void reset() {
-            payload = null;
+            inUse = false;
             messageBuffer.wrap(0, 0);
         }
 
         @Override
         public long commit(int length) {
-            if (payload != null) {
+            if (inUse) {
+                final RegionCursor header = headerCursor;
+                final RegionCursor payload = payloadCursor;
                 payload.buffer().putInt(LENGTH_OFFSET, length);
 
                 final long headerValue = HeaderCodec.header(appenderId, currentPayloadPosition);
 
-                Region header;
-                if (!(header = headerMapper.map(currentHeaderPosition)).isMapped()) {
+                if (!header.moveTo(currentHeaderPosition)) {
                     throw new IllegalStateException("Mapping " + queueName + " header to position " +
                             currentHeaderPosition + " failed: readiness not achieved in time");
                 }
                 while (!header.buffer().compareAndSetLong(0, 0, headerValue)) {
-                    if ((header = moveToLastHeader()) == null) {
+                    if (!moveToLastHeader()) {
                         throw new IllegalStateException("Moving " + queueName + " header to last position " +
                                 currentHeaderPosition + " failed: readiness not achieved in time");
                     }
@@ -252,7 +251,7 @@ final class DefaultAppender implements Appender {
 
         @Override
         public boolean isClosed() {
-            return payload == null;
+            return !inUse;
         }
     }
 }

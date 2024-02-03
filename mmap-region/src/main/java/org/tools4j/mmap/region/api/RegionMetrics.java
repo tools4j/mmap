@@ -30,7 +30,7 @@ package org.tools4j.mmap.region.api;
  */
 public interface RegionMetrics {
     /**
-     * @return the size a mappable memory region
+     * @return the size of a mappable memory region in bytes
      */
     int regionSize();
 
