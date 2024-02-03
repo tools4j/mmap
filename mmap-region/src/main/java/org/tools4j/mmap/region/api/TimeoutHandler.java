@@ -38,7 +38,7 @@ public interface TimeoutHandler<T> {
      * @param waitingPolicy the waiting policy that was in place when the timeout occurred
      * @return the state object, the same or a modified/alternative instance
      */
-    T handleTimeout(T state, WaitingPolicy waitingPolicy);
+    void handleTimeout(T state, WaitingPolicy waitingPolicy);
 
     /**
      * Returns a constant no-op handler that simply returns the unchanged state object.

@@ -57,7 +57,8 @@ public class LongQueuePerf {
         tempDir.toFile().deleteOnExit();
 
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, false);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
+            //final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
             final String name = "perf";
 
             final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionMapperFactory)

@@ -58,7 +58,7 @@ public class QueuePerf {
         tempDir.toFile().deleteOnExit();
 
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async(asyncRuntime, false);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
             final String name = "sample";
 
             final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory)

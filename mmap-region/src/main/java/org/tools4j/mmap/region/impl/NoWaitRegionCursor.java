@@ -24,62 +24,77 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
-import org.tools4j.mmap.region.api.Region;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapper;
-import org.tools4j.mmap.region.api.RegionState;
+import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.api.WaitingPolicy;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.api.RegionMapper.FAILED;
 
-final class DefaultRegion implements MutableRegion {
-    private final RegionManager regionManager;
-    private final MutableMappingState mappingState;
+public final class NoWaitRegionCursor implements RegionCursor {
+    private final RegionMapper regionMapper;
+    private final RegionMetrics regionMetrics;
+    private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
+    private long mappedPosition;
+    private int mappingState;
 
-    DefaultRegion(final RegionManager regionManager, final MutableMappingState mappingState) {
-        this.regionManager = requireNonNull(regionManager);
-        this.mappingState = requireNonNull(mappingState);
+    public NoWaitRegionCursor(final RegionMapper regionMapper) {
+        this.regionMapper = requireNonNull(regionMapper);
+        this.regionMetrics = regionMapper.regionMetrics();
+        this.mappedPosition = NULL_POSITION;
+        this.mappingState = FAILED;
     }
 
     @Override
     public RegionMapper regionMapper() {
-        return regionManager;
+        return regionMapper;
     }
 
     @Override
-    public MutableMappingState mappingState() {
-        return mappingState;
+    public WaitingPolicy waitingPolicy() {
+        return WaitingPolicy.noWait();
     }
 
     @Override
-    public RegionState regionState() {
-        return mappingState.state();
+    public RegionMetrics regionMetrics() {
+        return regionMetrics;
     }
 
     @Override
     public AtomicBuffer buffer() {
-        return mappingState.buffer();
+        return buffer;
     }
 
     @Override
     public long position() {
-        return mappingState.position();
+        return mappedPosition;
     }
 
     @Override
-    public Region map(final long position) {
-        return regionManager.mapFrom(position, this);
+    public int mappingState() {
+        return mappingState;
+    }
+
+    @Override
+    public boolean moveTo(final long position) {
+        final int mappingState = regionMapper.map(position, buffer);
+        final boolean mapped = mappingState > 0;
+        this.mappedPosition = mapped ? position : NULL_POSITION;
+        this.mappingState = mappingState;
+        return mapped;
     }
 
     @Override
     public void close() {
-        if (!isClosed()) {
-            //NOTE: we close all regions here -- having some regions open and others closed makes not much sense
-            regionManager.close();
-        }
+        regionMapper.close();
     }
 
     @Override
     public String toString() {
-        return "Region:state=" + regionState() +
+        return "NoWaitRegionCursor:mappingState=" + mappingState() +
                 "|start=" + regionStartPosition() +
                 "|offset=" + offset() +
                 "|bytesAvailable=" + bytesAvailable();

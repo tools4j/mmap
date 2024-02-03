@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
  */
 enum TimeoutHandlers {
     ;
-    private static final TimeoutHandler<?> NO_OP = (state, policy) -> state;
+    private static final TimeoutHandler<?> NO_OP = (state, policy) -> {};
 
     @SuppressWarnings("unchecked")
     static <T> TimeoutHandler<T> noOp() {
@@ -50,6 +50,9 @@ enum TimeoutHandlers {
     static <T> TimeoutHandler<T> consecutive(final TimeoutHandler<T> first, final TimeoutHandler<T> second) {
         requireNonNull(first);
         requireNonNull(second);
-        return (state, waitingPolicy) -> second.handleTimeout(first.handleTimeout(state, waitingPolicy), waitingPolicy);
+        return (state, waitingPolicy) -> {
+            first.handleTimeout(state, waitingPolicy);
+            second.handleTimeout(state, waitingPolicy);
+        };
     }
 }

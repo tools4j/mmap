@@ -30,30 +30,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongReader;
 import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.impl.EmptyBuffer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
 import static org.tools4j.mmap.queue.impl.DefaultLongQueue.unmaskNullValue;
-import static org.tools4j.mmap.queue.impl.LongQueueRegionMappers.VALUE_WORD;
+import static org.tools4j.mmap.queue.impl.LongQueueRegionCursors.VALUE_WORD;
 
 public class DefaultLongReader implements LongReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongReader.class);
     private final String queueName;
     private final long nullValue;
-    private final RegionMapper regionMapper;
+    private final RegionCursor regionCursor;
     private final DefaultLongReadingContext readingContext = new DefaultLongReadingContext();
     private final DefaultLongIterableContext iterableContext = new DefaultLongIterableContext();
 
     private final LongReadingContext nullEntryContext = new NullEntryContext();
     private long lastIndex = NULL_INDEX;
 
-    public DefaultLongReader(final String queueName, final long nullValue, final RegionMapper regionMapper) {
+    public DefaultLongReader(final String queueName, final long nullValue, final RegionCursor regionCursor) {
         this.queueName = requireNonNull(queueName);
         this.nullValue = nullValue;
-        this.regionMapper = requireNonNull(regionMapper);
+        this.regionCursor = requireNonNull(regionCursor);
     }
 
     @Override
@@ -123,17 +122,17 @@ public class DefaultLongReader implements LongReader {
      * @return value
      */
     private long readValue(final long index) {
-        final Region region;
+        final RegionCursor cursor = regionCursor;
         final long position = VALUE_WORD.position(index);
-        if (!(region = regionMapper.map(position)).isMapped()) {
+        if (!cursor.moveTo(position)) {
             return DEFAULT_NULL_VALUE;
         }
-        return region.buffer().getLongVolatile(0);
+        return cursor.buffer().getLongVolatile(0);
     }
 
     @Override
     public void close() {
-        regionMapper.close();//TODO close or shared ?
+        regionCursor.close();//TODO close or shared ?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 

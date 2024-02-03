@@ -29,8 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
@@ -40,17 +39,17 @@ final class DefaultReader implements Reader {
     private static final ReadingContext EMPTY_READING_CONTEXT = new EmptyReadingContext<>();
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final QueueRegionMappers regionMappers;
-    private final RegionMapper headerMapper;
+    private final QueueRegionCursors regionCursors;
+    private final RegionCursor headerCursor;
     private final DefaultReadingContext readingContext = new DefaultReadingContext();
     private final DefaultIterableContext<Entry> iterableContext = new DefaultIterableContext<>(this, readingContext);
 
     private long lastIndex = NULL_INDEX;
 
-    DefaultReader(final String queueName, final QueueRegionMappers regionMappers) {
+    DefaultReader(final String queueName, final QueueRegionCursors regionCursors) {
         this.queueName = requireNonNull(queueName);
-        this.regionMappers = requireNonNull(regionMappers);
-        this.headerMapper = requireNonNull(regionMappers.header());
+        this.regionCursors = requireNonNull(regionCursors);
+        this.headerCursor = requireNonNull(regionCursors.header());
     }
 
     @Override
@@ -120,9 +119,9 @@ final class DefaultReader implements Reader {
      * @return header value
      */
     private long readHeader(final long index) {
-        final Region header;
+        final RegionCursor header = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
-        if (!(header = headerMapper.map(headerPosition)).isMapped()) {
+        if (!header.moveTo(headerPosition)) {
             return NULL_HEADER;
         }
         return header.buffer().getLongVolatile(0);
@@ -131,7 +130,7 @@ final class DefaultReader implements Reader {
     @Override
     public void close() {
         readingContext.close();
-        regionMappers.close();//TODO close or is this shared?
+        regionCursors.close();//TODO close or is this shared?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 
@@ -159,8 +158,8 @@ final class DefaultReader implements Reader {
             if (header != NULL_HEADER) {
                 final short appenderId = HeaderCodec.appenderId(header);
                 final long payloadPosition = HeaderCodec.payloadPosition(header);
-                final Region payload = regionMappers.payload(appenderId).map(payloadPosition);
-                if (payload.isMapped()) {
+                final RegionCursor payload = regionCursors.payload(appenderId);
+                if (payload.moveTo(payloadPosition)) {
                     final int length = payload.buffer().getInt(0);
                     buffer.wrap(payload.buffer(), 4, length);
                     this.index = index;

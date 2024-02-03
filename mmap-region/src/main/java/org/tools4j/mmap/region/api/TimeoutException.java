@@ -21,12 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.api;
 
-interface RegionCache extends AutoCloseable {
-    MutableRegion get(long position);
+public class TimeoutException extends RuntimeException {
+    public TimeoutException() {
+        super();
+    }
+    public TimeoutException(final String message) {
+        super(message);
+    }
 
-    /** Closes all cached regions */
-    @Override
-    void close();
+    public TimeoutException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public TimeoutException(final Throwable cause) {
+        super(cause);
+    }
 }

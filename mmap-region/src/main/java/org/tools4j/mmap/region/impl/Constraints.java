@@ -63,6 +63,18 @@ public enum Constraints {
         }
     }
 
+    public static void validRegionWrapParameters(final int offset, final int length, final RegionMetrics regionMetrics) {
+        validRegionWrapParameters(offset, length, regionMetrics.regionSize());
+    }
+
+    public static void validRegionWrapParameters(final int offset, final int length, final int regionSize) {
+        validRegionOffset(offset, regionSize);
+        if (length < 0 || offset + length > regionSize) {
+            throw new IllegalArgumentException("Invalid length " + length + " for region offset " + offset +
+                    " and region size " + regionSize);
+        }
+    }
+
     public static void validRegionSize(final int regionSize) {
         if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +

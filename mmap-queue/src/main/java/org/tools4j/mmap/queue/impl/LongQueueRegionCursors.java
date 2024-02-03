@@ -25,8 +25,10 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.MapMode;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.api.TimeoutHandler;
+import org.tools4j.mmap.region.api.WaitingPolicy;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
 import org.tools4j.mmap.region.impl.RolledFileMapper;
@@ -45,7 +47,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 /**
  * Region mappers for long queues.
  */
-enum LongQueueRegionMappers {
+enum LongQueueRegionCursors {
     ;
     public static final Word VALUE_WORD = new Word(8, 64);
 
@@ -62,26 +64,31 @@ enum LongQueueRegionMappers {
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
+     * @param waitingPolicy         waiting policy to use for cursor
+     * @param timeoutHandler        handler for timeouts
      * @return an instance of RegionMapper
      */
-    static RegionMapper forReadOnly(final String queueName,
+    static RegionCursor forReadOnly(final String queueName,
                                     final String directory,
                                     final RegionMapperFactory regionMapperFactory,
                                     final int regionSize,
                                     final int regionCacheSize,
                                     final int regionsToMapAhead,
                                     final long maxFileSize,
-                                    final boolean rollFiles) {
+                                    final boolean rollFiles,
+                                    final WaitingPolicy waitingPolicy,
+                                    final TimeoutHandler<? super RegionCursor> timeoutHandler) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
         validRegionSize(regionSize);
         validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
+        requireNonNull(waitingPolicy);
+        requireNonNull(timeoutHandler);
 
         final String fileName = directory + "/" + queueName;
-
-        final FileInitialiser fileInitialiser = LongQueueRegionMappers.headerInitialiser(MapMode.READ_ONLY);
+        final FileInitialiser fileInitialiser = LongQueueRegionCursors.headerInitialiser(MapMode.READ_ONLY);
 
         final FileMapper readOnlyMapper;
         if (rollFiles) {
@@ -90,7 +97,10 @@ enum LongQueueRegionMappers {
             readOnlyMapper = new SingleFileReadOnlyMapper(fileName, fileInitialiser);
         }
 
-        return regionMapperFactory.create(readOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead);
+        return RegionCursor.managed(
+                regionMapperFactory.create(readOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead),
+                waitingPolicy, timeoutHandler
+        );
     }
 
     /**
@@ -106,9 +116,11 @@ enum LongQueueRegionMappers {
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
      * @param filesToCreateAhead    how many payload files should be pre-created (ignored if rollFiles=false)
+     * @param waitingPolicy         waiting policy to use for cursor
+     * @param timeoutHandler        handler for timeouts
      * @return an instance of RegionMapper
      */
-    static RegionMapper forReadWrite(final String queueName,
+    static RegionCursor forReadWrite(final String queueName,
                                      final String directory,
                                      final RegionMapperFactory regionMapperFactory,
                                      final int regionSize,
@@ -116,7 +128,9 @@ enum LongQueueRegionMappers {
                                      final int regionsToMapAhead,
                                      final long maxFileSize,
                                      final boolean rollFiles,
-                                     final int filesToCreateAhead) {
+                                     final int filesToCreateAhead,
+                                     final WaitingPolicy waitingPolicy,
+                                     final TimeoutHandler<? super RegionCursor> timeoutHandler) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
@@ -124,11 +138,13 @@ enum LongQueueRegionMappers {
         validRegionCacheSize(regionCacheSize);
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
+        requireNonNull(waitingPolicy);
+        requireNonNull(timeoutHandler);
 
         final String fileName = directory + "/" + queueName;
         final MapMode mapMode = MapMode.READ_WRITE;
 
-        final FileInitialiser fileInitialiser = LongQueueRegionMappers.headerInitialiser(mapMode);
+        final FileInitialiser fileInitialiser = LongQueueRegionCursors.headerInitialiser(mapMode);
 
         final FileMapper readWriteMapper;
         if (rollFiles) {
@@ -137,7 +153,10 @@ enum LongQueueRegionMappers {
             readWriteMapper = new SingleFileReadWriteMapper(fileName, maxFileSize, fileInitialiser);
         }
 
-        return regionMapperFactory.create(readWriteMapper, regionSize, regionCacheSize, regionsToMapAhead);
+        return RegionCursor.managed(
+                regionMapperFactory.create(readWriteMapper, regionSize, regionCacheSize, regionsToMapAhead),
+                waitingPolicy, timeoutHandler
+        );
     }
 
     static FileInitialiser headerInitialiser(final MapMode mode) {
