@@ -79,6 +79,8 @@ public class SingleFileReadOnlyMapper implements FileMapper {
 
     @Override
     public void unmap(long address, long position, int length) {
+        assert address >= 0;
+        assert position >= 0;
         IoUtil.unmap(fileChannel, address, length);
     }
 

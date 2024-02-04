@@ -143,9 +143,11 @@ final class DefaultAppender implements Appender {
             currentIndex = 0;
             currentHeaderPosition = HEADER_WORD.position(currentIndex);
             final RegionCursor hdrCursor = headerCursor;
+            boolean moved;
             long header;
             do {
-                assert hdrCursor.moveTo(currentHeaderPosition);
+                moved = hdrCursor.moveTo(currentHeaderPosition);
+                assert moved;
                 header = hdrCursor.buffer().getLongVolatile(0);
                 if (header != 0) {
                     currentHeaderPosition = HEADER_WORD.position(++currentIndex);
@@ -158,7 +160,8 @@ final class DefaultAppender implements Appender {
 
             if (currentPayloadPosition != HeaderCodec.initialPayloadPosition()) {
                 //load payload length and add to currentPayloadPosition
-                assert payloadCursor.moveTo(currentPayloadPosition);
+                moved = payloadCursor.moveTo(currentPayloadPosition);
+                assert moved;
                 final int payloadLength = payloadCursor.buffer().getInt(0);
                 currentPayloadPosition += payloadLength + LENGTH_SIZE;
             }

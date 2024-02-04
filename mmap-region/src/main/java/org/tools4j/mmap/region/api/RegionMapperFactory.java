@@ -26,6 +26,7 @@ package org.tools4j.mmap.region.api;
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.region.impl.AsyncRegionMapper;
+import org.tools4j.mmap.region.impl.SyncBackgroundMapAheadRegionMapper;
 import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
 import org.tools4j.mmap.region.impl.RingCacheRegionMapper;
 import org.tools4j.mmap.region.impl.SyncRegionMapper;
@@ -47,6 +48,11 @@ public interface RegionMapperFactory {
      * Factory constant for async region mapping.
      */
     RegionMapperFactory ASYNC = async("RegionMapperFactory::ASYNC", BusySpinIdleStrategy.INSTANCE);
+
+    /**
+     * Factory constant for sync region mapping with async ahead mapping in the background
+     */
+    RegionMapperFactory AHEAD = async("RegionMapperFactory::AHEAD", BusySpinIdleStrategy.INSTANCE);
 
     /**
      * Creates and returns a new region mapper without cache.
@@ -122,6 +128,16 @@ public interface RegionMapperFactory {
         requireNonNull(name);
         requireNonNull(asyncRuntime);
         return factory(name, true, (fileMapper, regionMetrics) -> new AsyncRegionMapper(asyncRuntime, fileMapper, regionMetrics));
+    }
+
+    static RegionMapperFactory ahead(final String name, final IdleStrategy idleStrategy) {
+        return ahead(name, AsyncRuntime.create(idleStrategy));
+    }
+
+    static RegionMapperFactory ahead(final String name, final AsyncRuntime asyncRuntime) {
+        requireNonNull(name);
+        requireNonNull(asyncRuntime);
+        return factory(name, true, (fileMapper, regionMetrics) -> new SyncBackgroundMapAheadRegionMapper(asyncRuntime, fileMapper, regionMetrics));
     }
 
     /**

@@ -40,6 +40,7 @@ import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.impl.Constants;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,15 +59,17 @@ public class QueuePerf {
         tempDir.toFile().deleteOnExit();
 
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
-            final String name = "sample";
+//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
+//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.ahead("ahead", asyncRuntime);
+            final String name = "perf";
 
             final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory)
-//                    .regionSize(8 * 1024)
-//                    .regionCacheSize(4)
-//                    .regionsToMapAhead(1)
-//                    .maxFileSize(8 * 1024 * 1024)
-//                    .filesToCreateAhead(1)
+                    .regionSize((int) (Constants.REGION_SIZE_GRANULARITY * 1024))   //~4MB
+                    .regionCacheSize(4)
+                    .regionsToMapAhead(1)
+                    .maxFileSize(1024 * 1024 * 1024)    //1GB
+                    .filesToCreateAhead(0)
                     ;
 
             final long messagesPerSecond = 1_000_000;

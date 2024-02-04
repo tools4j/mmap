@@ -50,17 +50,14 @@ public interface RegionCursor extends AutoCloseable {
     }
 
     static RegionCursor managed(final RegionMapper regionMapper, final WaitingPolicy waitingPolicy) {
-        return waitingPolicy == WaitingPolicy.noWait()
-                ? noWait(regionMapper)
-                : new ManagedRegionCursor(regionMapper, waitingPolicy);
+        return regionMapper.isAsync() ? new ManagedRegionCursor(regionMapper, waitingPolicy) : noWait(regionMapper);
     }
 
     static RegionCursor managed(final RegionMapper regionMapper,
                                 final WaitingPolicy waitingPolicy,
                                 final TimeoutHandler<? super RegionCursor> timeoutHandler) {
-        return waitingPolicy == WaitingPolicy.noWait()
-                ? noWait(regionMapper)
-                : new ManagedRegionCursor(regionMapper, waitingPolicy, timeoutHandler);
+        return regionMapper.isAsync() ? new ManagedRegionCursor(regionMapper, waitingPolicy, timeoutHandler)
+                : noWait(regionMapper);
     }
 
     RegionMapper regionMapper();

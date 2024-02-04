@@ -94,21 +94,38 @@ public final class AsyncRegionMapper implements RegionMapper {
         final SharedValues shared = sharedValues;
         final long regionPosition = metrics.regionPosition(position);
         final int offset = metrics.regionOffset(position);
-        final AsyncMappingState readState = mappingState();
-        if (shared.position == regionPosition && readState == MAPPED_STATE) {
+        if (shared.mapped(regionPosition)) {
             return MAPPED_STATE.wrap(regionPosition, buffer, offset, shared);
         }
-        if (readState == REQUESTED_STATE) {
-            return REQUESTED_STATE.wrap(regionPosition, buffer, offset, shared);
-        }
+        return tryAwaitMapped(regionPosition, shared, 100_000_000)
+                .wrap(regionPosition, buffer, offset, shared);
+    }
+
+    private AsyncMappingState tryMap(final long regionPosition, final SharedValues shared) {
+        final AsyncMappingState readState = mappingState(shared);
         final AsyncMappingState nextState = readState.requestMap(regionPosition, shared);
         if (readState != nextState) {
-            final int result = nextState.wrap(regionPosition, buffer, offset, shared);
             cachedMappingState = null;
             shared.putOrderedState(nextState);
-            return result;
         }
-        return readState.wrap(regionPosition, buffer, offset, shared);
+        return nextState;
+    }
+
+    private AsyncMappingState tryAwaitMapped(final long regionPosition,
+                                             final SharedValues shared,
+                                             final long maxWaitTimeNanos) {
+        tryMap(regionPosition, shared);
+        if (shared.mapped(regionPosition)) {
+            return MAPPED_STATE;
+        }
+        AsyncMappingState state;
+        final long startTimeNanos = System.nanoTime();
+        while ((state = tryMap(regionPosition, shared)) != CLOSED_STATE && !shared.mapped(regionPosition)) {
+            if (System.nanoTime() - startTimeNanos >= maxWaitTimeNanos) {
+                return state;
+            }
+        }
+        return state;
     }
 
     @Override
@@ -127,7 +144,7 @@ public final class AsyncRegionMapper implements RegionMapper {
 
     private boolean tryClose() {
         final SharedValues shared = sharedValues;
-        final AsyncMappingState readState = mappingState();
+        final AsyncMappingState readState = mappingState(shared);
         final AsyncMappingState nextState = readState.requestClose(closeFinalizer, shared);
         if (readState != nextState) {
             cachedMappingState = null;
@@ -139,7 +156,7 @@ public final class AsyncRegionMapper implements RegionMapper {
 
     @Override
     public boolean isClosed() {
-        return isClosedOrClosing(mappingState());
+        return isClosedOrClosing(mappingState(sharedValues));
     }
 
     private static final class UnmappedState implements AsyncMappingState {
@@ -348,6 +365,14 @@ public final class AsyncRegionMapper implements RegionMapper {
             //this.state = state;
         }
 
+        boolean mapped(final long regionPosition) {
+            return position == regionPosition && mappingState == MAPPED_STATE && position == regionPosition;
+        }
+
+        boolean requested() {
+            return requestedPosition != NULL_POSITION && mappingState == REQUESTED_STATE;
+        }
+
         static {
             try {
                 STATE_OFFSET = UNSAFE.objectFieldOffset(AbstractSharedValues.class.getDeclaredField("mappingState"));
@@ -408,11 +433,11 @@ public final class AsyncRegionMapper implements RegionMapper {
     }
 
 
-    private AsyncMappingState mappingState() {
+    private AsyncMappingState mappingState(final SharedValues shared) {
         if (cachedMappingState != null) {
             return cachedMappingState;
         }
-        final AsyncMappingState state = sharedValues.mappingState;
+        final AsyncMappingState state = shared.mappingState;
         if (!isAsync(state)) {
             cachedMappingState = state;
         }
