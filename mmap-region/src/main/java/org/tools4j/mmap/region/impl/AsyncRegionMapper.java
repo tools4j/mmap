@@ -30,14 +30,16 @@ import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
+import java.util.concurrent.locks.LockSupport;
+
 import static java.util.Objects.requireNonNull;
 import static org.agrona.UnsafeAccess.UNSAFE;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Buffers.unwrap;
 import static org.tools4j.mmap.region.impl.Constraints.validPosition;
 
 public final class AsyncRegionMapper implements RegionMapper {
-    private static final long MAX_CLOSE_WAIT_MILLIS = 5000;
     private final AsyncRuntime asyncRuntime;
     private final FileMapper fileMapper;
     private final RegionMetrics regionMetrics;
@@ -48,17 +50,19 @@ public final class AsyncRegionMapper implements RegionMapper {
     private static final ClosingState CLOSING_STATE = new ClosingState();
     private static final ClosedState CLOSED_STATE = new ClosedState();
     private final Recurring recurring = this::executeAsync;
-    private final Runnable closeFinalizer = this::stopAsync;
+    private final Runnable closeFinalizer;
 
     private AsyncMappingState cachedMappingState;
 
     public AsyncRegionMapper(final AsyncRuntime asyncRuntime,
                              final FileMapper fileMapper,
-                             final RegionMetrics regionMetrics) {
+                             final RegionMetrics regionMetrics,
+                             final Runnable closeFinalizer) {
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.fileMapper = requireNonNull(fileMapper);
         this.regionMetrics = requireNonNull(regionMetrics);
         this.sharedValues = new SharedValues(regionMetrics.regionSize(), UNMAPPED_STATE);
+        this.closeFinalizer = closeFinalizer(closeFinalizer);
         asyncRuntime.register(recurring);
     }
 
@@ -83,8 +87,12 @@ public final class AsyncRegionMapper implements RegionMapper {
         return 0;
     }
 
-    private void stopAsync() {
-        asyncRuntime.deregister(recurring);
+    private Runnable closeFinalizer(final Runnable closeFinalizer) {
+        requireNonNull(closeFinalizer);
+        return () -> {
+            asyncRuntime.deregister(recurring);
+            closeFinalizer.run();
+        };
     }
 
     @Override
@@ -129,7 +137,7 @@ public final class AsyncRegionMapper implements RegionMapper {
     }
 
     @Override
-    public void close() {
+    public void close(final long maxWaitMillis) {
         if (tryClose()) {
             return;
         }
@@ -137,9 +145,11 @@ public final class AsyncRegionMapper implements RegionMapper {
         do {
             if (tryClose()) {
                 return;
+            } else {
+                LockSupport.parkNanos(20_000);
             }
-        } while (System.currentTimeMillis() - start <= MAX_CLOSE_WAIT_MILLIS);
-        throw new IllegalStateException("Not closed or closing after " + MAX_CLOSE_WAIT_MILLIS + "ms");
+        } while (System.currentTimeMillis() - start <= maxWaitMillis);
+        throw new IllegalStateException("Not closed or closing after " + maxWaitMillis + "ms");
     }
 
     private boolean tryClose() {
@@ -228,17 +238,8 @@ public final class AsyncRegionMapper implements RegionMapper {
         private void unwrapLastWrapped(final SharedValues shared) {
             final DirectBuffer last = lastWrapped;
             lastWrapped = null;
-            unwrap(last, shared);
-        }
-
-        private static void unwrap(final DirectBuffer last, final SharedValues shared) {
             if (last != null) {
-                final long addr = shared.address;
-                final long lastAddr = last.addressOffset();
-                if (lastAddr >= addr && lastAddr < addr + shared.regionSize) {
-                    //NOTE: we only unwrap if it was our region, could have been re-wrapped already
-                    last.wrap(0, 0);
-                }
+                unwrap(last, shared.address, shared.regionSize);
             }
         }
 
@@ -265,16 +266,12 @@ public final class AsyncRegionMapper implements RegionMapper {
 
         @Override
         public int wrap(final long regionPosition, final DirectBuffer buffer, final int offset, final SharedValues shared) {
-            final int length = shared.regionSize - offset;
             final DirectBuffer last = lastWrapped;
-            if (buffer != null) {
-                buffer.wrap(shared.address + offset, length);
-            }
+            final int len = Buffers.wrap(buffer, last, shared.address, offset, shared.regionSize);
             if (last != buffer) {
                 lastWrapped = buffer;
-                unwrap(last, shared);
             }
-            return length;
+            return len;
         }
     }
 

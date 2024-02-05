@@ -186,16 +186,16 @@ final class DefaultAppender implements Appender {
                 reset();
             }
             final RegionCursor payload = payloadCursor;
-            if (!payload.moveTo(currentPayloadPosition)) {
+            if (!(payload.moveTo(currentPayloadPosition))) {
                 throw new IllegalStateException("Mapping " + queueName + " payload to position " +
-                        currentPayloadPosition + " failed: readiness not achieved in time");
+                        currentPayloadPosition + " failed: readiness not achieved in time for " + payload);
             }
             if (payload.bytesAvailable() < maxLength + LENGTH_SIZE) { //maxLength does not fit capacity of payload buffer
                 //should re-map the payload buffer to the new memory region
                 currentPayloadPosition += payload.bytesAvailable();
                 if (!(payload.moveTo(currentPayloadPosition))) {
                     throw new IllegalStateException("Mapping " + queueName + " payload to position " +
-                            currentPayloadPosition + " failed: readiness not achieved in time");
+                            currentPayloadPosition + " failed: readiness not achieved in time for " + payload);
                 }
             }
             messageBuffer.wrap(payload.buffer(), PAYLOAD_OFFSET, maxLength);

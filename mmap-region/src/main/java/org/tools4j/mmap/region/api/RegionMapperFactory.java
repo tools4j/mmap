@@ -25,15 +25,8 @@ package org.tools4j.mmap.region.api;
 
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
-import org.tools4j.mmap.region.impl.AsyncRegionMapper;
-import org.tools4j.mmap.region.impl.SyncBackgroundMapAheadRegionMapper;
 import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
-import org.tools4j.mmap.region.impl.RingCacheRegionMapper;
-import org.tools4j.mmap.region.impl.SyncRegionMapper;
-
-import java.util.function.BiFunction;
-
-import static java.util.Objects.requireNonNull;
+import org.tools4j.mmap.region.impl.RegionMapperFactories;
 
 /**
  * Factory to create a {@link RegionMapper}.
@@ -61,7 +54,9 @@ public interface RegionMapperFactory {
      * @param regionMetrics     the region metrics defined by the region size
      * @return a new region mapper for the provided parameters
      */
-    RegionMapper create(FileMapper fileMapper, RegionMetrics regionMetrics);
+    default RegionMapper create(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
+        return create(fileMapper, regionMetrics, 1, 0);
+    }
 
     /**
      * Creates and returns a new region mapper without cache.
@@ -99,15 +94,26 @@ public interface RegionMapperFactory {
      * @param regionsToMapAhead regions to map-ahead if async mapping is used (ignored in sync mode)
      * @return a new region mapper for the provided parameters
      */
-    default RegionMapper create(final FileMapper fileMapper,
-                                final RegionMetrics regionMetrics,
-                                final int regionCacheSize,
-                                final int regionsToMapAhead) {
-        if (regionCacheSize <= 1) {
-            return create(fileMapper, regionMetrics);
-        }
-        return new RingCacheRegionMapper(fileMapper, this, regionMetrics, regionCacheSize, regionsToMapAhead);
-    }
+    RegionMapper create(FileMapper fileMapper,
+                        RegionMetrics regionMetrics,
+                        int regionCacheSize,
+                        int regionsToMapAhead);
+
+    /**
+     * Creates and returns a new region mapper with cache if {@code cacheSize > 1}.
+     *
+     * @param fileMapper        the file mapper to use
+     * @param regionMetrics     the region metrics defined by the region size
+     * @param regionCacheSize   the number of regions to cache
+     * @param regionsToMapAhead regions to map-ahead if async mapping is used (ignored in sync mode)
+     * @param closeFinalizer    the finalizer to call when the region mapper is closed
+     * @return a new region mapper for the provided parameters
+     */
+    RegionMapper create(FileMapper fileMapper,
+                        RegionMetrics regionMetrics,
+                        int regionCacheSize,
+                        int regionsToMapAhead,
+                        Runnable closeFinalizer);
 
     /**
      * Returns true if region mappers created by this factory perform asynchronous mapping in the background, and false
@@ -117,57 +123,26 @@ public interface RegionMapperFactory {
     boolean isAsync();
 
     static RegionMapperFactory sync(final String name) {
-        return factory(name, false, SyncRegionMapper::new);
+        return RegionMapperFactories.sync(name);
     }
 
     static RegionMapperFactory async(final String name, final IdleStrategy idleStrategy) {
-        return async(name, AsyncRuntime.create(idleStrategy));
+        return RegionMapperFactories.async(name, idleStrategy);
     }
 
-    static RegionMapperFactory async(final String name, final AsyncRuntime asyncRuntime) {
-        requireNonNull(name);
-        requireNonNull(asyncRuntime);
-        return factory(name, true, (fileMapper, regionMetrics) -> new AsyncRegionMapper(asyncRuntime, fileMapper, regionMetrics));
+    static RegionMapperFactory async(final String name,
+                                     final AsyncRuntime asyncRuntime,
+                                     final boolean autoCloseRuntime) {
+        return RegionMapperFactories.async(name, asyncRuntime, autoCloseRuntime);
     }
 
     static RegionMapperFactory ahead(final String name, final IdleStrategy idleStrategy) {
-        return ahead(name, AsyncRuntime.create(idleStrategy));
+        return RegionMapperFactories.ahead(name, idleStrategy);
     }
 
-    static RegionMapperFactory ahead(final String name, final AsyncRuntime asyncRuntime) {
-        requireNonNull(name);
-        requireNonNull(asyncRuntime);
-        return factory(name, true, (fileMapper, regionMetrics) -> new SyncBackgroundMapAheadRegionMapper(asyncRuntime, fileMapper, regionMetrics));
-    }
-
-    /**
-     * Convenience method to create factories with name, async property and factory lambda.
-     *
-     * @param name the to-string name for the factory
-     * @param async true if the factory creates async region mappers, and false for sync mappers
-     * @param factory the factory to create region mappers
-     * @return a region mapper factory
-     */
-    static RegionMapperFactory factory(final String name,
-                                       final boolean async,
-                                       final BiFunction<? super FileMapper, ? super RegionMetrics, ? extends RegionMapper> factory) {
-        requireNonNull(name);
-        requireNonNull(factory);
-        return new RegionMapperFactory() {
-            @Override
-            public RegionMapper create(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
-                return factory.apply(fileMapper, regionMetrics);
-            }
-
-            @Override
-            public boolean isAsync() {
-                return async;
-            }
-
-            @Override
-            public String toString() {
-                return name;
-            }
-        };
+    static RegionMapperFactory ahead(final String name,
+                                     final AsyncRuntime asyncRuntime,
+                                     final boolean autoCloseRuntime) {
+        return RegionMapperFactories.ahead(name, asyncRuntime, autoCloseRuntime);
     }
 }

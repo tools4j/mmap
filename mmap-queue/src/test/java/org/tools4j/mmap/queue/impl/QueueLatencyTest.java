@@ -131,14 +131,23 @@ public class QueueLatencyTest {
                 Arguments.of(1_000_000, 1000, RegionMapperFactory.SYNC),
                 Arguments.of(2_000_000, 1000, RegionMapperFactory.SYNC),
 
-                Arguments.of(200_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(500_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(1_000_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(2_000_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(200_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(500_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(1_000_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime)),
-                Arguments.of(2_000_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime))
+                Arguments.of(200_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(500_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(1_000_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(2_000_000, 100, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(200_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(500_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(1_000_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+                Arguments.of(2_000_000, 1000, RegionMapperFactory.async("ASYNC", asyncRuntime, false)),
+
+                Arguments.of(200_000, 100, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(500_000, 100, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(1_000_000, 100, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(2_000_000, 100, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(200_000, 1000, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(500_000, 1000, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(1_000_000, 1000, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false)),
+                Arguments.of(2_000_000, 1000, RegionMapperFactory.ahead("AHEAD", asyncRuntime, false))
         );
     }
 
@@ -193,7 +202,7 @@ public class QueueLatencyTest {
         final int[] messagesPerSec = {200_000, 500_000, 1_000_000, 2_000_000};
         try (AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
             for (final RegionMapperFactory regionMapperFactory : Arrays.asList(RegionMapperFactory.SYNC,
-                    RegionMapperFactory.async("ASYNC", asyncRuntime))) {
+                    RegionMapperFactory.async("ASYNC", asyncRuntime, false))) {
                 for (final int mps : messagesPerSec) {
                     final QueueLatencyTest latencyTest = new QueueLatencyTest();
                     try {

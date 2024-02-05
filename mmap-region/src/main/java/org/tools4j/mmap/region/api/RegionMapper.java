@@ -27,6 +27,12 @@ import org.agrona.DirectBuffer;
 
 public interface RegionMapper extends AutoCloseable {
     /**
+     * Default maximum time to wait in milliseconds when closing a mapper (or all underlying mappers) if closing
+     * involves some asynchronous operations.
+     */
+    long DEFAULT_MAX_CLOSE_WAIT_MILLIS = 500;
+
+    /**
      * Value returned by {@link #map(long, DirectBuffer) map(..)} if the mapping request was accepted and the operation
      * is being processed asynchronously; mapping will eventually succeed if it is re-attempted.
      */
@@ -86,5 +92,15 @@ public interface RegionMapper extends AutoCloseable {
      * {@link org.tools4j.mmap.region.impl.RingCacheRegionMapper RingCacheRegionMapper}
      */
     @Override
-    void close();
+    default void close() {
+        close(DEFAULT_MAX_CLOSE_WAIT_MILLIS);
+    }
+    /**
+     * Closes this region mapper and issued mapping, or all mappers and mappings if this is a
+     * {@link org.tools4j.mmap.region.impl.RingCacheRegionMapper RingCacheRegionMapper}, waiting at most the specified
+     * time in milliseconds.
+     *
+     * @param maxWaitMillis maximum time to wait for asynchronous operations to complete, if any
+     */
+    void close(long maxWaitMillis);
 }

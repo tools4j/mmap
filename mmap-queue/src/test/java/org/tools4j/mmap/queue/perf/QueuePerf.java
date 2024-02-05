@@ -60,8 +60,8 @@ public class QueuePerf {
 
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
 //            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
-//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.ahead("ahead", asyncRuntime);
+//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime, false);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.ahead("ahead", asyncRuntime, false);
             final String name = "perf";
 
             final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory)

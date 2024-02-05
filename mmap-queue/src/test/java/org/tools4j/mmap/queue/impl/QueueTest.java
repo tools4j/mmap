@@ -67,7 +67,7 @@ class QueueTest {
     @Test
     void test() {
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime, false);
             //final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
             final Queue queue = Queue.builder("test", tempDir.toString(), regionMapperFactory)
                     .writeTimeout(10, TimeUnit.SECONDS) // for windows build

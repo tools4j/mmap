@@ -31,6 +31,8 @@ import org.tools4j.mmap.region.api.RegionMetrics;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Buffers.unwrap;
+import static org.tools4j.mmap.region.impl.Buffers.wrap;
 import static org.tools4j.mmap.region.impl.Constraints.validPosition;
 
 public final class SyncRegionMapper implements RegionMapper {
@@ -39,7 +41,7 @@ public final class SyncRegionMapper implements RegionMapper {
     private final RegionMetrics regionMetrics;
     private long mappedAddress = NULL_ADDRESS;
     private long mappedPosition = NULL_POSITION;
-    private DirectBuffer lastMapped;
+    private DirectBuffer lastWrapped;
     private boolean closed;
 
     public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
@@ -63,7 +65,9 @@ public final class SyncRegionMapper implements RegionMapper {
         final RegionMetrics metrics = regionMetrics;
         final long regionPosition = metrics.regionPosition(position);
         if (regionPosition == mappedPosition) {
-            return wrap(metrics, mappedAddress, position, buffer);
+            final int len = wrap(buffer, lastWrapped, mappedAddress, position, metrics);
+            lastWrapped = buffer;
+            return len;
         }
         if (isClosed()) {
             return CLOSED;
@@ -72,9 +76,11 @@ public final class SyncRegionMapper implements RegionMapper {
             unmapIfNecessary();
             final long addr = fileMapper.map(regionPosition, regionMetrics.regionSize());
             if (addr > 0) {
+                final int len = wrap(buffer, lastWrapped, addr, position, metrics);
                 mappedAddress = addr;
                 mappedPosition = regionPosition;
-                return wrap(metrics, addr, position, buffer);
+                lastWrapped = buffer;
+                return len;
             } else {
                 return FAILED;
             }
@@ -83,41 +89,32 @@ public final class SyncRegionMapper implements RegionMapper {
         }
     }
 
-    private int wrap(final RegionMetrics metrics,
-                     final long mappedAddress,
-                     final long position,
-                     final DirectBuffer buffer) {
-        final int offset = metrics.regionOffset(position);
-        final int length = metrics.regionSize() - offset;
-        if (buffer != null) {
-            buffer.wrap(mappedAddress + offset, length);
-        }
-        lastMapped = buffer;
-        return length;
-    }
-
     private void unmapIfNecessary() {
         final long addr = mappedAddress;
         final long pos = mappedPosition;
-        final DirectBuffer last = lastMapped;
         if (addr != NULL_ADDRESS) {
+            final int regionSize = regionMetrics.regionSize();
             mappedAddress = NULL_ADDRESS;
             mappedPosition = NULL_POSITION;
-            if (last != null) {
-                last.wrap(0, 0);
-                lastMapped = null;
-            }
+            unwrapLastWrapped(addr, regionSize);
             assert pos != NULL_POSITION;
-            final long regionPosition = regionMetrics.regionPosition(pos);
-            fileMapper.unmap(addr, regionPosition, regionMetrics.regionSize());
+            fileMapper.unmap(addr, pos, regionSize);
         } else {
             assert pos == NULL_POSITION;
-            assert last == null;
+            assert lastWrapped == null;
+        }
+    }
+
+    private void unwrapLastWrapped(final long address, final int regionSize) {
+        final DirectBuffer last = lastWrapped;
+        if (last != null) {
+            lastWrapped = null;
+            unwrap(last, address, regionSize);
         }
     }
 
     @Override
-    public void close() {
+    public void close(final long maxWaitMillis) {
         if (!isClosed()) {
             try {
                 unmapIfNecessary();

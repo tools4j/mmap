@@ -31,12 +31,12 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.RegionMapper;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -58,11 +58,11 @@ public class RingRegionCacheTest {
         final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
         final FileMapper fileMapper = mock(FileMapper.class);
         regionCache = new RingCacheRegionMapper(fileMapper,
-                RegionMapperFactory.factory("RegionFactory", false, (fMapper, rMetrics) -> {
-                    final RegionMapper region = Mockito.mock(RegionMapper.class);
-                    regions.add(region);
-                    return region;
-                }), regionMetrics, cacheSize, 0);
+                RegionMapperFactories.factory("RegionFactory", false, () -> {}, (fMapper, rMetrics, cFinalizer) -> {
+                    final RegionMapper mapper = Mockito.mock(RegionMapper.class);
+                    regions.add(mapper);
+                    return mapper;
+                }), regionMetrics, cacheSize, 0, () -> {});
         region1 = regions.get(0);
         region2 = regions.get(1);
         region3 = regions.get(2);
@@ -142,9 +142,9 @@ public class RingRegionCacheTest {
         regionCache.close();
 
         //verify
-        inOrder.verify(region1).close();
-        inOrder.verify(region2).close();
-        inOrder.verify(region3).close();
-        inOrder.verify(region4).close();
+        inOrder.verify(region1).close(anyLong());
+        inOrder.verify(region2).close(anyLong());
+        inOrder.verify(region3).close(anyLong());
+        inOrder.verify(region4).close(anyLong());
     }
 }

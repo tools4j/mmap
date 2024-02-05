@@ -85,7 +85,7 @@ public class AsyncRegionTest {
             return data.addressOffset() + position;
         });
         final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
-        regionMapper = RegionMapperFactory.async("ASYNC", asyncRuntime).create(fileMapper, regionMetrics);
+        regionMapper = RegionMapperFactory.async("ASYNC", asyncRuntime, true).create(fileMapper, regionMetrics);
         inOrder = Mockito.inOrder(asyncRuntime, fileMapper);
         assertNotNull(asyncRecurring);
     }
@@ -168,9 +168,9 @@ public class AsyncRegionTest {
         asyncRecurring.execute();
 
         //then
-        inOrder.verify(asyncRuntime, once()).stop(false);
         inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
         inOrder.verify(asyncRuntime, once()).deregister(asyncRecurring);
+        inOrder.verify(asyncRuntime, once()).close();
 
         //when - close again should have no effect
         rider.close();

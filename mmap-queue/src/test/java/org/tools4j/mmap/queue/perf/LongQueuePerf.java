@@ -59,8 +59,8 @@ public class LongQueuePerf {
 
         try (final AsyncRuntime asyncRuntime = AsyncRuntime.create(ASYNC_RUNTIME_IDLE_STRATEGY)) {
 //            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.SYNC;
-//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime);
-            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.ahead("ahead", asyncRuntime);
+//            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.async("async", asyncRuntime, false);
+            final RegionMapperFactory regionMapperFactory = RegionMapperFactory.ahead("ahead", asyncRuntime, false);
             final String name = "long-perf";
 
             final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionMapperFactory)

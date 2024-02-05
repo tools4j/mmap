@@ -41,6 +41,7 @@ public final class RingCacheRegionMapper implements RegionMapper {
     private final RegionMapper[] cache;
     private final int cacheSizeMask;
     private final int regionsToMapAhead;
+    private final Runnable closeFinalizer;
 
     private long lastRegionStartPosition;
 
@@ -48,22 +49,25 @@ public final class RingCacheRegionMapper implements RegionMapper {
                                  final RegionMapperFactory regionMapperFactory,
                                  final RegionMetrics regionMetrics,
                                  final int cacheSize,
-                                 final int regionsToMapAhead) {
+                                 final int regionsToMapAhead,
+                                 final Runnable closeFinalizer) {
         this.regionMetrics = requireNonNull(regionMetrics);
-        this.cache = initCache(regionMetrics.regionSize(), fileMapper, regionMapperFactory, cacheSize);
+        this.cache = initCache(regionMetrics, fileMapper, regionMapperFactory, cacheSize);
         this.cacheSizeMask = cacheSize - 1;
         if (regionsToMapAhead + cacheSize < 0 || regionsToMapAhead >= cacheSize) {
             throw new IllegalArgumentException("Regions to map ahead must be in [-" + cacheSize + ", " + (cacheSize-1) +
                     " for region cache size " + cacheSize + " but was " + regionsToMapAhead);
         }
         this.regionsToMapAhead = regionsToMapAhead >= 0 ? regionsToMapAhead : cacheSize + regionsToMapAhead;
+        this.closeFinalizer = requireNonNull(closeFinalizer);
         this.lastRegionStartPosition = -regionMetrics.regionSize();
     }
 
-    private static RegionMapper[] initCache(final int regionSize,
+    private static RegionMapper[] initCache(final RegionMetrics regionMetrics,
                                             final FileMapper fileMapper,
                                             final RegionMapperFactory regionMapperFactory,
                                             final int cacheSize) {
+        requireNonNull(regionMetrics);
         requireNonNull(fileMapper);
         requireNonNull(regionMapperFactory);
         if (!BitUtil.isPowerOfTwo(cacheSize)) {
@@ -71,7 +75,7 @@ public final class RingCacheRegionMapper implements RegionMapper {
         }
         final RegionMapper[] cache = new RegionMapper[cacheSize];
         for (int i = 0; i < cacheSize; i++) {
-            cache[i] = requireNonNull(regionMapperFactory.create(fileMapper, regionSize, 1, 0));
+            cache[i] = requireNonNull(regionMapperFactory.create(fileMapper, regionMetrics, 1, 0, () -> {}));
         }
         return cache;
     }
@@ -130,9 +134,12 @@ public final class RingCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public void close() {
+    public void close(final long maxWaitMillis) {
+        final long startTimeMillis = System.currentTimeMillis();
         for (final RegionMapper mapper : cache) {
-            mapper.close();
+            final long elapsedTimeMillis = System.currentTimeMillis() - startTimeMillis;
+            final long maxWaitRemainingMillis = Math.max(0, maxWaitMillis - elapsedTimeMillis);
+            mapper.close(maxWaitRemainingMillis);
         }
     }
 
