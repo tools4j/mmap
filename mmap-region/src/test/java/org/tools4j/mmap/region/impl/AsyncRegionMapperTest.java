@@ -37,10 +37,10 @@ import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.api.RegionMetrics;
-import org.tools4j.mmap.region.api.RegionCursor;
 
 import java.nio.ByteBuffer;
 
@@ -55,7 +55,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class AsyncRegionTest {
+public class AsyncRegionMapperTest {
     private static final int MAX_DATA_LENGTH = 512;
     @Mock
     private AsyncRuntime asyncRuntime;

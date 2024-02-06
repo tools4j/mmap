@@ -34,23 +34,31 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.verification.VerificationMode;
+import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.RegionMetrics;
 
 import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class SyncRegionTest {
+public class BackgroundMapAheadRegionMapperTest {
     private static final int MAX_DATA_LENGTH = 512;
+    @Mock
+    private AsyncRuntime asyncRuntime;
     @Mock
     private FileMapper fileMapper;
 
@@ -58,10 +66,16 @@ public class SyncRegionTest {
 
     private RegionMapper regionMapper;
 
+    private Recurring asyncRecurring;
+
     private final int regionSize = 128;
 
     @BeforeEach
     public void setUp() {
+        doAnswer(invocation -> {
+            asyncRecurring = invocation.getArgument(0);
+            return null;
+        }).when(asyncRuntime).register(any());
         final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
         when(fileMapper.map(anyLong(), eq(regionSize))).thenAnswer(invocation -> {
             final long position = invocation.getArgument(0);
@@ -70,8 +84,10 @@ public class SyncRegionTest {
             }
             return data.addressOffset() + position;
         });
-        regionMapper = RegionMapperFactory.SYNC.create(fileMapper, regionSize);
-        inOrder = Mockito.inOrder(fileMapper);
+        final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
+        regionMapper = RegionMapperFactory.ahead("AHEAD", asyncRuntime, true).create(fileMapper, regionMetrics);
+        inOrder = Mockito.inOrder(asyncRuntime, fileMapper);
+        assertNotNull(asyncRecurring);
     }
 
     @AfterEach
@@ -87,11 +103,18 @@ public class SyncRegionTest {
         final long regionStartPosition = position - positionInRegion;
         final RegionCursor rider = RegionCursor.noWait(regionMapper);
 
+        //when: map ahead
+        regionMapper.map(regionStartPosition, null);
+        asyncRecurring.execute();
+
+        //then
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+
         //when
         rider.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, never()).map(regionStartPosition, regionSize);
         assertEquals(positionInRegion, rider.offset());
         assertEquals(regionSize - positionInRegion, rider.bytesAvailable());
 
@@ -115,6 +138,7 @@ public class SyncRegionTest {
         //when - close, causes unmap
         final long address = rider.buffer().addressOffset();
         rider.close();
+        asyncRecurring.execute();
 
         //then
         inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
@@ -129,11 +153,18 @@ public class SyncRegionTest {
         final long regionStartPosition = position - positionInRegion;
         final RegionCursor rider = RegionCursor.noWait(regionMapper);
 
+        //when: map ahead
+        regionMapper.map(regionStartPosition, null);
+        asyncRecurring.execute();
+
+        //then
+        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+
         //when
         rider.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, never()).map(regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
         rider.moveRelativeToRegionStart(0);
@@ -144,17 +175,19 @@ public class SyncRegionTest {
         //when - close to unmap
         long address = rider.buffer().addressOffset();
         rider.close();
+        asyncRecurring.execute();
 
         //then
+        inOrder.verify(asyncRuntime, once()).deregister(asyncRecurring);
         inOrder.verify(fileMapper, once()).unmap(address, regionStartPosition, regionSize);
+        inOrder.verify(asyncRuntime, once()).close();
 
         //when - close again should have no effect
         rider.close();
         rider.close();
 
         //then
-        inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verifyNoMoreInteractions();
     }
 
     @Test
@@ -167,6 +200,8 @@ public class SyncRegionTest {
 
         //when
         rider.moveTo(position);
+        asyncRecurring.execute();
+        rider.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
@@ -177,7 +212,12 @@ public class SyncRegionTest {
         rider.moveToPreviousRegion();
 
         //then
-        inOrder.verify(fileMapper, once()).unmap(unmapAddress, regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
+
+        //when: async unmapping
+        asyncRecurring.execute();
+
+        //then
         inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
     }
 
