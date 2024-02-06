@@ -21,23 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.api;
 
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+public class TimeoutException extends RuntimeException {
+    public TimeoutException() {
+        super();
+    }
+    public TimeoutException(final String message) {
+        super(message);
+    }
 
-/**
- * Extension of {@link RegionMapper} with map operations to unmap and re-map a region if necessary.
- */
-interface RegionManager extends RegionMapper {
-    /**
-     * Same as {@link #map(long)} but with additional information of previous region from which the map request
-     * originated.  Region mapper implementations may use this information to predict the mapping direction and pre-map
-     * additional pages other than the one requested here.
-     *
-     * @param position absolute start position, does not have to be a multiple of region size
-     * @param from the region from which the map request was initiated
-     * @return the region, guaranteed to be immediately mapped if synchronous mapping is used
-     */
-    Region mapFrom(long position, MutableRegion from);
+    public TimeoutException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public TimeoutException(final Throwable cause) {
+        super(cause);
+    }
 }

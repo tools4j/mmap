@@ -30,7 +30,9 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.api.TimeoutHandler;
 import org.tools4j.mmap.region.api.WaitingPolicy;
 
 import java.util.List;
@@ -78,31 +80,29 @@ public final class DefaultQueue implements Queue {
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
 
+        final TimeoutHandler<RegionCursor> timeoutHandler = exceptionOnTimeout ?
+                TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name);
         final AppenderIdPool appenderIdPool = open(manyAppenders ?
                 new DefaultAppenderIdPool(directory, name) : AppenderIdPool.SINGLE_APPENDER);
-        final RegionMapperFactory readMapperFactory = regionMapperFactory.isAsync() ?
-                RegionMapperFactory.async(regionMapperFactory, readWaitingPolicy,
-                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
-                : regionMapperFactory;
-        final RegionMapperFactory writeMapperFactory = regionMapperFactory.isAsync() ?
-                RegionMapperFactory.async(regionMapperFactory, writeWaitingPolicy,
-                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
-                : regionMapperFactory;
-        this.pollerFactory = () -> open(new DefaultPoller(name,
-                QueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, LOGGER)));
 
-        this.readerFactory = () -> open(new DefaultReader(name,
-                QueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, LOGGER)));
+        this.pollerFactory = () -> open(new DefaultPoller(name, QueueRegionCursors.forReadOnly(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, readWaitingPolicy, timeoutHandler, LOGGER
+        )));
 
-        this.appenderFactory = () -> open(new DefaultAppender(name,
-                QueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, filesToCreateAhead, LOGGER), appenderIdPool));
+        this.readerFactory = () -> open(new DefaultReader(name, QueueRegionCursors.forReadOnly(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, readWaitingPolicy, timeoutHandler, LOGGER
+        )));
+
+        this.appenderFactory = () -> open(new DefaultAppender(name, QueueRegionCursors.forReadWrite(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, filesToCreateAhead, writeWaitingPolicy, timeoutHandler, LOGGER
+        ), appenderIdPool));
 
         final String asyncInfo = regionMapperFactory.isAsync() ? String.format(
                 ", regionsToMapAhead=%s, readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
-                regionsToMapAhead, readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
+                regionsToMapAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout) : "";
         this.description = String.format("Queue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
                         "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
                 regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);

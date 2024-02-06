@@ -26,25 +26,24 @@ package org.tools4j.mmap.queue.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.LongAppender;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.LongQueue.DEFAULT_NULL_VALUE;
 import static org.tools4j.mmap.queue.impl.DefaultLongQueue.maskNullValue;
-import static org.tools4j.mmap.queue.impl.LongQueueRegionMappers.VALUE_WORD;
+import static org.tools4j.mmap.queue.impl.LongQueueRegionCursors.VALUE_WORD;
 
 public class DefaultLongAppender implements LongAppender {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultLongAppender.class);
     private static final long NOT_INITIALISED = -1;
     private final long nullValue;
-    private final RegionMapper regionMapper;
+    private final RegionCursor regionCursor;
     private long currentPosition = NOT_INITIALISED;
     private long currentIndex = NOT_INITIALISED;
 
-    public DefaultLongAppender(final long nullValue, final RegionMapper regionMapper) {
+    public DefaultLongAppender(final long nullValue, final RegionCursor regionCursor) {
         this.nullValue = nullValue;
-        this.regionMapper = requireNonNull(regionMapper);
+        this.regionCursor = requireNonNull(regionCursor);
         advanceToLastAppendPosition();
     }
 
@@ -60,10 +59,10 @@ public class DefaultLongAppender implements LongAppender {
             return MOVE_TO_END_ERROR;
         }
 
-        Region region;
-        if ((region = regionMapper.map(currentPosition)).isReady()) {
-            while (!region.buffer().compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
-                if ((region = moveToLastPosition()) == null) {
+        final RegionCursor cursor = regionCursor;
+        if (cursor.moveTo(currentPosition)) {
+            while (!cursor.buffer().compareAndSetLong(0, DEFAULT_NULL_VALUE, maskedValue)) {
+                if (!moveToLastPosition()) {
                     return WRAP_REGION_ERROR;
                 }
             }
@@ -79,24 +78,24 @@ public class DefaultLongAppender implements LongAppender {
         }
     }
 
-    private Region moveToLastPosition() {
+    private boolean moveToLastPosition() {
         currentIndex++;
         currentPosition = VALUE_WORD.position(currentIndex);
         long value;
-        Region region;
+        final RegionCursor cursor = regionCursor;
         do {
-            if ((region = regionMapper.map(currentPosition)).isReady()) {
-                value = region.buffer().getLongVolatile(0);
+            if (cursor.moveTo(currentPosition)) {
+                value = cursor.buffer().getLongVolatile(0);
                 if (value != DEFAULT_NULL_VALUE) {
                     currentPosition = VALUE_WORD.position(++currentIndex);
                 }
             } else {
                 LOGGER.error("Failed to map region at {} when advancing to last append position",
                         currentPosition);
-                return null;
+                return false;
             }
         } while (value != DEFAULT_NULL_VALUE);
-        return region;
+        return true;
     }
 
     private boolean advanceToLastAppendPosition() {
@@ -105,9 +104,9 @@ public class DefaultLongAppender implements LongAppender {
             currentPosition = VALUE_WORD.position(currentIndex);
             long value;
             do {
-                final Region region;
-                if ((region = regionMapper.map(currentPosition)).isReady()) {
-                    value = region.buffer().getLongVolatile(0);
+                final RegionCursor cursor = regionCursor;
+                if (cursor.moveTo(currentPosition)) {
+                    value = cursor.buffer().getLongVolatile(0);
                     if (value != DEFAULT_NULL_VALUE) {
                         currentPosition = VALUE_WORD.position(++currentIndex);
                     }
@@ -123,7 +122,7 @@ public class DefaultLongAppender implements LongAppender {
 
     @Override
     public void close() {
-        regionMapper.close();//TODO close or is this shared ?
+        regionCursor.close();//TODO close or is this shared ?
         LOGGER.info("Closed long appender.");
     }
 }

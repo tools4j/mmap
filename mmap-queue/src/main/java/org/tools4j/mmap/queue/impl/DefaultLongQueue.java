@@ -30,7 +30,9 @@ import org.tools4j.mmap.queue.api.LongAppender;
 import org.tools4j.mmap.queue.api.LongPoller;
 import org.tools4j.mmap.queue.api.LongQueue;
 import org.tools4j.mmap.queue.api.LongReader;
+import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.api.TimeoutHandler;
 import org.tools4j.mmap.region.api.WaitingPolicy;
 
 import java.util.List;
@@ -82,30 +84,24 @@ public final class DefaultLongQueue implements LongQueue {
         greaterThanZero(maxFileSize, "maxFileSize");
         nonNegative(filesToCreateAhead, "filesToCreateAhead");
 
-        final RegionMapperFactory readMapperFactory = regionMapperFactory.isAsync() ?
-                RegionMapperFactory.async(regionMapperFactory, readWaitingPolicy,
-                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
-                : regionMapperFactory;
-        final RegionMapperFactory writeMapperFactory = regionMapperFactory.isAsync() ?
-                RegionMapperFactory.async(regionMapperFactory, writeWaitingPolicy,
-                        exceptionOnTimeout ? TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name))
-                : regionMapperFactory;
+        final TimeoutHandler<RegionCursor> timeoutHandler = exceptionOnTimeout ?
+                TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name);
 
-        this.pollerFactory = () -> open(new DefaultLongPoller(name, nullValue,
-                LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles)));
+        this.pollerFactory = () -> open(new DefaultLongPoller(name, nullValue, LongQueueRegionCursors.forReadOnly(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, readWaitingPolicy, timeoutHandler)));
 
-        this.readerFactory = () -> open(new DefaultLongReader(name, nullValue,
-                LongQueueRegionMappers.forReadOnly(name, directory, readMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles)));
+        this.readerFactory = () -> open(new DefaultLongReader(name, nullValue, LongQueueRegionCursors.forReadOnly(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, readWaitingPolicy, timeoutHandler)));
 
-        this.appenderFactory = () -> open(new DefaultLongAppender(nullValue,
-                LongQueueRegionMappers.forReadWrite(name, directory, writeMapperFactory, regionSize, regionCacheSize,
-                        regionsToMapAhead, maxFileSize, rollFiles, filesToCreateAhead)));
+        this.appenderFactory = () -> open(new DefaultLongAppender(nullValue, LongQueueRegionCursors.forReadWrite(
+                name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
+                rollFiles, filesToCreateAhead, writeWaitingPolicy, timeoutHandler)));
 
         final String asyncInfo = regionMapperFactory.isAsync() ? String.format(
                 ", regionsToMapAhead=%s, readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
-                regionsToMapAhead, readMapperFactory, writeMapperFactory, exceptionOnTimeout) : "";
+                regionsToMapAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout) : "";
         this.description = String.format("LongQueue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
                         "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
                 regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);

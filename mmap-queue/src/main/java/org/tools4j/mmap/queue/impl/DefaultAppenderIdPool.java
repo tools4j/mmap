@@ -27,10 +27,10 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
-import org.tools4j.mmap.region.impl.RegionMapperFactories;
 import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
 
 import java.io.File;
@@ -57,7 +57,7 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
     private static final int MAX_APPENDERS = 256;
     private static final int REGION_SIZE = 8;
     private static final String FILE_SUFFIX = "open_appenders";
-    private final Region region;
+    private final RegionCursor region;
     private final String queueName;
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -109,11 +109,13 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         }
     }
 
-    private static Region fixedRegion(final String directory, final String queueName) {
+    private static RegionCursor fixedRegion(final String directory, final String queueName) {
         final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
         final FileMapper fileMapper = new SingleFileReadWriteMapper(file, REGION_SIZE, fileInitialiser());
-        final Region region = RegionMapperFactories.sync(fileMapper, REGION_SIZE, 1).map(0);
-        if (region.isReady()) {
+        final RegionCursor region = RegionCursor.noWait(
+                RegionMapperFactory.sync("sync:fixed").create(fileMapper, REGION_SIZE)
+        );
+        if (region.moveToFirstRegion()) {
             return region;
         }
         throw new IllegalStateException("Could not map fixed region: " + region);

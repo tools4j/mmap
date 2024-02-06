@@ -23,42 +23,46 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.agrona.DirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
+import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 
 /**
- * Unit test for {@link RingRegionCache}
+ * Unit test for {@link RingCacheRegionMapper}
  */
 public class RingRegionCacheTest {
-    private MutableRegion region1;
-    private MutableRegion region2;
-    private MutableRegion region3;
-    private MutableRegion region4;
+    private RegionMapper region1;
+    private RegionMapper region2;
+    private RegionMapper region3;
+    private RegionMapper region4;
 
-    private RegionCache regionCache;
+    private RingCacheRegionMapper regionCache;
     private final int regionSize = 128;
 
     @BeforeEach
     public void setup() {
         final int cacheSize = 4;
-        final List<MutableRegion> regions = new ArrayList<>(cacheSize);
+        final List<RegionMapper> regions = new ArrayList<>(cacheSize);
         final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
-        regionCache = new RingRegionCache(regionMetrics, metrics -> {
-            final MutableRegion region = Mockito.mock(MutableRegion.class);
-            final MutableMappingState mappingState = Mockito.mock(MutableMappingState.class);
-            when(region.mappingState()).thenReturn(mappingState);
-            regions.add(region);
-            return region;
-        }, cacheSize);
+        final FileMapper fileMapper = mock(FileMapper.class);
+        regionCache = new RingCacheRegionMapper(fileMapper,
+                RegionMapperFactories.factory("RegionFactory", false, () -> {}, (fMapper, rMetrics, cFinalizer) -> {
+                    final RegionMapper mapper = Mockito.mock(RegionMapper.class);
+                    regions.add(mapper);
+                    return mapper;
+                }), regionMetrics, cacheSize, 0, () -> {});
         region1 = regions.get(0);
         region2 = regions.get(1);
         region3 = regions.get(2);
@@ -66,31 +70,81 @@ public class RingRegionCacheTest {
     }
 
     @Test
-    public void get() {
-        //when + then
-        assertSame(region4, regionCache.get(7L * regionSize + 45));
-        assertSame(region4, regionCache.get(7L * regionSize + 60));
-        assertSame(region1, regionCache.get(7L * regionSize + 130));
-        assertSame(region2, regionCache.get(9L * regionSize + 20));
-        assertSame(region3, regionCache.get(10L * regionSize + 22));
-        assertSame(region2, regionCache.get(9L * regionSize));
-        assertSame(region3, regionCache.get(10L * regionSize));
-        assertSame(region4, regionCache.get(11L * regionSize));
+    public void map() {
+        //given
+        final InOrder inOrder = Mockito.inOrder(region1, region2, region3, region4);
+        final DirectBuffer buffer = new UnsafeBuffer();
+        long position;
+
+        //when
+        position = 7L * regionSize + 45;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region4).map(position, buffer);
+
+        //when
+        position = 7L * regionSize + 60;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region4).map(position, buffer);
+
+        //when
+        position = 7L * regionSize + 130;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region1).map(position, buffer);
+
+        //when
+        position = 9L * regionSize + 20;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region2).map(position, buffer);
+
+        //when
+        position = 10L * regionSize + 22;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region3).map(position, buffer);
+
+        //when
+        position = 9L * regionSize;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region2).map(position, buffer);
+
+        //when
+        position = 10L * regionSize;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region3).map(position, buffer);
+
+        //when
+        position = 11L * regionSize;
+        regionCache.map(position, buffer);
+
+        //then
+        inOrder.verify(region4).map(position, buffer);
     }
 
     @Test
     public void close() {
         //given
-        final InOrder inOrder = Mockito.inOrder(region1.mappingState(), region2.mappingState(),
-                region3.mappingState(), region4.mappingState());
+        final InOrder inOrder = Mockito.inOrder(region1, region2, region3, region4);
 
         //when
         regionCache.close();
 
         //verify
-        inOrder.verify(region1.mappingState()).close();
-        inOrder.verify(region2.mappingState()).close();
-        inOrder.verify(region3.mappingState()).close();
-        inOrder.verify(region4.mappingState()).close();
+        inOrder.verify(region1).close(anyLong());
+        inOrder.verify(region2).close(anyLong());
+        inOrder.verify(region3).close(anyLong());
+        inOrder.verify(region4).close(anyLong());
     }
 }

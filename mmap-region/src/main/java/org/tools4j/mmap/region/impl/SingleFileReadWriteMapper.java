@@ -24,7 +24,6 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.IoUtil;
-import org.agrona.collections.MutableLong;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
@@ -38,19 +37,26 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SingleFileReadWriteMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadWriteMapper.class);
     private static final MapMode MAP_MODE = MapMode.READ_WRITE;
+    private static final long FILE_EXTENSION_LOCK = -1L;
     private final File file;
     private final FileInitialiser fileInitialiser;
     private final long maxSize;
-    private final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
 
+    private final ThreadLocal<PerThreadState> perThreadState = ThreadLocal.withInitial(PerThreadState::new);
+    private final AtomicLong fileLengthExtensionLatch = new AtomicLong();
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
 
-    private final MutableLong fileSizeCache = new MutableLong(0);
+    private static class PerThreadState {
+        final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
+        long fileLengthCache;
+    }
+
 
     public SingleFileReadWriteMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
@@ -68,7 +74,7 @@ public class SingleFileReadWriteMapper implements FileMapper {
             return NULL_ADDRESS;
         }
 
-        FileSizeResult result = ensureFileSize(position + length);
+        FileSizeResult result = ensureFileLength(position + length);
         if (result != FileSizeResult.ERROR) {
             long address = IoUtil.map(fileChannel, MAP_MODE.getMapMode(), position, length);
 
@@ -82,11 +88,10 @@ public class SingleFileReadWriteMapper implements FileMapper {
         return NULL_ADDRESS;
     }
 
-    private void preTouch(int length, long address) {
+    private void preTouch(final int length, final long address) {
+        final AtomicBuffer preTouchBuffer = perThreadState.get().preTouchBuffer;
         preTouchBuffer.wrap(address, length);
         for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
-            //preTouchBuffer.putInt(i, 0);
-            //preTouchBuffer.putByte(i, (byte)0);
             preTouchBuffer.compareAndSetLong(i, 0L, 0L);
         }
         preTouchBuffer.wrap(0, 0);
@@ -158,14 +163,23 @@ public class SingleFileReadWriteMapper implements FileMapper {
         }
     }
 
-    private boolean extendFileLength(final long length) {
-        try {
-            rafFile.setLength(length);
-            return true;
-        } catch (final IOException e) {
-            LOGGER.error("Could not extend length to " + length + " for file " + file, e);
-            return false;
+    private long extendFileLength(final long minLength) {
+        long curLength = fileLengthExtensionLatch.get();
+        while (curLength < minLength) {
+            if (curLength != FILE_EXTENSION_LOCK && fileLengthExtensionLatch.compareAndSet(curLength, FILE_EXTENSION_LOCK)) {
+                try {
+                    rafFile.setLength(minLength);
+                    fileLengthExtensionLatch.set(minLength);
+                    return minLength;
+                } catch (final IOException e) {
+                    fileLengthExtensionLatch.set(curLength);
+                    LOGGER.error("Could not extend length to " + minLength + " for file " + file, e);
+                    return -1;
+                }
+            }
+            curLength = fileLengthExtensionLatch.get();
         }
+        return curLength;
     }
 
     enum FileSizeResult {
@@ -174,21 +188,23 @@ public class SingleFileReadWriteMapper implements FileMapper {
         EXTENDED
     }
 
-    FileSizeResult ensureFileSize(final long minSize) {
-        if (fileSizeCache.get() < minSize) {
-            final long len = fileLength();
-            if (len < minSize) {
-                if (minSize > maxSize) {
-                    LOGGER.error("Exceeded max file size {}, requested size {} for file {}", maxSize, minSize, file);
+    FileSizeResult ensureFileLength(final long minLength) {
+        final PerThreadState threadState = perThreadState.get();
+        if (threadState.fileLengthCache < minLength) {
+            final long actualLength = fileLength();
+            if (actualLength < minLength) {
+                if (minLength > maxSize) {
+                    LOGGER.error("Exceeded max file size {}, requested size {} for file {}", maxSize, minLength, file);
                     return FileSizeResult.ERROR;
                 }
-                if (extendFileLength(minSize)) {
-                    fileSizeCache.set(minSize);
+                final long extendedLength = extendFileLength(minLength);
+                if (extendedLength >= 0) {
+                    threadState.fileLengthCache = extendedLength;
                     return FileSizeResult.EXTENDED;
                 }
                 return FileSizeResult.ERROR;
             } else {
-                fileSizeCache.set(len);
+                threadState.fileLengthCache = actualLength;
             }
         }
         return FileSizeResult.OK;

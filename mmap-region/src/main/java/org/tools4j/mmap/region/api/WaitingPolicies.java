@@ -35,10 +35,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
 
 /**
- * Defines static methods to create {@link WaitingPolicy} instances and to await a condition. The implementations are
- * package private and are used by {@link WaitingPolicy} and {@link RegionStateAware}.
+ * Defines static methods to create {@link WaitingPolicy} instances and to await a condition.
  */
-enum WaitingPolicies {
+public enum WaitingPolicies {
     ;
     static final WaitingPolicy NO_WAIT = create(0, NANOSECONDS, () -> NoOpIdleStrategy.INSTANCE);
 
@@ -86,11 +85,11 @@ enum WaitingPolicies {
         return awaitCondition(state, condition, maxWaitTime, waitingPolicy.timeUnit(), waitingPolicy.waitingStrategy());
     }
 
-    static <T> boolean await(final T state,
-                             final Predicate<? super T> condition,
-                             final long maxWaitTime,
-                             final TimeUnit timeUnit,
-                             final IdleStrategy waitingStrategy) {
+    public static <T> boolean await(final T state,
+                                    final Predicate<? super T> condition,
+                                    final long maxWaitTime,
+                                    final TimeUnit timeUnit,
+                                    final IdleStrategy waitingStrategy) {
         //state is nullable
         if (condition.test(state)) {
             return true;
@@ -101,11 +100,11 @@ enum WaitingPolicies {
         return awaitCondition(state, condition, maxWaitTime, timeUnit, waitingStrategy);
     }
 
-    static <T> boolean awaitCondition(final T state,
-                                      final Predicate<? super T> condition,
-                                      final long maxWaitTime,
-                                      final TimeUnit timeUnit,
-                                      final IdleStrategy waitingStrategy) {
+    private static <T> boolean awaitCondition(final T state,
+                                              final Predicate<? super T> condition,
+                                              final long maxWaitTime,
+                                              final TimeUnit timeUnit,
+                                              final IdleStrategy waitingStrategy) {
         final long start = System.nanoTime();
         final long nanos = timeUnit.toNanos(maxWaitTime);
         waitingStrategy.reset();

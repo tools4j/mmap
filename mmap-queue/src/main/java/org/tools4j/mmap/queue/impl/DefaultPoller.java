@@ -29,8 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.RegionCursor;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
@@ -45,30 +44,30 @@ final class DefaultPoller implements Poller {
 
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final QueueRegionMappers regionMappers;
-    private final RegionMapper headerMapper;
+    private final QueueRegionCursors regionCursors;
+    private final RegionCursor headerCursor;
     private final UnsafeBuffer message = new UnsafeBuffer(0, 0);
 
     private long currentIndex = 0;
     private short currentAppenderId;
     private long currentPayloadPosition;
 
-    DefaultPoller(final String queueName, final QueueRegionMappers regionMappers) {
+    DefaultPoller(final String queueName, final QueueRegionCursors regionCursors) {
         this.queueName = requireNonNull(queueName);
-        this.regionMappers = requireNonNull(regionMappers);
-        this.headerMapper = requireNonNull(regionMappers.header());
+        this.regionCursors = requireNonNull(regionCursors);
+        this.headerCursor = requireNonNull(regionCursors.header());
     }
 
     @Override
     public Result poll(final EntryHandler entryHandler) {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
-            final Region payload = regionMappers.payload(currentAppenderId).map(currentPayloadPosition);
-            if (!payload.isReady()) {
+            final RegionCursor payloadCursor = regionCursors.payload(currentAppenderId);
+            if (!payloadCursor.moveTo(currentPayloadPosition)) {
                 return ERROR;
             }
-            final int length = payload.buffer().getInt(0);
-            message.wrap(payload.buffer(), 4, length);
+            final int length = payloadCursor.buffer().getInt(0);
+            message.wrap(payloadCursor.buffer(), 4, length);
             try {
                 final Direction nextMove = entryHandler.onEntry(currentIndex, message);
                 switch (nextMove != null ? nextMove : Direction.NONE) {
@@ -150,17 +149,17 @@ final class DefaultPoller implements Poller {
      * @return header value
      */
     private long readHeader(final long index) {
-        final Region header;
+        final RegionCursor cursor = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
-        if (!(header = headerMapper.map(headerPosition)).isReady()) {
+        if (!cursor.moveTo(headerPosition)) {
             return NULL_HEADER;
         }
-        return header.buffer().getLongVolatile(0);
+        return cursor.buffer().getLongVolatile(0);
     }
 
     @Override
     public void close() {
-        headerMapper.close();//TODO close or is this shared?
+        headerCursor.close();//TODO close or is this shared?
         LOGGER.info("Closed poller. queue={}", queueName);
     }
 }

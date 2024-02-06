@@ -45,6 +45,10 @@ public interface WaitingPolicy {
     /** @return the idle strategy to use while waiting */
     IdleStrategy waitingStrategy();
 
+    default long maxWaitTime(final TimeUnit timeUnit) {
+        return timeUnit.convert(maxWaitTime(), timeUnit());
+    }
+
     /**
      * Waits for the given condition to become true.
      * @param condition the condition to await

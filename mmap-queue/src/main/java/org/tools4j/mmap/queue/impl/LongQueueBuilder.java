@@ -39,9 +39,12 @@ import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
 
 public final class LongQueueBuilder {
+
+//    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //4MB
     public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 64; //~256K
-    public static final int DEFAULT_REGION_CACHE_SIZE = 4;
-    public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 1;
+    public static final int DEFAULT_REGION_CACHE_SIZE = 8;
+    public static final int DEFAULT_REGIONS_TO_MAP_AHEAD = 4;
+//    public static final long DEFAULT_MAX_FILE_SIZE = 1024 * 1024 * 1024;
     public static final long DEFAULT_MAX_FILE_SIZE = 64 * 1024 * 1024;
     public static final boolean DEFAULT_ROLL_FILES = true;
     public static final int DEFAULT_FILES_TO_CREATE_AHEAD = 1;

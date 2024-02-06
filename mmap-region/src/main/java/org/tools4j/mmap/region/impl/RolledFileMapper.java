@@ -119,7 +119,7 @@ public class RolledFileMapper implements FileMapper {
         final SingleFileReadWriteMapper mapper = (SingleFileReadWriteMapper)fileMappers.computeIfAbsent(fileIndex, factory);
         if (mapMode == MapMode.READ_WRITE) {
             mapper.init();
-            mapper.ensureFileSize(maxFileSize);
+            mapper.ensureFileLength(maxFileSize);
         }
         return mapper;
     }
