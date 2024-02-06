@@ -46,12 +46,16 @@ public class SingleFileReadWriteMapper implements FileMapper {
     private final File file;
     private final FileInitialiser fileInitialiser;
     private final long maxSize;
-    private final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
 
-    private final ThreadLocal<long[]> fileLengthCache = ThreadLocal.withInitial(() -> new long[1]);
+    private final ThreadLocal<PerThreadState> perThreadState = ThreadLocal.withInitial(PerThreadState::new);
     private final AtomicLong fileLengthExtensionLatch = new AtomicLong();
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+
+    private static class PerThreadState {
+        final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
+        long fileLengthCache;
+    }
 
 
     public SingleFileReadWriteMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
@@ -84,7 +88,8 @@ public class SingleFileReadWriteMapper implements FileMapper {
         return NULL_ADDRESS;
     }
 
-    private void preTouch(int length, long address) {
+    private void preTouch(final int length, final long address) {
+        final AtomicBuffer preTouchBuffer = perThreadState.get().preTouchBuffer;
         preTouchBuffer.wrap(address, length);
         for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
             preTouchBuffer.compareAndSetLong(i, 0L, 0L);
@@ -184,8 +189,8 @@ public class SingleFileReadWriteMapper implements FileMapper {
     }
 
     FileSizeResult ensureFileLength(final long minLength) {
-        final long[] lengthCache = fileLengthCache.get();
-        if (lengthCache[0] < minLength) {
+        final PerThreadState threadState = perThreadState.get();
+        if (threadState.fileLengthCache < minLength) {
             final long actualLength = fileLength();
             if (actualLength < minLength) {
                 if (minLength > maxSize) {
@@ -194,12 +199,12 @@ public class SingleFileReadWriteMapper implements FileMapper {
                 }
                 final long extendedLength = extendFileLength(minLength);
                 if (extendedLength >= 0) {
-                    lengthCache[0] = extendedLength;
+                    threadState.fileLengthCache = extendedLength;
                     return FileSizeResult.EXTENDED;
                 }
                 return FileSizeResult.ERROR;
             } else {
-                lengthCache[0] = actualLength;
+                threadState.fileLengthCache = actualLength;
             }
         }
         return FileSizeResult.OK;
