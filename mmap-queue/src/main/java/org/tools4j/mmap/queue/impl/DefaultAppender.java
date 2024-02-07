@@ -197,6 +197,10 @@ final class DefaultAppender implements Appender {
                     throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                             currentPayloadPosition + " failed: readiness not achieved in time for " + payload);
                 }
+                if (payload.bytesAvailable() < maxLength + LENGTH_SIZE) {
+                    throw new IllegalArgumentException("Max length " + maxLength + " exceeds maximum allowed length of " +
+                            (payload.bytesAvailable() - LENGTH_SIZE) + " for region size " + payload.regionSize());
+                }
             }
             messageBuffer.wrap(payload.buffer(), PAYLOAD_OFFSET, maxLength);
             inUse = true;
