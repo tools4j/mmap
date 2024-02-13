@@ -109,13 +109,17 @@ public final class RingCacheRegionMapper implements RegionMapper {
                 //sequential forward access
                 for (int i = 1; i <= mapAhead; i++) {
                     regionStartPosition += regionSize;
-                    cache[cacheSizeMask & (cacheIndex + i)].map(regionStartPosition, null);
+                    if (0 >= cache[cacheSizeMask & (cacheIndex + i)].map(regionStartPosition, null)) {
+                        return;
+                    }
                 }
             } else if (regionStartPosition == lastRegionStartPosition - regionSize) {
                 //sequential backward access
                 for (int i = 1; i <= mapAhead && regionStartPosition >= regionSize; i++) {
                     regionStartPosition -= regionSize;
-                    cache[cacheSizeMask & (cacheIndex - i)].map(regionStartPosition, null);
+                    if (0 >= cache[cacheSizeMask & (cacheIndex - i)].map(regionStartPosition, null)) {
+                        return;
+                    }
                 }
             }
             //else: random access pattern, we don't try to predict the next access
