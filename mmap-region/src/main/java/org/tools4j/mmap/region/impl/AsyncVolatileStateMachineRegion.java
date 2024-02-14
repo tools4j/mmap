@@ -40,7 +40,6 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     private final int length;
     private final long timeoutNanos;
     private DirectBuffer lastWrapped;
-
     private final SharedValues sharedValues;
     private static final UnmappedRegionState unmapped = new UnmappedRegionState();
     private static final MapRequestedRegionState mapRequested = new MapRequestedRegionState();
@@ -142,7 +141,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     }
 
     private static boolean map(final SharedValues shared, final long position) {
-        final AsyncRegionState readState = shared.state;
+        final AsyncRegionState readState = shared.state();
         final AsyncRegionState nextState = readState.requestMap(shared, position);
         if (readState != nextState) {
             shared.putOrderedState(nextState);
@@ -153,7 +152,7 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
     @Override
     public boolean unmap() {
         final SharedValues shared = sharedValues;
-        final AsyncRegionState readState = shared.state;
+        final AsyncRegionState readState = shared.state();
         final AsyncRegionState nextState = readState.requestUnmap();
         if (readState != nextState) {
             shared.putOrderedState(nextState);
@@ -282,18 +281,30 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
         byte p112, p113, p114, p115, p116, p117, p118, p119, p120, p121, p122, p123, p124, p125, p126, p127;
     }
 
-    private static class SharedValues extends AbstractSharedPadding2 {
+    private static final class SharedValues extends AbstractSharedPadding2 {
         private static final long STATE_OFFSET;
         final int regionSize;
+        AsyncRegionState cachedState;
 
         SharedValues(final int regionSize) {
             this.regionSize = regionSize;
             this.state = unmapped;
         }
 
+        AsyncRegionState state() {
+            if (cachedState != null) {
+                return cachedState;
+            }
+            final AsyncRegionState state = this.state;
+            if (state != mapRequested && state != unmapRequested) {
+                cachedState = state;
+            }
+            return state;
+        }
+
         void putOrderedState(final AsyncRegionState state) {
+            cachedState = null;
             UNSAFE.putOrderedObject(this, STATE_OFFSET, state);
-            //this.state = state;
         }
 
         /**
@@ -307,11 +318,11 @@ public class AsyncVolatileStateMachineRegion implements AsyncRegion {
          * @return true if region is mapped, false - otherwise
          */
         private boolean mapped(final long position) {
-            return this.position == position && state == mapped;
+            return this.position == position && state() == mapped;
         }
 
         private boolean unmapped() {
-            return this.state == unmapped;
+            return state() == unmapped;
         }
 
 

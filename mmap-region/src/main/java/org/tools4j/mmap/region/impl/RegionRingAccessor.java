@@ -39,6 +39,7 @@ public class RegionRingAccessor implements RegionAccessor {
     private final int regionSize;
     private final Runnable onClose;
     private final int regionsLengthMask;
+    private final int regionIndexShift;
 
     private long currentAbsoluteIndex = -1;
 
@@ -70,6 +71,7 @@ public class RegionRingAccessor implements RegionAccessor {
         assertPowerOfTwo(regions.length, v -> "regionsLength must be a power of two, but is " + v);
         assertPowerOfTwo(regionSize, v -> "regionSize must be a power of two, but is " + v);
         regionsLengthMask = regions.length - 1;
+        regionIndexShift = Integer.numberOfTrailingZeros(regionSize);
     }
 
     private void assertPowerOfTwo(final int value, final LongFunction<String> comment) {
@@ -79,7 +81,7 @@ public class RegionRingAccessor implements RegionAccessor {
 
     @Override
     public boolean wrap(final long position, final DirectBuffer buffer) {
-        final long absoluteIndex = position / regionSize;
+        final long absoluteIndex = position >>> regionIndexShift;
 
         final boolean wrapped = regions[(int) (absoluteIndex & regionsLengthMask)].wrap(position, buffer);
         if (wrapped) {

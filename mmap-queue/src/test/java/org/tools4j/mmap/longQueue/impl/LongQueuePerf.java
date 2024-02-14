@@ -50,7 +50,7 @@ public class LongQueuePerf {
 
         try (AsyncRuntime asyncRuntime = AsyncRuntime.createDefault()) {
             final RegionRingFactory regionRingFactory = RegionRingFactories.async(asyncRuntime);
-            //final RegionRingFactory regionRingFactory = RegionRingFactories.sync(asyncRuntime);
+//            final RegionRingFactory regionRingFactory = RegionRingFactories.sync();
             final String name = "perf";
 
             final LongQueueBuilder builder = LongQueue.builder(name, tempDir.toString(), regionRingFactory)
