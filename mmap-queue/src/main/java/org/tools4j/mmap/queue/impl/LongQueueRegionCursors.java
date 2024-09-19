@@ -49,7 +49,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
  */
 enum LongQueueRegionCursors {
     ;
-    public static final Word VALUE_WORD = new Word(8, 64);
+    public static final Word VALUE_WORD = new Word(Long.BYTES);
 
     /**
      * Factory method for read-only long-queue region mappers.

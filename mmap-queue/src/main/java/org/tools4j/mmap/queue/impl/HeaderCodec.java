@@ -29,7 +29,7 @@ final class HeaderCodec {
     private static final long PAYLOAD_POSITION_MASK = 0xFFFFFFFFFFFFFFL;
     private static final int APPENDER_ID_BITS = Long.SIZE - 8;
     private static final long INITIAL_PAYLOAD_POSITION = 64;
-    public static final Word HEADER_WORD = new Word(8, 64);
+    public static final Word HEADER_WORD = new Word(Long.BYTES);
 
 
     public static short appenderId(final long header) {

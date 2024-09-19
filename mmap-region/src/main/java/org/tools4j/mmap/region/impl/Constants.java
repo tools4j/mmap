@@ -26,6 +26,8 @@ package org.tools4j.mmap.region.impl;
 import java.lang.reflect.Method;
 
 public class Constants {
+    public static final int CACHE_LINE_BYTES = 64;
+
     /**
      * Memory page size that is exposed from internal java implementation.
      * All memory region sizes are expected to be evenly divisible by this value

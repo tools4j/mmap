@@ -23,38 +23,7 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.BitUtil;
-
-import static org.tools4j.mmap.region.impl.Constants.CACHE_LINE_BYTES;
-import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
-
-public class Word {
-    private final int length;
-    private final int bits;
-    private final IndexMapping mapping;
-
-    public Word(final int length) {
-        this(length, CACHE_LINE_BYTES / length, (int)(REGION_SIZE_GRANULARITY / CACHE_LINE_BYTES));
-    }
-
-    public Word(final int length, final int width, final int height) {
-        if (!BitUtil.isPowerOfTwo(length)) {
-            throw new IllegalArgumentException("Word length must be a power of 2: " + length);
-        }
-        this.length = length;
-        this.bits = Long.SIZE - Long.numberOfLeadingZeros(length - 1);
-        this.mapping = new BlockMapping(width, height);
-    }
-
-    public long position(final long index) {
-        return mapping.indexToPosition(index) << bits;
-    }
-
-    public long index(final long position) {
-        return mapping.positionToIndex(position >>> bits);
-    }
-
-    public int length() {
-        return length;
-    }
+public interface IndexMapping {
+    long positionToIndex(long position);
+    long indexToPosition(long index);
 }
