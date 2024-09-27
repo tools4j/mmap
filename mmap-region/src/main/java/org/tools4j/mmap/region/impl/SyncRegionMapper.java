@@ -23,64 +23,50 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.RegionMapper;
-import org.tools4j.mmap.region.api.RegionMetrics;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Buffers.unwrap;
-import static org.tools4j.mmap.region.impl.Buffers.wrap;
-import static org.tools4j.mmap.region.impl.Constraints.validPosition;
+import static org.tools4j.mmap.region.impl.Constraints.validRegionPosition;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 public final class SyncRegionMapper implements RegionMapper {
 
     private final FileMapper fileMapper;
-    private final RegionMetrics regionMetrics;
+    private final int regionSize;
     private long mappedAddress = NULL_ADDRESS;
     private long mappedPosition = NULL_POSITION;
-    private DirectBuffer lastWrapped;
     private boolean closed;
 
-    public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
+    public SyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
+        validateRegionSize(regionSize);
         this.fileMapper = requireNonNull(fileMapper);
-        this.regionMetrics = requireNonNull(regionMetrics);
+        this.regionSize = regionSize;
     }
 
     @Override
-    public RegionMetrics regionMetrics() {
-        return regionMetrics;
+    public int regionSize() {
+        return regionSize;
     }
 
     @Override
-    public boolean isAsync() {
-        return false;
-    }
-
-    @Override
-    public int map(final long position, final DirectBuffer buffer) {
-        validPosition(position);
-        final RegionMetrics metrics = regionMetrics;
-        final long regionPosition = metrics.regionPosition(position);
-        if (regionPosition == mappedPosition) {
-            final int len = wrap(buffer, lastWrapped, mappedAddress, position, metrics);
-            lastWrapped = buffer;
-            return len;
+    public long map(final long position) {
+        validRegionPosition(position, regionSize);
+        if (position == mappedPosition) {
+            return mappedAddress;
         }
         if (isClosed()) {
             return CLOSED;
         }
         try {
             unmapIfNecessary();
-            final long addr = fileMapper.map(regionPosition, regionMetrics.regionSize());
+            final long addr = fileMapper.map(position, regionSize);
             if (addr > 0) {
-                final int len = wrap(buffer, lastWrapped, addr, position, metrics);
                 mappedAddress = addr;
-                mappedPosition = regionPosition;
-                lastWrapped = buffer;
-                return len;
+                mappedPosition = position;
+                return addr;
             } else {
                 return FAILED;
             }
@@ -93,29 +79,18 @@ public final class SyncRegionMapper implements RegionMapper {
         final long addr = mappedAddress;
         final long pos = mappedPosition;
         if (addr != NULL_ADDRESS) {
-            final int regionSize = regionMetrics.regionSize();
             mappedAddress = NULL_ADDRESS;
             mappedPosition = NULL_POSITION;
-            unwrapLastWrapped(addr, regionSize);
             assert pos != NULL_POSITION;
             fileMapper.unmap(addr, pos, regionSize);
         } else {
             assert pos == NULL_POSITION;
-            assert lastWrapped == null;
-        }
-    }
-
-    private void unwrapLastWrapped(final long address, final int regionSize) {
-        final DirectBuffer last = lastWrapped;
-        if (last != null) {
-            lastWrapped = null;
-            unwrap(last, address, regionSize);
         }
     }
 
     @Override
-    public void close(final long maxWaitMillis) {
-        if (!isClosed()) {
+    public void close() {
+        if (!closed) {
             try {
                 unmapIfNecessary();
             } finally {

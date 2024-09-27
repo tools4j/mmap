@@ -24,87 +24,51 @@
 package org.tools4j.mmap.queue.api;
 
 import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
 
 /**
- * Entry appender.
+ * API to append entries at the end of a {@link Queue}. Existing data can be appended through
+ * {@link #append(DirectBuffer, int, int)}. Alternatively a new entry can be coded directly into the
+ * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending()}.
  */
 public interface Appender extends AutoCloseable {
-    /**
-     * Flyweight provided by appender to directly write the new entry to the destination buffer without need to copy
-     */
-    interface AppendingContext extends AutoCloseable {
-        /**
-         * @return buffer to write the entry data
-         */
-        MutableDirectBuffer buffer();
-
-        /**
-         * Aborts appending the entry
-         */
-        void abort();
-
-        /**
-         * Commits the entry that was encoded via buffer
-         *
-         * @param length - length of the entry in bytes
-         * @return queue index at which entry was appended, negative value if error occurred, see errors in {@link Appender}
-         */
-        long commit(int length);
-
-        /**
-         * @return true if the context is closed
-         */
-        boolean isClosed();
-
-        /**
-         * Aborts appending if not closed or committed yet.
-         */
-        @Override
-        default void close() {
-            if (!isClosed()) {
-                abort();
-            }
-        }
-    }
 
     /**
-     * Failed to move to end of the queue
-     */
-    long MOVE_TO_END_ERROR = -1;
-    /**
-     * Failed to wrap payload buffer for given position while advancing to new region
-     */
-    long ADVANCE_TO_NEXT_PAYLOAD_REGION_ERROR = -2;
-    /**
-     * Failed to wrap header region for given position
-     */
-    long MAP_HEADER_REGION_ERROR = -3;
-    /**
-     * Failed to wrap payload region for given position
-     */
-    long MAP_PAYLOAD_REGION_ERROR = -4;
-    long APPENDING_CONTEXT_CLOSED = -5;
-    long APPENDING_CONTEXT_IN_USE = -6;
-
-    /**
-     * Appends an entry copied from the given buffer.
-     * Note: for zero-copy use {@link #appending(int)}
+     * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
+     * buffer the {@link #appending()} method can be used instead.
      *
      * @param buffer - direct buffer to read entry from
      * @param offset - offset of the entry in the buffer
      * @param length - length of the entry
-     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
-     *          {@link Appender}
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(DirectBuffer buffer, int offset, int length);
 
     /**
-     * Provides appending context for zero-copy encoding of the appended entry.
-     * @param maxLength max byte length of the new entry to be reserved
+     * Provides an appending context for zero-copy encoding of the new entry into the queue
+     * {@link AppendingContext#buffer() buffer}.
+     * <p>
+     * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a
+     * try-resource block:
+     * <pre>
+     * try (AppendingContext context = appending()) {
+     *     MutableDirectBuffer buffer = context.buffer();
+     *     //code into buffer here
+     *     int length = ...;//number of bytes encoded above
+     *     buffer.commit(length);
+     * }
+     * </pre>
+     *
      * @return appending context for writing of entry data
+     * @throws IllegalStateException if the appender or the underlying queue is closed
      */
-    AppendingContext appending(int maxLength);
+    AppendingContext appending();
+
+    /**
+     * @return true if this appender is closed
+     */
+    boolean isClosed();
 
     /**
      * Closes the appender.

@@ -23,9 +23,7 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
-import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
 import org.tools4j.mmap.region.impl.RegionMapperFactories;
 
 /**
@@ -40,23 +38,7 @@ public interface RegionMapperFactory {
     /**
      * Factory constant for async region mapping.
      */
-    RegionMapperFactory ASYNC = async("RegionMapperFactory::ASYNC", BusySpinIdleStrategy.INSTANCE);
-
-    /**
-     * Factory constant for sync region mapping with async ahead mapping in the background
-     */
-    RegionMapperFactory AHEAD = async("RegionMapperFactory::AHEAD", BusySpinIdleStrategy.INSTANCE);
-
-    /**
-     * Creates and returns a new region mapper without cache.
-     *
-     * @param fileMapper        the file mapper to use
-     * @param regionMetrics     the region metrics defined by the region size
-     * @return a new region mapper for the provided parameters
-     */
-    default RegionMapper create(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
-        return create(fileMapper, regionMetrics, 1, 0);
-    }
+    RegionMapperFactory ASYNC = async("RegionMapperFactory::ASYNC");
 
     /**
      * Creates and returns a new region mapper without cache.
@@ -65,60 +47,24 @@ public interface RegionMapperFactory {
      * @param regionSize        the region size
      * @return a new region mapper for the provided parameters
      */
-    default RegionMapper create(final FileMapper fileMapper, final int regionSize) {
-        return create(fileMapper, new PowerOfTwoRegionMetrics(regionSize));
-    }
+    RegionMapper create(FileMapper fileMapper, int regionSize);
 
     /**
      * Creates and returns a new region mapper with cache if {@code cacheSize > 1}.
      *
      * @param fileMapper        the file mapper to use
      * @param regionSize        the region size
-     * @param regionCacheSize   the number of regions to cache
-     * @param regionsToMapAhead regions to map-ahead if async mapping is used (ignored in sync mode)
-     * @return a new region mapper for the provided parameters
-     */
-    default RegionMapper create(final FileMapper fileMapper,
-                                final int regionSize,
-                                final int regionCacheSize,
-                                final int regionsToMapAhead) {
-        return create(fileMapper, new PowerOfTwoRegionMetrics(regionSize), regionCacheSize, regionsToMapAhead);
-    }
-
-    /**
-     * Creates and returns a new region mapper with cache if {@code cacheSize > 1}.
-     *
-     * @param fileMapper        the file mapper to use
-     * @param regionMetrics     the region metrics defined by the region size
      * @param regionCacheSize   the number of regions to cache
      * @param regionsToMapAhead regions to map-ahead if async mapping is used (ignored in sync mode)
      * @return a new region mapper for the provided parameters
      */
     RegionMapper create(FileMapper fileMapper,
-                        RegionMetrics regionMetrics,
+                        int regionSize,
                         int regionCacheSize,
                         int regionsToMapAhead);
 
     /**
-     * Creates and returns a new region mapper with cache if {@code cacheSize > 1}.
-     *
-     * @param fileMapper        the file mapper to use
-     * @param regionMetrics     the region metrics defined by the region size
-     * @param regionCacheSize   the number of regions to cache
-     * @param regionsToMapAhead regions to map-ahead if async mapping is used (ignored in sync mode)
-     * @param closeFinalizer    the finalizer to call when the region mapper is closed
-     * @return a new region mapper for the provided parameters
-     */
-    RegionMapper create(FileMapper fileMapper,
-                        RegionMetrics regionMetrics,
-                        int regionCacheSize,
-                        int regionsToMapAhead,
-                        Runnable closeFinalizer);
-
-    /**
-     * Returns true if region mappers created by this factory perform asynchronous mapping in the background, and false
-     * if mappings are performed synchronously.
-     * @return true if this factory creates mappers with asynchronous mapping, and false if with synchronous mapping
+     * @return true if this factory creates an async mapper with support of background ahead mapping of regions.
      */
     boolean isAsync();
 
@@ -126,23 +72,17 @@ public interface RegionMapperFactory {
         return RegionMapperFactories.sync(name);
     }
 
+    static RegionMapperFactory async(final String name) {
+        return RegionMapperFactories.async(name);
+    }
+
     static RegionMapperFactory async(final String name, final IdleStrategy idleStrategy) {
         return RegionMapperFactories.async(name, idleStrategy);
     }
 
     static RegionMapperFactory async(final String name,
-                                     final AsyncRuntime asyncRuntime,
-                                     final boolean autoCloseRuntime) {
-        return RegionMapperFactories.async(name, asyncRuntime, autoCloseRuntime);
-    }
-
-    static RegionMapperFactory ahead(final String name, final IdleStrategy idleStrategy) {
-        return RegionMapperFactories.ahead(name, idleStrategy);
-    }
-
-    static RegionMapperFactory ahead(final String name,
-                                     final AsyncRuntime asyncRuntime,
-                                     final boolean autoCloseRuntime) {
-        return RegionMapperFactories.ahead(name, asyncRuntime, autoCloseRuntime);
+                                     final AsyncRuntime mappingRuntime,
+                                     final AsyncRuntime unmappingRuntime) {
+        return RegionMapperFactories.async(name, mappingRuntime, unmappingRuntime);
     }
 }

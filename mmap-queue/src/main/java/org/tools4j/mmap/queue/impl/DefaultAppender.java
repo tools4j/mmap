@@ -29,12 +29,13 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.queue.api.AppendingContext;
+import org.tools4j.mmap.region.api.Region;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.appenderId;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.payloadPosition;
+import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
+import static org.tools4j.mmap.queue.impl.Headers.appenderId;
+import static org.tools4j.mmap.queue.impl.Headers.payloadPosition;
 
 final class DefaultAppender implements Appender {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAppender.class);
@@ -47,16 +48,16 @@ final class DefaultAppender implements Appender {
     private final AppenderIdPool appenderIdPool;
 
     private final String queueName;
-    private final RegionCursor headerCursor;
-    private final RegionCursor payloadCursor;
+    private final Region headerCursor;
+    private final Region payloadCursor;
     private final MaxLengthAppendingContext appendingContext;
 
     private long currentHeaderPosition = NOT_INITIALISED;
     private long currentIndex = NOT_INITIALISED;
-    private long currentPayloadPosition = HeaderCodec.initialPayloadPosition();
+    private long currentPayloadPosition = Headers.initialPayloadPosition();
 
     DefaultAppender(final String queueName,
-                    final QueueRegionCursors regionAccessor,
+                    final QueueRegions regionAccessor,
                     final AppenderIdPool appenderIdPool) {
         this.queueName = requireNonNull(queueName);
         this.appenderIdPool = requireNonNull(appenderIdPool);
@@ -74,8 +75,8 @@ final class DefaultAppender implements Appender {
             return APPENDING_CONTEXT_IN_USE;
         }
 
-        final RegionCursor header = headerCursor;
-        final RegionCursor payload = payloadCursor;
+        final Region header = headerCursor;
+        final Region payload = payloadCursor;
 
         boolean onLastAppendPosition = advanceToLastAppendPosition();
         if (!onLastAppendPosition) {
@@ -100,7 +101,7 @@ final class DefaultAppender implements Appender {
         payloadBuffer.putInt(LENGTH_OFFSET, length);
         buffer.getBytes(offset, payloadBuffer, PAYLOAD_OFFSET, length);
 
-        final long headerValue = HeaderCodec.header(appenderId, currentPayloadPosition);
+        final long headerValue = Headers.header(appenderId, currentPayloadPosition);
 
         while (!header.buffer().compareAndSetLong(0, 0, headerValue)) {
             if (!moveToLastHeader()) {
@@ -127,7 +128,7 @@ final class DefaultAppender implements Appender {
     private boolean moveToLastHeader() {
         currentIndex++;
         currentHeaderPosition = HEADER_WORD.position(currentIndex);
-        final RegionCursor header = headerCursor;
+        final Region header = headerCursor;
         while (header.moveTo(currentHeaderPosition)) {
             final long headerValues = header.buffer().getLongVolatile(0);
             if (headerValues == 0) {
@@ -142,7 +143,7 @@ final class DefaultAppender implements Appender {
         if (currentHeaderPosition == NOT_INITIALISED) {
             currentIndex = 0;
             currentHeaderPosition = HEADER_WORD.position(currentIndex);
-            final RegionCursor hdrCursor = headerCursor;
+            final Region hdrCursor = headerCursor;
             boolean moved;
             long header;
             do {
@@ -158,7 +159,7 @@ final class DefaultAppender implements Appender {
                 }
             } while (header != 0);
 
-            if (currentPayloadPosition != HeaderCodec.initialPayloadPosition()) {
+            if (currentPayloadPosition != Headers.initialPayloadPosition()) {
                 //load payload length and add to currentPayloadPosition
                 moved = payloadCursor.moveTo(currentPayloadPosition);
                 assert moved;
@@ -185,7 +186,7 @@ final class DefaultAppender implements Appender {
             if (inUse) {
                 reset();
             }
-            final RegionCursor payload = payloadCursor;
+            final Region payload = payloadCursor;
             if (!(payload.moveTo(currentPayloadPosition))) {
                 throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                         currentPayloadPosition + " failed: readiness not achieved in time for " + payload);
@@ -224,11 +225,11 @@ final class DefaultAppender implements Appender {
         @Override
         public long commit(int length) {
             if (inUse) {
-                final RegionCursor header = headerCursor;
-                final RegionCursor payload = payloadCursor;
+                final Region header = headerCursor;
+                final Region payload = payloadCursor;
                 payload.buffer().putInt(LENGTH_OFFSET, length);
 
-                final long headerValue = HeaderCodec.header(appenderId, currentPayloadPosition);
+                final long headerValue = Headers.header(appenderId, currentPayloadPosition);
 
                 if (!header.moveTo(currentHeaderPosition)) {
                     throw new IllegalStateException("Mapping " + queueName + " header to position " +

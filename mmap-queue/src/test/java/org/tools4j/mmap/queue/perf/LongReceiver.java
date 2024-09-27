@@ -27,9 +27,6 @@ import org.HdrHistogram.Histogram;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.Direction;
-import org.tools4j.mmap.queue.api.LongEntryHandler;
-import org.tools4j.mmap.queue.api.LongPoller;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 
 import java.util.Objects;

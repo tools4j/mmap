@@ -27,26 +27,28 @@ import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.Region;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
+import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
 
 final class DefaultReader implements Reader {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultReader.class);
-    private static final ReadingContext EMPTY_READING_CONTEXT = new EmptyReadingContext<>();
+    private static final ReadingContext EMPTY_READING_CONTEXT = new EmptyReadingContext();
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final QueueRegionCursors regionCursors;
-    private final RegionCursor headerCursor;
+    private final QueueRegions regionCursors;
+    private final Region headerCursor;
     private final DefaultReadingContext readingContext = new DefaultReadingContext();
     private final DefaultIterableContext<Entry> iterableContext = new DefaultIterableContext<>(this, readingContext);
 
     private long lastIndex = NULL_INDEX;
 
-    DefaultReader(final String queueName, final QueueRegionCursors regionCursors) {
+    DefaultReader(final String queueName, final QueueRegions regionCursors) {
         this.queueName = requireNonNull(queueName);
         this.regionCursors = requireNonNull(regionCursors);
         this.headerCursor = requireNonNull(regionCursors.header());
@@ -119,7 +121,7 @@ final class DefaultReader implements Reader {
      * @return header value
      */
     private long readHeader(final long index) {
-        final RegionCursor header = headerCursor;
+        final Region header = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
         if (!header.moveTo(headerPosition)) {
             return NULL_HEADER;
@@ -156,9 +158,9 @@ final class DefaultReader implements Reader {
         public boolean tryInit(final long index) {
             final long header = readHeader(index);
             if (header != NULL_HEADER) {
-                final short appenderId = HeaderCodec.appenderId(header);
-                final long payloadPosition = HeaderCodec.payloadPosition(header);
-                final RegionCursor payload = regionCursors.payload(appenderId);
+                final short appenderId = Headers.appenderId(header);
+                final long payloadPosition = Headers.payloadPosition(header);
+                final Region payload = regionCursors.payload(appenderId);
                 if (payload.moveTo(payloadPosition)) {
                     final int length = payload.buffer().getInt(0);
                     buffer.wrap(payload.buffer(), 4, length);

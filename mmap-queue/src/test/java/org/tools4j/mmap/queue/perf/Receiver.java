@@ -28,7 +28,6 @@ import org.agrona.DirectBuffer;
 import org.agrona.collections.MutableBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.util.HistogramPrinter;

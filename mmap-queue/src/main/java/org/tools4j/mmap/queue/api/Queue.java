@@ -23,9 +23,6 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.queue.impl.QueueBuilder;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
-
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
@@ -38,22 +35,18 @@ public interface Queue extends AutoCloseable {
     Appender createAppender();
 
     /**
-     * Creates a poller.
+     * Creates a poller for sequential read access via callback starting with the first queue entry.
      *
-     * @return new instance of a poller.
+     * @return new instance of a poller
      */
     Poller createPoller();
 
     /**
-     * Creates a reader.
+     * Creates a reader for read access queue {@link Entry entries} via index or through iteration.
      *
      * @return new instance of a reader.
      */
     Reader createReader();
-
-    static QueueBuilder builder(final String name, final String directory, final RegionMapperFactory mapperFactory) {
-        return new QueueBuilder(name, directory, mapperFactory);
-    }
 
     /**
      * Closes the queue and all appender, pollers and readers.

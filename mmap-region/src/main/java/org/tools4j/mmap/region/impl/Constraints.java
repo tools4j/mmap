@@ -30,61 +30,76 @@ import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 public enum Constraints {
     ;
-    public static void nonNegative(final long value, final String name) {
+    public static void validateNonNegative(final long value, final String name) {
         if (value < 0) {
             throw new IllegalArgumentException(name + " value annot be negative, but was " + value);
         }
     }
-    public static void greaterThanZero(final long value, final String name) {
+    public static void validateGreaterThanZero(final long value, final String name) {
         if (value <= 0) {
             throw new IllegalArgumentException(name + " value must be positive, but was " + value);
         }
     }
 
-    public static void validPosition(final long position) {
+    public static void validatePosition(final long position) {
         if (position < 0) {
             throw new IllegalArgumentException("Position cannot be negative, but was " + position);
         }
     }
 
-    public static void validPositionState(final long position) {
+    public static void validatePositionState(final long position) {
         if (position < 0) {
             throw new IllegalStateException("Invalid current position");
         }
     }
 
-    public static void validRegionOffset(final int offset, final RegionMetrics regionMetrics) {
-        validRegionOffset(offset, regionMetrics.regionSize());
+    public static void validRegionPosition(final long position, final RegionMetrics regionMetrics) {
+        validRegionPosition(position, regionMetrics.regionSize());
     }
 
-    public static void validRegionOffset(final int offset, final int regionSize) {
+    public static void validRegionPosition(final long position, final int regionSize) {
+        assert BitUtil.isPowerOfTwo(regionSize);
+        if (position < 0 || 0 != (position & (regionSize - 1))) {
+            throw new IllegalArgumentException("Invalid region position " + position + " for region size " + regionSize);
+        }
+    }
+
+    public static void validateRegionOffset(final int offset, final RegionMetrics regionMetrics) {
+        validateRegionOffset(offset, regionMetrics.regionSize());
+    }
+
+    public static void validateRegionOffset(final int offset, final int regionSize) {
         if (offset < 0 || offset >= regionSize) {
             throw new IllegalArgumentException("Invalid region offset " + offset + " for region size " + regionSize);
         }
     }
 
-    public static void validRegionWrapParameters(final int offset, final int length, final RegionMetrics regionMetrics) {
-        validRegionWrapParameters(offset, length, regionMetrics.regionSize());
+    public static void validateRegionWrapParameters(final int offset, final int length, final RegionMetrics regionMetrics) {
+        validateRegionWrapParameters(offset, length, regionMetrics.regionSize());
     }
 
-    public static void validRegionWrapParameters(final int offset, final int length, final int regionSize) {
-        validRegionOffset(offset, regionSize);
+    public static void validateRegionWrapParameters(final int offset, final int length, final int regionSize) {
+        validateRegionOffset(offset, regionSize);
         if (length < 0 || offset + length > regionSize) {
             throw new IllegalArgumentException("Invalid length " + length + " for region offset " + offset +
                     " and region size " + regionSize);
         }
     }
 
-    public static void validRegionSize(final int regionSize) {
+    public static void validateRegionSize(final int regionSize) {
         if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + regionSize);
         }
     }
 
-    public static void validRegionCacheSize(final int regionCacheSize) {
-        if (!BitUtil.isPowerOfTwo(regionCacheSize)) {
-            throw new IllegalArgumentException("Region cache size must be a power of two but was " + regionCacheSize);
+    public static void validateRegionCacheSize(final int cacheSize) {
+        validatePowerOfTwo("Region cache size", cacheSize);
+    }
+
+    public static void validatePowerOfTwo(final String name, final int value) {
+        if (!BitUtil.isPowerOfTwo(value)) {
+            throw new IllegalArgumentException(name + " must be a power of two but was " + value);
         }
     }
 

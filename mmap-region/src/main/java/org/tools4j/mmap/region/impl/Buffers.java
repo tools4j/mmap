@@ -29,21 +29,17 @@ import org.tools4j.mmap.region.api.RegionMetrics;
 enum Buffers {
     ;
     static int wrap(final DirectBuffer buffer,
-                    final DirectBuffer last,
                     final long address,
                     final long position,
                     final RegionMetrics regionMetrics) {
-        return wrap(buffer, last, address, regionMetrics.regionOffset(position), regionMetrics.regionSize());
+        return wrap(buffer, address, regionMetrics.regionOffset(position), regionMetrics.regionSize());
     }
+
     static int wrap(final DirectBuffer buffer,
-                    final DirectBuffer last,
                     final long address,
                     final int offset,
                     final int regionSize) {
         final int length = regionSize - offset;
-        if (last != buffer & last != null) {
-            unwrap(last, address, regionSize);
-        }
         if (buffer != null) {
             buffer.wrap(address + offset, length);
         }

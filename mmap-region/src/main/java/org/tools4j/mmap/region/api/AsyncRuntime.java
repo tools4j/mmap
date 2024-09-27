@@ -62,8 +62,8 @@ public interface AsyncRuntime extends AutoCloseable {
      * @param idleStrategy the strategy to use by the runtime when it is idle
      * @return a new async runtime for the given idle strategy
      */
-    static AsyncRuntime create(final IdleStrategy idleStrategy) {
-        return new DefaultAsyncRuntime(idleStrategy);
+    static AsyncRuntime create(final IdleStrategy idleStrategy, final boolean autoStopOnLastDeregister) {
+        return new DefaultAsyncRuntime(idleStrategy, autoStopOnLastDeregister);
     }
 
     /**
@@ -73,8 +73,8 @@ public interface AsyncRuntime extends AutoCloseable {
     void stop(boolean immediately);
 
     /**
-     * Returns true if this runtime is currently running, that is, {@link #stop(boolean)} has not been invoked yet.
-     * @return true if running, and false if stop has been called
+     * Returns true if this runtime is currently running.
+     * @return true if running, and false if it has stopped after invoking {@link #stop(boolean)}
      */
     boolean isRunning();
 

@@ -23,33 +23,35 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.agrona.BitUtil;
+
+import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
+import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
+
 public class Word {
     private final int length;
-    private final int lengthBits;
-    private final int blockMask;
-    private final int sectorMask;
-    private final int blockSizeBits;
-    private final int sectorSizeBits;
+    private final int bits;
+    private final IndexMapping mapping;
 
-    public Word(int length, int sectorSize) { //8, 64
+    public Word(final int length) {
+        this(length, CACHE_LINE_LENGTH / length, (int)(REGION_SIZE_GRANULARITY / CACHE_LINE_LENGTH));
+    }
+
+    public Word(final int length, final int width, final int height) {
+        if (!BitUtil.isPowerOfTwo(length)) {
+            throw new IllegalArgumentException("Word length must be a power of 2: " + length);
+        }
         this.length = length;
-
-        lengthBits = Integer.numberOfTrailingZeros(length);
-        final int blockSize = sectorSize * sectorSize; //number of words in one block
-        blockMask = blockSize - 1;
-        sectorMask = sectorSize - 1;
-        blockSizeBits = Integer.numberOfTrailingZeros(blockSize);
-        sectorSizeBits = Integer.numberOfTrailingZeros(sectorSize);
+        this.bits = Long.SIZE - Long.numberOfLeadingZeros(length - 1);
+        this.mapping = new BlockMapping(width, height);
     }
 
     public long position(final long index) {
-        final long block = index >> blockSizeBits;                 // index / blockSize
-        final long indexInBlock = index & blockMask;               // index % blockSize
-        final long sectorInBlock = indexInBlock >> sectorSizeBits; // indexInBlock / sectorSize
-        final long indexInSector = indexInBlock & sectorMask;      // indexInBlock % sectorSize
-        return ((block << blockSizeBits) +           //  (block * blockSize
-                (indexInSector << sectorSizeBits) +  //   indexInSector * sectorSize
-                sectorInBlock) << lengthBits;        //    + sectorInBlock ) * length
+        return mapping.indexToPosition(index) << bits;
+    }
+
+    public long index(final long position) {
+        return mapping.positionToIndex(position >>> bits);
     }
 
     public int length() {

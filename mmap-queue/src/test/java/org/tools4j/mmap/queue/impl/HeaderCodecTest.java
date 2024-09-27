@@ -47,17 +47,17 @@ public class HeaderCodecTest {
         System.out.println("appenderId = " + (header >>> 56));
 
         //header
-        assertEquals(header, HeaderCodec.header(appenderId, payloadPosition));
+        assertEquals(header, Headers.header(appenderId, payloadPosition));
 
         //appenderId
-        assertEquals(appenderId, HeaderCodec.appenderId(header));
+        assertEquals(appenderId, Headers.appenderId(header));
 
         //payloadPosition
-        assertEquals(payloadPosition, HeaderCodec.payloadPosition(header));
+        assertEquals(payloadPosition, Headers.payloadPosition(header));
     }
 
     @Test
     public void initialPayloadPosition() {
-        assertEquals(64, HeaderCodec.initialPayloadPosition());
+        assertEquals(64, Headers.initialPayloadPosition());
     }
 }

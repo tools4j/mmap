@@ -26,16 +26,19 @@ package org.tools4j.mmap.queue.api;
 import org.agrona.DirectBuffer;
 
 /**
- * Handler when {@link Poller#poll(EntryHandler) polling} entries from a {@link Queue}
+ * Handler when {@link Poller#poll(EntryHandler) polling} entries via a {@link Poller}
  */
 public interface EntryHandler {
-
     /**
-     * Handles an entry and indicates the next entry move direction.
+     * Handles an entry and returns the direction how to move the cursor for the next entry to poll.
      *
-     * @param index - entry index in the queue
-     * @param buffer - buffer with access to entry data, with valid byte range from {@code [0...(capacity-1)]}
-     * @return next move {@link Direction}
+     * @param index entry index in the queue
+     * @param buffer buffer with access to entry data, with valid byte range {@code [offset...(offset + length - 1)]}
+     * @param offset offset in the buffer with the first entry byte (unless length is zero)
+     * @param length number of bytes in the buffer for this entry
+     * @return  index increment to move the cursor to the next entry, typically +1 to move one entry forward, -1 to move
+     *          one entry backwards, zero to stay on the current entry, or also {@link Move#FIRST}, {@link Move#LAST}
+     *          and {@link Move#END} to move to the first entry, last entry or to the end of the queue, respectively
      */
-    Direction onEntry(long index, DirectBuffer buffer);
+    long onEntry(long index, DirectBuffer buffer, int offset, int length);
 }

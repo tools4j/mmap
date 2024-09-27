@@ -23,67 +23,66 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.Direction;
+import org.tools4j.mmap.queue.api.Entry;
+import org.tools4j.mmap.queue.api.Index;
+import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.Reader.Entry;
-import org.tools4j.mmap.queue.api.Reader.IterableContext;
-import org.tools4j.mmap.queue.api.Reader.ReadingContext;
+import org.tools4j.mmap.queue.api.ReadingContext;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.api.Direction.BACKWARD;
-import static org.tools4j.mmap.queue.api.Direction.FORWARD;
-import static org.tools4j.mmap.queue.api.Reader.NULL_INDEX;
 
-class DefaultIterableContext<E extends Reader.Entry> implements IterableContext, Iterable<E>, Iterator<E> {
-    interface MutableReadingContext<E extends Entry> extends ReadingContext {
+final class DefaultIterableContext implements IterableContext, Iterable<Entry>, Iterator<Entry> {
+    interface MutableReadingContext extends ReadingContext {
         boolean tryInit(long index);
-        E entry();
+        Entry entry();
     }
 
-    private long startIndex = NULL_INDEX;
-    private Direction direction = Direction.NONE;
-    private E entry;
+    private long startIndex = Index.NULL;
+    private long index = Index.NULL;
+    private Entry entry;
+    private boolean reverse;
 
     private final Reader reader;
-    private final MutableReadingContext<E> readingContext;
+    private final MutableReadingContext readingContext;
 
-    DefaultIterableContext(final Reader reader, final MutableReadingContext<E> readingContext) {
+    DefaultIterableContext(final Reader reader, final MutableReadingContext readingContext) {
         this.reader = requireNonNull(reader);
         this.readingContext = requireNonNull(readingContext);
     }
 
-    DefaultIterableContext<E> init(final long index) {
+    DefaultIterableContext init(final long index) {
         if (index < 0) {
             throw new IllegalArgumentException("Index cannot be negative: " + index);
         }
         this.startIndex = index;
+        this.index = Index.NULL;
         return this;
     }
 
     @Override
     public long startIndex() {
-        return startIndex != Long.MAX_VALUE ? startIndex : reader.lastIndex();
+        return startIndex;
     }
 
     @Override
-    public Iterable<E> iterate(final Direction direction) {
-        this.direction = requireNonNull(direction);
+    public Iterator<Entry> iterator() {
+        readingContext.close();
         return this;
     }
 
     @Override
-    public Iterator<E> iterator() {
-        readingContext.close();
+    public IterableContext reverse() {
+        reverse = !reverse;
         return this;
     }
 
     public long nextIndex() {
         final long curIndex = readingContext.index();
-        if (curIndex != NULL_INDEX) {
-            return direction == FORWARD ? curIndex + 1 : direction == BACKWARD ? curIndex - 1 : NULL_INDEX;
+        if (curIndex != Index.NULL) {
+            return reverse ? curIndex - 1 : curIndex + 1;
         }
         return startIndex();
     }
@@ -102,8 +101,8 @@ class DefaultIterableContext<E extends Reader.Entry> implements IterableContext,
     }
 
     @Override
-    public E next() {
-        final E next = entry;
+    public Entry next() {
+        final Entry next = entry;
         if (next != null) {
             entry = null;
             return next;
@@ -113,8 +112,8 @@ class DefaultIterableContext<E extends Reader.Entry> implements IterableContext,
 
     @Override
     public void close() {
-        startIndex = NULL_INDEX;
-        direction = Direction.NONE;
+        startIndex = Index.NULL;
+        reverse = false;
         entry = null;
         readingContext.close();
     }

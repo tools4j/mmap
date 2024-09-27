@@ -32,8 +32,9 @@ import org.tools4j.mmap.region.api.MapMode;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
-import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 public class RolledFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(RolledFileMapper.class);
@@ -56,9 +57,9 @@ public class RolledFileMapper implements FileMapper {
                      final int regionSize,
                      final int filesToCreateAhead,
                      final MapMode mapMode) {
-        greaterThanZero(maxFileSize, "maxFileSize");
-        greaterThanZero(regionSize, "regionSize");
-        nonNegative(filesToCreateAhead, "filesToCreateAhead");
+        validateGreaterThanZero(maxFileSize, "maxFileSize");
+        validateGreaterThanZero(regionSize, "regionSize");
+        validateNonNegative(filesToCreateAhead, "filesToCreateAhead");
         if (maxFileSize % regionSize != 0) {
             throw new IllegalArgumentException(
                     "maxFileSize [" + maxFileSize + "]  must be multiple of regionSize [" + regionSize + "]");

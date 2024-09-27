@@ -29,12 +29,6 @@ package org.tools4j.mmap.region.api;
  * for reading and writing mapping mode.
  */
 public interface FileMapper extends AutoCloseable {
-
-  /**
-   * Null address if mapping failed.
-   */
-  long NULL_ADDRESS = -1;
-
   /**
    * Map memory region at absolute position with given length to memory address.
    *

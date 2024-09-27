@@ -23,91 +23,26 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
-
 /**
- * Interface for random read access to entries in the {@link Queue}.
+ * API for random read access of entries in a {@link Queue}.
  */
 public interface Reader extends AutoCloseable {
-    /**
-     * Index returned by {@link ReadingContext#index()} if no entry is currently available for reading.
-     */
-    long NULL_INDEX = -1;
 
     /**
-     * Entry in the queue, with data accessible through {@link #buffer()}.
-     */
-    interface Entry {
-        /**
-         * @return non-negative entry index
-         */
-        long index();
-
-        /**
-         * The buffer with entry data; valid bytes are in the range {@code [0..(n-1)]} where {@code n} is equal to the
-         * buffer's {@link DirectBuffer#capacity() capacity}.
-         *
-         * @return buffer with entry data, with zero capacity if entry has no data or no entry is available
-         */
-        DirectBuffer buffer();
-    }
-
-    /**
-     * Reading context with access to entry data and index if the requested queue entry was available; otherwise the
-     * returned {@link #buffer()} contains no data.
-     */
-    interface ReadingContext extends Entry, AutoCloseable {
-        /**
-         * @return non-negative index if entry is available, {@link #NULL_INDEX} otherwise
-         */
-        @Override
-        long index();
-
-        /**
-         * @return true if entry is available, false otherwise
-         */
-        boolean hasEntry();
-
-        /** Closes the reading context and unwraps the buffer */
-        @Override
-        void close();
-    }
-
-    /**
-     * Iterable context to iterate over queue entries.
-     */
-    interface IterableContext extends AutoCloseable {
-        /** @return the index of the first entry returned by iterators, or {@link #NULL_INDEX} if unavailable */
-        long startIndex();
-
-        /**
-         * Returns an iterable for iteration over queue entries in the given {@code direction} starting at
-         * {@link #startIndex() startIndex}. If direction is {@link Direction#NONE NONE}, only the start entry will be returned by
-         * the iterable.
-         *
-         * @param direction the iteration direction
-         * @return an iterable to iterate over queue entries in the given {@code direction}
-         */
-        Iterable<? extends Entry> iterate(Direction direction);
-
-        /** Closes any iterator associated with this iterable and unwraps the current entry's buffer */
-        @Override
-        void close();
-    }
-
-    /**
-     * Returns the index of the first entry in the queue, or {@link #NULL_INDEX} if the queue is empty.  Note that
+     * Returns the index of the first entry in the queue, or {@link Index#NULL} if the queue is empty.  Note that
      * if the queue is non-empty, the returns value will always be zero.
      *
-     * @return zero if the queue is non-empty, and {@link #NULL_INDEX} otherwise
+     * @return zero if the queue is non-empty, and {@link Index#NULL} otherwise
      */
     long firstIndex();
 
     /**
-     * Returns the index of the last entry in the queue, or {@link #NULL_INDEX} if the queue is empty.  Note that
-     * consecutive calls may return different results if entries are appended in the background.
+     * Returns the index of the last entry in the queue, or {@link Index#NULL} if the queue is empty.
+     * <p>
+     * Note that consecutive calls may return different results if entries are appended in the background.  Note also
+     * that this is not an instant operation and the method should not be called from a latency sensitive context.
      *
-     * @return a non-negative entry index of the last entry in the queue, or {@link #NULL_INDEX} if the queue is empty
+     * @return a non-negative entry index of the last entry in the queue, or {@link Index#NULL} if the queue is empty
      */
     long lastIndex();
 
@@ -125,7 +60,7 @@ public interface Reader extends AutoCloseable {
      * contains no data.
      * <p>
      * The returned context should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
      * long start = 123;
      * try (ReadingContext context = queue.reading(start)) {
@@ -148,7 +83,7 @@ public interface Reader extends AutoCloseable {
      * contains no data.
      * <p>
      * The returned context should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
      * try (ReadingContext context = queue.readingFirst()) {
      *     if (context.hasEntry()) {
@@ -169,7 +104,7 @@ public interface Reader extends AutoCloseable {
      * contains no data.
      * <p>
      * The returned context should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
      * try (ReadingContext context = queue.readingLast()) {
      *     if (context.hasEntry()) {
@@ -179,6 +114,8 @@ public interface Reader extends AutoCloseable {
      * }
      * </pre>
      * Returns a context with unavailable entry if the queue is empty.
+     * <p>
+     * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
      *
      * @return reading context to access entry data if available
      */
@@ -188,7 +125,7 @@ public interface Reader extends AutoCloseable {
      * Returns the reading context to iterate over the entries of the queue starting from the specified entry index.
      * <p>
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
      * long start = 123;
      * try (IterableContext context = queue.readingFrom(start)) {
@@ -198,7 +135,8 @@ public interface Reader extends AutoCloseable {
      *     }
      * }
      * </pre>
-     * Returns a no-op iterable if the queue is empty or index is negative or not a valid entry index.
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * entries are subsequently appended to the queue in the background.
      *
      * @param index     zero-based entry index from which to start
      * @return an entry iterable that can be used in a for-loop
@@ -210,16 +148,17 @@ public interface Reader extends AutoCloseable {
      * Returns the reading context to iterate over the entries of the queue starting from the first entry.
      * <p>
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
-     * try (IterableContext context = queue.readingFromFirst()) {
-     *     for (Entry entry : context.iterate(Direction.FORWARD)) {
+     * try (IterableContext iterable = queue.readingFromFirst()) {
+     *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
      *     }
      * }
      * </pre>
-     * Returns a no-op iterable if the queue is empty.
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * entries are subsequently appended to the queue in the background.
      *
      * @return an entry iterable that can be used in a for-loop
      */
@@ -229,20 +168,46 @@ public interface Reader extends AutoCloseable {
      * Returns the reading context to iterate over the entries of the queue starting from the last entry.
      * <p>
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
-     * int the following example:
+     * in the following example:
      * <pre>
-     * try (IterableContext context = queue.readingFromLast()) {
-     *     for (Entry entry : context.iterate(Direction.BACKWARD)) {
+     * try (IterableContext iterable = queue.readingFromLast().reverse()) {
+     *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
      *     }
      * }
      * </pre>
-     * Returns a no-op iterable if the queue is empty.
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * entries are subsequently appended to the queue in the background.
+     * <p>
+     * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
      *
      * @return an entry iterable that can be used in a for-loop
      */
     IterableContext readingFromLast();
+
+    /**
+     * Returns the reading context to iterate over the entries of the queue starting from the end of the queue
+     * <i>after</i> the last entry.
+     * <p>
+     * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
+     * in the following example:
+     * <pre>
+     * try (IterableContext iterable = queue.readingFromEnd()) {
+     *     for (Entry entry : iterable) {
+     *         byte byte0 = entry.buffer().get(0);
+     *         ...
+     *     }
+     * }
+     * </pre>
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * entries are subsequently appended to the queue in the background.
+     * <p>
+     * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
+     *
+     * @return an entry iterable that can be used in a for-loop
+     */
+    IterableContext readingFromEnd();
 
     /**
      * Closes this reader.

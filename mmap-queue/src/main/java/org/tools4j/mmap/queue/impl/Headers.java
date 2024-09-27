@@ -21,18 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.queue.impl;
 
-/**
- * Handler when {@link LongPoller#poll(LongEntryHandler)} polling} entries from a {@link LongQueue}
- */
-public interface LongEntryHandler {
-    /**
-     * Handles a entry and indicates the next entry move.
-     *
-     * @param index - entry index in the queue
-     * @param value - the entry value
-     * @return next move {@link Direction}
-     */
-    Direction onEntry(long index, long value);
+import org.tools4j.mmap.region.impl.Word;
+
+enum Headers {
+    ;
+    private static final long PAYLOAD_POSITION_MASK = 0x00ffffffffffffffL;
+    private static final int APPENDER_ID_SHIFT = Long.SIZE - Byte.SIZE;
+    public static final Word HEADER_WORD = new Word(Long.BYTES);
+    public static final long NULL_HEADER = 0;
+
+
+    public static int appenderId(final long header) {
+        return (int) (header >>> APPENDER_ID_SHIFT);
+    }
+
+    public static long payloadPosition(final long header) {
+        return header & PAYLOAD_POSITION_MASK;
+    }
+
+    public static long header(final short appenderId, final long payloadPosition) {
+        return  ((0xffL & appenderId) << APPENDER_ID_SHIFT) | payloadPosition;
+    }
+
 }

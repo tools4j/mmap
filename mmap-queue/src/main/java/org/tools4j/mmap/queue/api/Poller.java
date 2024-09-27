@@ -24,77 +24,101 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * Queue poller for sequential retrieval of entries with callback to an {@link EntryHandler}.
+ * Poller for sequential retrieval of {@link Queue} entries with callback to an {@link EntryHandler}.
  */
 public interface Poller extends AutoCloseable {
-    /**
-     * Result of polling an entry.
-     */
-    enum Result {
-        /**
-         * No entry was available for polling.
-         */
-        IDLE,
-        /**
-         * Entry was polled and index was moved to next higher index.
-         * @see Direction#FORWARD
-         */
-        POLLED_AND_MOVED_FORWARD,
-        /**
-         * Entry was polled and index was left unchanged.
-         * @see Direction#NONE
-         */
-        POLLED_AND_NOT_MOVED,
-        /**
-         * Entry was polled and index  was moved to next lower index.
-         * @see Direction#BACKWARD
-         */
-        POLLED_AND_MOVED_BACKWARD,
-        /**
-         * Error occurred when attempting to access entry or payload.
-         */
-        ERROR
-    }
+    /** No entry was polled but the cursor was moved towards {@link #nextIndex()} */
+    int CURSOR_MOVED = 2;
+    /** An entry was polled */
+    int ENTRY_POLLED = 1;
+    /** No entry was polled with the cursor at the end of the queue waiting for a new entry to be appended */
+    int PENDING_NEXT = 0;
+    /** The queue has not been opened yet because it does not exist yet */
+    int PENDING_OPEN = -1;
+    /** The cursor has been moved past the {@link Index#MAX MAX} allowed entry index (use seek method to resume) */
+    int AFTER_MAX = -2;
+    /** The cursor has been moved backwards and has moved past the first entry (use seek method to resume) */
+    int BEFORE_FIRST = -3;
+    /** The poller or the underlying queue has been closed */
+    int CLOSED = -4;
 
     /**
      * Polls the queue and invokes the entry handler if one is available.
      *
      * @param entryHandler entry handler callback invoked if an entry is present
-     * @return result value as per {@link Direction} if polled, otherwise {@link Result#IDLE}
+     * @return  a positive value if an entry was polled or if the entry cursor was moved,
+     *          zero if not polled or moved, and negative if queue is not yet open, closed or if the cursor has been
+     *          moved before the first entry (see constants defined in this class)
      */
-    Result poll(EntryHandler entryHandler);
+    int poll(EntryHandler entryHandler);
 
     /**
-     * Move to given index for next entry to poll.
-     *
-     * @param index index to move to for next poll operation
-     * @return true if the move succeeded, false otherwise
-     */
-    boolean moveToIndex(long index);
-
-    /**
-     * Move to end of the queue after the last entry
-     * @return index at which next entry is expected to be appended in the future
-     */
-    long moveToEnd();
-
-    /**
-     * Move to start of the queue, for polling the first entry next
-     * @return true is succeeded
-     */
-    boolean moveToStart();
-
-    /**
-     * @return current index
+     * Returns the index of the current entry, or -1 if no current entry exists.
+     * The current entry is the one last polled or last touched when moving the cursor.
+     * @return index of current entry, zero for first queue entry
      */
     long currentIndex();
 
     /**
-     * Check if an entry is available at the given index
-     * @param index entry index
-     * @return true if entry is available at the given index, and false otherwise
+     * Returns the index of the next entry to be polled, or -1 polling has moved the cursor before the first entry or
+     * past {@link Index#MAX}, and {@link Index#END} for the next entry at the end of the queue.
+     *
+     * @return index of next entry to be polled, zero for first queue entry
      */
-    boolean hasEntry(long index);
+    long nextIndex();
+
+    /**
+     * Sets the index of the next polled entry to zero. Equivalent to {@code seekNext(0)}.
+     *
+     * @see #seekNext(long)
+     * @see #seekLast()
+     * @see #seekEnd()
+     */
+    void seekStart();
+
+    /**
+     * Sets the index of the next polled entry to be the last entry. Equivalent to {@code seekNext(Index.LAST)}.
+     * This operation returns fast and does not move the cursor immediately, instead the cursor is moved through
+     * subsequent {@link #poll(EntryHandler) poll(..)} invocations.
+     * <p>
+     * Note that last entry of the queue be a moving target if entries are concurrently appended to the queue.
+     *
+     * @see #seekEnd()
+     * @see #seekStart()
+     * @see #seekNext(long)
+     * @see Index#LAST
+     */
+    void seekLast();
+
+    /**
+     * Sets the index of the next polled entry to be at the end. Equivalent to {@code seekNext(Index.END)}.
+     * This operation returns fast and does not move the cursor immediately, instead the cursor is moved through
+     * subsequent {@link #poll(EntryHandler) poll(..)} invocations.
+     * <p>
+     * Note that queue end may be a moving target if entries are concurrently appended to the queue.
+     *
+     * @see #seekStart()
+     * @see #seekLast()
+     * @see #seekNext(long)
+     * @see Index#END
+     */
+    void seekEnd();
+
+    /**
+     * Sets the index of the next polled entry. This operation returns fast and does not move the cursor immediately,
+     * instead the cursor is moved through subsequent {@link #poll(EntryHandler) poll(..)} invocations.
+     *
+     * @param index the index of the next entry to poll, 0 for first and {@link Index#END} end of the queue
+     * @throws IllegalArgumentException if the provided index is negative
+     * @see #seekStart()
+     * @see #seekEnd()
+     */
+    void seekNext(long index);
+
+    /**
+     * @return true if this poller is closed
+     */
+    boolean isClosed();
 
     /**
      * Closes the poller.

@@ -40,7 +40,7 @@ public final class PowerOfTwoRegionMetrics implements RegionMetrics {
         this.regionSize = regionSize;
         this.offsetMask = regionSize - 1;
         this.regionMask = -regionSize;
-        this.regionShift = Integer.numberOfTrailingZeros(regionSize);
+        this.regionShift = Integer.SIZE - Integer.numberOfLeadingZeros(regionSize - 1);
     }
 
     @Override

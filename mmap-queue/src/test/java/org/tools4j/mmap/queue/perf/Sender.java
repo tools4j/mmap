@@ -26,6 +26,7 @@ package org.tools4j.mmap.queue.perf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
@@ -60,7 +61,7 @@ public class Sender {
                 final long lastMessageIdx = messages - 1;
                 for (int i = 0; i < messages; i++) {
                     final long time = System.nanoTime();
-                    try (Appender.AppendingContext context = appender.appending(messageLength)) {
+                    try (AppendingContext context = appender.appending(messageLength)) {
                         testMessage
                                 .wrap(context.buffer())
                                 .publisherId(publisherId)

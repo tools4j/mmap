@@ -30,20 +30,17 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.region.api.RegionCursor;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
-import org.tools4j.mmap.region.api.TimeoutHandler;
-import org.tools4j.mmap.region.api.WaitingPolicy;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
-import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 /**
  * Implementation of {@link Queue} that allows a multiple writing threads and
@@ -68,41 +65,35 @@ public final class DefaultQueue implements Queue {
                         final int regionsToMapAhead,
                         final long maxFileSize,
                         final boolean rollFiles,
-                        final int filesToCreateAhead,
-                        final WaitingPolicy readWaitingPolicy,
-                        final WaitingPolicy writeWaitingPolicy,
-                        final boolean exceptionOnTimeout) {
+                        final int filesToCreateAhead) {
         this.name = requireNonNull(name);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        validRegionSize(regionSize);
-        validRegionCacheSize(regionCacheSize);
-        greaterThanZero(maxFileSize, "maxFileSize");
-        nonNegative(filesToCreateAhead, "filesToCreateAhead");
+        validateRegionSize(regionSize);
+        validateRegionCacheSize(regionCacheSize);
+        validateGreaterThanZero(maxFileSize, "maxFileSize");
+        validateNonNegative(filesToCreateAhead, "filesToCreateAhead");
 
-        final TimeoutHandler<RegionCursor> timeoutHandler = exceptionOnTimeout ?
-                TimeoutHandlers.exception(name) : TimeoutHandlers.log(LOGGER, name);
         final AppenderIdPool appenderIdPool = open(manyAppenders ?
                 new DefaultAppenderIdPool(directory, name) : AppenderIdPool.SINGLE_APPENDER);
 
-        this.pollerFactory = () -> open(new DefaultPoller(name, QueueRegionCursors.forReadOnly(
+        this.pollerFactory = () -> open(new DefaultPoller(name, QueueRegions.forReadOnly(
                 name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
-                rollFiles, readWaitingPolicy, timeoutHandler, LOGGER
+                rollFiles, LOGGER
         )));
 
-        this.readerFactory = () -> open(new DefaultReader(name, QueueRegionCursors.forReadOnly(
+        this.readerFactory = () -> open(new DefaultReader(name, QueueRegions.forReadOnly(
                 name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
-                rollFiles, readWaitingPolicy, timeoutHandler, LOGGER
+                rollFiles, LOGGER
         )));
 
-        this.appenderFactory = () -> open(new DefaultAppender(name, QueueRegionCursors.forReadWrite(
+        this.appenderFactory = () -> open(new DefaultAppender(name, QueueRegions.forReadWrite(
                 name, directory, regionMapperFactory, regionSize, regionCacheSize, regionsToMapAhead, maxFileSize,
-                rollFiles, filesToCreateAhead, writeWaitingPolicy, timeoutHandler, LOGGER
+                rollFiles, filesToCreateAhead, LOGGER
         ), appenderIdPool));
 
-        final String asyncInfo = regionMapperFactory.isAsync() ? String.format(
-                ", regionsToMapAhead=%s, readWaitingPolicy=%s, writeWaitingPolicy=%s, exceptionOnTimeout=%s",
-                regionsToMapAhead, readWaitingPolicy, writeWaitingPolicy, exceptionOnTimeout) : "";
+        final String asyncInfo = regionMapperFactory.isAsync() ? String.format(", regionsToMapAhead=%s",
+                regionsToMapAhead) : "";
         this.description = String.format("Queue{name=%s, directory=%s, regionMapperFactory=%s, regionSize=%d, " +
                         "regionCacheSize=%d, maxFileSize=%d, rollFiles=%s, filesToCreateAhead=%s%s}", name, directory,
                 regionMapperFactory, regionSize, regionCacheSize, maxFileSize, rollFiles, filesToCreateAhead, asyncInfo);

@@ -38,6 +38,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+
 public class SingleFileReadOnlyMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadOnlyMapper.class);
 
@@ -79,8 +82,8 @@ public class SingleFileReadOnlyMapper implements FileMapper {
 
     @Override
     public void unmap(long address, long position, int length) {
-        assert address >= 0;
-        assert position >= 0;
+        assert address > NULL_ADDRESS;
+        assert position > NULL_POSITION;
         IoUtil.unmap(fileChannel, address, length);
     }
 
@@ -111,7 +114,7 @@ public class SingleFileReadOnlyMapper implements FileMapper {
             fileChannel = raf.getChannel();
             try {
                 fileInitialiser.init(file.getName(), fileChannel);
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 LOGGER.error("Failed to initialise fileChannel for " + file, e);
                 try {
                     this.fileChannel.close();
@@ -140,7 +143,7 @@ public class SingleFileReadOnlyMapper implements FileMapper {
             if (rafFile != null) {
                 rafFile.close();
             }
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException(e);
         }
         LOGGER.info("Closed read-only file mapper. file={}", file);

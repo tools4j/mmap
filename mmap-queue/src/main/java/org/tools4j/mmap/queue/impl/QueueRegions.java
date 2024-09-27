@@ -27,10 +27,8 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.slf4j.Logger;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.MapMode;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
-import org.tools4j.mmap.region.api.TimeoutHandler;
-import org.tools4j.mmap.region.api.WaitingPolicy;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
 import org.tools4j.mmap.region.impl.RolledFileMapper;
@@ -41,67 +39,63 @@ import java.nio.channels.FileLock;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
-import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 /**
- * Header and payload region mapper for queues.
+ * Header and payload region for queues.
  */
-interface QueueRegionCursors extends AutoCloseable {
+interface QueueRegions extends AutoCloseable {
     /**
-     * @return header region accessor
+     * @return header region
      */
-    RegionCursor header();
+    Region header();
 
     /**
      * @param appenderId appender id
-     * @return payload region accessor
+     * @return payload region
      */
-    RegionCursor payload(short appenderId);
+    Region payload(int appenderId);
 
     @Override
     void close();
 
     /**
-     * Factory method for read-only queue region mappers.
+     * Factory method for read-only queue regions.
      *
      * @param queueName             queue name (Header file would have "_header" suffix and payload file would have
      *                              a "_payload" suffix.
      * @param directory             directory where the files are located
-     * @param regionMapperFactory   factory to create region mappers
+     * @param regionMapperFactory   factory to create regions
      * @param regionSize            region size in bytes
      * @param regionCacheSize       number of regions to cache
      * @param regionsToMapAhead     regions to map-ahead if async mapping is used (ignored in sync mode)
      * @param maxFileSize           max file size to prevent unexpected file growth. For single file or for each file if
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
-     * @param waitingPolicy         waiting policy to use for cursor
-     * @param timeoutHandler        handler for timeouts
      * @param logger                logger
      * @return an instance of QueueRegionMappers
      */
-    static QueueRegionCursors forReadOnly(final String queueName,
-                                          final String directory,
-                                          final RegionMapperFactory regionMapperFactory,
-                                          final int regionSize,
-                                          final int regionCacheSize,
-                                          final int regionsToMapAhead,
-                                          final long maxFileSize,
-                                          final boolean rollFiles,
-                                          final WaitingPolicy waitingPolicy,
-                                          final TimeoutHandler<? super RegionCursor> timeoutHandler,
-                                          final Logger logger) {
+    static QueueRegions forReadOnly(final String queueName,
+                                    final String directory,
+                                    final RegionMapperFactory regionMapperFactory,
+                                    final int regionSize,
+                                    final int regionCacheSize,
+                                    final int regionsToMapAhead,
+                                    final long maxFileSize,
+                                    final boolean rollFiles,
+                                    final Logger logger) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        validRegionSize(regionSize);
-        validRegionCacheSize(regionCacheSize);
-        greaterThanZero(maxFileSize, "maxFileSize");
+        validateRegionSize(regionSize);
+        validateRegionCacheSize(regionCacheSize);
+        validateGreaterThanZero(maxFileSize, "maxFileSize");
 
         final String headerFileName = directory + "/" + queueName + "_header";
-        final FileInitialiser headerInitialiser = QueueRegionCursors.headerInitialiser(MapMode.READ_ONLY);
+        final FileInitialiser headerInitialiser = QueueRegions.headerInitialiser(MapMode.READ_ONLY);
 
         final FileMapper headerReadOnlyMapper;
         if (rollFiles) {
@@ -111,13 +105,12 @@ interface QueueRegionCursors extends AutoCloseable {
         }
 
         try {
-            final RegionCursor header = RegionCursor.managed(
-                    regionMapperFactory.create(headerReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead),
-                    waitingPolicy, timeoutHandler
+            final Region header = Region.create(
+                    regionMapperFactory.create(headerReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead)
             );
 
-            final Int2ObjectHashMap<RegionCursor> payloadCursors = new Int2ObjectHashMap<>();
-            final IntFunction<RegionCursor> payloadCursorFactory = appenderId -> {
+            final Int2ObjectHashMap<Region> payloadRegions = new Int2ObjectHashMap<>();
+            final IntFunction<Region> payloadRegionFactory = appenderId -> {
                 final String payloadFileName = directory + "/" + queueName + "_payload_" + appenderId;
 
                 final FileMapper payloadReadOnlyMapper;
@@ -129,29 +122,28 @@ interface QueueRegionCursors extends AutoCloseable {
                     });
                 }
 
-                return RegionCursor.managed(
-                        regionMapperFactory.create(payloadReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead),
-                        waitingPolicy, timeoutHandler
+                return Region.create(
+                        regionMapperFactory.create(payloadReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead)
                 );
             };
 
-            return new QueueRegionCursors() {
+            return new QueueRegions() {
                 @Override
-                public RegionCursor header() {
+                public Region header() {
                     return header;
                 }
 
                 @Override
-                public RegionCursor payload(final short appenderId) {
-                    return payloadCursors.computeIfAbsent(appenderId, payloadCursorFactory);
+                public Region payload(final short appenderId) {
+                    return payloadRegions.computeIfAbsent(appenderId, payloadRegionFactory);
                 }
 
                 @Override
                 public void close() {
-                    //TODO shared runtime could be closed too early if still used by other mapper
+                    //TODO shared runtime could be closed too early if still used by other regions
                     header.close();
-                    payloadCursors.forEachInt((appenderId, payloadAccessor) -> payloadAccessor.close());
-                    logger.info("Closed all read-only queue region mappers. queue={}", queueName);
+                    payloadRegions.forEachInt((appenderId, payloadAccessor) -> payloadAccessor.close());
+                    logger.info("Closed all read-only queue regions. queue={}", queueName);
                 }
             };
         } catch (Throwable ex) {
@@ -162,12 +154,12 @@ interface QueueRegionCursors extends AutoCloseable {
     }
 
     /**
-     * Factory method for read/write queue region mappers.
+     * Factory method for read/write queue regions.
      *
      * @param queueName             queue name (Header file would have "_header" suffix and payload file would have
      *                              a "_payload" suffix.
      * @param directory             directory where the files are located
-     * @param regionMapperFactory   factory to create region mappers
+     * @param regionMapperFactory   factory to create regions
      * @param regionSize            region size in bytes
      * @param regionCacheSize       number of regions to cache
      * @param regionsToMapAhead     regions to map-ahead if async mapping is used (ignored in sync mode)
@@ -175,36 +167,31 @@ interface QueueRegionCursors extends AutoCloseable {
      *                              file rolling is enabled.
      * @param rollFiles             true if file rolling is enabled, false otherwise.
      * @param filesToCreateAhead    how many payload files should be pre-created (ignored if rollFiles=false)
-     * @param waitingPolicy         waiting policy to use for cursor
-     * @param timeoutHandler        handler for timeouts
      * @param logger                logger
      * @return an instance of QueueRegionMappers
      */
-    static QueueRegionCursors forReadWrite(final String queueName,
-                                           final String directory,
-                                           final RegionMapperFactory regionMapperFactory,
-                                           final int regionSize,
-                                           final int regionCacheSize,
-                                           final int regionsToMapAhead,
-                                           final long maxFileSize,
-                                           final boolean rollFiles,
-                                           final int filesToCreateAhead,
-                                           final WaitingPolicy waitingPolicy,
-                                           final TimeoutHandler<? super RegionCursor> timeoutHandler,
-                                           final Logger logger) {
+    static QueueRegions forReadWrite(final String queueName,
+                                     final String directory,
+                                     final RegionMapperFactory regionMapperFactory,
+                                     final int regionSize,
+                                     final int regionCacheSize,
+                                     final int regionsToMapAhead,
+                                     final long maxFileSize,
+                                     final boolean rollFiles,
+                                     final int filesToCreateAhead,
+                                     final Logger logger) {
         requireNonNull(queueName);
         requireNonNull(directory);
         requireNonNull(regionMapperFactory);
-        validRegionSize(regionSize);
-        validRegionCacheSize(regionCacheSize);
-        greaterThanZero(maxFileSize, "maxFileSize");
-        nonNegative(filesToCreateAhead, "filesToCreateAhead");
-        requireNonNull(waitingPolicy);
+        validateRegionSize(regionSize);
+        validateRegionCacheSize(regionCacheSize);
+        validateGreaterThanZero(maxFileSize, "maxFileSize");
+        validateNonNegative(filesToCreateAhead, "filesToCreateAhead");
         requireNonNull(logger);
 
         final String headerFileName = directory + "/" + queueName + "_header";
         final MapMode mapMode = MapMode.READ_WRITE;
-        final FileInitialiser headerInitialiser = QueueRegionCursors.headerInitialiser(mapMode);
+        final FileInitialiser headerInitialiser = QueueRegions.headerInitialiser(mapMode);
 
         final FileMapper headerReadWriteMapper;
         if (rollFiles) {
@@ -214,13 +201,12 @@ interface QueueRegionCursors extends AutoCloseable {
         }
 
         try {
-            final RegionCursor header = RegionCursor.managed(
-                    regionMapperFactory.create(headerReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead),
-                    waitingPolicy, timeoutHandler
+            final Region header = Region.create(
+                    regionMapperFactory.create(headerReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead)
             );
 
-            final Int2ObjectHashMap<RegionCursor> payloadCursors = new Int2ObjectHashMap<>();
-            final IntFunction<RegionCursor> payloadCursorFactory = appenderId -> {
+            final Int2ObjectHashMap<Region> payloadRegions = new Int2ObjectHashMap<>();
+            final IntFunction<Region> payloadRegionFactory = appenderId -> {
 
                 final String payloadFileName = directory + "/" + queueName + "_payload_" + appenderId;
 
@@ -233,28 +219,27 @@ interface QueueRegionCursors extends AutoCloseable {
                     });
                 }
 
-                return RegionCursor.managed(
-                        regionMapperFactory.create(payloadReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead),
-                        waitingPolicy, timeoutHandler
+                return Region.create(
+                        regionMapperFactory.create(payloadReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead)
                 );
             };
 
-            return new QueueRegionCursors() {
+            return new QueueRegions() {
                 @Override
-                public RegionCursor header() {
+                public Region header() {
                     return header;
                 }
 
                 @Override
-                public RegionCursor payload(short appenderId) {
-                    return payloadCursors.computeIfAbsent(appenderId, payloadCursorFactory);
+                public Region payload(short appenderId) {
+                    return payloadRegions.computeIfAbsent(appenderId, payloadRegionFactory);
                 }
 
                 @Override
                 public void close() {
                     header.close();
-                    payloadCursors.forEachInt((appenderId, payloadAccessor) -> payloadAccessor.close());
-                    logger.info("Closed all read-write queue region mappers. queue={}", queueName);
+                    payloadRegions.forEachInt((appenderId, payloadAccessor) -> payloadAccessor.close());
+                    logger.info("Closed all read-write queue regions. queue={}", queueName);
                 }
             };
         } catch (Throwable ex) {

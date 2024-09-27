@@ -26,10 +26,9 @@ package org.tools4j.mmap.queue.impl;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.Direction;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.Region;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
@@ -37,22 +36,22 @@ import static org.tools4j.mmap.queue.api.Poller.Result.IDLE;
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_BACKWARD;
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_MOVED_FORWARD;
 import static org.tools4j.mmap.queue.api.Poller.Result.POLLED_AND_NOT_MOVED;
-import static org.tools4j.mmap.queue.impl.HeaderCodec.HEADER_WORD;
+import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
 
 final class DefaultPoller implements Poller {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPoller.class);
 
     private static final long NULL_HEADER = 0;
     private final String queueName;
-    private final QueueRegionCursors regionCursors;
-    private final RegionCursor headerCursor;
+    private final QueueRegions regionCursors;
+    private final Region headerCursor;
     private final UnsafeBuffer message = new UnsafeBuffer(0, 0);
 
     private long currentIndex = 0;
     private short currentAppenderId;
     private long currentPayloadPosition;
 
-    DefaultPoller(final String queueName, final QueueRegionCursors regionCursors) {
+    DefaultPoller(final String queueName, final QueueRegions regionCursors) {
         this.queueName = requireNonNull(queueName);
         this.regionCursors = requireNonNull(regionCursors);
         this.headerCursor = requireNonNull(regionCursors.header());
@@ -62,7 +61,7 @@ final class DefaultPoller implements Poller {
     public Result poll(final EntryHandler entryHandler) {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
-            final RegionCursor payloadCursor = regionCursors.payload(currentAppenderId);
+            final Region payloadCursor = regionCursors.payload(currentAppenderId);
             if (!payloadCursor.moveTo(currentPayloadPosition)) {
                 return ERROR;
             }
@@ -70,7 +69,7 @@ final class DefaultPoller implements Poller {
             message.wrap(payloadCursor.buffer(), 4, length);
             try {
                 final Direction nextMove = entryHandler.onEntry(currentIndex, message);
-                switch (nextMove != null ? nextMove : Direction.NONE) {
+                switch (nextMove != null ? nextMove : Direction.STAY) {
                     case FORWARD:
                         currentIndex++;
                         return POLLED_AND_MOVED_FORWARD;
@@ -80,7 +79,7 @@ final class DefaultPoller implements Poller {
                             return POLLED_AND_MOVED_BACKWARD;
                         }
                         return POLLED_AND_NOT_MOVED;
-                    case NONE:
+                    case STAY:
                         return POLLED_AND_NOT_MOVED;
                 }
             } finally {
@@ -136,8 +135,8 @@ final class DefaultPoller implements Poller {
         final long header = readHeader(index);
         if (header != NULL_HEADER) {
             currentIndex = index;
-            currentAppenderId = HeaderCodec.appenderId(header);
-            currentPayloadPosition = HeaderCodec.payloadPosition(header);
+            currentAppenderId = Headers.appenderId(header);
+            currentPayloadPosition = Headers.payloadPosition(header);
             return true;
         }
         return false;
@@ -149,7 +148,7 @@ final class DefaultPoller implements Poller {
      * @return header value
      */
     private long readHeader(final long index) {
-        final RegionCursor cursor = headerCursor;
+        final Region cursor = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
         if (!cursor.moveTo(headerPosition)) {
             return NULL_HEADER;

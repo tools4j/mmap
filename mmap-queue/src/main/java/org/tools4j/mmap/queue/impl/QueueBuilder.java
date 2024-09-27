@@ -25,17 +25,16 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
-import org.tools4j.mmap.region.api.WaitingPolicy;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.tools4j.mmap.region.impl.Constraints.greaterThanZero;
-import static org.tools4j.mmap.region.impl.Constraints.nonNegative;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionCacheSize;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 public final class QueueBuilder {
     //    public static final int DEFAULT_REGION_SIZE = ((int) Constants.REGION_SIZE_GRANULARITY) * 1024; //4MB
@@ -90,13 +89,13 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder regionSize(final int regionSize) {
-        validRegionSize(regionSize);
+        validateRegionSize(regionSize);
         this.regionSize = regionSize;
         return this;
     }
 
     public QueueBuilder regionCacheSize(final int regionCacheSize) {
-        validRegionCacheSize(regionCacheSize);
+        validateRegionCacheSize(regionCacheSize);
         this.regionCacheSize = regionCacheSize;
         return this;
     }
@@ -107,7 +106,7 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder maxFileSize(final long maxFileSize) {
-        greaterThanZero(maxFileSize, "maxFileSize");
+        validateGreaterThanZero(maxFileSize, "maxFileSize");
         this.maxFileSize = maxFileSize;
         return this;
     }
@@ -118,7 +117,7 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder filesToCreateAhead(final int nFiles) {
-        nonNegative(nFiles, "filesToCreateAhead");
+        validateNonNegative(nFiles, "filesToCreateAhead");
         this.filesToCreateAhead = nFiles;
         return this;
     }

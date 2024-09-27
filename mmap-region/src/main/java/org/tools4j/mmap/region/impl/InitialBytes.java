@@ -37,9 +37,17 @@ public enum InitialBytes implements ReadableByteChannel {
     }
 
     @Override
-    public int read(ByteBuffer dst) {
-        dst.putLong(initialValue);
-        return 8;
+    public int read(final ByteBuffer dst) {
+        final int remaining = dst.remaining();
+        final int longsRemaining = remaining / Long.BYTES;
+        final int bytesRemaining = remaining % Long.BYTES;
+        for (int i = 0; i < longsRemaining; i++) {
+            dst.putLong(initialValue);
+        }
+        for (int i = 0; i < bytesRemaining; i++) {
+            dst.put((byte)(initialValue & 0xff));
+        }
+        return remaining;
     }
 
     @Override

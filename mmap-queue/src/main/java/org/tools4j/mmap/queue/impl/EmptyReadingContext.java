@@ -24,21 +24,19 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.queue.api.Direction;
-import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.Reader.Entry;
-import org.tools4j.mmap.queue.api.Reader.IterableContext;
-import org.tools4j.mmap.queue.api.Reader.ReadingContext;
+import org.tools4j.mmap.queue.api.Entry;
+import org.tools4j.mmap.queue.api.Index;
+import org.tools4j.mmap.queue.api.IterableContext;
+import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.region.impl.EmptyBuffer;
 
 import java.util.Collections;
+import java.util.Iterator;
 
-import static java.util.Objects.requireNonNull;
-
-class EmptyReadingContext<E extends Entry> implements ReadingContext, IterableContext {
+class EmptyReadingContext implements ReadingContext, IterableContext {
     @Override
     public long index() {
-        return Reader.NULL_INDEX;
+        return Index.NULL;
     }
 
     @Override
@@ -58,12 +56,16 @@ class EmptyReadingContext<E extends Entry> implements ReadingContext, IterableCo
 
     @Override
     public long startIndex() {
-        return Reader.NULL_INDEX;
+        return Index.NULL;
     }
 
     @Override
-    public Iterable<? extends Entry> iterate(final Direction direction) {
-        requireNonNull(direction);
-        return Collections.emptyList();
+    public Iterator<Entry> iterator() {
+        return Collections.emptyIterator();
+    }
+
+    @Override
+    public IterableContext reverse() {
+        return this;
     }
 }

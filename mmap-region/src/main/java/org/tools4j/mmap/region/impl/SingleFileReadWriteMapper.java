@@ -39,6 +39,9 @@ import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+
 public class SingleFileReadWriteMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadWriteMapper.class);
     private static final MapMode MAP_MODE = MapMode.READ_WRITE;
@@ -151,7 +154,9 @@ public class SingleFileReadWriteMapper implements FileMapper {
     }
 
     @Override
-    public void unmap(long address, long position, int length) {
+    public void unmap(final long address, final long position, final int length) {
+        assert address > NULL_ADDRESS;
+        assert position > NULL_POSITION;
         IoUtil.unmap(fileChannel, address, length);
     }
 

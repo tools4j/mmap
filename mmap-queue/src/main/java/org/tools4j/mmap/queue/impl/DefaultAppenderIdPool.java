@@ -27,7 +27,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.RegionCursor;
+import org.tools4j.mmap.region.api.Region;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
@@ -55,9 +55,10 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAppenderIdPool.class);
 
     private static final int MAX_APPENDERS = 256;
-    private static final int REGION_SIZE = 8;
+    private static final int REGION_SIZE = MAX_APPENDERS / Byte.SIZE;
+    private static final int LONGS = MAX_APPENDERS / Long.SIZE;
     private static final String FILE_SUFFIX = "open_appenders";
-    private final RegionCursor region;
+    private final Region region;
     private final String queueName;
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -74,16 +75,21 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         }
         final AtomicBuffer buffer = region.buffer();
 
-        int currentAppenderCounter;
-        do {
-            currentAppenderCounter = buffer.getIntVolatile(0);
-            if (currentAppenderCounter >= MAX_APPENDERS) {
-                throw new IllegalStateException(format("Exceeded max number of appenders %d in %s queue", MAX_APPENDERS, queueName));
+        for (int index = 0; index < LONGS; index++) {
+            long appenderBitSet;
+            long appenderBit;
+            do {
+                appenderBitSet = buffer.getLongVolatile(index);
+                appenderBit = Long.lowestOneBit(~appenderBitSet);
+            } while (appenderBit != 0 && !buffer.compareAndSetLong(index, appenderBitSet, appenderBitSet | appenderBit));
+            if (appenderBit != 0) {
+                final int appenderBitValue = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
+                final int appenderId = index * Long.SIZE + appenderBitValue;
+                LOGGER.info("Acquired appenderId {} for {} queue", appenderId, queueName);
+                return (short)appenderId;
             }
-        } while (!buffer.compareAndSetInt(0, currentAppenderCounter, currentAppenderCounter + 1));
-
-        LOGGER.info("Acquired appenderId {} for {} queue", currentAppenderCounter, queueName);
-        return (short) currentAppenderCounter;
+        }
+        throw new IllegalStateException(format("Exceeded max number of appenders %d in %s queue", MAX_APPENDERS, queueName));
     }
 
     @Override
@@ -91,12 +97,21 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         if (closed.get()) {
             throw new IllegalStateException(format("Appender id pool for %s queue is closed", queueName));
         }
+        if (appenderId < 0 || appenderId > MAX_APPENDERS) {
+            throw new IllegalArgumentException("Invalid appender id: " + appenderId);
+        }
         final AtomicBuffer buffer = region.buffer();
 
-        int currentAppenderCounter;
+        final int index = appenderId / Long.SIZE;
+        final int bit = appenderId % Long.SIZE;
+        final long mask = ~(1L << bit);
+
+        long curBitSet;
+        long newBitSet;
         do {
-            currentAppenderCounter = buffer.getIntVolatile(0);
-        } while (!buffer.compareAndSetInt(0, currentAppenderCounter, currentAppenderCounter - 1));
+            curBitSet = buffer.getLongVolatile(index);
+            newBitSet = curBitSet & mask;
+        } while (curBitSet != newBitSet && !buffer.compareAndSetLong(index, curBitSet, newBitSet));
         LOGGER.info("Released appenderId {} for {} queue", appenderId, queueName);
     }
 
@@ -109,10 +124,10 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         }
     }
 
-    private static RegionCursor fixedRegion(final String directory, final String queueName) {
+    private static Region fixedRegion(final String directory, final String queueName) {
         final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
         final FileMapper fileMapper = new SingleFileReadWriteMapper(file, REGION_SIZE, fileInitialiser());
-        final RegionCursor region = RegionCursor.noWait(
+        final Region region = Region.create(
                 RegionMapperFactory.sync("sync:fixed").create(fileMapper, REGION_SIZE)
         );
         if (region.moveToFirstRegion()) {
@@ -130,6 +145,9 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
                         fileChannel.transferFrom(InitialBytes.ZERO, 0, REGION_SIZE);
                         fileChannel.force(true);
                         LOGGER.info("Initialised file data in {} for appender id pool", fileName);
+                    } else if (fileChannel.size() != REGION_SIZE) {
+                        throw new IllegalStateException("Invalid file size " + fileChannel.size() +
+                                " for appender id pool file " + fileName);
                     }
                 } finally {
                     fileLock.release();

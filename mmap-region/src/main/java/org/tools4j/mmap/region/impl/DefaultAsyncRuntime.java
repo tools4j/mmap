@@ -38,6 +38,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
     private static final Recurring[] EMPTY = {};
 
+    private final boolean autoStopOnLastDeregister;
     private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
 
     private enum StopStatus {
@@ -47,7 +48,8 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     }
     private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
-    public DefaultAsyncRuntime(final IdleStrategy idleStrategy) {
+    public DefaultAsyncRuntime(final IdleStrategy idleStrategy, final boolean autoStopOnLastDeregister) {
+        this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(idleStrategy);
         final Thread thread = new Thread(() -> {
             LOGGER.info("Started async region mapping runtime");
@@ -68,7 +70,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
             stop.set(StopStatus.STOPPED);
             LOGGER.info("Stopped async region mapping runtime");
         });
-        thread.setName("region-mapper");
+        thread.setName("async-" + idleStrategy.alias());
         thread.setDaemon(true);
         thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
         thread.start();
@@ -101,6 +103,11 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
                 modified[index] = current[length];
             }
         } while (!executables.compareAndSet(current, modified));
+        //NOTE: concurrent new registration is possible here, but we simply ignore it
+        //       as we would also ignore new registrations after stopping
+        if (autoStopOnLastDeregister && modified.length == 0) {
+            stop(true);
+        }
     }
 
     private static int indexOf(final Recurring[] array, final Recurring find) {
@@ -126,7 +133,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
 
     @Override
     public boolean isRunning() {
-        return stop.get() == null;
+        return stop.get() != StopStatus.STOPPED;
     }
 
     @Override

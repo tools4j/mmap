@@ -25,7 +25,6 @@ package org.tools4j.mmap.queue.perf;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.LongAppender;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;

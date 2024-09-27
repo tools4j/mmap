@@ -23,25 +23,46 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.agrona.DirectBuffer;
+
 /**
- * Long entry appender.
+ * Defines constants for index increments that can be used as return values in implementations of
+ * {@link EntryHandler#onEntry(long, DirectBuffer, int, int)}.
  */
-public interface LongAppender extends AutoCloseable {
+public interface Move {
     /**
-     * Failed to move to end of the queue
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the next
+     * entry.
      */
-    long MOVE_TO_END_ERROR = -1;
-    /**
-     * Failed to wrap region for given position
-     */
-    long WRAP_REGION_ERROR = -2;
+    long NEXT = 1;
 
     /**
-     * Appends an entry using the given entry value.
-     *
-     * @param value - entry value, must not be equal to {@link LongQueue#nullValue()}
-     * @return  queue index at which entry was appended, or negative value if error occurred as per error constants in
-     *          {@link Appender}
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the previous
+     * entry.
      */
-    long append(long value);
+    long PREVIOUS = -1;
+
+    /**
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to stay on the current
+     * entry.
+     */
+    long NONE = 0;
+
+    /**
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the first
+     * queue entry.
+     */
+    long FIRST = Long.MIN_VALUE;
+
+    /**
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the last
+     * queue entry.
+     */
+    long LAST = Index.LAST;
+
+    /**
+     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the end of
+     * the queue after the last entry.
+     */
+    long END = Index.END;
 }
