@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.DynamicRegion;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
@@ -17,11 +17,10 @@ final class AppenderImpl implements Appender {
 
     private final String queueName;
     private final int appenderId;
-    private final Region header;
-    private final Region payload;
+    private final DynamicRegion header;
+    private final DynamicRegion payload;
     private final AppendingContextImpl context = new AppendingContextImpl();
     private long currentIndex;
-    private long currentHeader;
     private boolean closed;
 
     public AppenderImpl(final String queueName, final QueueRegions regions, final AppenderIdPool appenderIdPool) {
@@ -30,12 +29,37 @@ final class AppenderImpl implements Appender {
         this.header = requireNonNull(regions.header());
         this.payload = requireNonNull(regions.payload(appenderId));
         this.currentIndex = Index.NULL;
-        this.currentHeader = NULL_HEADER;
-        moveToEnd();
+        initialMoveToEnd();
     }
 
-    private void moveToEnd() {
+    private static void checkIndexNotExceedingMax(final long index) {
+        if (index > Index.MAX) {
+            throw new IllegalStateException("Max index reached: " + Index.MAX);
+        }
+    }
 
+    /** Binary search to move to the end starting from first entry */
+    private void initialMoveToEnd() {
+        final DynamicRegion hdr = header;
+        final long lastIndex = Headers.binarySearchLastIndex(hdr, Index.FIRST);
+        final long endIndex = lastIndex + 1;
+        checkIndexNotExceedingMax(endIndex);
+        if (lastIndex >= Index.FIRST) {
+            currentIndex = lastIndex;
+        }
+    }
+
+    /** Linear move to the end starting from current index */
+    private void moveToEnd() {
+        final DynamicRegion hdr = header;
+        long endIndex = currentIndex;
+        do {
+            endIndex++;
+        } while (Headers.isValidHeaderAt(hdr, endIndex));
+        checkIndexNotExceedingMax(endIndex);
+        if (endIndex != currentIndex) {
+            currentIndex = endIndex;
+        }
     }
 
     @Override
@@ -48,7 +72,7 @@ final class AppenderImpl implements Appender {
 
     @Override
     public AppendingContext appending() {
-        return context.init;
+        return context.init();
     }
 
     @Override
@@ -72,6 +96,16 @@ final class AppenderImpl implements Appender {
     }
 
     private final class AppendingContextImpl implements AppendingContext {
+
+        MutableDirectBuffer buffer;
+
+        AppendingContext init() {
+            if (buffer != null) {
+                abort();
+                throw new IllegalStateException("Appending context not closed");
+            }
+
+        }
 
         @Override
         public MutableDirectBuffer buffer() {

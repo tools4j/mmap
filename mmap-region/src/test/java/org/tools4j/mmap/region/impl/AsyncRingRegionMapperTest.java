@@ -36,7 +36,7 @@ import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
 
@@ -109,7 +109,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping mapping = OffsetMapping.create(regionMapper);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -119,34 +119,34 @@ public class AsyncRingRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when
-        region.moveTo(position);
+        mapping.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, never()).map(regionStartPosition, regionSize);
-        assertEquals(positionInRegion, region.offset());
-        assertEquals(regionSize - positionInRegion, region.bytesAvailable());
+        assertEquals(positionInRegion, mapping.offset());
+        assertEquals(regionSize - positionInRegion, mapping.bytesAvailable());
 
         //when - wrap again within the same region
         final int offset = 4;
-        region.moveRelativeToRegionStart(offset);
+        mapping.moveRelativeToRegionStart(offset);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(offset, region.offset());
-        assertEquals(regionSize - offset, region.bytesAvailable());
+        assertEquals(offset, mapping.offset());
+        assertEquals(regionSize - offset, mapping.bytesAvailable());
 
         //when - wrap again at region start
-        region.moveTo(regionStartPosition);
+        mapping.moveTo(regionStartPosition);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(0, region.offset());
-        assertEquals(regionSize, region.bytesAvailable());
+        assertEquals(0, mapping.offset());
+        assertEquals(regionSize, mapping.bytesAvailable());
 
         //when - close, causes unmap
-        final long address = region.buffer().addressOffset();
+        final long address = mapping.buffer().addressOffset();
         try (final Invoker ignored = startAsyncInvoker()) {
-            region.close();
+            mapping.close();
         }
 
         //then
@@ -160,7 +160,7 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping mapping = OffsetMapping.create(regionMapper);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -170,21 +170,21 @@ public class AsyncRingRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when
-        region.moveTo(position);
+        mapping.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, never()).map(regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
-        region.moveRelativeToRegionStart(0);
+        mapping.moveRelativeToRegionStart(0);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
 
         //when - close to unmap
-        long address = region.buffer().addressOffset();
+        long address = mapping.buffer().addressOffset();
         try (final Invoker ignored = startAsyncInvoker()) {
-            region.close();
+            mapping.close();
         }
 
         //then
@@ -192,8 +192,8 @@ public class AsyncRingRegionMapperTest {
         inOrder.verify(asyncRuntime, twice()).deregister(notNull());
 
         //when - close again should have no effect
-        region.close();
-        region.close();
+        mapping.close();
+        mapping.close();
 
         //then
         inOrder.verifyNoMoreInteractions();
@@ -205,19 +205,19 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping mapping = OffsetMapping.create(regionMapper);
 
         //when
-        region.moveTo(position);
+        mapping.moveTo(position);
         asyncRecurringList.forEach(Recurring::execute);
-        region.moveTo(position);
+        mapping.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when - map previous region, causing current to unmap
         final long prevRegionStartPosition = regionStartPosition - regionSize;
-        region.moveToPreviousRegion();
+        mapping.moveToPreviousRegion();
 
         //then
         inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());

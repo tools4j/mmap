@@ -53,11 +53,11 @@ public enum Constraints {
         }
     }
 
-    public static void validRegionPosition(final long position, final RegionMetrics regionMetrics) {
-        validRegionPosition(position, regionMetrics.regionSize());
+    public static void validateRegionPosition(final long position, final RegionMetrics regionMetrics) {
+        validateRegionPosition(position, regionMetrics.regionSize());
     }
 
-    public static void validRegionPosition(final long position, final int regionSize) {
+    public static void validateRegionPosition(final long position, final int regionSize) {
         assert BitUtil.isPowerOfTwo(regionSize);
         if (position < 0 || 0 != (position & (regionSize - 1))) {
             throw new IllegalArgumentException("Invalid region position " + position + " for region size " + regionSize);

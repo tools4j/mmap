@@ -23,13 +23,18 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.queue.api.Index;
+import org.tools4j.mmap.region.api.DynamicRegion;
 import org.tools4j.mmap.region.impl.Word;
+
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 enum Headers {
     ;
     private static final long PAYLOAD_POSITION_MASK = 0x00ffffffffffffffL;
     private static final int APPENDER_ID_SHIFT = Long.SIZE - Byte.SIZE;
-    public static final Word HEADER_WORD = new Word(Long.BYTES);
+    public static final int HEADER_LENGTH = Long.BYTES;
+    public static final Word HEADER_WORD = new Word(HEADER_LENGTH);
     public static final long NULL_HEADER = 0;
 
 
@@ -43,6 +48,70 @@ enum Headers {
 
     public static long header(final short appenderId, final long payloadPosition) {
         return  ((0xffL & appenderId) << APPENDER_ID_SHIFT) | payloadPosition;
+    }
+
+    public static boolean isValidHeaderAt(final DynamicRegion header, final long index) {
+        if (index < Index.FIRST || index > Index.MAX) {
+            return false;
+        }
+        final long originalPosition = header.position();
+        final boolean result = _isValidHeaderAt(header, index);
+        if (originalPosition != NULL_POSITION) {
+            header.moveTo(originalPosition);
+        }
+        return result;
+    }
+
+    private static boolean _isValidHeaderAt(final DynamicRegion header, final long index) {
+        final long position = HEADER_WORD.position(index);
+        return header.moveTo(position) && header.buffer().getLongVolatile(0) != NULL_HEADER;
+    }
+
+    private static long mid(final long a, final long b) {
+        return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
+    }
+
+    public static long binarySearchLastIndex(final DynamicRegion header, final long startIndex) {
+        if (startIndex < Index.FIRST || startIndex > Index.MAX) {
+            throw new IllegalArgumentException("Invalid start index: " + startIndex);
+        }
+        //1) initial low
+        if (!isValidHeaderAt(header, startIndex)) {
+            return Index.NULL;
+        }
+        final long originalPosition = header.position();
+        long lowIndex = startIndex;
+        long highIndex = Index.NULL;
+
+        //2) find low + high
+        while (highIndex == Index.NULL && lowIndex + 1 >= 0) {
+            long increment = 1L;
+            do {
+                if (highIndex != Index.NULL) {
+                    lowIndex = highIndex;
+                }
+                highIndex = lowIndex + increment;
+                if (increment <= 0 || highIndex < 0) {
+                    highIndex = Index.NULL;
+                    break;
+                }
+                increment <<= 1;
+            } while (_isValidHeaderAt(header, highIndex));
+        }
+
+        //3) find middle
+        if (highIndex != Index.NULL) {
+            while (lowIndex + 1L < highIndex) {
+                final long midIndex = mid(lowIndex, highIndex);
+                if (_isValidHeaderAt(header, midIndex)) {
+                    lowIndex = midIndex;
+                } else {
+                    highIndex = midIndex;
+                }
+            }
+        }
+        header.moveTo(Math.max(originalPosition, Index.FIRST));
+        return lowIndex;
     }
 
 }

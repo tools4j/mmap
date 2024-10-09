@@ -36,8 +36,8 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
-public class RolledFileMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RolledFileMapper.class);
+public class RollingFileMapper implements FileMapper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RollingFileMapper.class);
 
     interface IndexedFactory {
         FileMapper create(int index);
@@ -51,12 +51,14 @@ public class RolledFileMapper implements FileMapper {
     private final String filePrefix;
     private final MapMode mapMode;
 
-    RolledFileMapper(final String filePrefix,
-                     final IndexedFactory indexedFactory,
-                     final long maxFileSize,
-                     final int regionSize,
-                     final int filesToCreateAhead,
-                     final MapMode mapMode) {
+    private boolean closed;
+
+    RollingFileMapper(final String filePrefix,
+                      final IndexedFactory indexedFactory,
+                      final long maxFileSize,
+                      final int regionSize,
+                      final int filesToCreateAhead,
+                      final MapMode mapMode) {
         validateGreaterThanZero(maxFileSize, "maxFileSize");
         validateGreaterThanZero(regionSize, "regionSize");
         validateNonNegative(filesToCreateAhead, "filesToCreateAhead");
@@ -78,7 +80,7 @@ public class RolledFileMapper implements FileMapper {
                                          final FileInitialiser fileInitialiser) {
         requireNonNull(filePrefix);
         requireNonNull(fileInitialiser);
-        return new RolledFileMapper(filePrefix, index -> new SingleFileReadOnlyMapper(filePrefix + "_" + index, fileInitialiser),
+        return new RollingFileMapper(filePrefix, index -> new ReadOnlyFileMapper(filePrefix + "_" + index, fileInitialiser),
                 maxFileSize, regionSize, 0, MapMode.READ_ONLY);
     }
 
@@ -89,9 +91,14 @@ public class RolledFileMapper implements FileMapper {
                                           final FileInitialiser fileInitialiser) {
         requireNonNull(filePrefix);
         requireNonNull(fileInitialiser);
-        return new RolledFileMapper(filePrefix,
-                index -> new SingleFileReadWriteMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser), maxFileSize,
+        return new RollingFileMapper(filePrefix,
+                index -> new ExpandableSizeFileMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser), maxFileSize,
                 regionSize, filesToCreateAhead, MapMode.READ_WRITE);
+    }
+
+    @Override
+    public MapMode mapMode() {
+        return mapMode;
     }
 
     @Override
@@ -117,7 +124,7 @@ public class RolledFileMapper implements FileMapper {
     }
 
     private FileMapper computeIfAbsent(final int fileIndex) {
-        final SingleFileReadWriteMapper mapper = (SingleFileReadWriteMapper)fileMappers.computeIfAbsent(fileIndex, factory);
+        final ExpandableSizeFileMapper mapper = (ExpandableSizeFileMapper)fileMappers.computeIfAbsent(fileIndex, factory);
         if (mapMode == MapMode.READ_WRITE) {
             mapper.init();
             mapper.ensureFileLength(maxFileSize);
@@ -150,10 +157,21 @@ public class RolledFileMapper implements FileMapper {
     }
 
     @Override
+    public boolean isClosed() {
+        return closed;
+    }
+
+    @Override
     public void close() {
-        fileMappers.forEachInt((index, fileMapper) -> fileMapper.close());
-        fileMappers.clear();
-        LOGGER.info("Closed file mapper. mapMode={}  filePrefix={}", mapMode, filePrefix);
+        if (!closed) {
+            try {
+                fileMappers.forEachInt((index, fileMapper) -> fileMapper.close());
+                fileMappers.clear();
+            } finally {
+                closed = true;
+                LOGGER.info("Closed rolling file mapper: mapMode={}, filePrefix={}", mapMode, filePrefix);
+            }
+        }
     }
 
 }

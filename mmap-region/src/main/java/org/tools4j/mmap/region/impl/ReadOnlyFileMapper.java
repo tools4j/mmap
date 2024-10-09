@@ -41,27 +41,32 @@ import java.util.Objects;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
-public class SingleFileReadOnlyMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadOnlyMapper.class);
+public class ReadOnlyFileMapper implements FileMapper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
 
     private final File file;
     private final Path filePath;
     private final FileInitialiser fileInitialiser;
 
-    private static final MapMode MAP_MODE = MapMode.READ_ONLY;
-
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+    private boolean closed;
 
-    public SingleFileReadOnlyMapper(final File file, FileInitialiser fileInitialiser) {
+    public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
         this.filePath = file.toPath();
         this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
     }
 
-    public SingleFileReadOnlyMapper(String fileName, FileInitialiser fileInitialiser) {
+    public ReadOnlyFileMapper(final String fileName, final FileInitialiser fileInitialiser) {
         this(new File(fileName), fileInitialiser);
     }
+
+    @Override
+    public MapMode mapMode() {
+        return MapMode.READ_ONLY;
+    }
+
     @Override
     public long map(long position, int length) {
         if (!init()) {
@@ -71,7 +76,7 @@ public class SingleFileReadOnlyMapper implements FileMapper {
         try {
             if (fileChannel != null && fileChannel.isOpen()) {
                 if (position < fileChannel.size()) {
-                    return IoUtil.map(fileChannel, MAP_MODE.getMapMode(), position, length);
+                    return IoUtil.map(fileChannel, MapMode.READ_ONLY.getMapMode(), position, length);
                 }
             }
         } catch (IOException e) {
@@ -104,7 +109,7 @@ public class SingleFileReadOnlyMapper implements FileMapper {
 
             final RandomAccessFile raf;
             try {
-                raf = new RandomAccessFile(file, MAP_MODE.getRandomAccessMode());
+                raf = new RandomAccessFile(file, MapMode.READ_ONLY.getRandomAccessMode());
             } catch (FileNotFoundException e) {
                 LOGGER.error("Failed to create new random access file " + file, e);
                 return false;
@@ -135,17 +140,28 @@ public class SingleFileReadOnlyMapper implements FileMapper {
     }
 
     @Override
+    public boolean isClosed() {
+        return closed;
+    }
+
+    @Override
     public void close() {
-        try {
-            if (fileChannel != null) {
-                fileChannel.close();
+        if (!closed) {
+            try {
+                if (fileChannel != null) {
+                    fileChannel.close();
+                }
+                if (rafFile != null) {
+                    rafFile.close();
+                }
+            } catch (final IOException e) {
+                LOGGER.warn("Closing read-only file mapper caused unexpected exception: file={}", file, e);
+            } finally {
+                fileChannel = null;
+                rafFile = null;
+                closed = true;
+                LOGGER.info("Closed read-only file mapper: file={}", file);
             }
-            if (rafFile != null) {
-                rafFile.close();
-            }
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
         }
-        LOGGER.info("Closed read-only file mapper. file={}", file);
     }
 }

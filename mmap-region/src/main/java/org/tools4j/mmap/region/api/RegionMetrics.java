@@ -59,4 +59,12 @@ public interface RegionMetrics {
      * @return the zero-based region index
      */
     long regionIndex(long position);
+
+    /**
+     * Returns the region start position given a region index.
+     *
+     * @param index non-negative region index
+     * @return the region start position, a multiple of the {@linkplain #regionSize() region size}
+     */
+    long regionPositionByIndex(long index);
 }

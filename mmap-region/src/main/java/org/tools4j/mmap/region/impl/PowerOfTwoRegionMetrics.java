@@ -64,6 +64,11 @@ public final class PowerOfTwoRegionMetrics implements RegionMetrics {
     }
 
     @Override
+    public long regionPositionByIndex(final long index) {
+        return index << regionShift;
+    }
+
+    @Override
     public String toString() {
         return "RegionMetrics:regionSize=" + regionSize;
     }

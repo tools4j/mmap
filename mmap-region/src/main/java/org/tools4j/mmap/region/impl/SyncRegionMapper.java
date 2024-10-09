@@ -29,7 +29,7 @@ import org.tools4j.mmap.region.api.RegionMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Constraints.validRegionPosition;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 public final class SyncRegionMapper implements RegionMapper {
@@ -53,7 +53,7 @@ public final class SyncRegionMapper implements RegionMapper {
 
     @Override
     public long map(final long position) {
-        validRegionPosition(position, regionSize);
+        validateRegionPosition(position, regionSize);
         if (position == mappedPosition) {
             return mappedAddress;
         }

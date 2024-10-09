@@ -42,9 +42,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
-public class SingleFileReadWriteMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SingleFileReadWriteMapper.class);
-    private static final MapMode MAP_MODE = MapMode.READ_WRITE;
+public class ExpandableSizeFileMapper implements FileMapper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
     private static final long FILE_EXTENSION_LOCK = -1L;
     private final File file;
     private final FileInitialiser fileInitialiser;
@@ -54,6 +53,7 @@ public class SingleFileReadWriteMapper implements FileMapper {
     private final AtomicLong fileLengthExtensionLatch = new AtomicLong();
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+    private boolean closed;
 
     private static class PerThreadState {
         final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
@@ -61,14 +61,19 @@ public class SingleFileReadWriteMapper implements FileMapper {
     }
 
 
-    public SingleFileReadWriteMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
+    public ExpandableSizeFileMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
         this.maxSize = maxSize;
         this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
     }
 
-    public SingleFileReadWriteMapper(String fileName, long maxSize, FileInitialiser fileInitialiser) {
+    public ExpandableSizeFileMapper(String fileName, long maxSize, FileInitialiser fileInitialiser) {
         this(new File(fileName), maxSize, fileInitialiser);
+    }
+
+    @Override
+    public MapMode mapMode() {
+        return MapMode.READ_WRITE;
     }
 
     @Override
@@ -79,7 +84,7 @@ public class SingleFileReadWriteMapper implements FileMapper {
 
         FileSizeResult result = ensureFileLength(position + length);
         if (result != FileSizeResult.ERROR) {
-            long address = IoUtil.map(fileChannel, MAP_MODE.getMapMode(), position, length);
+            long address = IoUtil.map(fileChannel, MapMode.READ_WRITE.getMapMode(), position, length);
 
             if (result == FileSizeResult.EXTENDED) {
                 preTouch(length, address);
@@ -123,7 +128,7 @@ public class SingleFileReadWriteMapper implements FileMapper {
             }
             final RandomAccessFile raf;
             try {
-                raf = new RandomAccessFile(file, MAP_MODE.getRandomAccessMode());
+                raf = new RandomAccessFile(file, MapMode.READ_WRITE.getRandomAccessMode());
             } catch (FileNotFoundException e) {
                 LOGGER.error("Failed to create new random access file " + file, e);
                 return false;
@@ -216,18 +221,31 @@ public class SingleFileReadWriteMapper implements FileMapper {
     }
 
     @Override
+    public boolean isClosed() {
+        return closed;
+    }
+
+    @Override
     public void close() {
-        try {
-            if (fileChannel != null) {
-                fileChannel.close();
+        if (!closed) {
+            try {
+                if (fileChannel != null) {
+                    closed = true;
+                    fileChannel.close();
+                }
+                if (rafFile != null) {
+                    closed = true;
+                    rafFile.close();
+                }
+            } catch (final IOException e) {
+                LOGGER.warn("Closing expandable-size file mapper caused unexpected exception: file={}", file, e);
+            } finally {
+                fileChannel = null;
+                rafFile = null;
+                closed = true;
+                LOGGER.info("Closed expandable-size file mapper: file={}", file);
             }
-            if (rafFile != null) {
-                rafFile.close();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
-        LOGGER.info("Closed read-write file mapper. file={}", file);
     }
 
 }

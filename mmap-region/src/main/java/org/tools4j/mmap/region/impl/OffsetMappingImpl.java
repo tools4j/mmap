@@ -25,7 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
@@ -34,24 +34,30 @@ import java.util.function.Predicate;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 
-public final class DefaultRegion implements Region {
+public final class OffsetMappingImpl implements OffsetMapping {
     private final RegionMapper regionMapper;
     private final RegionMetrics regionMetrics;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
     private long mappedPosition;
-    private long mappedAddress;
+    private int offset;
 
-    public DefaultRegion(final RegionMapper regionMapper) {
+    public OffsetMappingImpl(final RegionMapper regionMapper) {
         this.regionMapper = requireNonNull(regionMapper);
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
         this.mappedPosition = NULL_POSITION;
-        this.mappedAddress = NULL_ADDRESS;
+        this.offset = 0;
     }
 
     @Override
     public RegionMetrics regionMetrics() {
         return regionMetrics;
+    }
+
+    @Override
+    public int regionSize() {
+        return regionMetrics.regionSize();
     }
 
     @Override
@@ -61,17 +67,27 @@ public final class DefaultRegion implements Region {
 
     @Override
     public long regionStartPosition() {
-        return mappedPosition;
-    }
-
-    @Override
-    public long position() {
-        return mappedPosition + offset();//works also for NULL_POSITION
+        return mappedPosition - offset;//works also for NULL_POSITION
     }
 
     @Override
     public int offset() {
-        return mappedAddress == NULL_ADDRESS ? 0 : (int)(buffer.addressOffset() - mappedAddress);
+        return offset;
+    }
+
+    @Override
+    public long position() {
+        return mappedPosition;
+    }
+
+    @Override
+    public long address() {
+        return buffer.addressOffset();
+    }
+
+    @Override
+    public boolean isMapped() {
+        return mappedPosition != NULL_POSITION;
     }
 
     @Override
@@ -81,23 +97,43 @@ public final class DefaultRegion implements Region {
 
     @Override
     public boolean moveTo(final long position) {
-        final long regionPosition = regionMetrics.regionPosition(position);
-        if (regionPosition == mappedPosition) {
-            wrapBuffer(position);
-            return true;
+        validatePosition(position);
+        final RegionMetrics metrics = regionMetrics;
+        final int oldOffset = offset;
+        final int newOffset = metrics.regionOffset(position);
+        final long oldRegionPosition = mappedPosition - oldOffset;
+        final long newRegionPosition = metrics.regionPosition(position);
+        final long address;
+        if (newRegionPosition == oldRegionPosition) {
+            if (newOffset == oldOffset) {
+                return true;
+            }
+            address = address() - oldOffset;
+        } else {
+            address = regionMapper.map(newRegionPosition);
+            if (address == NULL_ADDRESS) {
+                clearMapping();
+                return false;
+            }
         }
-        final long addr = regionMapper.map(regionPosition);
-        if (addr > NULL_ADDRESS) {
-            mappedPosition = regionPosition;
-            mappedAddress = addr;
-            wrapBuffer(position);
-            return true;
-        }
-        return false;
+        initMapping(address, position, newOffset, metrics.regionSize());
+        return true;
+    }
+
+    private void initMapping(final long address, final long position, final int newOffset, final int regionSize) {
+        mappedPosition = position;
+        offset = newOffset;
+        buffer.wrap(address + newOffset, regionSize - newOffset);
+    }
+
+    private void clearMapping() {
+        mappedPosition = NULL_POSITION;
+        offset = 0;
+        buffer.wrap(0, 0);
     }
 
     @Override
-    public boolean findLast(final long startPosition, final long positionIncrement, final Predicate<? super Region> matcher) {
+    public boolean findLast(final long startPosition, final long positionIncrement, final Predicate<? super OffsetMapping> matcher) {
         long lastPosition = NULL_POSITION;
         for (long position = startPosition; moveTo(position) && matcher.test(this); position += positionIncrement) {
             lastPosition = position;
@@ -110,7 +146,7 @@ public final class DefaultRegion implements Region {
     }
 
     @Override
-    public boolean binarySearchLast(final long startPosition, final long positionIncrement, final Predicate<? super Region> matcher) {
+    public boolean binarySearchLast(final long startPosition, final long positionIncrement, final Predicate<? super OffsetMapping> matcher) {
         if (positionIncrement <= 0) {
             throw new IllegalArgumentException("Position increment most be positive: " + positionIncrement);
         }
@@ -156,26 +192,21 @@ public final class DefaultRegion implements Region {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
-    private void wrapBuffer(final long position) {
-        final RegionMetrics metrics = regionMetrics;
-        final int offset = metrics.regionOffset(position);
-        final int length = metrics.regionSize() - offset;
-        buffer.wrap(mappedAddress + offset, length);
-    }
-
     @Override
     public void close() {
-        buffer.wrap(0, 0);
-        mappedPosition = NULL_POSITION;
-        mappedAddress = NULL_ADDRESS;
-        regionMapper.close();
+        if (!regionMapper.isClosed()) {
+            clearMapping();
+            regionMapper.close();
+        }
     }
 
     @Override
     public String toString() {
-        return "DefaultRegion:mapped=" + isMapped() +
+        return "OffsetMappingImpl:mapped=" + isMapped() +
                 "|start=" + regionStartPosition() +
                 "|offset=" + offset() +
-                "|bytesAvailable=" + bytesAvailable();
+                "|regionSize=" + regionSize() +
+                "|bytesAvailable=" + bytesAvailable() +
+                "|closed=" + isClosed();
     }
 }

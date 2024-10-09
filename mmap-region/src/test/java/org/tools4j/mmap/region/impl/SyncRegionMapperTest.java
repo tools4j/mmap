@@ -35,7 +35,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
 
@@ -87,7 +87,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping region = OffsetMapping.create(regionMapper);
 
         //when
         region.moveTo(position);
@@ -131,7 +131,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping region = OffsetMapping.create(regionMapper);
 
         //when
         region.moveTo(position);
@@ -169,7 +169,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int offset = (int) (position % regionSize);
         final long regionStartPosition = position - offset;
-        final Region region = Region.create(regionMapper);
+        final OffsetMapping region = OffsetMapping.create(regionMapper);
 
         //when
         region.moveTo(position);

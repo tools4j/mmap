@@ -26,34 +26,7 @@ package org.tools4j.mmap.queue.api;
 /**
  * API for random read access of entries in a {@link Queue}.
  */
-public interface Reader extends AutoCloseable {
-
-    /**
-     * Returns the index of the first entry in the queue, or {@link Index#NULL} if the queue is empty.  Note that
-     * if the queue is non-empty, the returns value will always be zero.
-     *
-     * @return zero if the queue is non-empty, and {@link Index#NULL} otherwise
-     */
-    long firstIndex();
-
-    /**
-     * Returns the index of the last entry in the queue, or {@link Index#NULL} if the queue is empty.
-     * <p>
-     * Note that consecutive calls may return different results if entries are appended in the background.  Note also
-     * that this is not an instant operation and the method should not be called from a latency sensitive context.
-     *
-     * @return a non-negative entry index of the last entry in the queue, or {@link Index#NULL} if the queue is empty
-     */
-    long lastIndex();
-
-    /**
-     * Returns true if a valid entry exists at the specified index, and false otherwise.
-     *
-     * @param index zero-based entry index
-     * @return true if an entry is available at the given index, and false otherwise
-     */
-    boolean hasEntry(long index);
-
+public interface Reader extends IndexReader, AutoCloseable {
     /**
      * Returns the reading context with access to entry data and index if the requested queue entry is available;
      * otherwise {@link ReadingContext#index() index} is negative and the {@link ReadingContext#buffer() buffer}

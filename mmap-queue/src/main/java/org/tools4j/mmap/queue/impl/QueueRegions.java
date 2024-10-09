@@ -27,13 +27,13 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.slf4j.Logger;
 import org.tools4j.mmap.region.api.FileMapper;
 import org.tools4j.mmap.region.api.MapMode;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.DynamicRegion;
 import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.InitialBytes;
-import org.tools4j.mmap.region.impl.RolledFileMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadOnlyMapper;
-import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
+import org.tools4j.mmap.region.impl.RollingFileMapper;
+import org.tools4j.mmap.region.impl.ReadOnlyFileMapper;
+import org.tools4j.mmap.region.impl.ExpandableSizeFileMapper;
 
 import java.nio.channels.FileLock;
 import java.util.function.IntFunction;
@@ -51,13 +51,13 @@ interface QueueRegions extends AutoCloseable {
     /**
      * @return header region
      */
-    Region header();
+    DynamicRegion header();
 
     /**
      * @param appenderId appender id
      * @return payload region
      */
-    Region payload(int appenderId);
+    DynamicRegion payload(int appenderId);
 
     @Override
     void close();
@@ -99,42 +99,42 @@ interface QueueRegions extends AutoCloseable {
 
         final FileMapper headerReadOnlyMapper;
         if (rollFiles) {
-            headerReadOnlyMapper = RolledFileMapper.forReadOnly(headerFileName, maxFileSize, regionSize, headerInitialiser);
+            headerReadOnlyMapper = RollingFileMapper.forReadOnly(headerFileName, maxFileSize, regionSize, headerInitialiser);
         } else {
-            headerReadOnlyMapper = new SingleFileReadOnlyMapper(headerFileName, headerInitialiser);
+            headerReadOnlyMapper = new ReadOnlyFileMapper(headerFileName, headerInitialiser);
         }
 
         try {
-            final Region header = Region.create(
+            final DynamicRegion header = DynamicRegion.create(
                     regionMapperFactory.create(headerReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead)
             );
 
-            final Int2ObjectHashMap<Region> payloadRegions = new Int2ObjectHashMap<>();
-            final IntFunction<Region> payloadRegionFactory = appenderId -> {
+            final Int2ObjectHashMap<DynamicRegion> payloadRegions = new Int2ObjectHashMap<>();
+            final IntFunction<DynamicRegion> payloadRegionFactory = appenderId -> {
                 final String payloadFileName = directory + "/" + queueName + "_payload_" + appenderId;
 
                 final FileMapper payloadReadOnlyMapper;
                 if (rollFiles) {
-                    payloadReadOnlyMapper = RolledFileMapper.forReadOnly(payloadFileName, maxFileSize, regionSize, (file, mode) -> {
+                    payloadReadOnlyMapper = RollingFileMapper.forReadOnly(payloadFileName, maxFileSize, regionSize, (file, mode) -> {
                     });
                 } else {
-                    payloadReadOnlyMapper = new SingleFileReadOnlyMapper(payloadFileName, (file, mode) -> {
+                    payloadReadOnlyMapper = new ReadOnlyFileMapper(payloadFileName, (file, mode) -> {
                     });
                 }
 
-                return Region.create(
+                return DynamicRegion.create(
                         regionMapperFactory.create(payloadReadOnlyMapper, regionSize, regionCacheSize, regionsToMapAhead)
                 );
             };
 
             return new QueueRegions() {
                 @Override
-                public Region header() {
+                public DynamicRegion header() {
                     return header;
                 }
 
                 @Override
-                public Region payload(final short appenderId) {
+                public DynamicRegion payload(final short appenderId) {
                     return payloadRegions.computeIfAbsent(appenderId, payloadRegionFactory);
                 }
 
@@ -195,43 +195,43 @@ interface QueueRegions extends AutoCloseable {
 
         final FileMapper headerReadWriteMapper;
         if (rollFiles) {
-            headerReadWriteMapper = RolledFileMapper.forReadWrite(headerFileName, maxFileSize, regionSize, 0, headerInitialiser);
+            headerReadWriteMapper = RollingFileMapper.forReadWrite(headerFileName, maxFileSize, regionSize, 0, headerInitialiser);
         } else {
-            headerReadWriteMapper = new SingleFileReadWriteMapper(headerFileName, maxFileSize, headerInitialiser);
+            headerReadWriteMapper = new ExpandableSizeFileMapper(headerFileName, maxFileSize, headerInitialiser);
         }
 
         try {
-            final Region header = Region.create(
+            final DynamicRegion header = DynamicRegion.create(
                     regionMapperFactory.create(headerReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead)
             );
 
-            final Int2ObjectHashMap<Region> payloadRegions = new Int2ObjectHashMap<>();
-            final IntFunction<Region> payloadRegionFactory = appenderId -> {
+            final Int2ObjectHashMap<DynamicRegion> payloadRegions = new Int2ObjectHashMap<>();
+            final IntFunction<DynamicRegion> payloadRegionFactory = appenderId -> {
 
                 final String payloadFileName = directory + "/" + queueName + "_payload_" + appenderId;
 
                 final FileMapper payloadReadWriteMapper;
                 if (rollFiles) {
-                    payloadReadWriteMapper = RolledFileMapper.forReadWrite(payloadFileName, maxFileSize, regionSize,
+                    payloadReadWriteMapper = RollingFileMapper.forReadWrite(payloadFileName, maxFileSize, regionSize,
                             filesToCreateAhead, (file, mode) -> {});
                 } else {
-                    payloadReadWriteMapper = new SingleFileReadWriteMapper(payloadFileName, maxFileSize, (file, mode) -> {
+                    payloadReadWriteMapper = new ExpandableSizeFileMapper(payloadFileName, maxFileSize, (file, mode) -> {
                     });
                 }
 
-                return Region.create(
+                return DynamicRegion.create(
                         regionMapperFactory.create(payloadReadWriteMapper, regionSize, regionCacheSize, regionsToMapAhead)
                 );
             };
 
             return new QueueRegions() {
                 @Override
-                public Region header() {
+                public DynamicRegion header() {
                     return header;
                 }
 
                 @Override
-                public Region payload(short appenderId) {
+                public DynamicRegion payload(short appenderId) {
                     return payloadRegions.computeIfAbsent(appenderId, payloadRegionFactory);
                 }
 

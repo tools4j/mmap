@@ -26,12 +26,9 @@ package org.tools4j.mmap.queue.impl;
 import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.Region;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
+import org.tools4j.mmap.region.impl.FixedSizeFileMapper;
 import org.tools4j.mmap.region.impl.InitialBytes;
-import org.tools4j.mmap.region.impl.SingleFileReadWriteMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,16 +52,15 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAppenderIdPool.class);
 
     private static final int MAX_APPENDERS = 256;
-    private static final int REGION_SIZE = MAX_APPENDERS / Byte.SIZE;
-    private static final int LONGS = MAX_APPENDERS / Long.SIZE;
-    private static final String FILE_SUFFIX = "open_appenders";
-    private final Region region;
+    private static final int FILE_SIZE = MAX_APPENDERS / Byte.SIZE;
+    private static final String FILE_SUFFIX = "ids";
+    private final AtomicBuffer buffer;
     private final String queueName;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public DefaultAppenderIdPool(final String directory, final String queueName) {
         this.queueName = requireNonNull(queueName);
-        this.region = fixedRegion(directory, queueName);
+        this.buffer = mapFixedSizeFile(directory, queueName);
     }
 
 
@@ -73,18 +69,18 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         if (closed.get()) {
             throw new IllegalStateException(format("Appender id pool for %s queue is closed", queueName));
         }
-        final AtomicBuffer buffer = region.buffer();
+        final AtomicBuffer buf = buffer;
 
-        for (int index = 0; index < LONGS; index++) {
+        for (int index = 0; index < FILE_SIZE; index += Long.BYTES) {
             long appenderBitSet;
             long appenderBit;
             do {
-                appenderBitSet = buffer.getLongVolatile(index);
+                appenderBitSet = buf.getLongVolatile(index);
                 appenderBit = Long.lowestOneBit(~appenderBitSet);
-            } while (appenderBit != 0 && !buffer.compareAndSetLong(index, appenderBitSet, appenderBitSet | appenderBit));
+            } while (appenderBit != 0 && !buf.compareAndSetLong(index, appenderBitSet, appenderBitSet | appenderBit));
             if (appenderBit != 0) {
                 final int appenderBitValue = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
-                final int appenderId = index * Long.SIZE + appenderBitValue;
+                final int appenderId = index / Long.BYTES * Long.SIZE + appenderBitValue;
                 LOGGER.info("Acquired appenderId {} for {} queue", appenderId, queueName);
                 return (short)appenderId;
             }
@@ -100,40 +96,33 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
         if (appenderId < 0 || appenderId > MAX_APPENDERS) {
             throw new IllegalArgumentException("Invalid appender id: " + appenderId);
         }
-        final AtomicBuffer buffer = region.buffer();
+        final AtomicBuffer buf = buffer;
 
-        final int index = appenderId / Long.SIZE;
+        final int index = (appenderId / Long.SIZE) * Long.BYTES;
         final int bit = appenderId % Long.SIZE;
         final long mask = ~(1L << bit);
 
         long curBitSet;
         long newBitSet;
         do {
-            curBitSet = buffer.getLongVolatile(index);
+            curBitSet = buf.getLongVolatile(index);
             newBitSet = curBitSet & mask;
-        } while (curBitSet != newBitSet && !buffer.compareAndSetLong(index, curBitSet, newBitSet));
+        } while (curBitSet != newBitSet && !buf.compareAndSetLong(index, curBitSet, newBitSet));
         LOGGER.info("Released appenderId {} for {} queue", appenderId, queueName);
     }
 
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            final int currentCounter = region.buffer().getIntVolatile(0);
+            final int currentCounter = buffer.getIntVolatile(0);
             region.close();
             LOGGER.info("Closed appender id pool. queue={}, open appenders={}", queueName, currentCounter);
         }
     }
 
-    private static Region fixedRegion(final String directory, final String queueName) {
+    private static AtomicBuffer mapFixedSizeFile(final String directory, final String queueName) {
         final File file = new File(directory, queueName + "_" + FILE_SUFFIX);
-        final FileMapper fileMapper = new SingleFileReadWriteMapper(file, REGION_SIZE, fileInitialiser());
-        final Region region = Region.create(
-                RegionMapperFactory.sync("sync:fixed").create(fileMapper, REGION_SIZE)
-        );
-        if (region.moveToFirstRegion()) {
-            return region;
-        }
-        throw new IllegalStateException("Could not map fixed region: " + region);
+        return FixedSizeFileMapper.map(file, FILE_SIZE, fileInitialiser());
     }
 
     private static FileInitialiser fileInitialiser() {
@@ -142,10 +131,10 @@ public class DefaultAppenderIdPool implements AppenderIdPool {
                 FileLock fileLock = acquireLock(fileChannel);
                 try {
                     if (fileChannel.size() == 0) {
-                        fileChannel.transferFrom(InitialBytes.ZERO, 0, REGION_SIZE);
+                        fileChannel.transferFrom(InitialBytes.ZERO, 0, FILE_SIZE);
                         fileChannel.force(true);
                         LOGGER.info("Initialised file data in {} for appender id pool", fileName);
-                    } else if (fileChannel.size() != REGION_SIZE) {
+                    } else if (fileChannel.size() != FILE_SIZE) {
                         throw new IllegalStateException("Invalid file size " + fileChannel.size() +
                                 " for appender id pool file " + fileName);
                     }

@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.spockito.jupiter.TableSource;
 
@@ -50,16 +50,16 @@ import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 
 /**
- * Unit test for {@link DefaultRegion}
+ * Unit test for {@link OffsetMapping} and {@link OffsetMappingImpl}
  */
-class DefaultRegionTest {
+class OffsetMappingTest {
 
     private static final int nOfRegions = 4;
 
     @Mock
     private RegionMapper regionMapper;
 
-    private Region region;
+    private OffsetMapping mapping;
 
     @BeforeEach
     void init() {
@@ -129,20 +129,20 @@ class DefaultRegionTest {
         final AtomicInteger counter = count ? new AtomicInteger() : null;
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));
-        final Predicate<Region> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
+        final Predicate<OffsetMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
         final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        region = new DefaultRegion(regionMapper);
+        mapping = OffsetMapping.create(regionMapper);
 
         //when
         if (counter != null) counter.set(0);
-        final boolean found1 = region.findLast(startPosition, bytes, matcher);
+        final boolean found1 = mapping.findLast(startPosition, bytes, matcher);
 
         //then
         if (expectedPosition >= 0 && startPosition <= expectedPosition) {
             assertTrue(found1);
-            assertEquals(expectedPosition, region.position());
+            assertEquals(expectedPosition, mapping.position());
         } else {
             assertFalse(found1);
         }
@@ -152,12 +152,12 @@ class DefaultRegionTest {
 
         //when
         if (counter != null) counter.set(0);
-        final boolean found2 = region.binarySearchLast(startPosition, bytes, matcher);
+        final boolean found2 = mapping.binarySearchLast(startPosition, bytes, matcher);
 
         //then
         if (expectedPosition >= 0 && startPosition <= expectedPosition) {
             assertTrue(found2);
-            assertEquals(expectedPosition, region.position());
+            assertEquals(expectedPosition, mapping.position());
         } else {
             assertFalse(found2);
         }
@@ -249,7 +249,7 @@ class DefaultRegionTest {
             return NULL_ADDRESS;
         };
     }
-    private static Predicate<Region> counter(final Predicate<? super Region> matcher, final AtomicInteger counter) {
+    private static Predicate<OffsetMapping> counter(final Predicate<? super OffsetMapping> matcher, final AtomicInteger counter) {
         requireNonNull(matcher);
         requireNonNull(counter);
         return region -> {
@@ -258,8 +258,8 @@ class DefaultRegionTest {
         };
     }
 
-    private static Predicate<Region> matcher(final int bytes) {
-        final Predicate<Region> matcher;
+    private static Predicate<OffsetMapping> matcher(final int bytes) {
+        final Predicate<OffsetMapping> matcher;
         switch (bytes) {
             case 1:
                 matcher = region -> region.buffer().getByte(0) != 0;

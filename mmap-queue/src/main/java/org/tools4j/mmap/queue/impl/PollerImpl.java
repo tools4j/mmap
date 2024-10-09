@@ -7,7 +7,7 @@ import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.Region;
+import org.tools4j.mmap.region.api.DynamicRegion;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
@@ -17,7 +17,7 @@ final class PollerImpl implements Poller {
     private static final Logger LOGGER = LoggerFactory.getLogger(PollerImpl.class);
 
     private final String queueName;
-    private final Region header;
+    private final DynamicRegion header;
     private final QueueRegions regions;
     private long nextIndex;
     private long currentIndex;
@@ -31,6 +31,18 @@ final class PollerImpl implements Poller {
         this.nextIndex = Index.FIRST;
         this.currentIndex = Index.NULL;
         this.currentHeader = NULL_HEADER;
+    }
+
+    @Override
+    public long lastIndex() {
+        checkNotClosed();
+        return Headers.binarySearchLastIndex(header, Index.FIRST);
+    }
+
+    @Override
+    public boolean hasEntry(final long index) {
+        checkNotClosed();
+        return Headers.isValidHeaderAt(header, index);
     }
 
     @Override
@@ -91,7 +103,7 @@ final class PollerImpl implements Poller {
         final long header = currentHeader;
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);
-        final Region region = regions.payload(appenderId);
+        final DynamicRegion region = regions.payload(appenderId);
         final boolean success = region.moveTo(payloadPosition);
         assert success : "moving to payload position failed";
         return region.buffer();
@@ -118,7 +130,7 @@ final class PollerImpl implements Poller {
             return CLOSED;
         }
         final long position = HEADER_WORD.position(index);
-        final Region headerRegion = this.header;
+        final DynamicRegion headerRegion = this.header;
         if (!headerRegion.moveTo(position)) {
             return error;
         }
@@ -137,6 +149,12 @@ final class PollerImpl implements Poller {
     @Override
     public boolean isClosed() {
         return errorState == CLOSED;
+    }
+
+    private void checkNotClosed() {
+        if (isClosed()) {
+            throw new IllegalStateException("Poller is closed");
+        }
     }
 
     @Override

@@ -23,45 +23,26 @@
  */
 package org.tools4j.mmap.region.api;
 
+
+import org.tools4j.mmap.region.impl.DynamicRegionImpl;
+
 /**
- * Maps a file to specified position and length.
- * Various implementations may work with single of multiple files
- * for reading and writing mapping mode.
+ * A dynamic region is a {@link MappedRegion} whose {@link #regionStartPosition() start position} can be changed by
+ * {@link #moveTo(long) moving} to another file position.  Moving the region to a new position triggers mapping and
+ * unmapping operations if necessary which are performed through a {@link RegionMapper}.
  */
-public interface FileMapper extends AutoCloseable {
+public interface DynamicRegion extends MappedRegion, DynamicMapping {
 
-  /**
-   * @return the map mode used by this file mapper
-   */
-  MapMode mapMode();
+    static DynamicRegion create(final RegionMapper regionMapper) {
+        return new DynamicRegionImpl(regionMapper);
+    }
 
-  /**
-   * Map memory region at absolute position with given length to memory address.
-   *
-   * @param position - absolute position
-   * @param length - region length
-   * @return positive value if address has been mapped, or {@code NULL_ADDRESS} otherwise
-   */
-  long map(long position, int length);
-
-  /**
-   * Unmaps previously mapped address of the region starting at absolute position with length.
-   *
-   * @param address previously mapped address
-   * @param position ab position
-   * @param length region length
-   */
-  void unmap(long address, long position, int length);
-
-  /**
-   * @return true if this file mapper is closed
-   */
-  boolean isClosed();
-
-  /**
-   * Closes this file mapper and all underlying resources.
-   */
-  @Override
-  void close();
-
+    /**
+     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
+     *
+     * @param position the position to move to, must be a multiple of {@linkplain #regionSize() region size}
+     * @return true if the region is ready for data access, and false otherwise
+     * @throws IllegalArgumentException if position is negative or not a multiple of {@link #regionSize()}
+     */
+    boolean moveTo(long position);
 }

@@ -23,8 +23,11 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.tools4j.mmap.region.api.MapMode;
+
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 
 /**
  * File initialiser used to initialise a filechannel when a new file is
@@ -41,4 +44,44 @@ public interface FileInitialiser {
      * @throws IOException thrown when file channel could not be initialised.
      */
     void init(String fileName, FileChannel fileChannel) throws IOException;
+
+    static FileInitialiser zeroBytes(final MapMode mode, final int length) {
+        switch (mode) {
+            case READ_ONLY:
+                return (fileName, fileChannel) -> {
+                    if (fileChannel.size() < length) {
+                        throw new IllegalArgumentException("Invalid file, expected length " + length + " but found " +
+                                fileChannel.size() + ": " + fileName);
+                    }
+                };
+            case READ_WRITE:
+                return (fileName, fileChannel) -> {
+                    if (fileChannel.size() < length) {
+                        final FileLock lock = fileChannel.lock();
+                        final long offset = fileChannel.size();
+                        final long count = length - offset;
+                        try {
+                            if (count > 0) { //allow file init once-only
+                                fileChannel.transferFrom(InitialBytes.ZERO, offset, count);
+                                fileChannel.force(true);
+                            }
+                        } finally {
+                            lock.release();
+                        }
+                    }
+                };
+            case READ_WRITE_CLEAR:
+                return (fileName, fileChannel) -> {
+                    final FileLock lock = fileChannel.lock();
+                    try {
+                        fileChannel.transferFrom(InitialBytes.ZERO, 0L, length);
+                        fileChannel.force(true);
+                    } finally {
+                        lock.release();
+                    }
+                };
+            default:
+                throw new IllegalArgumentException("Map mode not supported: " + mode);
+        }
+    }
 }
