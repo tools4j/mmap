@@ -31,7 +31,7 @@ import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.DynamicRegion;
+import org.tools4j.mmap.region.api.DynamicMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
@@ -42,7 +42,7 @@ final class DefaultReader implements Reader {
     private static final long NULL_HEADER = 0;
     private final String queueName;
     private final QueueRegions regionCursors;
-    private final DynamicRegion headerCursor;
+    private final DynamicMapping headerCursor;
     private final DefaultReadingContext readingContext = new DefaultReadingContext();
     private final DefaultIterableContext<Entry> iterableContext = new DefaultIterableContext<>(this, readingContext);
 
@@ -121,7 +121,7 @@ final class DefaultReader implements Reader {
      * @return header value
      */
     private long readHeader(final long index) {
-        final DynamicRegion header = headerCursor;
+        final DynamicMapping header = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
         if (!header.moveTo(headerPosition)) {
             return NULL_HEADER;
@@ -160,7 +160,7 @@ final class DefaultReader implements Reader {
             if (header != NULL_HEADER) {
                 final short appenderId = Headers.appenderId(header);
                 final long payloadPosition = Headers.payloadPosition(header);
-                final DynamicRegion payload = regionCursors.payload(appenderId);
+                final DynamicMapping payload = regionCursors.payload(appenderId);
                 if (payload.moveTo(payloadPosition)) {
                     final int length = payload.buffer().getInt(0);
                     buffer.wrap(payload.buffer(), 4, length);

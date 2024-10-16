@@ -23,26 +23,23 @@
  */
 package org.tools4j.mmap.region.api;
 
-
-import org.tools4j.mmap.region.impl.DynamicRegionImpl;
+import org.tools4j.mmap.region.impl.MappingConfiguratorImpl;
 
 /**
- * A dynamic region is a {@link MappedRegion} whose {@link #regionStartPosition() start position} can be changed by
- * {@link #moveTo(long) moving} to another file position.  Moving the region to a new position triggers mapping and
- * unmapping operations if necessary which are performed through a {@link RegionMapper}.
+ * Configurator to build a {@link MappingConfig} used to create {@link RegionMapping region mappings} from files
+ * through {@link Mappings}.
  */
-public interface DynamicRegion extends MappedRegion, DynamicMapping {
+public interface MappingConfigurator extends MappingConfig {
 
-    static DynamicRegion create(final RegionMapper regionMapper) {
-        return new DynamicRegionImpl(regionMapper);
+    MappingConfigurator maxFileSze(long maxFileSize);
+    MappingConfigurator expandFile(boolean expandFile);
+    MappingConfigurator rollFiles(boolean rollFiles);
+    MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
+    MappingConfigurator mappingStrategy(MappingStrategy mappingStrategy);
+
+    MappingConfigurator reset();
+
+    static MappingConfigurator create() {
+        return new MappingConfiguratorImpl();
     }
-
-    /**
-     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
-     *
-     * @param position the position to move to, must be a multiple of {@linkplain #regionSize() region size}
-     * @return true if the region is ready for data access, and false otherwise
-     * @throws IllegalArgumentException if position is negative or not a multiple of {@link #regionSize()}
-     */
-    boolean moveTo(long position);
 }

@@ -24,28 +24,12 @@
 package org.tools4j.mmap.region.api;
 
 
-import org.tools4j.mmap.region.impl.FileInitialiser;
-import org.tools4j.mmap.region.impl.FixedRegion;
-import org.tools4j.mmap.region.impl.FixedSizeFileMapper;
-
-import java.io.File;
-
 /**
- * A mapped region is a file block directly mapped into memory. The file data is accessible through the
- * {@link #buffer()}.
+ * A region mapping is a {@link Mapping} whose size follows a standard {@linkplain #regionSize() region size}, typically
+ * powers of two. The file block of the size of a region is directly mapped into memory. The file data is accessible
+ * through the {@link #buffer()}.
  */
-public interface MappedRegion extends Mapping {
-
-    static MappedRegion createFixed(final File file,
-                                    final int fileSize,
-                                    final MapMode mapMode) {
-        final FileInitialiser initialiser = FileInitialiser.zeroBytes(mapMode, fileSize);
-        return createFixed(new FixedSizeFileMapper(file, fileSize, mapMode, initialiser), true);
-    }
-
-    static MappedRegion createFixed(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
-        return new FixedRegion(fileMapper, closeFileMapperOnClose);
-    }
+public interface RegionMapping extends Mapping {
 
     /**
      * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
@@ -57,14 +41,26 @@ public interface MappedRegion extends Mapping {
     long position();
 
     /**
+     * @return the size of a mappable memory region in bytes
+     * @see #regionMetrics()
+     */
+    default int regionSize() {
+        return regionMetrics().regionSize();
+    }
+
+    /**
+     * @return the region metrics determined by the {@linkplain #regionSize() region size}
+     */
+    RegionMetrics regionMetrics();
+
+    /**
      * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
      * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
      * <p>
-     * For a mapped region this is always equal to the mapped {@link #position()}
+     * Always equal to {@link #position()} unless this mapping is an {@link OffsetMapping}
      *
      * @return the region's start position, a multiple of region size, or -1 if unavailable
      */
-    @Override
     default long regionStartPosition() {
         return position();
     }

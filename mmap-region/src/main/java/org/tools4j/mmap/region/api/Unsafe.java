@@ -23,33 +23,20 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.tools4j.mmap.region.impl.OS;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-
-public enum MapMode {
-    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
-    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
-    /**
-     * Delete io contents on open
-     */
-    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
-
-    private final String rasMode;
-    private final FileChannel.MapMode mapMode;
-
-    MapMode(final String rasMode, final FileChannel.MapMode mapMode) {
-        this.rasMode = Objects.requireNonNull(rasMode);
-        this.mapMode = Objects.requireNonNull(mapMode);
-    }
-
-    public String getRandomAccessMode() {
-        return rasMode;
-    }
-
-    public FileChannel.MapMode getMapMode() {
-        return mapMode;
-    }
-
+/**
+ * Annotation used for classes, methods or constructors that are potentially unsafe to use and could crash the JVM in
+ * the worst case.
+ */
+@Retention(RetentionPolicy.SOURCE)
+@Target({ElementType.METHOD, ElementType.TYPE, ElementType.CONSTRUCTOR})
+@Documented
+@Inherited
+public @interface Unsafe {
 }

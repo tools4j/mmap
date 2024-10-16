@@ -32,8 +32,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
+import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 import org.tools4j.spockito.jupiter.TableSource;
 
 import java.nio.ByteBuffer;
@@ -133,7 +134,7 @@ class OffsetMappingTest {
         final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        mapping = OffsetMapping.create(regionMapper);
+        mapping = Mappings.offsetMapping(regionMapper, true);
 
         //when
         if (counter != null) counter.set(0);

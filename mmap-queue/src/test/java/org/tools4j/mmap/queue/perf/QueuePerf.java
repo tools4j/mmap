@@ -34,7 +34,6 @@ import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.nio.file.Files;

@@ -21,36 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.api;
 
-import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.impl.OS;
 
-enum Buffers {
-    ;
-    static int wrap(final DirectBuffer buffer,
-                    final long address,
-                    final long position,
-                    final RegionMetrics regionMetrics) {
-        return wrap(buffer, address, regionMetrics.regionOffset(position), regionMetrics.regionSize());
+import java.nio.channels.FileChannel;
+import java.util.Objects;
+
+/**
+ * Defines the file access mode with which files are opened.
+ */
+public enum AccessMode {
+    /**
+     * Read-only file access.
+     */
+    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
+    /**
+     * Read/write file access.
+     */
+    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
+    /**
+     * Same as {@link #READ_WRITE} but with re-initialization of all content on open.
+     */
+    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
+
+    private final String rasMode;
+    private final FileChannel.MapMode mapMode;
+
+    AccessMode(final String rasMode, final FileChannel.MapMode mapMode) {
+        this.rasMode = Objects.requireNonNull(rasMode);
+        this.mapMode = Objects.requireNonNull(mapMode);
     }
 
-    static int wrap(final DirectBuffer buffer,
-                    final long address,
-                    final int offset,
-                    final int regionSize) {
-        final int length = regionSize - offset;
-        if (buffer != null) {
-            buffer.wrap(address + offset, length);
-        }
-        return length;
+    public String getRandomAccessMode() {
+        return rasMode;
     }
 
-    static void unwrap(final DirectBuffer last, final long address, final int regionSize) {
-        final long lastAddr = last.addressOffset();
-        if (lastAddr >= address && lastAddr < address + regionSize) {
-            //NOTE: we only unwrap if it was our region, could have been re-wrapped already
-            last.wrap(0, 0);
-        }
+    public FileChannel.MapMode getMapMode() {
+        return mapMode;
     }
+
 }

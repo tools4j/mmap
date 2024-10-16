@@ -30,7 +30,6 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -71,8 +70,8 @@ public final class DefaultQueue implements Queue {
         requireNonNull(regionMapperFactory);
         validateRegionSize(regionSize);
         validateRegionCacheSize(regionCacheSize);
-        validateGreaterThanZero(maxFileSize, "maxFileSize");
-        validateNonNegative(filesToCreateAhead, "filesToCreateAhead");
+        validateGreaterThanZero("maxFileSize", maxFileSize);
+        validateNonNegative("filesToCreateAhead", filesToCreateAhead);
 
         final AppenderIdPool appenderIdPool = open(manyAppenders ?
                 new DefaultAppenderIdPool(directory, name) : AppenderIdPool.SINGLE_APPENDER);

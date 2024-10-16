@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.DynamicRegion;
+import org.tools4j.mmap.region.api.DynamicMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
@@ -17,8 +17,8 @@ final class AppenderImpl implements Appender {
 
     private final String queueName;
     private final int appenderId;
-    private final DynamicRegion header;
-    private final DynamicRegion payload;
+    private final DynamicMapping header;
+    private final DynamicMapping payload;
     private final AppendingContextImpl context = new AppendingContextImpl();
     private long currentIndex;
     private boolean closed;
@@ -40,7 +40,7 @@ final class AppenderImpl implements Appender {
 
     /** Binary search to move to the end starting from first entry */
     private void initialMoveToEnd() {
-        final DynamicRegion hdr = header;
+        final DynamicMapping hdr = header;
         final long lastIndex = Headers.binarySearchLastIndex(hdr, Index.FIRST);
         final long endIndex = lastIndex + 1;
         checkIndexNotExceedingMax(endIndex);
@@ -51,7 +51,7 @@ final class AppenderImpl implements Appender {
 
     /** Linear move to the end starting from current index */
     private void moveToEnd() {
-        final DynamicRegion hdr = header;
+        final DynamicMapping hdr = header;
         long endIndex = currentIndex;
         do {
             endIndex++;

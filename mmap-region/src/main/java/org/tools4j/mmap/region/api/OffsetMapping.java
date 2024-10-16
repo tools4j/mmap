@@ -25,7 +25,7 @@ package org.tools4j.mmap.region.api;
 
 
 import org.tools4j.mmap.region.impl.Constraints;
-import org.tools4j.mmap.region.impl.OffsetMappingImpl;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.util.function.Predicate;
 
@@ -33,16 +33,12 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
 /**
- * An offset mapping is a {@link DynamicMapping} that starts at an {@link #offset()} from the
- * {@linkplain #regionStartPosition() region start position}. It can be re-positioned at any arbitrary file position
+ * An offset mapping is a {@link DynamicMapping} that starts at an {@link #offset()} from the region's
+ * {@linkplain #regionStartPosition() start position}. It can be re-positioned at any arbitrary file position
  * within the same region, or at any other position in the underlying file. Moving to a new position triggers mapping
  * and unmapping operations if necessary which are performed through a {@link RegionMapper}.
  */
 public interface OffsetMapping extends DynamicMapping {
-
-    static OffsetMapping create(final RegionMapper regionMapper) {
-        return new OffsetMappingImpl(regionMapper);
-    }
 
     /**
      * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, a value between
@@ -76,7 +72,9 @@ public interface OffsetMapping extends DynamicMapping {
      *         current position, or -1 if unavailable
      */
     @Override
-    long regionStartPosition();
+    default long regionStartPosition() {
+        return regionMetrics().regionPosition(position());
+    }
 
     /**
      * Moves the mapping to the specified position. If the position lies within the region already mapped, the buffer
@@ -105,20 +103,30 @@ public interface OffsetMapping extends DynamicMapping {
     }
 
     /**
-     * Moves the mapping to a new position relative from the current
-     * {@linkplain #regionStartPosition() region start position}.
-     * Delegates to {@link #moveTo(long)} if current and resulting position are valid. An exception is thrown if the
-     * region is not currently mapped or if the resulting position is negative.
+     * Moves the mapping to the start of the current region.
      *
-     * @param delta the position delta relative to the current region start position
      * @return true if the mapping is ready for data access, and false otherwise
      * @throws IllegalStateException if this mapping has no current position
-     * @throws IllegalArgumentException if the provided delta value results in a negative position
      */
-    default boolean moveRelativeToRegionStart(final int delta) {
+    default boolean moveToCurrentRegion() {
         final long regionStartPosition = regionStartPosition();
         validatePositionState(regionStartPosition);
-        return moveTo(regionStartPosition + delta);
+        return moveTo(regionStartPosition);
+    }
+
+    /**
+     * Moves the mapping to an offset from the current region.
+     *
+     * @param offset the position offset relative to the current region start position
+     * @return true if the mapping is ready for data access, and false otherwise
+     * @throws IllegalArgumentException if the provided offset is not in {@code [0..(regionSize-1)]}
+     * @throws IllegalStateException if this mapping has no current position
+     */
+    default boolean moveToCurrentRegion(final int offset) {
+        validateRegionOffset(offset, regionMetrics());
+        final long regionStartPosition = regionStartPosition();
+        validatePositionState(regionStartPosition);
+        return moveTo(regionStartPosition + offset);
     }
 
     /**

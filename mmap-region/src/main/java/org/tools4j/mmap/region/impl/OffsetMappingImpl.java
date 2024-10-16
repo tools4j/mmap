@@ -26,8 +26,8 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.region.api.OffsetMapping;
-import org.tools4j.mmap.region.api.RegionMapper;
 import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.util.function.Predicate;
 
@@ -38,13 +38,15 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 
 public final class OffsetMappingImpl implements OffsetMapping {
     private final RegionMapper regionMapper;
+    private final boolean closeFileMapperOnClose;
     private final RegionMetrics regionMetrics;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
     private long mappedPosition;
     private int offset;
 
-    public OffsetMappingImpl(final RegionMapper regionMapper) {
+    public OffsetMappingImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
+        this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
         this.mappedPosition = NULL_POSITION;
         this.offset = 0;
@@ -196,7 +198,9 @@ public final class OffsetMappingImpl implements OffsetMapping {
     public void close() {
         if (!regionMapper.isClosed()) {
             clearMapping();
-            regionMapper.close();
+            if (closeFileMapperOnClose) {
+                regionMapper.close();
+            }
         }
     }
 

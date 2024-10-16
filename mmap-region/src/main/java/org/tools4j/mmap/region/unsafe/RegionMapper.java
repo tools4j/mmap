@@ -21,8 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.unsafe;
 
+import org.tools4j.mmap.region.api.Mapping;
+import org.tools4j.mmap.region.api.Unsafe;
+
+/**
+ * Low level API to map regions with implementation dependant optimisations such as unmapping, caching and pre-mapping
+ * of regions. All mapped regions have the same {@linkplain #regionSize() size}.
+ * <p>
+ * <br>
+ * Applications should not use this class directly and instead use any of the {@link Mapping} implementations.
+ * <p>
+ * <br>
+ * <b>Important notes:</b><ul>
+ *     <li>A region is mapped through {@link #map(long)} which returns the mapped memory address</li>
+ *     <li>A mapped address is only valid until the next map invocation is made; after that continuing to use the
+ *         address may result in a JVM crash.
+ *     </li>
+ *     <li>All mapped regions are closed through {@link #close()} and continuing to use any mapped address thereafter
+ *         may result in a JVM crash.
+ *     </li>
+ * </ul>>
+ */
+@Unsafe
 public interface RegionMapper extends AutoCloseable {
     /**
      * Value returned by {@link #map(long)} if the mapping operation has failed, usually because the requested position

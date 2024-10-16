@@ -24,7 +24,6 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.util.concurrent.TimeUnit;
@@ -106,7 +105,7 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder maxFileSize(final long maxFileSize) {
-        validateGreaterThanZero(maxFileSize, "maxFileSize");
+        validateGreaterThanZero("maxFileSize", maxFileSize);
         this.maxFileSize = maxFileSize;
         return this;
     }
@@ -117,7 +116,7 @@ public final class QueueBuilder {
     }
 
     public QueueBuilder filesToCreateAhead(final int nFiles) {
-        validateNonNegative(nFiles, "filesToCreateAhead");
+        validateNonNegative("filesToCreateAhead", nFiles);
         this.filesToCreateAhead = nFiles;
         return this;
     }

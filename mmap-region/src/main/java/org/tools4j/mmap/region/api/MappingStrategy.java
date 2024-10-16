@@ -23,45 +23,16 @@
  */
 package org.tools4j.mmap.region.api;
 
-/**
- * Maps a file to specified position and length.
- * Various implementations may work with single of multiple files
- * for reading and writing mapping mode.
- */
-public interface FileMapper extends AutoCloseable {
+import java.util.Optional;
 
-  /**
-   * @return the map mode used by this file mapper
-   */
-  MapMode mapMode();
+public interface MappingStrategy {
+    int regionSize();
+    int cacheSize();
+    Optional<AsyncOptions> asyncOptions();
 
-  /**
-   * Map memory region at absolute position with given length to memory address.
-   *
-   * @param position - absolute position
-   * @param length - region length
-   * @return positive value if address has been mapped, or {@code NULL_ADDRESS} otherwise
-   */
-  long map(long position, int length);
-
-  /**
-   * Unmaps previously mapped address of the region starting at absolute position with length.
-   *
-   * @param address previously mapped address
-   * @param position ab position
-   * @param length region length
-   */
-  void unmap(long address, long position, int length);
-
-  /**
-   * @return true if this file mapper is closed
-   */
-  boolean isClosed();
-
-  /**
-   * Closes this file mapper and all underlying resources.
-   */
-  @Override
-  void close();
-
+    interface AsyncOptions {
+        int regionsToMapAhead();
+        AsyncRuntime mappingRuntime();
+        AsyncRuntime unmappingRuntime();
+    }
 }

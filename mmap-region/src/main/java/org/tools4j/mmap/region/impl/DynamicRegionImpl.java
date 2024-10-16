@@ -25,23 +25,27 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.tools4j.mmap.region.api.DynamicRegion;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 
-public final class DynamicRegionImpl implements DynamicRegion {
+public final class DynamicRegionImpl implements DynamicMapping {
     private final RegionMapper regionMapper;
+    private final boolean closeFileMapperOnClose;
     private final RegionMetrics regionMetrics;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
     private long mappedPosition;
 
-    public DynamicRegionImpl(final RegionMapper regionMapper) {
+    @Unsafe
+    public DynamicRegionImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
+        this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
         this.mappedPosition = NULL_POSITION;
     }
@@ -109,7 +113,9 @@ public final class DynamicRegionImpl implements DynamicRegion {
         if (!regionMapper.isClosed()) {
             mappedPosition = NULL_POSITION;
             buffer.wrap(0, 0);
-            regionMapper.close();
+            if (closeFileMapperOnClose) {
+                regionMapper.close();
+            }
         }
     }
 

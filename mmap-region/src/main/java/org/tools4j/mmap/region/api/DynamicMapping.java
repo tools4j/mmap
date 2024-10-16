@@ -24,21 +24,23 @@
 package org.tools4j.mmap.region.api;
 
 
+import org.tools4j.mmap.region.unsafe.RegionMapper;
+
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 /**
- * A dynamic mapping is a {@link Mapping} whose {@linkplain #position() position} can be changed by
- * {@linkplain #moveTo(long) moving} to another file position.  Moving the mapping to a new position triggers mapping
- * and unmapping operations if necessary which are performed through a {@link RegionMapper}.
+ * A dynamic mapping is a {@link RegionMapping} whose {@link #position()} position} can be changed by
+ * {@link #moveTo(long) moving} to another file position.  Moving the region to a new position triggers mapping and
+ * unmapping operations if necessary which are performed through a {@link RegionMapper}.
  */
-public interface DynamicMapping extends Mapping {
+public interface DynamicMapping extends RegionMapping {
 
     /**
-     * Moves to the specified position in the file, mapping (and possibly unmapping) file region blocks if necessary.
+     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
      *
-     * @param position the file position to move to
-     * @return true if the mapping is ready for data access, and false otherwise
-     * @throws IllegalArgumentException if position is negative
+     * @param position the position to move to, must be a multiple of {@linkplain #regionSize() region size}
+     * @return true if the region is ready for data access, and false otherwise
+     * @throws IllegalArgumentException if position is negative or not a multiple of {@link #regionSize()}
      */
     boolean moveTo(long position);
 
@@ -49,11 +51,11 @@ public interface DynamicMapping extends Mapping {
      * This is equivalent to calling {@code moveTo(regionIndex * regionSize)}.
      *
      * @param regionIndex the non-negative region index, zero for first region
-     * @return true if the region is ready for data access
+     * @return true if the mapping is ready for data access
      * @throws IllegalArgumentException if region index is negative
      */
     default boolean moveToRegion(final long regionIndex) {
-        validateNonNegative(regionIndex, "Region index");
+        validateNonNegative("Region index", regionIndex);
         return moveTo(regionMetrics().regionPositionByIndex(regionIndex));
     }
 
@@ -91,7 +93,7 @@ public interface DynamicMapping extends Mapping {
         final long startPosition = regionStartPosition();
         final int regionSize = regionSize();
         if (startPosition < regionSize) {
-            throw new IllegalStateException("There is no previous region from start position " + startPosition);
+            throw new IllegalStateException("There is no previous region before position " + position());
         }
         return moveTo(startPosition - regionSize);
     }

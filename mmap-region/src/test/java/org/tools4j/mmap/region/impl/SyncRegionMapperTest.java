@@ -34,10 +34,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
-import org.tools4j.mmap.region.api.FileMapper;
+import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
-import org.tools4j.mmap.region.api.RegionMapper;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
+import org.tools4j.mmap.region.unsafe.FileMapper;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
+import org.tools4j.mmap.region.unsafe.RegionMappers;
 
 import java.nio.ByteBuffer;
 
@@ -83,11 +84,11 @@ public class SyncRegionMapperTest {
     @ValueSource(ints = {1, 2, 4})
     public void map_and_access_data(final int cacheSize) {
         //given
-        regionMapper = RegionMapperFactory.SYNC.create(fileMapper, regionSize, cacheSize, 0);
+        regionMapper = RegionMappers.createSyncRingRegionMapper(fileMapper, regionSize, cacheSize);
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final OffsetMapping region = OffsetMapping.create(regionMapper);
+        final OffsetMapping region = Mappings.offsetMapping(regionMapper, true);
 
         //when
         region.moveTo(position);
@@ -99,7 +100,7 @@ public class SyncRegionMapperTest {
 
         //when - wrap again within the same region
         final int offset = 4;
-        region.moveRelativeToRegionStart(offset);
+        region.moveToCurrentRegion(offset);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
@@ -127,11 +128,11 @@ public class SyncRegionMapperTest {
     @ValueSource(ints = {1, 2, 4})
     public void map_and_unmap(final int cacheSize) {
         //given
-        regionMapper = RegionMapperFactory.SYNC.create(fileMapper, regionSize, cacheSize, 0);
+        regionMapper = RegionMappers.createSyncRingRegionMapper(fileMapper, regionSize, cacheSize);
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final OffsetMapping region = OffsetMapping.create(regionMapper);
+        final OffsetMapping region = Mappings.offsetMapping(regionMapper, true);
 
         //when
         region.moveTo(position);
@@ -140,7 +141,7 @@ public class SyncRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when - map again within the same region and check if had been mapped
-        region.moveRelativeToRegionStart(0);
+        region.moveToCurrentRegion(0);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
@@ -165,11 +166,11 @@ public class SyncRegionMapperTest {
     @ValueSource(ints = {1, 2, 4})
     public void map_and_remap(final int cacheSize) {
         //given
-        regionMapper = RegionMapperFactory.SYNC.create(fileMapper, regionSize, cacheSize, 0);
+        regionMapper = RegionMappers.createSyncRingRegionMapper(fileMapper, regionSize, cacheSize);
         final long position = 456;
         final int offset = (int) (position % regionSize);
         final long regionStartPosition = position - offset;
-        final OffsetMapping region = OffsetMapping.create(regionMapper);
+        final OffsetMapping region = Mappings.offsetMapping(regionMapper, true);
 
         //when
         region.moveTo(position);

@@ -27,7 +27,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.impl.FileInitialiser;
-import org.tools4j.mmap.region.impl.FixedSizeFileMapper;
+import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
 import org.tools4j.mmap.region.impl.InitialBytes;
 
 import java.io.File;

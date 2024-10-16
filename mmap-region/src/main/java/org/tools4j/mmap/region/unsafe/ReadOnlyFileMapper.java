@@ -21,13 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.IoUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.MapMode;
+import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,6 +42,7 @@ import java.util.Objects;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
+@Unsafe
 public class ReadOnlyFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
 
@@ -63,8 +65,8 @@ public class ReadOnlyFileMapper implements FileMapper {
     }
 
     @Override
-    public MapMode mapMode() {
-        return MapMode.READ_ONLY;
+    public AccessMode mapMode() {
+        return AccessMode.READ_ONLY;
     }
 
     @Override
@@ -76,7 +78,7 @@ public class ReadOnlyFileMapper implements FileMapper {
         try {
             if (fileChannel != null && fileChannel.isOpen()) {
                 if (position < fileChannel.size()) {
-                    return IoUtil.map(fileChannel, MapMode.READ_ONLY.getMapMode(), position, length);
+                    return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
                 }
             }
         } catch (IOException e) {
@@ -109,7 +111,7 @@ public class ReadOnlyFileMapper implements FileMapper {
 
             final RandomAccessFile raf;
             try {
-                raf = new RandomAccessFile(file, MapMode.READ_ONLY.getRandomAccessMode());
+                raf = new RandomAccessFile(file, AccessMode.READ_ONLY.getRandomAccessMode());
             } catch (FileNotFoundException e) {
                 LOGGER.error("Failed to create new random access file " + file, e);
                 return false;

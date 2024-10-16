@@ -21,15 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.IoUtil;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.MapMode;
+import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.impl.Constants;
+import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
+@Unsafe
 public class ExpandableSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
     private static final long FILE_EXTENSION_LOCK = -1L;
@@ -72,8 +75,8 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public MapMode mapMode() {
-        return MapMode.READ_WRITE;
+    public AccessMode mapMode() {
+        return AccessMode.READ_WRITE;
     }
 
     @Override
@@ -84,7 +87,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
 
         FileSizeResult result = ensureFileLength(position + length);
         if (result != FileSizeResult.ERROR) {
-            long address = IoUtil.map(fileChannel, MapMode.READ_WRITE.getMapMode(), position, length);
+            long address = IoUtil.map(fileChannel, AccessMode.READ_WRITE.getMapMode(), position, length);
 
             if (result == FileSizeResult.EXTENDED) {
                 preTouch(length, address);
@@ -128,7 +131,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
             }
             final RandomAccessFile raf;
             try {
-                raf = new RandomAccessFile(file, MapMode.READ_WRITE.getRandomAccessMode());
+                raf = new RandomAccessFile(file, AccessMode.READ_WRITE.getRandomAccessMode());
             } catch (FileNotFoundException e) {
                 LOGGER.error("Failed to create new random access file " + file, e);
                 return false;

@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
-import org.tools4j.mmap.region.api.DynamicRegion;
+import org.tools4j.mmap.region.api.DynamicMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
@@ -48,8 +48,8 @@ final class DefaultAppender implements Appender {
     private final AppenderIdPool appenderIdPool;
 
     private final String queueName;
-    private final DynamicRegion headerCursor;
-    private final DynamicRegion payloadCursor;
+    private final DynamicMapping headerCursor;
+    private final DynamicMapping payloadCursor;
     private final MaxLengthAppendingContext appendingContext;
 
     private long currentHeaderPosition = NOT_INITIALISED;
@@ -75,8 +75,8 @@ final class DefaultAppender implements Appender {
             return APPENDING_CONTEXT_IN_USE;
         }
 
-        final DynamicRegion header = headerCursor;
-        final DynamicRegion payload = payloadCursor;
+        final DynamicMapping header = headerCursor;
+        final DynamicMapping payload = payloadCursor;
 
         boolean onLastAppendPosition = advanceToLastAppendPosition();
         if (!onLastAppendPosition) {
@@ -128,7 +128,7 @@ final class DefaultAppender implements Appender {
     private boolean moveToLastHeader() {
         currentIndex++;
         currentHeaderPosition = HEADER_WORD.position(currentIndex);
-        final DynamicRegion header = headerCursor;
+        final DynamicMapping header = headerCursor;
         while (header.moveTo(currentHeaderPosition)) {
             final long headerValues = header.buffer().getLongVolatile(0);
             if (headerValues == 0) {
@@ -143,7 +143,7 @@ final class DefaultAppender implements Appender {
         if (currentHeaderPosition == NOT_INITIALISED) {
             currentIndex = 0;
             currentHeaderPosition = HEADER_WORD.position(currentIndex);
-            final DynamicRegion hdrCursor = headerCursor;
+            final DynamicMapping hdrCursor = headerCursor;
             boolean moved;
             long header;
             do {
@@ -186,7 +186,7 @@ final class DefaultAppender implements Appender {
             if (inUse) {
                 reset();
             }
-            final DynamicRegion payload = payloadCursor;
+            final DynamicMapping payload = payloadCursor;
             if (!(payload.moveTo(currentPayloadPosition))) {
                 throw new IllegalStateException("Mapping " + queueName + " payload to position " +
                         currentPayloadPosition + " failed: readiness not achieved in time for " + payload);
@@ -225,8 +225,8 @@ final class DefaultAppender implements Appender {
         @Override
         public long commit(int length) {
             if (inUse) {
-                final DynamicRegion header = headerCursor;
-                final DynamicRegion payload = payloadCursor;
+                final DynamicMapping header = headerCursor;
+                final DynamicMapping payload = payloadCursor;
                 payload.buffer().putInt(LENGTH_OFFSET, length);
 
                 final long headerValue = Headers.header(appenderId, currentPayloadPosition);

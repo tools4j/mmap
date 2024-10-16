@@ -21,14 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.Unsafe;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -42,6 +41,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePowerOfTwo;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
+@Unsafe
 public final class AsyncRingRegionMapper implements RegionMapper {
     private static final long GRACEFUL_CLOSE_TIMEOUT_MILLIS = 4000;
     private static final long MAX_CLOSE_TIMEOUT_MILLIS = 5000;

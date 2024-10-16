@@ -38,6 +38,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
     private static final Recurring[] EMPTY = {};
 
+    private final String name;
     private final boolean autoStopOnLastDeregister;
     private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
 
@@ -49,6 +50,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
     public DefaultAsyncRuntime(final IdleStrategy idleStrategy, final boolean autoStopOnLastDeregister) {
+        this.name = "async-" + idleStrategy.alias();
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(idleStrategy);
         final Thread thread = new Thread(() -> {
@@ -70,7 +72,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
             stop.set(StopStatus.STOPPED);
             LOGGER.info("Stopped async region mapping runtime");
         });
-        thread.setName("async-" + idleStrategy.alias());
+        thread.setName(name);
         thread.setDaemon(true);
         thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
         thread.start();
@@ -138,6 +140,9 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
 
     @Override
     public String toString() {
-        return "DefaultAsyncRuntime";
+        final StopStatus stopStatus = stop.get();
+        return "DefaultAsyncRuntime" +
+                ":thread=" + name +
+                "|status=" + (stopStatus == null ? "running" : stopStatus == StopStatus.STOPPED ? "stopped" : "stopping");
     }
 }

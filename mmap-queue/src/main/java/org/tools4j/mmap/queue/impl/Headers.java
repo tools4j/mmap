@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.DynamicRegion;
+import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.impl.Word;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
@@ -50,7 +50,7 @@ enum Headers {
         return  ((0xffL & appenderId) << APPENDER_ID_SHIFT) | payloadPosition;
     }
 
-    public static boolean isValidHeaderAt(final DynamicRegion header, final long index) {
+    public static boolean isValidHeaderAt(final DynamicMapping header, final long index) {
         if (index < Index.FIRST || index > Index.MAX) {
             return false;
         }
@@ -62,7 +62,7 @@ enum Headers {
         return result;
     }
 
-    private static boolean _isValidHeaderAt(final DynamicRegion header, final long index) {
+    private static boolean _isValidHeaderAt(final DynamicMapping header, final long index) {
         final long position = HEADER_WORD.position(index);
         return header.moveTo(position) && header.buffer().getLongVolatile(0) != NULL_HEADER;
     }
@@ -71,7 +71,7 @@ enum Headers {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
-    public static long binarySearchLastIndex(final DynamicRegion header, final long startIndex) {
+    public static long binarySearchLastIndex(final DynamicMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }

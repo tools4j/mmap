@@ -21,10 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.RegionMapper;
+import org.tools4j.mmap.region.api.Unsafe;
 
 import java.util.Arrays;
 
@@ -34,6 +33,7 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
+@Unsafe
 public final class SyncRingRegionMapper implements RegionMapper {
 
     private final FileMapper fileMapper;

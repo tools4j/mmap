@@ -30,12 +30,12 @@ import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 public enum Constraints {
     ;
-    public static void validateNonNegative(final long value, final String name) {
+    public static void validateNonNegative(final String name, final long value) {
         if (value < 0) {
             throw new IllegalArgumentException(name + " value annot be negative, but was " + value);
         }
     }
-    public static void validateGreaterThanZero(final long value, final String name) {
+    public static void validateGreaterThanZero(final String name, final long value) {
         if (value <= 0) {
             throw new IllegalArgumentException(name + " value must be positive, but was " + value);
         }
@@ -74,18 +74,6 @@ public enum Constraints {
         }
     }
 
-    public static void validateRegionWrapParameters(final int offset, final int length, final RegionMetrics regionMetrics) {
-        validateRegionWrapParameters(offset, length, regionMetrics.regionSize());
-    }
-
-    public static void validateRegionWrapParameters(final int offset, final int length, final int regionSize) {
-        validateRegionOffset(offset, regionSize);
-        if (length < 0 || offset + length > regionSize) {
-            throw new IllegalArgumentException("Invalid length " + length + " for region offset " + offset +
-                    " and region size " + regionSize);
-        }
-    }
-
     public static void validateRegionSize(final int regionSize) {
         if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +
@@ -93,8 +81,23 @@ public enum Constraints {
         }
     }
 
+    public static void validateMaxFileSize(final long maxFileSize) {
+        if (!BitUtil.isPowerOfTwo(maxFileSize) || maxFileSize % REGION_SIZE_GRANULARITY != 0) {
+            throw new IllegalArgumentException("Max file size must be a power of two and a multiple of " +
+                    REGION_SIZE_GRANULARITY + " but was " + maxFileSize);
+        }
+    }
+
     public static void validateRegionCacheSize(final int cacheSize) {
         validatePowerOfTwo("Region cache size", cacheSize);
+    }
+
+    public static void validateRegionsToMapAhead(final int regionsToMapAhead) {
+        validateNonNegative("Regions to map ahead", regionsToMapAhead);
+    }
+
+    public static void validateFilesToCreateAhead(final int filesToCreateAhead) {
+        validateNonNegative("Files to create ahead", filesToCreateAhead);
     }
 
     public static void validatePowerOfTwo(final String name, final int value) {

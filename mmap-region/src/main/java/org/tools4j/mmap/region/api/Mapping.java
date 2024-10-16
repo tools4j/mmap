@@ -31,35 +31,9 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
  * A mapping is a file block directly mapped into memory. The file data is accessible through the {@link #buffer()}.
- * Mapping is implemented by {@link MappedRegion}, {@link DynamicRegion} and {@link OffsetMapping}.
+ * Mapping is implemented by {@link RegionMapping}, {@link DynamicMapping} and {@link OffsetMapping}.
  */
 public interface Mapping extends AutoCloseable {
-
-    /**
-     * @return the size of a mappable memory region in bytes
-     * @see #regionMetrics()
-     */
-    default int regionSize() {
-        return regionMetrics().regionSize();
-    }
-
-    /**
-     * @return the region metrics determined by the region size
-     */
-    RegionMetrics regionMetrics();
-
-    /**
-     * @return true if the mapping is mapped to a file block and data is available through the {@link #buffer()}
-     */
-    default boolean isMapped() {
-        return position() > NULL_POSITION;
-    }
-
-    /**
-     * @return true if this mapping is closed
-     */
-    boolean isClosed();
-
     /**
      * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
      * not {@link #isMapped() mapped}.
@@ -77,19 +51,10 @@ public interface Mapping extends AutoCloseable {
     long address();
 
     /**
-     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
-     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
-     *
-     * @return the region's start position, a multiple of region size, or -1 if unavailable
-     */
-    default long regionStartPosition() {
-        return regionMetrics().regionPosition(position());
-    }
-
-    /**
      * Returns the number of bytes available via {@linkplain #buffer() buffer} which is equal to the buffer's
      * {@linkplain DirectBuffer#capacity() capacity}.
-     * @return the bytes available via buffer, a value between zero and {@link #regionSize()}
+     *
+     * @return the number of bytes available via buffer, zero if not {@linkplain #isMapped() mapped}
      */
     default int bytesAvailable() {
         return buffer().capacity();
@@ -105,6 +70,18 @@ public interface Mapping extends AutoCloseable {
      * @return the buffer to read and/or write mapping data.
      */
     AtomicBuffer buffer();
+
+    /**
+     * @return true if the mapping is mapped to a file block and data is available through the {@link #buffer()}
+     */
+    default boolean isMapped() {
+        return position() > NULL_POSITION;
+    }
+
+    /**
+     * @return true if this mapping is closed
+     */
+    boolean isClosed();
 
     /**
      * Closes this mapping.

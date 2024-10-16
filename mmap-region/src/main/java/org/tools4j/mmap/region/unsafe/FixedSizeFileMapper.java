@@ -21,16 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.IoUtil;
 import org.agrona.LangUtil;
 import org.agrona.UnsafeAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.MapMode;
-import sun.misc.Unsafe;
+import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,11 +42,12 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
+@Unsafe
 public class FixedSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(FixedSizeFileMapper.class);
     private final File file;
     private final long fileSize;
-    private final MapMode mapMode;
+    private final AccessMode mapMode;
     private final FileInitialiser fileInitialiser;
     private long touchedSize;
     private RandomAccessFile rafFile;
@@ -54,7 +55,7 @@ public class FixedSizeFileMapper implements FileMapper {
 
     public FixedSizeFileMapper(final File file, 
                                final long fileSize, 
-                               final MapMode mapMode, 
+                               final AccessMode mapMode,
                                final FileInitialiser fileInitialiser) {
         this.file = requireNonNull(file);
         this.fileSize = fileSize;
@@ -65,7 +66,7 @@ public class FixedSizeFileMapper implements FileMapper {
 
     public FixedSizeFileMapper(final String fileName,
                                final long fileSize,
-                               final MapMode mapMode,
+                               final AccessMode mapMode,
                                final FileInitialiser fileInitialiser) {
         this(new File(fileName), fileSize, mapMode, fileInitialiser);
     }
@@ -81,7 +82,7 @@ public class FixedSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public MapMode mapMode() {
+    public AccessMode mapMode() {
         return mapMode;
     }
 
@@ -111,7 +112,7 @@ public class FixedSizeFileMapper implements FileMapper {
         if (position + length <= touchedSize) {
             return;
         }
-        final Unsafe unsafe = UnsafeAccess.UNSAFE;
+        final sun.misc.Unsafe unsafe = UnsafeAccess.UNSAFE;
         for (long i = 0; i < length; i += REGION_SIZE_GRANULARITY) {
             unsafe.compareAndSwapLong(null, address + i, 0L, 0L);
         }

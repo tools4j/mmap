@@ -25,52 +25,52 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.tools4j.mmap.region.api.FileMapper;
-import org.tools4j.mmap.region.api.MappedRegion;
-import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.api.Mapping;
+import org.tools4j.mmap.region.unsafe.FileMapper;
+import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Constraints.validatePowerOfTwo;
-import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
-public class FixedRegion implements MappedRegion {
+public class FixedMapping implements Mapping {
     private final FileMapper fileMapper;
     private final boolean closeFileMapperOnClose;
-    private final RegionMetrics regionMetrics;
+    private final int size;
     private final UnsafeBuffer buffer;
     private long mappedPosition;
 
-    public FixedRegion(final FileMapper fileMapper, final int regionSize) {
-        this(fileMapper, true, 0L, regionSize);
+    public FixedMapping(final FileMapper fileMapper, final int size) {
+        this(fileMapper, true, 0, size);
     }
 
-    public FixedRegion(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
-        this(fileMapper, closeFileMapperOnClose, 0L, regionSize(fileMapper));
+    public FixedMapping(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
+        this(fileMapper, closeFileMapperOnClose, 0, fileSize(fileMapper));
     }
 
-    public FixedRegion(final FileMapper fileMapper,
-                       final boolean closeFileMapperOnClose,
-                       final long startPosition,
-                       final int regionSize) {
-        validatePowerOfTwo("Region size", regionSize);
-        validateRegionPosition(startPosition, regionSize);
-        this.fileMapper = requireNonNull(fileMapper);
+    public FixedMapping(final FileMapper fileMapper,
+                        final boolean closeFileMapperOnClose,
+                        final long offset,
+                        final int size) {
+        requireNonNull(fileMapper);
+        validateNonNegative("offset", offset);
+        validateNonNegative("size", offset);
+        this.fileMapper = fileMapper;
         this.closeFileMapperOnClose = closeFileMapperOnClose;
-        this.regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
-        this.buffer = new UnsafeBuffer(map(fileMapper, startPosition, regionSize), regionSize);
-        this.mappedPosition = startPosition;
+        this.size = size;
+        this.buffer = new UnsafeBuffer(map(fileMapper, offset, size), size);
+        this.mappedPosition = offset;
     }
 
-    private static int regionSize(final FixedSizeFileMapper fileMapper) {
-        final long maxSize = 1<<30;
+    private static int fileSize(final FixedSizeFileMapper fileMapper) {
         final long fileSize = fileMapper.fileSize();
-        if (fileSize <= maxSize) {
-            return (int)fileSize;
+        final int size = (int)fileSize;
+        if (size == fileSize) {
+            return size;
         }
-        throw new IllegalArgumentException("File size exceeds max allowed region size: "
-                + fileSize + " > " + maxSize);
+        throw new IllegalArgumentException("File size exceeds max allowed mapping size: " +
+                fileSize + " > " + Integer.MAX_VALUE);
     }
 
     private static long map(final FileMapper fileMapper, final long startPosition, final int regionSize) {
@@ -110,23 +110,8 @@ public class FixedRegion implements MappedRegion {
     }
 
     @Override
-    public RegionMetrics regionMetrics() {
-        return regionMetrics;
-    }
-
-    @Override
-    public int regionSize() {
-        return regionMetrics.regionSize();
-    }
-
-    @Override
     public boolean isClosed() {
         return mappedPosition == NULL_POSITION;
-    }
-
-    @Override
-    public long regionStartPosition() {
-        return mappedPosition;
     }
 
     @Override
@@ -141,7 +126,7 @@ public class FixedRegion implements MappedRegion {
             mappedPosition = NULL_POSITION;
             final long address = address();
             buffer.wrap(0, 0);
-            unmap(fileMapper, address, position, regionSize());
+            unmap(fileMapper, address, position, size);
             if (closeFileMapperOnClose) {
                 fileMapper.close();
             }
@@ -150,6 +135,6 @@ public class FixedRegion implements MappedRegion {
 
     @Override
     public String toString() {
-        return "FixedRegion:startPosition=" + mappedPosition + "|regionSize=" + regionSize() + "|closed=" + isClosed();
+        return "FixedRegion:startPosition=" + mappedPosition + "|size=" + size + "|closed=" + isClosed();
     }
 }

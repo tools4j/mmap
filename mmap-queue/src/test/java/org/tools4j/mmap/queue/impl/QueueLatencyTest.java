@@ -37,7 +37,6 @@ import org.tools4j.mmap.queue.perf.Receiver;
 import org.tools4j.mmap.queue.perf.Sender;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.api.RegionMapperFactory;
 import org.tools4j.mmap.region.impl.OS;
 
 import java.io.IOException;

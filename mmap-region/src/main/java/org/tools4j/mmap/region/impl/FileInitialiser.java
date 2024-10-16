@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.MapMode;
+import org.tools4j.mmap.region.api.AccessMode;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -45,7 +45,7 @@ public interface FileInitialiser {
      */
     void init(String fileName, FileChannel fileChannel) throws IOException;
 
-    static FileInitialiser zeroBytes(final MapMode mode, final int length) {
+    static FileInitialiser zeroBytes(final AccessMode mode, final int length) {
         switch (mode) {
             case READ_ONLY:
                 return (fileName, fileChannel) -> {

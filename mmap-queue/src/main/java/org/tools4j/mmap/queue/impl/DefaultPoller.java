@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.DynamicRegion;
+import org.tools4j.mmap.region.api.DynamicMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.api.Poller.Result.ERROR;
@@ -44,7 +44,7 @@ final class DefaultPoller implements Poller {
     private static final long NULL_HEADER = 0;
     private final String queueName;
     private final QueueRegions regionCursors;
-    private final DynamicRegion headerCursor;
+    private final DynamicMapping headerCursor;
     private final UnsafeBuffer message = new UnsafeBuffer(0, 0);
 
     private long currentIndex = 0;
@@ -61,7 +61,7 @@ final class DefaultPoller implements Poller {
     public Result poll(final EntryHandler entryHandler) {
         final long workingIndex = currentIndex;
         if (initHeader(workingIndex)) {
-            final DynamicRegion payloadCursor = regionCursors.payload(currentAppenderId);
+            final DynamicMapping payloadCursor = regionCursors.payload(currentAppenderId);
             if (!payloadCursor.moveTo(currentPayloadPosition)) {
                 return ERROR;
             }
@@ -148,7 +148,7 @@ final class DefaultPoller implements Poller {
      * @return header value
      */
     private long readHeader(final long index) {
-        final DynamicRegion cursor = headerCursor;
+        final DynamicMapping cursor = headerCursor;
         final long headerPosition = HEADER_WORD.position(index);
         if (!cursor.moveTo(headerPosition)) {
             return NULL_HEADER;
