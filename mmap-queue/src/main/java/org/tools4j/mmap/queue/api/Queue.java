@@ -48,6 +48,8 @@ public interface Queue extends AutoCloseable {
      */
     Reader createReader();
 
+    boolean isClosed();
+
     /**
      * Closes the queue and all appender, pollers and readers.
      */

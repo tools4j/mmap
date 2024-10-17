@@ -21,37 +21,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.queue.impl;
 
-import java.util.Iterator;
+final class SingleAppenderIdPool implements AppenderIdPool {
 
-/**
- * Flyweight return by {@link Reader} to iterate over queue entries.
- */
-public interface IterableContext extends Iterable<Entry>, AutoCloseable {
-    /**
-     * @return the index of the first entry returned by iterators, or {@link Index#NULL} if unavailable.
-     */
-    long startIndex();
+    private final int appenderId;
 
-    /**
-     * Returns an iterator for queue entries starting at {@link #startIndex()}.
-     * <p>
-     * Note that the iterator continues to function if queue entries are appended in the background, and new entries are
-     * returned even if {@link Iterator#hasNext()} has previously returned false at some point.
-     */
+    SingleAppenderIdPool(final int appenderId) {
+        this.appenderId = appenderId;
+    }
     @Override
-    Iterator<Entry> iterator();
+    public int acquire() {
+        return appenderId;
+    }
 
-    /**
-     * Returns an iterable for queue entries starting at {@link #startIndex()} returning entries in reverse order
-     * finishing with the first queue entry.
-     */
-    IterableContext reverse();
-
-    /**
-     * Closes any iterator associated with this iterable and unwraps the current entry's buffer
-     */
     @Override
-    void close();
+    public void release(final int appenderId) {
+        //nothing to release
+    }
+
+    @Override
+    public void close() {
+        //nothing to close
+    }
+
+    @Override
+    public String toString() {
+        return "SingleAppenderIdPool:appenderId=" + appenderId;
+    }
 }

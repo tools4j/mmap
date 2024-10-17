@@ -24,41 +24,23 @@
 package org.tools4j.mmap.queue.impl;
 
 /**
- * A pool of appender ids.
+ * A pool of appender IDs.
  */
 interface AppenderIdPool extends AutoCloseable {
-    short SINGLE_APPENDER_ID = 0;
-    AppenderIdPool SINGLE_APPENDER = new AppenderIdPool() {
-        @Override
-        public short acquire() {
-            return SINGLE_APPENDER_ID;
-        }
-
-        @Override
-        public void release(final short appenderId) {
-            //no op
-        }
-
-        @Override
-        public void close() {
-            //no op
-        }
-    };
-
     /**
-     * Acquire appender id
-     * @return numeric value [0 .. 255]
+     * Acquire appender ID
+     * @return newly appender ID (reused if single appender pool)
      */
-    short acquire();
+    int acquire();
 
     /**
-     * Release appender id
-     * @param appenderId appender id
+     * Release appender ID (no-op if single appender pool)
+     * @param appenderId appender ID to release
      */
-    void release(short appenderId);
+    void release(int appenderId);
 
     /**
-     * Overriding to suppress throwing checked exceptions.
+     * Closes the appender ID pool (no-op if single appender pool)
      */
     @Override
     void close();

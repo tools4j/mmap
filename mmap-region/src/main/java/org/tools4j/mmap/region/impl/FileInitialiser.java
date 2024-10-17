@@ -57,7 +57,7 @@ public interface FileInitialiser {
             case READ_WRITE:
                 return (fileName, fileChannel) -> {
                     if (fileChannel.size() < length) {
-                        final FileLock lock = fileChannel.lock();
+                        final FileLock lock = FileLocks.acquireLock(fileChannel);
                         final long offset = fileChannel.size();
                         final long count = length - offset;
                         try {
@@ -72,7 +72,7 @@ public interface FileInitialiser {
                 };
             case READ_WRITE_CLEAR:
                 return (fileName, fileChannel) -> {
-                    final FileLock lock = fileChannel.lock();
+                    final FileLock lock = FileLocks.acquireLock(fileChannel);
                     try {
                         fileChannel.transferFrom(InitialBytes.ZERO, 0L, length);
                         fileChannel.force(true);

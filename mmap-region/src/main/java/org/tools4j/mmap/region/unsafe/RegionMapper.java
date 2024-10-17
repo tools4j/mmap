@@ -42,7 +42,7 @@ import org.tools4j.mmap.region.api.Unsafe;
  *     <li>All mapped regions are closed through {@link #close()} and continuing to use any mapped address thereafter
  *         may result in a JVM crash.
  *     </li>
- * </ul>>
+ * </ul>
  */
 @Unsafe
 public interface RegionMapper extends AutoCloseable {
@@ -80,8 +80,7 @@ public interface RegionMapper extends AutoCloseable {
     boolean isClosed();
 
     /**
-     * Closes this region mapper and issued mapping. Note that this method does not close the {@link AsyncThreadFactory}
-     * if this is an async mapping.
+     * Closes this region mapper and issued mapping.
      */
     void close();
 }

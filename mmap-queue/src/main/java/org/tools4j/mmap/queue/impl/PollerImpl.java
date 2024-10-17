@@ -1,3 +1,26 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.DirectBuffer;
@@ -7,7 +30,7 @@ import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.OffsetMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
@@ -17,17 +40,17 @@ final class PollerImpl implements Poller {
     private static final Logger LOGGER = LoggerFactory.getLogger(PollerImpl.class);
 
     private final String queueName;
-    private final DynamicMapping header;
-    private final QueueRegions regions;
+    private final OffsetMapping header;
+    private final QueueMappings mappings;
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
     private int errorState = PENDING_OPEN;
 
-    PollerImpl(final String queueName, final QueueRegions regions) {
+    PollerImpl(final String queueName, final QueueMappings mappings) {
         this.queueName = requireNonNull(queueName);
-        this.header = requireNonNull(regions.header());
-        this.regions = requireNonNull(regions);
+        this.header = requireNonNull(mappings.header());
+        this.mappings = requireNonNull(mappings);
         this.nextIndex = Index.FIRST;
         this.currentIndex = Index.NULL;
         this.currentHeader = NULL_HEADER;
@@ -103,10 +126,10 @@ final class PollerImpl implements Poller {
         final long header = currentHeader;
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);
-        final DynamicMapping region = regions.payload(appenderId);
-        final boolean success = region.moveTo(payloadPosition);
+        final OffsetMapping mapping = mappings.payload(appenderId);
+        final boolean success = mapping.moveTo(payloadPosition);
         assert success : "moving to payload position failed";
-        return region.buffer();
+        return mapping.buffer();
     }
 
     private int moveHeaderToNext() {
@@ -130,14 +153,14 @@ final class PollerImpl implements Poller {
             return CLOSED;
         }
         final long position = HEADER_WORD.position(index);
-        final DynamicMapping headerRegion = this.header;
-        if (!headerRegion.moveTo(position)) {
+        final OffsetMapping headerMapping = this.header;
+        if (!headerMapping.moveTo(position)) {
             return error;
         }
         if (error == PENDING_OPEN) {
             errorState = PENDING_NEXT;
         }
-        final long header = headerRegion.buffer().getLongVolatile(0);
+        final long header = headerMapping.buffer().getLongVolatile(0);
         if (header == NULL_HEADER) {
             return PENDING_NEXT;
         }

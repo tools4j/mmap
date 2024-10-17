@@ -31,94 +31,103 @@ import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
+import java.io.File;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
-import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
-import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
+import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 @Unsafe
 public class RollingFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(RollingFileMapper.class);
 
-    interface IndexedFactory {
-        FileMapper create(int index);
-    }
-
     private final long maxFileSize;
     private final int regionSize;
     private final int filesToCreateAhead;
     private final Int2ObjectHashMap<FileMapper> fileMappers = new Int2ObjectHashMap<>();
-    private final IntFunction<FileMapper> factory;
-    private final String filePrefix;
+    private final IntFunction<? extends FileMapper> fileMapperFactory;
+    private final File file;
     private final AccessMode mapMode;
 
     private boolean closed;
 
-    RollingFileMapper(final String filePrefix,
-                      final IndexedFactory indexedFactory,
+    RollingFileMapper(final File file,
+                      final IntFunction<? extends FileMapper> fileMapperFactory,
                       final long maxFileSize,
                       final int regionSize,
                       final int filesToCreateAhead,
-                      final AccessMode mapMode) {
-        validateGreaterThanZero("maxFileSize", maxFileSize);
-        validateGreaterThanZero("regionSize", regionSize);
-        validateNonNegative("filesToCreateAhead", filesToCreateAhead);
+                      final AccessMode accessMode) {
+        requireNonNull(file);
+        requireNonNull(fileMapperFactory);
+        validateMaxFileSize(maxFileSize);
+        validateRegionSize(regionSize);
+        validateFilesToCreateAhead(filesToCreateAhead);
+        requireNonNull(accessMode);
         if (maxFileSize % regionSize != 0) {
-            throw new IllegalArgumentException(
-                    "maxFileSize [" + maxFileSize + "]  must be multiple of regionSize [" + regionSize + "]");
+            throw new IllegalArgumentException("Invalid maxFileSize=" + maxFileSize +
+                    ", must be a multiple of regionSize=" + regionSize);
         }
-        this.filePrefix = requireNonNull(filePrefix);
+        this.file = file;
         this.maxFileSize = maxFileSize;
         this.regionSize = regionSize;
         this.filesToCreateAhead = filesToCreateAhead;
-        this.factory = indexedFactory::create;
-        this.mapMode = mapMode;
+        this.fileMapperFactory = fileMapperFactory;
+        this.mapMode = accessMode;
     }
 
-    public static FileMapper forReadOnly(final String filePrefix,
+    public static FileMapper forReadOnly(final File file,
                                          final MappingConfig config,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(filePrefix, config.maxFileSze(), config.mappingStrategy().regionSize(), fileInitialiser);
+        return forReadOnly(file, config.maxFileSze(), config.mappingStrategy().regionSize(), fileInitialiser);
     }
 
-    public static FileMapper forReadOnly(final String filePrefix,
+    public static FileMapper forReadOnly(final File file,
                                          final long maxFileSize,
                                          final int regionSize,
                                          final FileInitialiser fileInitialiser) {
-        requireNonNull(filePrefix);
+        requireNonNull(file);
         requireNonNull(fileInitialiser);
-        return new RollingFileMapper(filePrefix, index -> new ReadOnlyFileMapper(filePrefix + "_" + index, fileInitialiser),
+        return new RollingFileMapper(file, index -> new ReadOnlyFileMapper(indexFile(file, index), fileInitialiser),
                 maxFileSize, regionSize, 0, AccessMode.READ_ONLY);
     }
 
-    public static FileMapper forReadWrite(final String filePrefix,
+    public static FileMapper forReadWrite(final File file,
                                           final AccessMode accessMode,
                                           final MappingConfig config,
                                           final FileInitialiser fileInitialiser) {
-        requireNonNull(filePrefix);
-        requireNonNull(accessMode);
-        requireNonNull(config);
-        requireNonNull(fileInitialiser);
-        final long maxFileSize = config.maxFileSze();
-        final IndexedFactory indexedFactory = config.expandFile() ?
-                index -> new ExpandableSizeFileMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser) :
-                index -> new ExpandableSizeFileMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser);
-        return new RollingFileMapper(filePrefix, indexedFactory, config.maxFileSze(),
-                config.mappingStrategy().regionSize(), config.filesToCreateAhead(), accessMode);
+        return forReadWrite(file, accessMode, config.expandFile(), config.maxFileSze(),
+                config.mappingStrategy().regionSize(), config.filesToCreateAhead(), fileInitialiser);
     }
 
-    public static FileMapper forReadWrite(final String filePrefix,
+    public static FileMapper forReadWrite(final File file,
+                                          final AccessMode accessMode,
+                                          final boolean expandFile,
                                           final long maxFileSize,
                                           final int regionSize,
                                           final int filesToCreateAhead,
                                           final FileInitialiser fileInitialiser) {
-        requireNonNull(filePrefix);
+        requireNonNull(file);
+        requireNonNull(accessMode);
+        validateMaxFileSize(maxFileSize);
+        validateRegionSize(regionSize);
+        validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(fileInitialiser);
-        return new RollingFileMapper(filePrefix,
-                index -> new ExpandableSizeFileMapper(filePrefix  + "_" + index, maxFileSize, fileInitialiser), maxFileSize,
-                regionSize, filesToCreateAhead, AccessMode.READ_WRITE);
+        final IntFunction<FileMapper> fileMapperFactory = expandFile ?
+                index -> new ExpandableSizeFileMapper(indexFile(file, index), maxFileSize, fileInitialiser) :
+                index -> new ExpandableSizeFileMapper(indexFile(file, index), maxFileSize, fileInitialiser);
+        return new RollingFileMapper(file, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead, accessMode);
+    }
+
+    private static File indexFile(final File file, final int index) {
+        final String name = file.getName();
+        final int dotIndex = name.lastIndexOf('.');
+        final int nameEnd = dotIndex < 0 ? name.length() : dotIndex;
+        final String ending = dotIndex < 0 ? "" : name.substring(dotIndex);
+        final String prefix = name.substring(0, nameEnd);
+        return new File(file.getParentFile(), prefix + "_" + index + ending);
     }
 
     @Override
@@ -135,7 +144,7 @@ public class RollingFileMapper implements FileMapper {
 
         final int fileIndex = (int)(position / maxFileSize);
         final long positionWithinFile = position % maxFileSize;
-        final FileMapper mapperForIndex = fileMappers.computeIfAbsent(fileIndex, factory);
+        final FileMapper mapperForIndex = fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
 
         //NOTE: pre-create next file if we are in append mode
         if (mapMode == AccessMode.READ_WRITE) {
@@ -149,7 +158,7 @@ public class RollingFileMapper implements FileMapper {
     }
 
     private FileMapper computeIfAbsent(final int fileIndex) {
-        final ExpandableSizeFileMapper mapper = (ExpandableSizeFileMapper)fileMappers.computeIfAbsent(fileIndex, factory);
+        final ExpandableSizeFileMapper mapper = (ExpandableSizeFileMapper)fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
         if (mapMode == AccessMode.READ_WRITE) {
             mapper.init();
             mapper.ensureFileLength(maxFileSize);
@@ -194,7 +203,7 @@ public class RollingFileMapper implements FileMapper {
                 fileMappers.clear();
             } finally {
                 closed = true;
-                LOGGER.info("Closed rolling file mapper: mapMode={}, filePrefix={}", mapMode, filePrefix);
+                LOGGER.info("Closed rolling file mapper: mapMode={}, file={}", mapMode, file.getPath());
             }
         }
     }

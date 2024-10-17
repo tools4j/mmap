@@ -59,7 +59,8 @@ public interface AsyncRuntime extends AutoCloseable {
     /**
      * Creates an async runtime backed by a thread watching to execute registered mapping tasks.
      *
-     * @param idleStrategy the strategy to use by the runtime when it is idle
+     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
      * @return a new async runtime for the given idle strategy
      */
     static AsyncRuntime create(final IdleStrategy idleStrategy, final boolean autoStopOnLastDeregister) {

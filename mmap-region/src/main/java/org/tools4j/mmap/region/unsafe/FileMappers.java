@@ -40,13 +40,13 @@ public class FileMappers {
         switch (accessMode) {
             case READ_ONLY:
                 if (config.rollFiles()) {
-                    return RollingFileMapper.forReadOnly(file.getPath(), config, fileInitialiser);
+                    return RollingFileMapper.forReadOnly(file, config, fileInitialiser);
                 }
                 return new ReadOnlyFileMapper(file, fileInitialiser);
             case READ_WRITE:
             case READ_WRITE_CLEAR:
                 if (config.rollFiles()) {
-                    return RollingFileMapper.forReadWrite(file.getPath(), accessMode, config, fileInitialiser);
+                    return RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
                 if (config.expandFile()) {
                     return new ExpandableSizeFileMapper(file, config.maxFileSze(), fileInitialiser);

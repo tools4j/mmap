@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.tools4j.spockito.jupiter.TableSource;
 
@@ -56,8 +55,4 @@ public class HeaderCodecTest {
         assertEquals(payloadPosition, Headers.payloadPosition(header));
     }
 
-    @Test
-    public void initialPayloadPosition() {
-        assertEquals(64, Headers.initialPayloadPosition());
-    }
 }

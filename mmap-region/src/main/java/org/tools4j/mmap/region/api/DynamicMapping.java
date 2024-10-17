@@ -29,9 +29,10 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 /**
- * A dynamic mapping is a {@link RegionMapping} whose {@link #position()} position} can be changed by
- * {@link #moveTo(long) moving} to another file position.  Moving the region to a new position triggers mapping and
- * unmapping operations if necessary which are performed through a {@link RegionMapper}.
+ * A dynamic mapping is a {@link RegionMapping} whose {@link #position() position} can be changed by
+ * {@link #moveTo(long) moving} to another position in the file, which is a multiple of the
+ * {@link #regionSize() region size} unless this dynamic mapping is an {@link OffsetMapping}. Moving the region to a new
+ * position triggers mapping and unmapping operations if necessary which are performed through a {@link RegionMapper}.
  */
 public interface DynamicMapping extends RegionMapping {
 

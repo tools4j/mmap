@@ -21,37 +21,54 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.region.impl;
 
-import java.util.Iterator;
+import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.region.api.Mapping;
 
-/**
- * Flyweight return by {@link Reader} to iterate over queue entries.
- */
-public interface IterableContext extends Iterable<Entry>, AutoCloseable {
-    /**
-     * @return the index of the first entry returned by iterators, or {@link Index#NULL} if unavailable.
-     */
-    long startIndex();
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
-    /**
-     * Returns an iterator for queue entries starting at {@link #startIndex()}.
-     * <p>
-     * Note that the iterator continues to function if queue entries are appended in the background, and new entries are
-     * returned even if {@link Iterator#hasNext()} has previously returned false at some point.
-     */
+public enum NullMapping implements Mapping {
+    INSTANCE;
+
     @Override
-    Iterator<Entry> iterator();
+    public long position() {
+        return NULL_POSITION;
+    }
 
-    /**
-     * Returns an iterable for queue entries starting at {@link #startIndex()} returning entries in reverse order
-     * finishing with the first queue entry.
-     */
-    IterableContext reverse();
-
-    /**
-     * Closes any iterator associated with this iterable and unwraps the current entry's buffer
-     */
     @Override
-    void close();
+    public long address() {
+        return NULL_ADDRESS;
+    }
+
+    @Override
+    public int bytesAvailable() {
+        return 0;
+    }
+
+    @Override
+    public AtomicBuffer buffer() {
+        return EmptyBuffer.INSTANCE;
+    }
+
+    @Override
+    public boolean isMapped() {
+        return false;
+    }
+
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
+    @Override
+    public void close() {
+        //not closeable
+    }
+
+    @Override
+    public String toString() {
+        return "NullMapping";
+    }
 }

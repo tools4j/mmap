@@ -26,6 +26,7 @@ package org.tools4j.mmap.region.api;
 import org.tools4j.mmap.region.impl.DynamicRegionImpl;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.FixedMapping;
+import org.tools4j.mmap.region.impl.NullMapping;
 import org.tools4j.mmap.region.impl.OffsetMappingImpl;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.FileMappers;
@@ -37,6 +38,15 @@ import java.io.File;
 
 public enum Mappings {
     ;
+
+    /**
+     * Returns an empty, unmapped, non-closeable null-mapping.
+     * @return the null mapping singleton instance
+     */
+    public static Mapping nullMapping() {
+        return NullMapping.INSTANCE;
+    }
+
     public static Mapping fixedSizeMapping(final File file, final int fileSize, final AccessMode accessMode) {
         final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, fileSize);
         return fixedSizeMapping(new FixedSizeFileMapper(file, fileSize, accessMode, initialiser), true);
