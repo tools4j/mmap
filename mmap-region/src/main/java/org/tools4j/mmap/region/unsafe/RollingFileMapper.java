@@ -81,7 +81,7 @@ public class RollingFileMapper implements FileMapper {
     public static FileMapper forReadOnly(final File file,
                                          final MappingConfig config,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(file, config.maxFileSze(), config.mappingStrategy().regionSize(), fileInitialiser);
+        return forReadOnly(file, config.maxFileSize(), config.mappingStrategy().regionSize(), fileInitialiser);
     }
 
     public static FileMapper forReadOnly(final File file,
@@ -98,7 +98,7 @@ public class RollingFileMapper implements FileMapper {
                                           final AccessMode accessMode,
                                           final MappingConfig config,
                                           final FileInitialiser fileInitialiser) {
-        return forReadWrite(file, accessMode, config.expandFile(), config.maxFileSze(),
+        return forReadWrite(file, accessMode, config.expandFile(), config.maxFileSize(),
                 config.mappingStrategy().regionSize(), config.filesToCreateAhead(), fileInitialiser);
     }
 

@@ -32,6 +32,7 @@ public enum NullValues {
      * Null value used for undefined position.
      */
     public static final long NULL_POSITION = -1;
+
     /**
      * Null value used for undefined address.
      */

@@ -49,9 +49,9 @@ public class FileMappers {
                     return RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
                 if (config.expandFile()) {
-                    return new ExpandableSizeFileMapper(file, config.maxFileSze(), fileInitialiser);
+                    return new ExpandableSizeFileMapper(file, config.maxFileSize(), fileInitialiser);
                 }
-                return new FixedSizeFileMapper(file, config.maxFileSze(), accessMode, fileInitialiser);
+                return new FixedSizeFileMapper(file, config.maxFileSize(), accessMode, fileInitialiser);
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }

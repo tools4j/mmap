@@ -31,7 +31,7 @@ import org.tools4j.mmap.region.impl.MappingConfiguratorImpl;
  */
 public interface MappingConfigurator extends MappingConfig {
 
-    MappingConfigurator maxFileSze(long maxFileSize);
+    MappingConfigurator maxFileSize(long maxFileSize);
     MappingConfigurator expandFile(boolean expandFile);
     MappingConfigurator rollFiles(boolean rollFiles);
     MappingConfigurator filesToCreateAhead(int filesToCreateAhead);

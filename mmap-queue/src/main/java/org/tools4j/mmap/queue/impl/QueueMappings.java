@@ -68,11 +68,12 @@ interface QueueMappings extends AutoCloseable {
         requireNonNull(mappingConfig);
 
         return new QueueMappings() {
+            final MappingConfig config = mappingConfig.immutable();
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), accessMode,
-                    FileInitialiser.zeroBytes(accessMode, Headers.HEADER_LENGTH), mappingConfig);
+                    FileInitialiser.zeroBytes(accessMode, Headers.HEADER_LENGTH), config);
             final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();
             final IntFunction<OffsetMapping> payloadMappingFactory = appenderId -> Mappings.offsetMapping(
-                queueFiles.payloadFile(appenderId), accessMode, mappingConfig);
+                queueFiles.payloadFile(appenderId), accessMode, config);
 
             @Override
             public OffsetMapping header() {

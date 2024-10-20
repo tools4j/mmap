@@ -28,12 +28,16 @@ import org.agrona.concurrent.IdleStrategy;
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.tools4j.mmap.region.impl.Constraints;
 import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
+import org.tools4j.mmap.region.impl.MappingConfigImpl;
 
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
-import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
+/**
+ * Defines default values and property constants to override them through system properties.
+ */
 public enum DefaultValues {
     ;
     public static final String MAX_FILE_SIZE_PROPERTY = "mmap.maxFileSize";
@@ -45,7 +49,7 @@ public enum DefaultValues {
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String REGION_SIZE_PROPERTY = "mmap.regionSize";
-    public static final int REGION_SIZE_DEFAULT = 4*1024*1034;
+    public static final int REGION_SIZE_DEFAULT = (int)REGION_SIZE_GRANULARITY;
     public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.regionCacheSize";
     public static final int REGION_CACHE_SIZE_DEFAULT = 16;
     public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.regionsToMapAhead";
@@ -123,9 +127,7 @@ public enum DefaultValues {
 
     public static MappingConfig defaultMappingConfig() {
         if (MAPPING_CONFIG_DEFAULT_VALUE == null) {
-            MAPPING_CONFIG_DEFAULT_VALUE = MappingConfig.configure();
-            //noinspection ConstantValue
-            assert MAPPING_CONFIG_DEFAULT_VALUE != null;
+            MAPPING_CONFIG_DEFAULT_VALUE = new MappingConfigImpl();
         }
         return MAPPING_CONFIG_DEFAULT_VALUE;
     }
@@ -186,23 +188,24 @@ public enum DefaultValues {
 
     @SuppressWarnings("SameParameterValue")
     private static <T> T getObjProperty(final String propertyName, final Class<T> type, final T defaultValue) {
-        requireNonNull(defaultValue);
-        return getObjProperty(propertyName, type, (Supplier<T>)() -> defaultValue);
+        final String propVal = System.getProperty(propertyName, null);
+        return propVal == null ? defaultValue : newObjInstance(propertyName, type);
     }
 
     private static <T> T getObjProperty(final String propertyName,
                                         final Class<T> type,
                                         final Supplier<? extends T> defaultValueSupplier) {
         final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValueSupplier.get();
-        }
+        return propVal == null ? defaultValueSupplier.get() : newObjInstance(propertyName, type);
+    }
+
+    private static <T> T newObjInstance(final String propVal, final Class<T> type) {
         try {
             final Class<?> clazz = Class.forName(propVal);
             final Object value = clazz.newInstance();
             return type.cast(value);
         } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
+            throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
         }
     }
 }

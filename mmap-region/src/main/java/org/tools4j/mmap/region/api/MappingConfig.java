@@ -27,11 +27,13 @@ package org.tools4j.mmap.region.api;
  * Configuration used to create {@link RegionMapping region mappings} from files through {@link Mappings}.
  */
 public interface MappingConfig {
-    long maxFileSze();
+    long maxFileSize();
     boolean expandFile();
     boolean rollFiles();
     int filesToCreateAhead();
     MappingStrategy mappingStrategy();
+
+    MappingConfig immutable();
 
     static MappingConfigurator configure() {
         return MappingConfigurator.create();
