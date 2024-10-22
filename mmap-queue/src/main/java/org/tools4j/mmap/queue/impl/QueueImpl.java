@@ -51,24 +51,32 @@ public final class QueueImpl implements Queue {
     private final Supplier<Appender> appenderFactory;
     private final List<AutoCloseable> closeables = new ArrayList<>();
 
-    public QueueImpl(final File file, final boolean singleAppender) {
-        this(file, MappingConfig.getDefault(), singleAppender);
+    public QueueImpl(final File file, final int maxAppenders) {
+        this(file, MappingConfig.getDefault(), maxAppenders);
     }
 
-    public QueueImpl(final File file, final MappingConfig mappingConfig, final boolean singleAppender) {
+    public QueueImpl(final File file, final MappingConfig mappingConfig, final int maxAppenders) {
         this.queueFiles = new QueueFiles(file);
 
         final QueueMappings roMappings = open(QueueMappings.create(queueFiles, AccessMode.READ_ONLY, mappingConfig));
         final QueueMappings rwMappings = open(QueueMappings.create(queueFiles, AccessMode.READ_WRITE, mappingConfig));
-        final AppenderIdPool appenderIdPool = openAppenderIdPool(singleAppender);
+        final AppenderIdPool appenderIdPool = openAppenderIdPool(maxAppenders);
         this.pollerFactory = () -> open(new PollerImpl(queueFiles.queueName(), roMappings));
         this.readerFactory = () -> open(new ReaderImpl(queueFiles.queueName(), roMappings));
         this.appenderFactory = () -> open(new AppenderImpl(queueFiles.queueName(), rwMappings, appenderIdPool));
     }
 
-    private AppenderIdPool openAppenderIdPool(final boolean singleAppender) {
-        final File appenderPoolFile = queueFiles.appenderPoolFile();
-        return singleAppender ? new SingleAppenderIdPool(1) : open(new AppenderIdPool256(appenderPoolFile, false));
+    private AppenderIdPool openAppenderIdPool(final int maxAppenders) {
+        switch (maxAppenders) {
+            case 1:
+                return new SingleAppenderIdPool(0);
+            case AppenderIdPool64.MAX_APPENDERS:
+                return open(new AppenderIdPool64(queueFiles.appenderPoolFile()));
+            case AppenderIdPool256.MAX_APPENDERS:
+                return open(new AppenderIdPool256(queueFiles.appenderPoolFile()));
+            default:
+                throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
+        }
     }
 
     private synchronized <T extends AutoCloseable> T open(final T closeable) {

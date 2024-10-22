@@ -33,7 +33,7 @@ import java.nio.file.Path;
 import java.util.BitSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,36 +50,26 @@ class AppenderIdPoolTest {
         AppenderIdPool64(64, AppenderIdPool64::new),
         AppenderIdPool256(256, AppenderIdPool256::new);
         final int maxAppenders;
-        private final BiFunction<File, Boolean, AppenderIdPool> factoryMethod;
+        private final Function<File, AppenderIdPool> factoryMethod;
 
-        PoolFactory(final int maxAppenders, final BiFunction<File, Boolean, AppenderIdPool> factoryMethod) {
+        PoolFactory(final int maxAppenders, final Function<File, AppenderIdPool> factoryMethod) {
             this.maxAppenders = maxAppenders;
             this.factoryMethod = requireNonNull(factoryMethod);
         }
 
-        AppenderIdPool createPool(final File appenderIdFile, final boolean allowZero) {
-            return factoryMethod.apply(appenderIdFile, allowZero);
+        AppenderIdPool createPool(final File appenderIdFile) {
+            return factoryMethod.apply(appenderIdFile);
         }
     }
 
     @ParameterizedTest(name = "poolFactory={0}")
     @EnumSource(PoolFactory.class)
-    void acquireAndReleaseAll_withZero(final PoolFactory poolFactory) throws Exception {
-        acquireAndReleaseAll(poolFactory, true);
-    }
-
-    @ParameterizedTest(name = "poolFactory={0}")
-    @EnumSource(PoolFactory.class)
-    void acquireAndReleaseAll_withoutZero(final PoolFactory poolFactory) throws Exception {
-        acquireAndReleaseAll(poolFactory, false);
-    }
-
-    private void acquireAndReleaseAll(final PoolFactory poolFactory, final boolean allowZero) throws Exception {
+    void acquireAndReleaseAll(final PoolFactory poolFactory) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"), allowZero);
-        final int min = allowZero ? 0 : 1;
-        final int cnt = allowZero ? poolFactory.maxAppenders : poolFactory.maxAppenders - 1;
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
+        final int min = 0;
+        final int cnt = poolFactory.maxAppenders;
 
         //when + then: open appenders
         assertEquals(0, pool.openAppenders());
@@ -142,7 +132,7 @@ class AppenderIdPoolTest {
                                    final long maxWaitMillis) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"), true);
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
         final BitSet acquired = new BitSet();
         final BitSet released = new BitSet();
         final CountDownLatch latch = new CountDownLatch(threadCount);

@@ -49,28 +49,18 @@ public class AppenderIdPool256 implements AppenderIdPool {
     public static final int FILE_SIZE = MAX_APPENDERS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
-    private final boolean allowZero;
 
     public AppenderIdPool256(final File file) {
-        this(file, true);
-    }
-
-    public AppenderIdPool256(final File file, final boolean allowZero) {
-        this(file.getPath(), Mappings.fixedSizeMapping(file, FILE_SIZE, AccessMode.READ_WRITE), allowZero);
+        this(file.getPath(), Mappings.fixedSizeMapping(file, FILE_SIZE, AccessMode.READ_WRITE));
     }
 
     public AppenderIdPool256(final String name, final Mapping mapping) {
-        this(name, mapping, true);
-    }
-
-    public AppenderIdPool256(final String name, final Mapping mapping, final boolean allowZero) {
         if (mapping.bytesAvailable() != FILE_SIZE) {
             throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
                     + mapping.bytesAvailable() + " for appender ID pool: " + name);
         }
         this.name = requireNonNull(name);
         this.mapping = requireNonNull(mapping);
-        this.allowZero = allowZero;
         LOGGER.info("Opened appender ID pool: {} ({} open appenders)", name, openAppenders());
     }
 
@@ -86,12 +76,11 @@ public class AppenderIdPool256 implements AppenderIdPool {
         final AtomicBuffer buf = mapping.buffer();
 
         for (int index = 0; index < FILE_SIZE; index += Long.BYTES) {
-            final long reservedZeroBit = index != 0 || allowZero ? 0L : 1L;
             long appenderBitSet;
             long appenderBit;
             do {
                 appenderBitSet = buf.getLongVolatile(index);
-                appenderBit = Long.lowestOneBit(~(appenderBitSet | reservedZeroBit));
+                appenderBit = Long.lowestOneBit(~appenderBitSet);
             } while (appenderBit != 0 && !buf.compareAndSetLong(index, appenderBitSet, appenderBitSet | appenderBit));
             if (appenderBit != 0) {
                 final int appenderBitValue = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
@@ -107,7 +96,7 @@ public class AppenderIdPool256 implements AppenderIdPool {
     @Override
     public void release(final int appenderId) {
         ensureNotClosed();
-        if (appenderId < (allowZero ? 0 : 1) || appenderId >= MAX_APPENDERS) {
+        if (appenderId < 0 || appenderId >= MAX_APPENDERS) {
             throw new IllegalArgumentException("Invalid appender id: " + appenderId);
         }
         final AtomicBuffer buf = mapping.buffer();

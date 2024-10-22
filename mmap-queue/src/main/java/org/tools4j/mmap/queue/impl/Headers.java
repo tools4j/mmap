@@ -43,17 +43,18 @@ enum Headers {
     public static final int APPENDER_ID_BITS = Byte.SIZE;
     public static final int MAX_APPENDERS = 1 << APPENDER_ID_BITS;
     public static final int MAX_APPENDER_ID = MAX_APPENDERS - 1;
-    public static final int MIN_APPENDER_ID = 1;//to prevent NULL_HEADER
+    public static final int MIN_APPENDER_ID = 0;
     private static final int APPENDER_ID_MASK = MAX_APPENDERS - 1;
     private static final long APPENDER_ID_HEADER_MASK = APPENDER_ID_MASK;
-    private static final int PAYLOAD_POSITION_SHIFT = APPENDER_ID_BITS - PAYLOAD_GRANULARITY_BITS;
-    private static final long PAYLOAD_POSITION_HEADER_MASK = ~APPENDER_ID_HEADER_MASK;
-    private static final long PAYLOAD_POSITION_MASK = PAYLOAD_POSITION_HEADER_MASK >>> PAYLOAD_POSITION_SHIFT;
+    private static final int ADJUSTED_POSITION_SHIFT = APPENDER_ID_BITS - PAYLOAD_GRANULARITY_BITS;
+    private static final long ADJUSTED_POSITION_HEADER_MASK = ~APPENDER_ID_HEADER_MASK;
+    private static final long ADJUSTED_POSITION_MASK = ADJUSTED_POSITION_HEADER_MASK >>> ADJUSTED_POSITION_SHIFT;
 
+    private static final long PAYLOAD_POSITION_ADJUSTMENT = PAYLOAD_GRANULARITY;
     /**
-     * Max payload position is 576,460,752,303,423,480, which is > 500,000 terabytes.
+     * Max payload position is 576,460,752,303,423,472, which is > 500,000 terabytes.
      */
-    public static final long MAX_PAYLOAD_POSITION = PAYLOAD_POSITION_MASK;
+    public static final long MAX_PAYLOAD_POSITION = ADJUSTED_POSITION_MASK - PAYLOAD_POSITION_ADJUSTMENT;
     public static final int HEADER_LENGTH = Long.BYTES;
     public static final Word HEADER_WORD = new Word(HEADER_LENGTH);
     public static final long NULL_HEADER = 0;
@@ -64,19 +65,35 @@ enum Headers {
     }
 
     public static long payloadPosition(final long header) {
-        return (header & PAYLOAD_POSITION_HEADER_MASK) >>> PAYLOAD_POSITION_SHIFT;
+        return ((header & ADJUSTED_POSITION_HEADER_MASK) >>> ADJUSTED_POSITION_SHIFT) - PAYLOAD_POSITION_ADJUSTMENT;
     }
 
     public static long nextPayloadPosition(final long currentPayloadPosition, final int currentPayloadBytes) {
-        assert (currentPayloadPosition & PAYLOAD_GRANULARITY_MASK) == 0 : "currentPayloadPosition must be multiple of PAYLOAD_GRANULARITY";
-        assert currentPayloadBytes >= 0 : "currentPayloadBytes cannot be negative";
+        assert validPayloadPosition(currentPayloadPosition) : "currentPayloadPosition must be valid";
+        assert currentPayloadBytes >= 0 : "currentPayloadBytes must not be negative";
         return currentPayloadPosition + ((currentPayloadBytes + PAYLOAD_GRANULARITY - 1) >>> PAYLOAD_GRANULARITY_BITS);
     }
 
-    public static boolean validPayloadPosition(final long payloadPosition) {
-        return payloadPosition == (payloadPosition & PAYLOAD_POSITION_MASK);
+    public static boolean validAppenderId(final int appenderId) {
+        return appenderId == (appenderId & APPENDER_ID_MASK);
     }
 
+    public static boolean validPayloadPosition(final long payloadPosition) {
+        final long adjustedPosition = payloadPosition + PAYLOAD_POSITION_ADJUSTMENT;
+        return payloadPosition >= 0 && adjustedPosition == (adjustedPosition & ADJUSTED_POSITION_MASK);
+    }
+
+    public static int validateAppenderId(final int appenderId) {
+        if (validAppenderId(appenderId)) {
+            return appenderId;
+        }
+        if (appenderId > MAX_APPENDER_ID) {
+            throw new IllegalArgumentException("Appender ID " + appenderId + " exceeds max allowed value "
+                    + MAX_APPENDER_ID);
+        }
+        //should never happen: negative value
+        throw new IllegalArgumentException("Invalid appender ID " + appenderId);
+    }
     public static long validatePayloadPosition(final long payloadPosition) {
         if (validPayloadPosition(payloadPosition)) {
             return payloadPosition;
@@ -90,10 +107,10 @@ enum Headers {
     }
 
     public static long header(final int appenderId, final long payloadPosition) {
-        assert appenderId >= MIN_APPENDER_ID : "appenderId must be at least MIN_APPENDER_ID";
-        assert appenderId <= MAX_APPENDER_ID : "appenderId must be at most MAX_APPENDER_ID";
-        assert validPayloadPosition(payloadPosition) : "payloadPosition must comply with PAYLOAD_POSITION_MASK";
-        return (appenderId & APPENDER_ID_HEADER_MASK) | ((payloadPosition << PAYLOAD_POSITION_SHIFT) & PAYLOAD_POSITION_HEADER_MASK);
+        assert validAppenderId(appenderId) : "appenderId must be valid";
+        assert validPayloadPosition(payloadPosition) : "payloadPosition must be valid";
+        final long adjustedPosition = payloadPosition + PAYLOAD_POSITION_ADJUSTMENT;
+        return (appenderId & APPENDER_ID_HEADER_MASK) | ((adjustedPosition << ADJUSTED_POSITION_SHIFT) & ADJUSTED_POSITION_HEADER_MASK);
     }
 
     public static boolean hasNonEmptyHeaderAt(final OffsetMapping header, final long index) {
