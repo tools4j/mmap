@@ -24,9 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.LangUtil;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -34,26 +33,53 @@ import java.nio.file.Path;
 import java.util.BitSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Unit test for {@link AppenderIdPool} and {@link MultiAppenderIdPool}
+ * Unit test for {@link AppenderIdPool}, {@link AppenderIdPool64} and {@link AppenderIdPool256}
  */
 class AppenderIdPoolTest {
 
     private static final long TIMEOUT_MILLIS = 3_000;
 
-    @ParameterizedTest(name = "allowZero={0}")
-    @ValueSource(booleans = {true, false})
-    void acquireAndReleaseAll(final boolean allowZero) throws Exception {
+    enum PoolFactory {
+        AppenderIdPool64(64, AppenderIdPool64::new),
+        AppenderIdPool256(256, AppenderIdPool256::new);
+        final int maxAppenders;
+        private final BiFunction<File, Boolean, AppenderIdPool> factoryMethod;
+
+        PoolFactory(final int maxAppenders, final BiFunction<File, Boolean, AppenderIdPool> factoryMethod) {
+            this.maxAppenders = maxAppenders;
+            this.factoryMethod = requireNonNull(factoryMethod);
+        }
+
+        AppenderIdPool createPool(final File appenderIdFile, final boolean allowZero) {
+            return factoryMethod.apply(appenderIdFile, allowZero);
+        }
+    }
+
+    @ParameterizedTest(name = "poolFactory={0}")
+    @EnumSource(PoolFactory.class)
+    void acquireAndReleaseAll_withZero(final PoolFactory poolFactory) throws Exception {
+        acquireAndReleaseAll(poolFactory, true);
+    }
+
+    @ParameterizedTest(name = "poolFactory={0}")
+    @EnumSource(PoolFactory.class)
+    void acquireAndReleaseAll_withoutZero(final PoolFactory poolFactory) throws Exception {
+        acquireAndReleaseAll(poolFactory, false);
+    }
+
+    private void acquireAndReleaseAll(final PoolFactory poolFactory, final boolean allowZero) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final MultiAppenderIdPool pool = new MultiAppenderIdPool(new File(tmpDir.toFile(), "appender-ids"), allowZero);
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"), allowZero);
         final int min = allowZero ? 0 : 1;
-        final int cnt = allowZero ? MultiAppenderIdPool.MAX_APPENDERS : MultiAppenderIdPool.MAX_APPENDERS - 1;
+        final int cnt = allowZero ? poolFactory.maxAppenders : poolFactory.maxAppenders - 1;
 
         //when + then: open appenders
         assertEquals(0, pool.openAppenders());
@@ -80,7 +106,7 @@ class AppenderIdPoolTest {
 
         //when + then: illegal releases
         assertThrows(IllegalArgumentException.class, () -> pool.release(-1));
-        assertThrows(IllegalArgumentException.class, () -> pool.release(MultiAppenderIdPool.MAX_APPENDERS));
+        assertThrows(IllegalArgumentException.class, () -> pool.release(poolFactory.maxAppenders));
         assertThrows(IllegalArgumentException.class, () -> pool.release(min - 1));
 
         //when
@@ -92,28 +118,31 @@ class AppenderIdPoolTest {
         assertEquals(0, pool.openAppenders());
     }
 
-    @Test
-    void acquireAndReleaseSome() throws Exception {
+    @ParameterizedTest(name = "poolFactory={0}")
+    @EnumSource(PoolFactory.class)
+    void concurrentlyAcquireAndReleaseSome(final PoolFactory poolFactory) throws Exception {
         final int threads = 10;
         final int repeat = 5;
         final long maxWaitMillis = 100;
-        runTest(threads, repeat, maxWaitMillis);
+        runConcurrentTest(poolFactory, threads, repeat, maxWaitMillis);
     }
 
-    @Test
-    void acquireAndReleaseMany() throws Exception {
-        final int threads = MultiAppenderIdPool.MAX_APPENDERS;
+    @ParameterizedTest(name = "poolFactory={0}")
+    @EnumSource(PoolFactory.class)
+    void concurrentlyAcquireAndReleaseMany(final PoolFactory poolFactory) throws Exception {
+        final int threads = poolFactory.maxAppenders;
         final int repeat = 3;
         final long maxWaitMillis = 20;
-        runTest(threads, repeat, maxWaitMillis);
+        runConcurrentTest(poolFactory, threads, repeat, maxWaitMillis);
     }
 
-    private void runTest(final int threadCount,
-                         final int repeat,
-                         final long maxWaitMillis) throws Exception {
+    private void runConcurrentTest(final PoolFactory poolFactory,
+                                   final int threadCount,
+                                   final int repeat,
+                                   final long maxWaitMillis) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final AppenderIdPool pool = new MultiAppenderIdPool(new File(tmpDir.toFile(), "appender-ids"));
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"), true);
         final BitSet acquired = new BitSet();
         final BitSet released = new BitSet();
         final CountDownLatch latch = new CountDownLatch(threadCount);

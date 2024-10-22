@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Mapping;
 import org.tools4j.mmap.region.api.Unsafe;
 
@@ -58,6 +59,15 @@ public interface RegionMapper extends AutoCloseable {
      * will also fail.
      */
     long CLOSED = -1;
+
+    /**
+     * @return the file access mode used by this region mapper
+     */
+    default AccessMode accessMode() {
+        return fileMapper().accessMode();
+    }
+
+    FileMapper fileMapper();
 
     /**
      * Returns the size of a mapped region.

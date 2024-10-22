@@ -25,6 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
@@ -51,6 +52,11 @@ public final class DynamicRegionImpl implements DynamicMapping {
     }
 
     @Override
+    public AccessMode accessMode() {
+        return regionMapper.accessMode();
+    }
+
+    @Override
     public RegionMetrics regionMetrics() {
         return regionMetrics;
     }
@@ -63,6 +69,11 @@ public final class DynamicRegionImpl implements DynamicMapping {
     @Override
     public boolean isMapped() {
         return mappedPosition != NULL_POSITION;
+    }
+
+    @Override
+    public int offset() {
+        return 0;
     }
 
     @Override
@@ -122,9 +133,11 @@ public final class DynamicRegionImpl implements DynamicMapping {
     @Override
     public String toString() {
         return "DynamicRegionImpl:mapped=" + isMapped() +
-                "|start=" + regionStartPosition() +
+                "|regionStartPosition=" + regionStartPosition() +
+                "|offset=" + offset() +
                 "|regionSize=" + regionSize() +
                 "|bytesAvailable=" + bytesAvailable() +
+                "|accessMode=" + accessMode() +
                 "|closed=" + isClosed();
     }
 }

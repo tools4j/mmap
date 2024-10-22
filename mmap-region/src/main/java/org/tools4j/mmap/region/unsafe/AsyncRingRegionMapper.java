@@ -112,6 +112,11 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         return regionSize;
     }
 
+    @Override
+    public FileMapper fileMapper() {
+        return fileMapper;
+    }
+
     private int cacheIndex(final long position) {
         return (int)(cacheSizeMask & (position >> regionSizeBits));
     }

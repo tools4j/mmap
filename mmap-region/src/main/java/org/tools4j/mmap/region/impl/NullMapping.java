@@ -24,6 +24,7 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Mapping;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
@@ -31,6 +32,11 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 public enum NullMapping implements Mapping {
     INSTANCE;
+
+    @Override
+    public AccessMode accessMode() {
+        return AccessMode.READ_ONLY;
+    }
 
     @Override
     public long position() {

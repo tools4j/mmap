@@ -68,7 +68,7 @@ public final class QueueImpl implements Queue {
 
     private AppenderIdPool openAppenderIdPool(final boolean singleAppender) {
         final File appenderPoolFile = queueFiles.appenderPoolFile();
-        return singleAppender ? new SingleAppenderIdPool(1) : open(new MultiAppenderIdPool(appenderPoolFile, false));
+        return singleAppender ? new SingleAppenderIdPool(1) : open(new AppenderIdPool256(appenderPoolFile, false));
     }
 
     private synchronized <T extends AutoCloseable> T open(final T closeable) {

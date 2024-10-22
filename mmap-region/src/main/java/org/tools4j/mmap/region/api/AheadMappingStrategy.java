@@ -42,6 +42,7 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
     private final int regionsToMapAhead;
     private final AsyncRuntime mappingRuntime;
     private final AsyncRuntime unmappingRuntime;
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private final Optional<AsyncOptions> asyncOptions = Optional.of(this);
 
     public AheadMappingStrategy(final int regionSize, final int cacheSize) {

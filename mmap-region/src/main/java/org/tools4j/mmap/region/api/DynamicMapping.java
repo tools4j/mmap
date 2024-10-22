@@ -35,13 +35,13 @@ import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
  * position triggers mapping and unmapping operations if necessary which are performed through a {@link RegionMapper}.
  */
 public interface DynamicMapping extends RegionMapping {
-
     /**
      * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
      *
-     * @param position the position to move to, must be a multiple of {@linkplain #regionSize() region size}
+     * @param position  the position to move to, must be a multiple of {@linkplain #regionSize() region size} unless
+     *                  this is an {@link OffsetMapping}
      * @return true if the region is ready for data access, and false otherwise
-     * @throws IllegalArgumentException if position is negative or not a multiple of {@link #regionSize()}
+     * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping
      */
     boolean moveTo(long position);
 

@@ -52,6 +52,11 @@ public final class SyncRegionMapper implements RegionMapper {
     }
 
     @Override
+    public FileMapper fileMapper() {
+        return fileMapper;
+    }
+
+    @Override
     public long map(final long position) {
         validateRegionPosition(position, regionSize);
         if (position == mappedPosition) {

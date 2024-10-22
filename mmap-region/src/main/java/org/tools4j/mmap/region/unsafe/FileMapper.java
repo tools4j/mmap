@@ -34,9 +34,9 @@ import org.tools4j.mmap.region.api.Unsafe;
 @Unsafe
 public interface FileMapper extends AutoCloseable {
     /**
-     * @return the map mode used by this file mapper
+     * @return the file access mode used by this file mapper
      */
-    AccessMode mapMode();
+    AccessMode accessMode();
 
     /**
      * Map memory region at absolute position with given length to memory address.

@@ -35,6 +35,11 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
  */
 public interface Mapping extends AutoCloseable {
     /**
+     * @return the file access mode used for this mapping
+     */
+    AccessMode accessMode();
+
+    /**
      * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
      * not {@link #isMapped() mapped}.
      *
@@ -45,9 +50,15 @@ public interface Mapping extends AutoCloseable {
     /**
      * Returns the mapped memory address, or {@link NullValues#NULL_ADDRESS NULL_ADDRESS} if this mapping is not
      * {@link #isMapped() mapped}.
+     * <p>
+     * <br>
+     * <b>NOTE:</b> Using the returned address directly for memory access is unsafe and could result in a JVM crash when
+     * this mapping is unmapped (e.g. because it is {@link #close() closed} or {@link DynamicMapping#moveTo(long) moved}
+     * to a new position).
      *
      * @return the mapped address, or zero if unavailable
      */
+    @Unsafe
     long address();
 
     /**
@@ -66,6 +77,12 @@ public interface Mapping extends AutoCloseable {
      * <p>
      * If the mapping is not ready for data access, the returned buffer will have zero
      * {@linkplain DirectBuffer#capacity() capacity}.
+     * <p>
+     * <br>
+     * <b>NOTE:</b> Re-wrapping the returned buffer through
+     * {@link DirectBuffer#wrap(DirectBuffer) DirectBuffer.wrap(..)} is potentially unsafe and could result in a JVM
+     * crash when this mapping is unmapped (e.g. because it is {@link #close() closed} or
+     * {@link DynamicMapping#moveTo(long) moved} to a new position).
      *
      * @return the buffer to read and/or write mapping data.
      */

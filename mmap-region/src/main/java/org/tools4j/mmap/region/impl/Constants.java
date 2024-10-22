@@ -25,17 +25,14 @@ package org.tools4j.mmap.region.impl;
 
 import java.lang.reflect.Method;
 
-public class Constants {
+public enum Constants {
+    ;
     /**
      * Memory page size that is exposed from internal java implementation.
      * All memory region sizes are expected to be evenly divisible by this value
      * to ensure alignment of regions with memory pages and cache lines.
      */
     public static final long REGION_SIZE_GRANULARITY = regionSizeGranularity(); //4KB - page size
-
-    private Constants() {
-        throw new IllegalStateException("Constants is not instantiable");
-    }
 
     /**
      * Digging into protected java code to get the memory page size.

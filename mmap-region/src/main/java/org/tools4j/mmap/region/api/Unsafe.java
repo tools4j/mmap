@@ -31,8 +31,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation used for classes, methods or constructors that are potentially unsafe to use and could crash the JVM in
- * the worst case.
+ * Annotation used for classes, methods, constructors or values that are potentially unsafe to use and could crash the
+ * JVM in the worst case
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target({ElementType.METHOD, ElementType.TYPE, ElementType.CONSTRUCTOR})

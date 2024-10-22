@@ -41,6 +41,11 @@ final class SingleAppenderIdPool implements AppenderIdPool {
     }
 
     @Override
+    public int openAppenders() {
+        return 1;
+    }
+
+    @Override
     public void close() {
         //nothing to close
     }

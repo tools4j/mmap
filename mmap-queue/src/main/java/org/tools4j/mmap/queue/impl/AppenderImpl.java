@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.OffsetMapping;
 
 import static java.util.Objects.requireNonNull;
@@ -63,7 +62,7 @@ final class AppenderImpl implements Appender {
 
     /** Binary search to move to the end starting from first entry */
     private void initialMoveToEnd() {
-        final DynamicMapping hdr = header;
+        final OffsetMapping hdr = header;
         final long lastIndex = Headers.binarySearchLastIndex(hdr, Index.FIRST);
         final long endIndex = lastIndex + 1;
         checkIndexNotExceedingMax(endIndex);
@@ -74,11 +73,11 @@ final class AppenderImpl implements Appender {
 
     /** Linear move to the end starting from current index */
     private void moveToEnd() {
-        final DynamicMapping hdr = header;
+        final OffsetMapping hdr = header;
         long endIndex = currentIndex;
         do {
             endIndex++;
-        } while (Headers.isValidHeaderAt(hdr, endIndex));
+        } while (Headers.hasNonEmptyHeaderAt(hdr, endIndex));
         checkIndexNotExceedingMax(endIndex);
         if (endIndex != currentIndex) {
             currentIndex = endIndex;

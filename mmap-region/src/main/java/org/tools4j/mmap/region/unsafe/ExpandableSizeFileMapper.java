@@ -75,7 +75,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public AccessMode mapMode() {
+    public AccessMode accessMode() {
         return AccessMode.READ_WRITE;
     }
 

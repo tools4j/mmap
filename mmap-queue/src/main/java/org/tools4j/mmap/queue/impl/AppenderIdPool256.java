@@ -35,15 +35,15 @@ import java.io.File;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A pool of appender ids based on a memory-mapped file associated with a given queue name.
+ * A pool of 256 appender ids based on a memory-mapped file associated with a given queue name.
  * It guarantees that there are no two or more processes/threads acquiring the same id for given queue name.
- *
- * File contains number of open appenders (counter). Acquiring of an appender id is done
- * by incrementing the counter atomically and releasing appender id is done
- * by decrementing the counter atomically.
+ * <p>
+ * The mapped file is used as a bit set with each bit representing an appender ID. The file content is updated
+ * atomically in a thread (and process) safe manner when {@link #acquire() acquiring} or
+ * {@link #release(int) releasing} appender IDs.
  */
-public class MultiAppenderIdPool implements AppenderIdPool {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MultiAppenderIdPool.class);
+public class AppenderIdPool256 implements AppenderIdPool {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AppenderIdPool256.class);
 
     public static final int MAX_APPENDERS = 1 << Byte.SIZE;
     public static final int FILE_SIZE = MAX_APPENDERS / Byte.SIZE;
@@ -51,19 +51,19 @@ public class MultiAppenderIdPool implements AppenderIdPool {
     private final Mapping mapping;
     private final boolean allowZero;
 
-    public MultiAppenderIdPool(final File file) {
+    public AppenderIdPool256(final File file) {
         this(file, true);
     }
 
-    public MultiAppenderIdPool(final File file, final boolean allowZero) {
+    public AppenderIdPool256(final File file, final boolean allowZero) {
         this(file.getPath(), Mappings.fixedSizeMapping(file, FILE_SIZE, AccessMode.READ_WRITE), allowZero);
     }
 
-    public MultiAppenderIdPool(final String name, final Mapping mapping) {
+    public AppenderIdPool256(final String name, final Mapping mapping) {
         this(name, mapping, true);
     }
 
-    public MultiAppenderIdPool(final String name, final Mapping mapping, final boolean allowZero) {
+    public AppenderIdPool256(final String name, final Mapping mapping, final boolean allowZero) {
         if (mapping.bytesAvailable() != FILE_SIZE) {
             throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
                     + mapping.bytesAvailable() + " for appender ID pool: " + name);
@@ -125,6 +125,7 @@ public class MultiAppenderIdPool implements AppenderIdPool {
         LOGGER.info("Released appenderId {} for {}", appenderId, name);
     }
 
+    @Override
     public int openAppenders() {
         if (mapping.isClosed()) {
             return 0;
@@ -148,7 +149,7 @@ public class MultiAppenderIdPool implements AppenderIdPool {
 
     @Override
     public String toString() {
-        return "MultiAppenderIdPool" +
+        return "AppenderIdPool256" +
                 ":name='" + name + '\'' +
                 "|open-appenders=" + openAppenders();
     }

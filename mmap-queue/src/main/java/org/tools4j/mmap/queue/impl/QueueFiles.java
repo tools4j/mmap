@@ -43,7 +43,7 @@ final class QueueFiles {
         this.queueFile = requireNonNull(queueFile);
         this.headerFile = new File(queueFile, queueFile.getName() + "_hdr.mmap");
         this.appenderPoolFile = new File(queueFile, queueFile.getName() + "_ids.mmap");
-        this.payloadFiles = new File[MultiAppenderIdPool.MAX_APPENDERS];
+        this.payloadFiles = new File[AppenderIdPool256.MAX_APPENDERS];
         this.payloadFileFactory = appenderId -> new File(queueFile, queueFile.getName() + "_dat_" + appenderId + ".mmap");
     }
 

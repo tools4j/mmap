@@ -65,7 +65,7 @@ public class ReadOnlyFileMapper implements FileMapper {
     }
 
     @Override
-    public AccessMode mapMode() {
+    public AccessMode accessMode() {
         return AccessMode.READ_ONLY;
     }
 

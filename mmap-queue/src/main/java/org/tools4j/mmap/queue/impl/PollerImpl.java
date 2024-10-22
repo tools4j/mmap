@@ -65,7 +65,7 @@ final class PollerImpl implements Poller {
     @Override
     public boolean hasEntry(final long index) {
         checkNotClosed();
-        return Headers.isValidHeaderAt(header, index);
+        return Headers.hasNonEmptyHeaderAt(header, index);
     }
 
     @Override

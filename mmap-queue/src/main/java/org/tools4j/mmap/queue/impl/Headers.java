@@ -24,45 +24,91 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.impl.Word;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 enum Headers {
     ;
-    private static final long PAYLOAD_POSITION_MASK = 0x00ffffffffffffffL;
-    private static final int APPENDER_ID_SHIFT = Long.SIZE - Byte.SIZE;
+    public static final int PAYLOAD_GRANULARITY_BITS = 3;
+
+    /**
+     * Payload granularity is 8 bytes, which gives good word alignment and very little wasted storage.
+     * Note that we always store an integer for the payload size. This means that at most bytes are wasted to padding
+     * per entry which only happens for zero payload entries.
+     */
+    public static final long PAYLOAD_GRANULARITY = 1L << PAYLOAD_GRANULARITY_BITS;
+    private static final long PAYLOAD_GRANULARITY_MASK = PAYLOAD_GRANULARITY - 1;
+    public static final int APPENDER_ID_BITS = Byte.SIZE;
+    public static final int MAX_APPENDERS = 1 << APPENDER_ID_BITS;
+    public static final int MAX_APPENDER_ID = MAX_APPENDERS - 1;
+    public static final int MIN_APPENDER_ID = 1;//to prevent NULL_HEADER
+    private static final int APPENDER_ID_MASK = MAX_APPENDERS - 1;
+    private static final long APPENDER_ID_HEADER_MASK = APPENDER_ID_MASK;
+    private static final int PAYLOAD_POSITION_SHIFT = APPENDER_ID_BITS - PAYLOAD_GRANULARITY_BITS;
+    private static final long PAYLOAD_POSITION_HEADER_MASK = ~APPENDER_ID_HEADER_MASK;
+    private static final long PAYLOAD_POSITION_MASK = PAYLOAD_POSITION_HEADER_MASK >>> PAYLOAD_POSITION_SHIFT;
+
+    /**
+     * Max payload position is 576,460,752,303,423,480, which is > 500,000 terabytes.
+     */
+    public static final long MAX_PAYLOAD_POSITION = PAYLOAD_POSITION_MASK;
     public static final int HEADER_LENGTH = Long.BYTES;
     public static final Word HEADER_WORD = new Word(HEADER_LENGTH);
     public static final long NULL_HEADER = 0;
 
 
     public static int appenderId(final long header) {
-        return (int) (header >>> APPENDER_ID_SHIFT);
+        return (int)(header & APPENDER_ID_HEADER_MASK);
     }
 
     public static long payloadPosition(final long header) {
-        return header & PAYLOAD_POSITION_MASK;
+        return (header & PAYLOAD_POSITION_HEADER_MASK) >>> PAYLOAD_POSITION_SHIFT;
     }
 
-    public static long header(final short appenderId, final long payloadPosition) {
-        return  ((0xffL & appenderId) << APPENDER_ID_SHIFT) | payloadPosition;
+    public static long nextPayloadPosition(final long currentPayloadPosition, final int currentPayloadBytes) {
+        assert (currentPayloadPosition & PAYLOAD_GRANULARITY_MASK) == 0 : "currentPayloadPosition must be multiple of PAYLOAD_GRANULARITY";
+        assert currentPayloadBytes >= 0 : "currentPayloadBytes cannot be negative";
+        return currentPayloadPosition + ((currentPayloadBytes + PAYLOAD_GRANULARITY - 1) >>> PAYLOAD_GRANULARITY_BITS);
     }
 
-    public static boolean isValidHeaderAt(final DynamicMapping header, final long index) {
+    public static boolean validPayloadPosition(final long payloadPosition) {
+        return payloadPosition == (payloadPosition & PAYLOAD_POSITION_MASK);
+    }
+
+    public static long validatePayloadPosition(final long payloadPosition) {
+        if (validPayloadPosition(payloadPosition)) {
+            return payloadPosition;
+        }
+        if (payloadPosition > MAX_PAYLOAD_POSITION) {
+            throw new IllegalArgumentException("Payload position " + payloadPosition + " exceeds max allowed value "
+                    + MAX_PAYLOAD_POSITION);
+        }
+        //should never happen: negative or not multiple of PAYLOAD_GRANULARITY
+        throw new IllegalArgumentException("Invalid payload position " + payloadPosition);
+    }
+
+    public static long header(final int appenderId, final long payloadPosition) {
+        assert appenderId >= MIN_APPENDER_ID : "appenderId must be at least MIN_APPENDER_ID";
+        assert appenderId <= MAX_APPENDER_ID : "appenderId must be at most MAX_APPENDER_ID";
+        assert validPayloadPosition(payloadPosition) : "payloadPosition must comply with PAYLOAD_POSITION_MASK";
+        return (appenderId & APPENDER_ID_HEADER_MASK) | ((payloadPosition << PAYLOAD_POSITION_SHIFT) & PAYLOAD_POSITION_HEADER_MASK);
+    }
+
+    public static boolean hasNonEmptyHeaderAt(final OffsetMapping header, final long index) {
         if (index < Index.FIRST || index > Index.MAX) {
             return false;
         }
         final long originalPosition = header.position();
-        final boolean result = _isValidHeaderAt(header, index);
+        final boolean result = moveAndHeaderNonEmpty(header, index);
         if (originalPosition != NULL_POSITION) {
             header.moveTo(originalPosition);
         }
         return result;
     }
 
-    private static boolean _isValidHeaderAt(final DynamicMapping header, final long index) {
+    private static boolean moveAndHeaderNonEmpty(final OffsetMapping header, final long index) {
         final long position = HEADER_WORD.position(index);
         return header.moveTo(position) && header.buffer().getLongVolatile(0) != NULL_HEADER;
     }
@@ -71,12 +117,12 @@ enum Headers {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
-    public static long binarySearchLastIndex(final DynamicMapping header, final long startIndex) {
+    public static long binarySearchLastIndex(final OffsetMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }
         //1) initial low
-        if (!isValidHeaderAt(header, startIndex)) {
+        if (!hasNonEmptyHeaderAt(header, startIndex)) {
             return Index.NULL;
         }
         final long originalPosition = header.position();
@@ -96,14 +142,14 @@ enum Headers {
                     break;
                 }
                 increment <<= 1;
-            } while (_isValidHeaderAt(header, highIndex));
+            } while (moveAndHeaderNonEmpty(header, highIndex));
         }
 
         //3) find middle
         if (highIndex != Index.NULL) {
             while (lowIndex + 1L < highIndex) {
                 final long midIndex = mid(lowIndex, highIndex);
-                if (_isValidHeaderAt(header, midIndex)) {
+                if (moveAndHeaderNonEmpty(header, midIndex)) {
                     lowIndex = midIndex;
                 } else {
                     highIndex = midIndex;

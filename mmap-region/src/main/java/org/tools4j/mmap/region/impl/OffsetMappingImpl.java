@@ -25,6 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
@@ -50,6 +51,11 @@ public final class OffsetMappingImpl implements OffsetMapping {
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
         this.mappedPosition = NULL_POSITION;
         this.offset = 0;
+    }
+
+    @Override
+    public AccessMode accessMode() {
+        return regionMapper.accessMode();
     }
 
     @Override
@@ -207,10 +213,11 @@ public final class OffsetMappingImpl implements OffsetMapping {
     @Override
     public String toString() {
         return "OffsetMappingImpl:mapped=" + isMapped() +
-                "|start=" + regionStartPosition() +
+                "|regionStartPosition=" + regionStartPosition() +
                 "|offset=" + offset() +
                 "|regionSize=" + regionSize() +
                 "|bytesAvailable=" + bytesAvailable() +
+                "|accessMode=" + accessMode() +
                 "|closed=" + isClosed();
     }
 }

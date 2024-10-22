@@ -131,7 +131,7 @@ public class RollingFileMapper implements FileMapper {
     }
 
     @Override
-    public AccessMode mapMode() {
+    public AccessMode accessMode() {
         return mapMode;
     }
 
@@ -158,10 +158,11 @@ public class RollingFileMapper implements FileMapper {
     }
 
     private FileMapper computeIfAbsent(final int fileIndex) {
-        final ExpandableSizeFileMapper mapper = (ExpandableSizeFileMapper)fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
-        if (mapMode == AccessMode.READ_WRITE) {
-            mapper.init();
-            mapper.ensureFileLength(maxFileSize);
+        final FileMapper mapper = fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
+        if (mapMode == AccessMode.READ_WRITE && mapper instanceof ExpandableSizeFileMapper) {
+            final ExpandableSizeFileMapper expandableMapper = (ExpandableSizeFileMapper)mapper;
+            expandableMapper.init();
+            expandableMapper.ensureFileLength(maxFileSize);
         }
         return mapper;
     }

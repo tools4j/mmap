@@ -25,6 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Mapping;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
@@ -95,6 +96,11 @@ public class FixedMapping implements Mapping {
     }
 
     @Override
+    public AccessMode accessMode() {
+        return fileMapper.accessMode();
+    }
+
+    @Override
     public long position() {
         return mappedPosition;
     }
@@ -135,6 +141,10 @@ public class FixedMapping implements Mapping {
 
     @Override
     public String toString() {
-        return "FixedRegion:startPosition=" + mappedPosition + "|size=" + size + "|closed=" + isClosed();
+        return "FixedRegion:" +
+                "position=" + mappedPosition +
+                "|size=" + size +
+                "|accessMode=" + accessMode() +
+                "|closed=" + isClosed();
     }
 }

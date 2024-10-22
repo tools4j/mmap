@@ -39,6 +39,8 @@ public interface IterableContext extends Iterable<Entry>, AutoCloseable {
      * <p>
      * Note that the iterator continues to function if queue entries are appended in the background, and new entries are
      * returned even if {@link Iterator#hasNext()} has previously returned false at some point.
+     *
+     * @return an iterator for queue entries
      */
     @Override
     Iterator<Entry> iterator();
@@ -46,6 +48,8 @@ public interface IterableContext extends Iterable<Entry>, AutoCloseable {
     /**
      * Returns an iterable for queue entries starting at {@link #startIndex()} returning entries in reverse order
      * finishing with the first queue entry.
+     *
+     * @return an iterator for queue entries in reverse order
      */
     IterableContext reverse();
 

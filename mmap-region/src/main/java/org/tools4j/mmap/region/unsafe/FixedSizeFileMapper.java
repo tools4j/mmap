@@ -82,7 +82,7 @@ public class FixedSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public AccessMode mapMode() {
+    public AccessMode accessMode() {
         return mapMode;
     }
 

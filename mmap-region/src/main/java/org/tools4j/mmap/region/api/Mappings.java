@@ -47,9 +47,9 @@ public enum Mappings {
         return NullMapping.INSTANCE;
     }
 
-    public static Mapping fixedSizeMapping(final File file, final int fileSize, final AccessMode accessMode) {
-        final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, fileSize);
-        return fixedSizeMapping(new FixedSizeFileMapper(file, fileSize, accessMode, initialiser), true);
+    public static Mapping fixedSizeMapping(final File file, final int size, final AccessMode accessMode) {
+        final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, size);
+        return fixedSizeMapping(new FixedSizeFileMapper(file, size, accessMode, initialiser), true);
     }
 
     @Unsafe

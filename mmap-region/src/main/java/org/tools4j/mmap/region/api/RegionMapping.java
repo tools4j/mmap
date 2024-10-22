@@ -32,13 +32,25 @@ package org.tools4j.mmap.region.api;
 public interface RegionMapping extends Mapping {
 
     /**
-     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
-     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
+     * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
+     * not {@link #isMapped() mapped}.
+     * <p>
+     * If mapped, the position is always equal to the
+     * {@linkplain #regionStartPosition() region start position} plus the {@linkplain #offset() offset}.
      *
-     * @return the region's start position, a multiple of region size, or -1 if unavailable
+     * @return the mapped position, or -1 if unavailable
      */
     @Override
-    long position();
+    default long position() {
+        return regionStartPosition() + offset();
+    }
+
+    /**
+     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, a value between
+     * zero and (regionSize - 1)
+     * @return {@code position - regionStartPosition}
+     */
+    int offset();
 
     /**
      * @return the size of a mappable memory region in bytes
@@ -57,12 +69,14 @@ public interface RegionMapping extends Mapping {
      * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
      * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
      * <p>
-     * Always equal to {@link #position()} unless this mapping is an {@link OffsetMapping}
+     * If mapped, the region start position is always equal to the
+     * {@linkplain #position() position} minus the {@linkplain #offset() offset}.
      *
-     * @return the region's start position, a multiple of region size, or -1 if unavailable
+     * @return the region's start position, equal to the largest region size multiple that is less or equal to the
+     *         current position, or -1 if unavailable
      */
     default long regionStartPosition() {
-        return position();
+        return regionMetrics().regionPosition(position());
     }
 
     /**

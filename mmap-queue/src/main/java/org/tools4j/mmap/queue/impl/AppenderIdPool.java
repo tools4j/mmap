@@ -40,6 +40,12 @@ interface AppenderIdPool extends AutoCloseable {
     void release(int appenderId);
 
     /**
+     * Returns the number of appenders currently acquired, or zero if this pool is closed.
+     * @return the open appenders, or zero if the pool is closed
+     */
+    int openAppenders();
+
+    /**
      * Closes the appender ID pool (no-op if single appender pool)
      */
     @Override

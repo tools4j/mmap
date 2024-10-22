@@ -63,6 +63,11 @@ public final class SyncRingRegionMapper implements RegionMapper {
     }
 
     @Override
+    public FileMapper fileMapper() {
+        return fileMapper;
+    }
+
+    @Override
     public long map(final long position) {
         final int cacheIndex = (int)(cacheSizeMask & (position >> regionSizeBits));
         if (positions[cacheIndex] == position) {
