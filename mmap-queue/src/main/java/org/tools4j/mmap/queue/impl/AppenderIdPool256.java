@@ -94,7 +94,7 @@ public class AppenderIdPool256 implements AppenderIdPool {
     }
 
     @Override
-    public void release(final int appenderId) {
+    public boolean release(final int appenderId) {
         ensureNotClosed();
         if (appenderId < 0 || appenderId >= MAX_APPENDERS) {
             throw new IllegalArgumentException("Invalid appender id: " + appenderId);
@@ -111,7 +111,11 @@ public class AppenderIdPool256 implements AppenderIdPool {
             curBitSet = buf.getLongVolatile(index);
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(index, curBitSet, newBitSet));
-        LOGGER.info("Released appenderId {} for {}", appenderId, name);
+        if (curBitSet != newBitSet) {
+            LOGGER.info("Released appenderId {} for {}", appenderId, name);
+            return true;
+        }
+        return false;
     }
 
     @Override

@@ -30,7 +30,6 @@ import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.MappingConfig;
 
 import java.io.File;
@@ -58,22 +57,26 @@ public final class QueueImpl implements Queue {
     public QueueImpl(final File file, final MappingConfig mappingConfig, final int maxAppenders) {
         this.queueFiles = new QueueFiles(file);
 
-        final QueueMappings roMappings = open(QueueMappings.create(queueFiles, AccessMode.READ_ONLY, mappingConfig));
-        final QueueMappings rwMappings = open(QueueMappings.create(queueFiles, AccessMode.READ_WRITE, mappingConfig));
-        final AppenderIdPool appenderIdPool = openAppenderIdPool(maxAppenders);
-        this.pollerFactory = () -> open(new PollerImpl(queueFiles.queueName(), roMappings));
-        this.readerFactory = () -> open(new ReaderImpl(queueFiles.queueName(), roMappings));
-        this.appenderFactory = () -> open(new AppenderImpl(queueFiles.queueName(), rwMappings, appenderIdPool));
+        final AppenderIdPool idPool = open(appenderIdPool(queueFiles, maxAppenders));
+        this.pollerFactory = () -> open(
+                new PollerImpl(queueFiles.queueName(), ReaderMappings.create(queueFiles, mappingConfig))
+        );
+        this.readerFactory = () -> open(
+                new ReaderImpl(queueFiles.queueName(), ReaderMappings.create(queueFiles, mappingConfig))
+        );
+        this.appenderFactory = () -> open(
+                new AppenderImpl(queueFiles.queueName(), AppenderMappings.create(queueFiles, idPool, mappingConfig))
+        );
     }
 
-    private AppenderIdPool openAppenderIdPool(final int maxAppenders) {
+    private static AppenderIdPool appenderIdPool(final QueueFiles queueFiles, final int maxAppenders) {
         switch (maxAppenders) {
             case 1:
-                return new SingleAppenderIdPool(0);
+                return ConstantAppenderId.ALWAYS_ZERO;
             case AppenderIdPool64.MAX_APPENDERS:
-                return open(new AppenderIdPool64(queueFiles.appenderPoolFile()));
+                return new AppenderIdPool64(queueFiles.appenderPoolFile());
             case AppenderIdPool256.MAX_APPENDERS:
-                return open(new AppenderIdPool256(queueFiles.appenderPoolFile()));
+                return new AppenderIdPool256(queueFiles.appenderPoolFile());
             default:
                 throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
         }

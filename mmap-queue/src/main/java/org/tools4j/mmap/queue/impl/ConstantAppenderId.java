@@ -23,21 +23,18 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-final class SingleAppenderIdPool implements AppenderIdPool {
+enum ConstantAppenderId implements AppenderIdPool {
+    ALWAYS_ZERO;
 
-    private final int appenderId;
-
-    SingleAppenderIdPool(final int appenderId) {
-        this.appenderId = appenderId;
-    }
+    public static final int APPENDER_ID = 0;
     @Override
     public int acquire() {
-        return appenderId;
+        return APPENDER_ID;
     }
 
     @Override
-    public void release(final int appenderId) {
-        //nothing to release
+    public boolean release(final int appenderId) {
+        return false;
     }
 
     @Override
@@ -52,6 +49,6 @@ final class SingleAppenderIdPool implements AppenderIdPool {
 
     @Override
     public String toString() {
-        return "SingleAppenderIdPool:appenderId=" + appenderId;
+        return "ConstantAppenderId:appenderId=0";
     }
 }

@@ -33,24 +33,23 @@ import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.OffsetMapping;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class PollerImpl implements Poller {
     private static final Logger LOGGER = LoggerFactory.getLogger(PollerImpl.class);
 
     private final String queueName;
+    private final ReaderMappings mappings;
     private final OffsetMapping header;
-    private final QueueMappings mappings;
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
     private int errorState = PENDING_OPEN;
 
-    PollerImpl(final String queueName, final QueueMappings mappings) {
+    PollerImpl(final String queueName, final ReaderMappings mappings) {
         this.queueName = requireNonNull(queueName);
-        this.header = requireNonNull(mappings.header());
         this.mappings = requireNonNull(mappings);
+        this.header = requireNonNull(mappings.header());
         this.nextIndex = Index.FIRST;
         this.currentIndex = Index.NULL;
         this.currentHeader = NULL_HEADER;
@@ -152,7 +151,7 @@ final class PollerImpl implements Poller {
         if (error == CLOSED) {
             return CLOSED;
         }
-        final long position = HEADER_WORD.position(index);
+        final long position = Headers.headerPositionForIndex(index);
         final OffsetMapping headerMapping = this.header;
         if (!headerMapping.moveTo(position)) {
             return error;
@@ -187,6 +186,7 @@ final class PollerImpl implements Poller {
             nextIndex = Index.FIRST;
             currentIndex = Index.NULL;
             currentHeader = NULL_HEADER;
+            mappings.close();
             LOGGER.info("Poller closed, queue={}", queueName);
         }
     }

@@ -23,31 +23,31 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
-import java.util.function.IntFunction;
-
 import static java.util.Objects.requireNonNull;
 
 /**
- * Header and payload mappings for queues.
+ * Header and payload mapping for queues appenders.
  */
-interface QueueMappings extends AutoCloseable {
+interface AppenderMappings extends AutoCloseable {
+    /**
+     * @return the appender ID
+     */
+    int appenderId();
     /**
      * @return header region
      */
     OffsetMapping header();
 
     /**
-     * @param appenderId appender id
      * @return payload region
      */
-    OffsetMapping payload(int appenderId);
+    OffsetMapping payload();
 
     boolean isClosed();
 
@@ -55,25 +55,32 @@ interface QueueMappings extends AutoCloseable {
     void close();
 
     /**
-     * Factory method for queue mappings.
+     * Factory method for appender mappings.
      *
-     * @param queueFiles    the queue files
-     * @param accessMode    the file access mode
-     * @param mappingConfig configuration for file and region mappers
-     * @return a new queue mappings instance
+     * @param queueFiles        the queue files
+     * @param appenderIdPool    the appender ID pool
+     * @param mappingConfig     configuration for file and region mappers
+     * @return a new appender mappings instance
      */
-    static QueueMappings create(final QueueFiles queueFiles, final AccessMode accessMode, final MappingConfig mappingConfig) {
+    static AppenderMappings create(final QueueFiles queueFiles,
+                                   final AppenderIdPool appenderIdPool,
+                                   final MappingConfig mappingConfig) {
         requireNonNull(queueFiles);
-        requireNonNull(accessMode);
+        requireNonNull(appenderIdPool);
         requireNonNull(mappingConfig);
 
-        return new QueueMappings() {
+        return new AppenderMappings() {
+            final int appenderId = appenderIdPool.acquire();
             final MappingConfig config = mappingConfig.immutable();
-            final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), accessMode,
-                    FileInitialiser.zeroBytes(accessMode, Headers.HEADER_LENGTH), config);
-            final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();
-            final IntFunction<OffsetMapping> payloadMappingFactory = appenderId -> Mappings.offsetMapping(
-                queueFiles.payloadFile(appenderId), accessMode, config);
+            final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
+                    FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), config);
+            final OffsetMapping payload = Mappings.offsetMapping(queueFiles.payloadFile(appenderId),
+                    AccessMode.READ_WRITE, config);
+
+            @Override
+            public int appenderId() {
+                return appenderId;
+            }
 
             @Override
             public OffsetMapping header() {
@@ -81,8 +88,8 @@ interface QueueMappings extends AutoCloseable {
             }
 
             @Override
-            public OffsetMapping payload(final int appenderId) {
-                return payloadMappings.computeIfAbsent(appenderId, payloadMappingFactory);
+            public OffsetMapping payload() {
+                return payload;
             }
 
             @Override
@@ -94,16 +101,16 @@ interface QueueMappings extends AutoCloseable {
             public void close() {
                 if (!isClosed()) {
                     header.close();
-                    payloadMappings.forEachInt((appenderId, mapping) -> mapping.close());
-                    payloadMappings.clear();
+                    payload.close();
+                    appenderIdPool.release(appenderId);
                 }
             }
 
             @Override
             public String toString() {
-                return "QueueMappings" +
+                return "AppenderMappings" +
                         ":queue=" + queueFiles.queueName() +
-                        "|access-mode=" + accessMode +
+                        "|appenderId=" + appenderId +
                         "|closed=" + isClosed();
             }
         };

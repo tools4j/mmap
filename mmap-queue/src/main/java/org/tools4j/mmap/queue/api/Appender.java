@@ -28,13 +28,13 @@ import org.agrona.DirectBuffer;
 /**
  * API to append entries at the end of a {@link Queue}. Existing data can be appended through
  * {@link #append(DirectBuffer, int, int)}. Alternatively a new entry can be coded directly into the
- * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending()}.
+ * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending(int)}.
  */
 public interface Appender extends AutoCloseable {
 
     /**
      * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
-     * buffer the {@link #appending()} method can be used instead.
+     * buffer the {@link #appending(int)} method can be used instead.
      *
      * @param buffer - direct buffer to read entry from
      * @param offset - offset of the entry in the buffer
@@ -47,23 +47,26 @@ public interface Appender extends AutoCloseable {
 
     /**
      * Provides an appending context for zero-copy encoding of the new entry into the queue
-     * {@link AppendingContext#buffer() buffer}.
+     * {@link AppendingContext#buffer() buffer}. The returned buffer is guaranteed to have capacity for at least
+     * {@code maxLength} bytes.
      * <p>
      * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a
      * try-resource block:
      * <pre>
-     * try (AppendingContext context = appending()) {
+     * try (AppendingContext context = appending(1000)) {
      *     MutableDirectBuffer buffer = context.buffer();
      *     //code into buffer here
-     *     int length = ...;//number of bytes encoded above
+     *     int length = ...;//number of bytes encoded
      *     buffer.commit(length);
      * }
      * </pre>
      *
+     * @param maxLength the maximum length of the entry to append in bytes
      * @return appending context for writing of entry data
+     * @throws IllegalArgumentException if the specified max length parameter exceeds the entry size limit
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
-    AppendingContext appending();
+    AppendingContext appending(int maxLength);
 
     /**
      * @return true if this appender is closed

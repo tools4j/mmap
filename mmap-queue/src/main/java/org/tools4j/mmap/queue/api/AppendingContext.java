@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 import org.agrona.MutableDirectBuffer;
 
 /**
- * Flyweight returned by {@link Appender#appending()} to encode a new entry directly to the queue {@link #buffer()}.
+ * Flyweight returned by {@link Appender#appending(int)} to encode a new entry directly to the queue {@link #buffer()}.
  */
 public interface AppendingContext extends AutoCloseable {
     /**

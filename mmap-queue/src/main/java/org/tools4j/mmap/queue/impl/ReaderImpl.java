@@ -23,22 +23,12 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.api.ReadingContext;
-import org.tools4j.mmap.queue.impl.DefaultIterableContext.MutableReadingContext;
-import org.tools4j.mmap.region.api.DynamicMapping;
-
-import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.impl.Headers.HEADER_WORD;
 
 final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final QueueMappings regionCursors) {
+    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
     }
 
 

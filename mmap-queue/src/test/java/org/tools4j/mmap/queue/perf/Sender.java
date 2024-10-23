@@ -61,7 +61,7 @@ public class Sender {
                 final long lastMessageIdx = messages - 1;
                 for (int i = 0; i < messages; i++) {
                     final long time = System.nanoTime();
-                    try (AppendingContext context = appender.appending()) {
+                    try (AppendingContext context = appender.appending(messageLength)) {
                         testMessage
                                 .wrap(context.buffer())
                                 .publisherId(publisherId)

@@ -100,4 +100,40 @@ public class HeadersTest {
             assertThrows(IllegalArgumentException.class, () -> Headers.validatePayloadPosition(payloadPosition));
         }
     }
+
+    @TableSource({
+            "| index           | position       |",
+            "|-----------------|----------------|",
+            "| 0               | 0              |",
+            "| 1               | 512            |",
+            "| 2               | 1024           |",
+            "| 3               | 1536           |",
+            "| 4               | 2048           |",
+            "| 62              | 31744          |",
+            "| 63              | 32256          |",
+            "| 64              | 8              |",
+            "| 65              | 520            |",
+            "| 126             | 31752          |",
+            "| 127             | 32264          |",
+            "| 128             | 16             |",
+            "| 129             | 528            |",
+            "| 4095            | 32760          |",
+            "| 4096            | 32768          |",
+            "| 4097            | 33280          |",
+            "| 4098            | 33792          |",
+            "| 4158            | 64512          |",
+            "| 4159            | 65024          |",
+            "| 4160            | 32776          |",
+            "| 4161            | 33288          |",
+            "| 4222            | 64520          |",
+            "| 4223            | 65032          |",
+            "| 4224            | 32784          |",
+            "| 4225            | 33296          |",
+    })
+    @ParameterizedTest(name = "[{index}]: index={0}, position={1}")
+    public void headerPositionAndIndex(final long index, final long position) {
+        assertEquals(position, Headers.headerPositionForIndex(index));
+        assertEquals(index, Headers.indexForHeaderPosition(position));
+    }
+
 }
