@@ -33,8 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Unit test for {@link Headers}.
  */
 public class HeadersTest {
-    final long bla = Headers.MAX_PAYLOAD_POSITION >> 1;
-
     @TableSource({
             "| appenderId |    payloadPosition |               header |",
             "|------------|--------------------|----------------------|",

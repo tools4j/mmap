@@ -101,8 +101,8 @@ public interface Reader extends IndexReader, AutoCloseable {
      * in the following example:
      * <pre>
      * long start = 123;
-     * try (IterableContext context = queue.readingFrom(start)) {
-     *     for (Entry entry : context.iterate(Direction.FORWARD) {
+     * try (IterableContext iterable = queue.readingFrom(start)) {
+     *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
      *     }
@@ -173,8 +173,8 @@ public interface Reader extends IndexReader, AutoCloseable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
-     * entries are subsequently appended to the queue in the background.
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if entries
+     * are subsequently appended to the queue in the background.
      * <p>
      * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
      *

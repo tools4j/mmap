@@ -47,7 +47,7 @@ public interface Appender extends AutoCloseable {
 
     /**
      * Provides an appending context for zero-copy encoding of the new entry into the queue
-     * {@link AppendingContext#buffer() buffer}. The returned buffer is guaranteed to have capacity for at least
+     * {@link AppendingContext#buffer() buffer}. The queue buffer is guaranteed to have capacity for at least
      * {@code maxLength} bytes.
      * <p>
      * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a

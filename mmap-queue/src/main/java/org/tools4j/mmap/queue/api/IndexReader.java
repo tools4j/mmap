@@ -70,7 +70,7 @@ public interface IndexReader {
      * @throws IllegalStateException if queue or this index reader is closed
      */
     default long size() {
-        return 1L + lastIndex();//works also with NULL
+        return 1 + lastIndex();//works also with NULL
     }
 
     /**

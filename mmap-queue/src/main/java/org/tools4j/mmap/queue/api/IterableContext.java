@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 import java.util.Iterator;
 
 /**
- * Flyweight return by {@link Reader} to iterate over queue entries.
+ * Flyweight returned by {@link Reader} to iterate over queue entries.
  */
 public interface IterableContext extends Iterable<Entry>, AutoCloseable {
     /**
