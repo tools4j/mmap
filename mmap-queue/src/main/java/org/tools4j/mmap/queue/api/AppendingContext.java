@@ -30,9 +30,25 @@ import org.agrona.MutableDirectBuffer;
  */
 public interface AppendingContext extends AutoCloseable {
     /**
+     * Returns the buffer to write entry data directly to the queue. Returns a zero capacity buffer if context or
+     * appender is closed.
+     *
      * @return buffer to write the entry data directly to the queue
      */
     MutableDirectBuffer buffer();
+
+    /**
+     * Ensures that the {@link #buffer()} has at least the specified capacity in bytes.
+     * <p>
+     * Note that while this is usually a fast operation, it may require copying of current buffer data to a new
+     * location in the worst case. It is therefore highly recommended to instead specify sufficient capacity when the
+     * appending context is {@linkplain Appender#appending(int) initialised}.
+     *
+     * @param capacity the capacity in bytes that determines the maximum length for the appended entry
+     * @throws IllegalArgumentException if the specified capacity parameter exceeds the entry size limit
+     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
+     */
+    void ensureCapacity(int capacity);
 
     /**
      * Aborts appending the entry
@@ -43,9 +59,9 @@ public interface AppendingContext extends AutoCloseable {
      * Commits the entry that was encoded into the {@link #buffer()}
      *
      * @param length - length of the entry in bytes
-     * @return queue index at which entry was appended
+     * @return queue index at which the entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
-     * @throws IllegalStateException    if the appender or the underlying queue is closed
+     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
      */
     long commit(int length);
 

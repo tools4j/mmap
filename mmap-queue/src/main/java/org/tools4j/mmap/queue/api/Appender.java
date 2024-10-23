@@ -47,26 +47,27 @@ public interface Appender extends AutoCloseable {
 
     /**
      * Provides an appending context for zero-copy encoding of the new entry into the queue
-     * {@link AppendingContext#buffer() buffer}. The queue buffer is guaranteed to have capacity for at least
-     * {@code maxLength} bytes.
+     * {@link AppendingContext#buffer() buffer}. The queue buffer is guaranteed to have capacity for at least the
+     * specified number of bytes.
      * <p>
      * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a
      * try-resource block:
      * <pre>
-     * try (AppendingContext context = appending(1000)) {
+     * int maxLength = 1000;
+     * try (AppendingContext context = appending(maxLength)) {
      *     MutableDirectBuffer buffer = context.buffer();
-     *     //code into buffer here
-     *     int length = ...;//number of bytes encoded
+     *     //code entry data into buffer here
+     *     int length = ...;//actual number of bytes encoded
      *     buffer.commit(length);
      * }
      * </pre>
      *
-     * @param maxLength the maximum length of the entry to append in bytes
+     * @param capacity the maximum length of the entry data in bytes
      * @return appending context for writing of entry data
-     * @throws IllegalArgumentException if the specified max length parameter exceeds the entry size limit
+     * @throws IllegalArgumentException if the specified capacity parameter exceeds the entry size limit
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
-    AppendingContext appending(int maxLength);
+    AppendingContext appending(int capacity);
 
     /**
      * @return true if this appender is closed

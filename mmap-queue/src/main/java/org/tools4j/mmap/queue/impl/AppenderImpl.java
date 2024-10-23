@@ -45,17 +45,19 @@ final class AppenderImpl implements Appender {
     private final int appenderId;
     private final OffsetMapping header;
     private final OffsetMapping payload;
+    private final int regionCacheSize;
     private final AppendingContextImpl context;
     private long endIndex;
     private long lastOwnHeader;
     private boolean closed;
 
-    public AppenderImpl(final String queueName, final AppenderMappings mappings) {
+    public AppenderImpl(final String queueName, final AppenderMappings mappings, final int regionCacheSize) {
         this.queueName = requireNonNull(queueName);
         this.mappings = requireNonNull(mappings);
         this.appenderId = mappings.appenderId();
         this.header = requireNonNull(mappings.header());
         this.payload = requireNonNull(mappings.payload());
+        this.regionCacheSize = regionCacheSize;
         this.context = new AppendingContextImpl(this);
         this.endIndex = Index.NULL;
         this.lastOwnHeader = NULL_HEADER;
@@ -96,9 +98,9 @@ final class AppenderImpl implements Appender {
     }
 
     @Override
-    public AppendingContext appending(final int maxLength) {
+    public AppendingContext appending(final int capacity) {
         ensureNotClosed();
-        return context.init(maxLength);
+        return context.init(capacity);
     }
 
     private long appendEntry(final long payloadPosition) {
@@ -155,34 +157,70 @@ final class AppenderImpl implements Appender {
             this.maxEntrySize = payload.regionSize() - Integer.SIZE;
         }
 
-        AppendingContext init(final int maxLength) {
+        private void validateCapacity(final int capacity) {
+            if (capacity > maxEntrySize) {
+                throw new IllegalArgumentException("Capacity " + capacity + " exceeds maximum allowed entry size " +
+                        maxEntrySize);
+            }
+        }
+
+        AppendingContext init(final int capacity) {
             if (!isClosed()) {
                 abort();
                 throw new IllegalStateException("Appending context has not been closed");
             }
-            if (maxLength > maxEntrySize) {
-                throw new IllegalArgumentException("Max length " + maxLength + " exceeds maximum allowed entry size " +
-                        maxEntrySize);
-            }
-            this.maxLength = initPayloadBuffer(appender.lastOwnHeader, Math.max(0, maxLength));
+            validateCapacity(capacity);
+            this.maxLength = initPayloadBuffer(appender.lastOwnHeader, Math.max(0, capacity));
             return this;
         }
 
-        int initPayloadBuffer(final long lastOwnHeader, final int maxLength) {
-            assert maxLength >= 0 && maxLength <= maxEntrySize;
+        private int initPayloadBuffer(final long lastOwnHeader, final int capacity) {
+            assert capacity >= 0 && capacity <= maxEntrySize;
             final OffsetMapping pld = payload;
-            final int minCapacity = maxLength + Integer.SIZE;
+            final int minRequired = capacity + Integer.SIZE;
             long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
-                    Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), minCapacity);
+                    Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), minRequired);
             if (!pld.moveTo(payloadPosition)) {
                 throw payloadMoveException(appender, payloadPosition);
             }
-            if (pld.bytesAvailable() < minCapacity && !pld.moveToNextRegion()) {
-                final long regionStartPosition = pld.regionMetrics().regionPosition(payloadPosition + pld.regionSize());
+            if (pld.bytesAvailable() < minRequired) {
+                moveToNextPayloadRegion(pld);
+            }
+            buffer.wrap(pld.buffer(), Integer.SIZE, capacity);
+            return capacity;
+        }
+
+        private void moveToNextPayloadRegion(final OffsetMapping payload) {
+            if (!payload.moveToNextRegion()) {
+                final long regionStartPosition = payload.regionStartPosition() + payload.regionSize();
                 throw payloadMoveException(appender, regionStartPosition);
             }
-            buffer.wrap(pld.buffer(), Integer.SIZE, maxLength);
-            return maxLength;
+        }
+
+        @Override
+        public void ensureCapacity(final int capacity) {
+            final int max = maxLength;
+            if (max < 0) {
+                throw new IllegalStateException("Appending context is closed");
+            }
+            if (capacity <= max) {
+                return;
+            }
+            validateCapacity(capacity);
+            final int minRequired = capacity + Integer.SIZE;
+            final OffsetMapping pld = payload;
+            if (pld.bytesAvailable() < minRequired) {
+                if (appender.regionCacheSize <= 1) {
+                    throw new IllegalStateException("Need to enable region cache to fully support ensureCapacity(..)");
+                }
+                moveToNextPayloadRegion(pld);
+                //NOTE: copy data from buffer to the mapping buffer
+                //      --> the buffer is still wrapped at old region address
+                //      --> old region address is still mapped because a region cache is in use
+                pld.buffer().getBytes(Integer.SIZE, buffer, 0, max);
+            }
+            buffer.wrap(pld.buffer(), Integer.SIZE, capacity);
+            maxLength = capacity;
         }
 
         @Override
@@ -208,7 +246,7 @@ final class AppenderImpl implements Appender {
 
         static void validateLength(final int length, final int maxLength) {
             if (length < 0) {
-                throw new IllegalArgumentException("Length " + length + " cannot be negative");
+                throw new IllegalArgumentException("Length cannot be negative: " + length);
             } else if (length > maxLength) {
                 if (maxLength >= 0) {
                     throw new IllegalArgumentException("Length " + length + " exceeds max length " + maxLength);

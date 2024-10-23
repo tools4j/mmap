@@ -65,7 +65,8 @@ public final class QueueImpl implements Queue {
                 new ReaderImpl(queueFiles.queueName(), ReaderMappings.create(queueFiles, mappingConfig))
         );
         this.appenderFactory = () -> open(
-                new AppenderImpl(queueFiles.queueName(), AppenderMappings.create(queueFiles, idPool, mappingConfig))
+                new AppenderImpl(queueFiles.queueName(), AppenderMappings.create(queueFiles, idPool, mappingConfig),
+                        mappingConfig.mappingStrategy().cacheSize())
         );
     }
 
