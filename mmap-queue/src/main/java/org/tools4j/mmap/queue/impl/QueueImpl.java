@@ -29,8 +29,9 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.api.QueueConfig;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.region.api.MappingConfig;
+import org.tools4j.mmap.region.api.MappingStrategy;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -51,23 +52,34 @@ public final class QueueImpl implements Queue {
     private final List<AutoCloseable> closeables = new ArrayList<>();
 
     public QueueImpl(final File file, final int maxAppenders) {
-        this(file, MappingConfig.getDefault(), maxAppenders);
+        this(file, QueueConfig.getDefault(), maxAppenders);
     }
 
-    public QueueImpl(final File file, final MappingConfig mappingConfig, final int maxAppenders) {
+    public QueueImpl(final File file, final QueueConfig queueConfig, final int maxAppenders) {
         this.queueFiles = new QueueFiles(file);
 
         final AppenderIdPool idPool = open(appenderIdPool(queueFiles, maxAppenders));
-        this.pollerFactory = () -> open(
-                new PollerImpl(queueFiles.queueName(), ReaderMappings.create(queueFiles, mappingConfig))
-        );
-        this.readerFactory = () -> open(
-                new ReaderImpl(queueFiles.queueName(), ReaderMappings.create(queueFiles, mappingConfig))
-        );
-        this.appenderFactory = () -> open(
-                new AppenderImpl(queueFiles.queueName(), AppenderMappings.create(queueFiles, idPool, mappingConfig),
-                        mappingConfig.mappingStrategy().cacheSize())
-        );
+        final QueueConfig config = queueConfig.toImmutableQueueConfig();
+        this.pollerFactory = () -> open(new PollerImpl(
+                queueFiles.queueName(),
+                ReaderMappings.create(queueFiles, config.pollerHeaderConfig(), config.pollerPayloadConfig())
+        ));
+        this.readerFactory = () -> open(new ReaderImpl(
+                queueFiles.queueName(),
+                ReaderMappings.create(queueFiles, config.readerHeaderConfig(), config.readerPayloadConfig())
+        ));
+        this.appenderFactory = () -> open(new AppenderImpl(
+                queueFiles.queueName(),
+                AppenderMappings.create(queueFiles, idPool, config.appenderHeaderConfig(), config.appenderPayloadConfig()),
+                enableCopyFromPreviousRegion(config.appenderPayloadConfig().mappingStrategy())
+        ));
+    }
+
+    private static boolean enableCopyFromPreviousRegion(final MappingStrategy mappingStrategy) {
+        final int cacheSie = mappingStrategy.cacheSize();
+        final int mapAhead = mappingStrategy.asyncOptions().isPresent() ?
+                mappingStrategy.asyncOptions().get().regionsToMapAhead() : 0;
+        return cacheSie > Math.max(1, mapAhead + 1);
     }
 
     private static AppenderIdPool appenderIdPool(final QueueFiles queueFiles, final int maxAppenders) {

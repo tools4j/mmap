@@ -28,8 +28,8 @@ import org.tools4j.mmap.region.api.MappingStrategy.AsyncOptions;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.api.DefaultValues.defaultMappingAsyncRuntime;
-import static org.tools4j.mmap.region.api.DefaultValues.defaultUnmappingAsyncRuntime;
+import static org.tools4j.mmap.region.api.MappingConfigurations.defaultMappingAsyncRuntime;
+import static org.tools4j.mmap.region.api.MappingConfigurations.defaultUnmappingAsyncRuntime;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionsToMapAhead;
@@ -71,7 +71,7 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
     }
 
     public static MappingStrategy getDefault() {
-        return DefaultValues.defaultAheadMappingStrategy();
+        return MappingConfigurations.defaultAheadMappingStrategy();
     }
 
     @Override

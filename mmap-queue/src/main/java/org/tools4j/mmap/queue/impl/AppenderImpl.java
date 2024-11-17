@@ -45,19 +45,19 @@ final class AppenderImpl implements Appender {
     private final int appenderId;
     private final OffsetMapping header;
     private final OffsetMapping payload;
-    private final int regionCacheSize;
+    private final boolean enableCopyFromPreviousRegion;
     private final AppendingContextImpl context;
     private long endIndex;
     private long lastOwnHeader;
     private boolean closed;
 
-    public AppenderImpl(final String queueName, final AppenderMappings mappings, final int regionCacheSize) {
+    public AppenderImpl(final String queueName, final AppenderMappings mappings, final boolean enableCopyFromPreviousRegion) {
         this.queueName = requireNonNull(queueName);
         this.mappings = requireNonNull(mappings);
         this.appenderId = mappings.appenderId();
         this.header = requireNonNull(mappings.header());
         this.payload = requireNonNull(mappings.payload());
-        this.regionCacheSize = regionCacheSize;
+        this.enableCopyFromPreviousRegion = enableCopyFromPreviousRegion;
         this.context = new AppendingContextImpl(this);
         this.endIndex = Index.NULL;
         this.lastOwnHeader = NULL_HEADER;
@@ -109,16 +109,19 @@ final class AppenderImpl implements Appender {
         final AtomicBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
+        checkIndexNotExceedingMax(index);
         while (!buf.compareAndSetLong(0, NULL_HEADER, headerValue)) {
             do {
-                index++;
+                endIndex++; //NOTE: may exceed MAX, but we check when appending (see above)
+                index = endIndex;
                 checkIndexNotExceedingMax(index);
                 if (!Headers.moveToHeaderIndex(hdr, index)) {
                     throw headerMoveException(this, Headers.headerPositionForIndex(index));
                 }
             } while (buf.getLongVolatile(0) != NULL_HEADER);
         }
-        endIndex = index + 1;
+        endIndex = index + 1;//NOTE: may exceed MAX, but we check when appending (see above)
+        lastOwnHeader = headerValue;
         return index;
     }
 
@@ -210,8 +213,8 @@ final class AppenderImpl implements Appender {
             final int minRequired = capacity + Integer.SIZE;
             final OffsetMapping pld = payload;
             if (pld.bytesAvailable() < minRequired) {
-                if (appender.regionCacheSize <= 1) {
-                    throw new IllegalStateException("Need to enable region cache to fully support ensureCapacity(..)");
+                if (!appender.enableCopyFromPreviousRegion) {
+                    throw new IllegalStateException("Need to enable payload region cache (for async no less than map-ahead + 2) to fully support ensureCapacity(..)");
                 }
                 moveToNextPayloadRegion(pld);
                 //NOTE: copy data from buffer to the mapping buffer

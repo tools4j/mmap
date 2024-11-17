@@ -74,15 +74,16 @@ public class ReadOnlyFileMapper implements FileMapper {
         if (!init()) {
             return NULL_ADDRESS;
         }
+        if (fileChannel == null || !fileChannel.isOpen()) {
+            return NULL_ADDRESS;
+        }
 
         try {
-            if (fileChannel != null && fileChannel.isOpen()) {
-                if (position < fileChannel.size()) {
-                    return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
-                }
+            if (position < fileChannel.size()) {
+                return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
             }
-        } catch (IOException e) {
-            LOGGER.error("Failed to get fileChannel size " + file, e);
+        } catch (final IOException e) {
+            LOGGER.error("Failed to map file {}", file, e);
         }
         return NULL_ADDRESS;
     }

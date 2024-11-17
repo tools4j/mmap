@@ -34,6 +34,7 @@ public interface MappingConfigurator extends MappingConfig {
     MappingConfigurator maxFileSize(long maxFileSize);
     MappingConfigurator expandFile(boolean expandFile);
     MappingConfigurator rollFiles(boolean rollFiles);
+    MappingConfigurator closeFiles(boolean closeFiles);
     MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
     MappingConfigurator mappingStrategy(MappingStrategy mappingStrategy);
 
@@ -41,5 +42,9 @@ public interface MappingConfigurator extends MappingConfig {
 
     static MappingConfigurator create() {
         return new MappingConfiguratorImpl();
+    }
+
+    static MappingConfigurator create(final MappingConfig defaults) {
+        return new MappingConfiguratorImpl(defaults);
     }
 }

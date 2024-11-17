@@ -23,42 +23,11 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.tools4j.mmap.region.impl.OS;
-
-import java.nio.channels.FileChannel;
-import java.util.Objects;
-
 /**
- * Defines the read/write file access mode.
+ * Defines the pattern in which file data can be accessed, for instance forward-only or random-access.
  */
-public enum AccessMode {
-    /**
-     * Read-only file access.
-     */
-    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
-    /**
-     * Read/write file access.
-     */
-    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
-    /**
-     * Same as {@link #READ_WRITE} but with re-initialization of all content on open.
-     */
-    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
-
-    private final String rasMode;
-    private final FileChannel.MapMode mapMode;
-
-    AccessMode(final String rasMode, final FileChannel.MapMode mapMode) {
-        this.rasMode = Objects.requireNonNull(rasMode);
-        this.mapMode = Objects.requireNonNull(mapMode);
-    }
-
-    public String getRandomAccessMode() {
-        return rasMode;
-    }
-
-    public FileChannel.MapMode getMapMode() {
-        return mapMode;
-    }
-
+public enum AccessPattern {
+    FORWARD,
+    SEQUENTIAL,
+    RANDOM
 }

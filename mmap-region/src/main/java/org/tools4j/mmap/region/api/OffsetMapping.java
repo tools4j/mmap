@@ -33,7 +33,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
 /**
- * An offset mapping is a {@link DynamicMapping} that starts at an {@link #offset()} from the region's
+ * An offset mapping is a {@link DynamicMapping} that starts at an {@linkplain #offset() offset} from the region's
  * {@linkplain #regionStartPosition() start position}. It can be re-positioned at any arbitrary file position
  * within the same region, or at any other position in the underlying file. Moving to a new position triggers mapping
  * and unmapping operations if necessary which are performed through a {@link RegionMapper}.

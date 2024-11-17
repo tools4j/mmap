@@ -24,13 +24,10 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.IoUtil;
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.Constants;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
@@ -39,6 +36,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
@@ -47,31 +45,21 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 @Unsafe
 public class ExpandableSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
-    private static final long FILE_EXTENSION_LOCK = -1L;
     private final File file;
-    private final FileInitialiser fileInitialiser;
     private final long maxSize;
-
-    private final ThreadLocal<PerThreadState> perThreadState = ThreadLocal.withInitial(PerThreadState::new);
-    private final AtomicLong fileLengthExtensionLatch = new AtomicLong();
+    private final FileInitialiser fileInitialiser;
+    private final PreTouchHelper preTouchHelper;
+    private final AtomicLong fileLengthCache = new AtomicLong();
+    private final AtomicBoolean fileSizeExtensionLatch = new AtomicBoolean();
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
     private boolean closed;
 
-    private static class PerThreadState {
-        final AtomicBuffer preTouchBuffer = new UnsafeBuffer();
-        long fileLengthCache;
-    }
-
-
-    public ExpandableSizeFileMapper(File file, long maxSize, FileInitialiser fileInitialiser) {
+    public ExpandableSizeFileMapper(final File file, final long maxSize, final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
         this.maxSize = maxSize;
         this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
-    }
-
-    public ExpandableSizeFileMapper(String fileName, long maxSize, FileInitialiser fileInitialiser) {
-        this(new File(fileName), maxSize, fileInitialiser);
+        this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
     }
 
     @Override
@@ -81,31 +69,14 @@ public class ExpandableSizeFileMapper implements FileMapper {
 
     @Override
     public long map(long position, int length) {
-        if (!init()) {
+        checkNotClosed();
+        if (!init() || position < 0 || length < 0 || position + length > maxSize) {
             return NULL_ADDRESS;
         }
-
-        FileSizeResult result = ensureFileLength(position + length);
-        if (result != FileSizeResult.ERROR) {
-            long address = IoUtil.map(fileChannel, AccessMode.READ_WRITE.getMapMode(), position, length);
-
-            if (result == FileSizeResult.EXTENDED) {
-                preTouch(length, address);
-            }
-
-            return address;
-        }
-
-        return NULL_ADDRESS;
-    }
-
-    private void preTouch(final int length, final long address) {
-        final AtomicBuffer preTouchBuffer = perThreadState.get().preTouchBuffer;
-        preTouchBuffer.wrap(address, length);
-        for (int i = 0; i < length; i = i + (int) Constants.REGION_SIZE_GRANULARITY) {
-            preTouchBuffer.compareAndSetLong(i, 0L, 0L);
-        }
-        preTouchBuffer.wrap(0, 0);
+        ensureFileLength(position + length);
+        final long address = IoUtil.map(fileChannel, AccessMode.READ_WRITE.getMapMode(), position, length);
+        preTouchHelper.preTouch(position, length, address);
+        return address;
     }
 
     /**
@@ -163,64 +134,66 @@ public class ExpandableSizeFileMapper implements FileMapper {
 
     @Override
     public void unmap(final long address, final long position, final int length) {
+        checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
         IoUtil.unmap(fileChannel, address, length);
+    }
+
+    void ensureFileLength(final long minLength) {
+        long cachedFileLength = fileLengthCache.get();
+        if (minLength <= cachedFileLength) {
+            return;
+        }
+        if (minLength > maxSize) {
+            throw new IllegalStateException("Exceeded max file size " + maxSize + " for file " + file);
+        }
+        do {
+            final long fileLength = fileLength();
+            if (fileLength > cachedFileLength) {
+                cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
+            }
+            if (cachedFileLength < minLength) {
+                final long extendedLength = tryExtendFile(fileLength, minLength);
+                if (extendedLength > cachedFileLength) {
+                    cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
+                }
+            }
+        } while (cachedFileLength < minLength);
+    }
+
+    private long tryExtendFile(final long fileLength, final long minLength) {
+        if (!fileSizeExtensionLatch.compareAndSet(false, true)) {
+            return fileLength;
+        }
+        try {
+            final long newestFileLength = rafFile.length();
+            if (newestFileLength < minLength) {
+                rafFile.setLength(minLength);
+                return minLength;
+            } else {
+                return newestFileLength;
+            }
+        } catch (final IOException e) {
+            throw new IllegalStateException("Extending file " + file + " to size " + minLength +
+                    " failed, e=" + e, e);
+        } finally {
+            fileSizeExtensionLatch.set(false);
+        }
     }
 
     private long fileLength() {
         try {
             return rafFile.length();
         } catch (final IOException e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException("Reading the length of file " + fileChannel + " failed, e=" + e, e);
         }
     }
 
-    private long extendFileLength(final long minLength) {
-        long curLength = fileLengthExtensionLatch.get();
-        while (curLength < minLength) {
-            if (curLength != FILE_EXTENSION_LOCK && fileLengthExtensionLatch.compareAndSet(curLength, FILE_EXTENSION_LOCK)) {
-                try {
-                    rafFile.setLength(minLength);
-                    fileLengthExtensionLatch.set(minLength);
-                    return minLength;
-                } catch (final IOException e) {
-                    fileLengthExtensionLatch.set(curLength);
-                    LOGGER.error("Could not extend length to " + minLength + " for file " + file, e);
-                    return -1;
-                }
-            }
-            curLength = fileLengthExtensionLatch.get();
+    private void checkNotClosed() {
+        if (isClosed()) {
+            throw new IllegalStateException("Expandable-size file mapper is closed");
         }
-        return curLength;
-    }
-
-    enum FileSizeResult {
-        OK,
-        ERROR,
-        EXTENDED
-    }
-
-    FileSizeResult ensureFileLength(final long minLength) {
-        final PerThreadState threadState = perThreadState.get();
-        if (threadState.fileLengthCache < minLength) {
-            final long actualLength = fileLength();
-            if (actualLength < minLength) {
-                if (minLength > maxSize) {
-                    LOGGER.error("Exceeded max file size {}, requested size {} for file {}", maxSize, minLength, file);
-                    return FileSizeResult.ERROR;
-                }
-                final long extendedLength = extendFileLength(minLength);
-                if (extendedLength >= 0) {
-                    threadState.fileLengthCache = extendedLength;
-                    return FileSizeResult.EXTENDED;
-                }
-                return FileSizeResult.ERROR;
-            } else {
-                threadState.fileLengthCache = actualLength;
-            }
-        }
-        return FileSizeResult.OK;
     }
 
     @Override
@@ -246,6 +219,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
                 fileChannel = null;
                 rafFile = null;
                 closed = true;
+                preTouchHelper.reset();
                 LOGGER.info("Closed expandable-size file mapper: file={}", file);
             }
         }

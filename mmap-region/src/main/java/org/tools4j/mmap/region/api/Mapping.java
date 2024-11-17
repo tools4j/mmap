@@ -26,12 +26,13 @@ package org.tools4j.mmap.region.api;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.region.impl.FixedMapping;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
  * A mapping is a file block directly mapped into memory. The file data is accessible through the {@link #buffer()}.
- * Mapping is implemented by {@link RegionMapping}, {@link DynamicMapping} and {@link OffsetMapping}.
+ * Mapping is implemented by {@link FixedMapping}, {@link DynamicMapping} and {@link OffsetMapping}.
  */
 public interface Mapping extends AutoCloseable {
     /**

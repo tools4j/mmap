@@ -59,23 +59,27 @@ interface AppenderMappings extends AutoCloseable {
      *
      * @param queueFiles        the queue files
      * @param appenderIdPool    the appender ID pool
-     * @param mappingConfig     configuration for file and region mappers
+     * @param headerConfig      configuration for header file and region mappers
+     * @param payloadConfig     configuration for payload file and region mappers
      * @return a new appender mappings instance
      */
     static AppenderMappings create(final QueueFiles queueFiles,
                                    final AppenderIdPool appenderIdPool,
-                                   final MappingConfig mappingConfig) {
+                                   final MappingConfig headerConfig,
+                                   final MappingConfig payloadConfig) {
         requireNonNull(queueFiles);
         requireNonNull(appenderIdPool);
-        requireNonNull(mappingConfig);
+        requireNonNull(headerConfig);
+        requireNonNull(payloadConfig);
 
         return new AppenderMappings() {
             final int appenderId = appenderIdPool.acquire();
-            final MappingConfig config = mappingConfig.immutable();
+            final MappingConfig headerCfg = headerConfig.toImmutableMappingConfig();
+            final MappingConfig payloadCfg = payloadConfig.toImmutableMappingConfig();
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
-                    FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), config);
+                    FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), headerCfg);
             final OffsetMapping payload = Mappings.offsetMapping(queueFiles.payloadFile(appenderId),
-                    AccessMode.READ_WRITE, config);
+                    AccessMode.READ_WRITE, payloadCfg);
 
             @Override
             public int appenderId() {

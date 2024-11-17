@@ -25,7 +25,6 @@ package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.IoUtil;
 import org.agrona.LangUtil;
-import org.agrona.UnsafeAccess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
@@ -40,35 +39,35 @@ import java.nio.channels.FileChannel;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 @Unsafe
 public class FixedSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(FixedSizeFileMapper.class);
     private final File file;
     private final long fileSize;
-    private final AccessMode mapMode;
+    private final AccessMode accessMode;
     private final FileInitialiser fileInitialiser;
-    private long touchedSize;
+    private final PreTouchHelper preTouchHelper;
     private RandomAccessFile rafFile;
     private FileChannel fileChannel;
 
     public FixedSizeFileMapper(final File file, 
                                final long fileSize, 
-                               final AccessMode mapMode,
+                               final AccessMode accessMode,
                                final FileInitialiser fileInitialiser) {
         this.file = requireNonNull(file);
         this.fileSize = fileSize;
-        this.mapMode = requireNonNull(mapMode);
+        this.accessMode = requireNonNull(accessMode);
+        this.preTouchHelper = new PreTouchHelper(accessMode);
         this.fileInitialiser = requireNonNull(fileInitialiser);
         init();
     }
 
     public FixedSizeFileMapper(final String fileName,
                                final long fileSize,
-                               final AccessMode mapMode,
+                               final AccessMode accessMode,
                                final FileInitialiser fileInitialiser) {
-        this(new File(fileName), fileSize, mapMode, fileInitialiser);
+        this(new File(fileName), fileSize, accessMode, fileInitialiser);
     }
 
     private void checkNotClosed() {
@@ -83,17 +82,17 @@ public class FixedSizeFileMapper implements FileMapper {
 
     @Override
     public AccessMode accessMode() {
-        return mapMode;
+        return accessMode;
     }
 
     @Override
     public long map(final long position, final int length) {
         checkNotClosed();
-        if (position < 0 || position + length > fileSize) {
+        if (position < 0 || length < 0 || position + length > fileSize) {
             return NULL_ADDRESS;
         }
-        final long address = IoUtil.map(fileChannel, mapMode.getMapMode(), position, length);
-        preTouch(position, length, address);
+        final long address = IoUtil.map(fileChannel, accessMode.getMapMode(), position, length);
+        preTouchHelper.preTouch(position, length, address);
         return address;
     }
 
@@ -103,20 +102,6 @@ public class FixedSizeFileMapper implements FileMapper {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
         IoUtil.unmap(fileChannel, address, length);
-    }
-
-    private void preTouch(final long position, final int length, final long address) {
-        if (address == NULL_ADDRESS) {
-            return;
-        }
-        if (position + length <= touchedSize) {
-            return;
-        }
-        final sun.misc.Unsafe unsafe = UnsafeAccess.UNSAFE;
-        for (long i = 0; i < length; i += REGION_SIZE_GRANULARITY) {
-            unsafe.compareAndSwapLong(null, address + i, 0L, 0L);
-        }
-        touchedSize = position + length;
     }
 
     private void init() {
@@ -134,7 +119,7 @@ public class FixedSizeFileMapper implements FileMapper {
                     }
                 }
                 action = "open";
-                rafFile = new RandomAccessFile(file, mapMode.getRandomAccessMode());
+                rafFile = new RandomAccessFile(file, accessMode.getRandomAccessMode());
                 fileChannel = rafFile.getChannel();
                 action = "initialize";
                 rafFile.setLength(fileSize);
@@ -172,7 +157,7 @@ public class FixedSizeFileMapper implements FileMapper {
         } finally {
             fileChannel = null;
             rafFile = null;
-            touchedSize = 0L;
+            preTouchHelper.reset();
             if (log && closed) {
                 LOGGER.info("Closed fixed-size file mapper: file={}", file);
             }
@@ -183,7 +168,7 @@ public class FixedSizeFileMapper implements FileMapper {
     public String toString() {
         return "FixedSizeFileMapper:" +
                 "fileSize=" + fileSize +
-                "|mapMode=" + mapMode +
+                "|mapMode=" + accessMode +
                 "|file=" + file +
                 "|closed=" + isClosed();
     }

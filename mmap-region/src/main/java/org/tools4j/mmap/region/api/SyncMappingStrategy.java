@@ -57,7 +57,7 @@ public class SyncMappingStrategy implements MappingStrategy {
     }
 
     public static MappingStrategy getDefault() {
-        return DefaultValues.defaultSyncMappingStrategy();
+        return MappingConfigurations.defaultSyncMappingStrategy();
     }
 
     @Override

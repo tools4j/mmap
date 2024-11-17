@@ -32,9 +32,10 @@ import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
-import java.util.function.IntFunction;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
+import static org.agrona.collections.Hashing.DEFAULT_LOAD_FACTOR;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
@@ -43,24 +44,35 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 @Unsafe
 public class RollingFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(RollingFileMapper.class);
+    private static final int DEFAULT_CAPACITY = 1024;
 
+    private final File baseFile;
+    private final Function<? super File, ? extends FileMapper> fileMapperFactory;
     private final long maxFileSize;
     private final int regionSize;
     private final int filesToCreateAhead;
-    private final Int2ObjectHashMap<FileMapper> fileMappers = new Int2ObjectHashMap<>();
-    private final IntFunction<? extends FileMapper> fileMapperFactory;
-    private final File file;
-    private final AccessMode mapMode;
+    private final boolean closeFiles;
+    private final AccessMode accessMode;
+    private final long positionInFileMask;
+    private final int positionToFileIndexShift;
+
+    private final ThreadLocal<Int2ObjectHashMap<File>> files = ThreadLocal.withInitial(
+            () -> new Int2ObjectHashMap<>(DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR)
+    );
+    private final ThreadLocal<Int2ObjectHashMap<FileMapper>> fileMappers = ThreadLocal.withInitial(
+            () -> new Int2ObjectHashMap<>(DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR)
+    );
 
     private boolean closed;
 
-    RollingFileMapper(final File file,
-                      final IntFunction<? extends FileMapper> fileMapperFactory,
-                      final long maxFileSize,
-                      final int regionSize,
-                      final int filesToCreateAhead,
-                      final AccessMode accessMode) {
-        requireNonNull(file);
+    private RollingFileMapper(final File baseFile,
+                              final Function<? super File, ? extends FileMapper> fileMapperFactory,
+                              final long maxFileSize,
+                              final int regionSize,
+                              final int filesToCreateAhead,
+                              final boolean closeFiles,
+                              final AccessMode accessMode) {
+        requireNonNull(baseFile);
         requireNonNull(fileMapperFactory);
         validateMaxFileSize(maxFileSize);
         validateRegionSize(regionSize);
@@ -70,124 +82,171 @@ public class RollingFileMapper implements FileMapper {
             throw new IllegalArgumentException("Invalid maxFileSize=" + maxFileSize +
                     ", must be a multiple of regionSize=" + regionSize);
         }
-        this.file = file;
+        this.baseFile = baseFile;
+        this.fileMapperFactory = fileMapperFactory;
         this.maxFileSize = maxFileSize;
         this.regionSize = regionSize;
         this.filesToCreateAhead = filesToCreateAhead;
-        this.fileMapperFactory = fileMapperFactory;
-        this.mapMode = accessMode;
+        this.closeFiles = closeFiles;
+        this.accessMode = accessMode;
+        this.positionInFileMask = maxFileSize - 1;
+        this.positionToFileIndexShift = Long.SIZE - Long.numberOfLeadingZeros(maxFileSize - 1);
     }
 
-    public static FileMapper forReadOnly(final File file,
+    public static FileMapper forReadOnly(final File baseFile,
                                          final MappingConfig config,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(file, config.maxFileSize(), config.mappingStrategy().regionSize(), fileInitialiser);
+        return forReadOnly(baseFile, config.maxFileSize(), config.mappingStrategy().regionSize(), config.closeFiles(),
+                fileInitialiser);
     }
 
-    public static FileMapper forReadOnly(final File file,
+    public static FileMapper forReadOnly(final File baseFile,
                                          final long maxFileSize,
                                          final int regionSize,
+                                         final boolean closeFiles,
                                          final FileInitialiser fileInitialiser) {
-        requireNonNull(file);
         requireNonNull(fileInitialiser);
-        return new RollingFileMapper(file, index -> new ReadOnlyFileMapper(indexFile(file, index), fileInitialiser),
-                maxFileSize, regionSize, 0, AccessMode.READ_ONLY);
+        return new RollingFileMapper(baseFile, file -> new ReadOnlyFileMapper(file, fileInitialiser),
+                maxFileSize, regionSize, 0, closeFiles, AccessMode.READ_ONLY);
     }
 
-    public static FileMapper forReadWrite(final File file,
+    public static FileMapper forReadWrite(final File baseFile,
                                           final AccessMode accessMode,
                                           final MappingConfig config,
                                           final FileInitialiser fileInitialiser) {
-        return forReadWrite(file, accessMode, config.expandFile(), config.maxFileSize(),
-                config.mappingStrategy().regionSize(), config.filesToCreateAhead(), fileInitialiser);
+        return forReadWrite(baseFile, accessMode, config.expandFile(), config.maxFileSize(),
+                config.mappingStrategy().regionSize(), config.filesToCreateAhead(), config.closeFiles(),
+                fileInitialiser);
     }
 
-    public static FileMapper forReadWrite(final File file,
+    public static FileMapper forReadWrite(final File baseFile,
                                           final AccessMode accessMode,
                                           final boolean expandFile,
                                           final long maxFileSize,
                                           final int regionSize,
                                           final int filesToCreateAhead,
+                                          final boolean closeFiles,
                                           final FileInitialiser fileInitialiser) {
-        requireNonNull(file);
         requireNonNull(accessMode);
-        validateMaxFileSize(maxFileSize);
-        validateRegionSize(regionSize);
-        validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(fileInitialiser);
-        final IntFunction<FileMapper> fileMapperFactory = expandFile ?
-                index -> new ExpandableSizeFileMapper(indexFile(file, index), maxFileSize, fileInitialiser) :
-                index -> new ExpandableSizeFileMapper(indexFile(file, index), maxFileSize, fileInitialiser);
-        return new RollingFileMapper(file, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead, accessMode);
+        final Function<File, FileMapper> fileMapperFactory = expandFile ?
+                file -> new ExpandableSizeFileMapper(file, maxFileSize, fileInitialiser) :
+                file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser);
+        return new RollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
+                closeFiles, accessMode);
     }
 
-    private static File indexFile(final File file, final int index) {
-        final String name = file.getName();
+    private static File indexFile(final File baseFile, final int index) {
+        final String name = baseFile.getName();
         final int dotIndex = name.lastIndexOf('.');
         final int nameEnd = dotIndex < 0 ? name.length() : dotIndex;
         final String ending = dotIndex < 0 ? "" : name.substring(dotIndex);
         final String prefix = name.substring(0, nameEnd);
-        return new File(file.getParentFile(), prefix + "_" + index + ending);
+        return new File(baseFile.getParentFile(), prefix + "_" + index + ending);
+    }
+
+    private int positionToFileIndex(final long position) {
+        final long index = position >>> positionToFileIndexShift;
+        if (index <= Integer.MAX_VALUE) {
+            return (int)index;
+        }
+        throw new IllegalArgumentException("File index exceeded for " + position + " and max file size " + maxFileSize);
     }
 
     @Override
     public AccessMode accessMode() {
-        return mapMode;
+        return accessMode;
     }
 
     @Override
     public long map(final long position, final int length) {
-        if (length != regionSize) {
-            LOGGER.error("Length {} to map should match region size {}", length, regionSize);
+        checkNotClosed();
+        if (position < 0) {
             return NULL_ADDRESS;
         }
+        if (length != regionSize) {
+            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
+        }
 
-        final int fileIndex = (int)(position / maxFileSize);
-        final long positionWithinFile = position % maxFileSize;
-        final FileMapper mapperForIndex = fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
+        final int fileIndex = positionToFileIndex(position);
+        final long positionWithinFile = position & positionInFileMask;
+        final Int2ObjectHashMap<FileMapper> mappers = fileMappers.get();
+        FileMapper mapperForIndex = mappers.get(fileIndex);
+        if (mapperForIndex == null) {
+            final File fileForIndex = getOrCreateFile(fileIndex);
+            if (accessMode == AccessMode.READ_ONLY && !fileForIndex.exists()) {
+                return NULL_ADDRESS;
+            }
+            mapperForIndex = getOrCreateFileMapper(mappers, fileIndex, fileForIndex);
 
-        //NOTE: pre-create next file if we are in append mode
-        if (mapMode == AccessMode.READ_WRITE) {
+            //NOTE: pre-create next files
             for (int i = 1; i <= filesToCreateAhead; i++) {
-                if (fileMappers.get(fileIndex + i) == null) {
-                    computeIfAbsent(fileIndex + i);
+                if (mappers.get(fileIndex + i) == null) {
+                    getOrCreateFileMapper(mappers, fileIndex, getOrCreateFile(fileIndex));
                 }
             }
         }
         return mapperForIndex.map(positionWithinFile, length);
     }
 
-    private FileMapper computeIfAbsent(final int fileIndex) {
-        final FileMapper mapper = fileMappers.computeIfAbsent(fileIndex, fileMapperFactory);
-        if (mapMode == AccessMode.READ_WRITE && mapper instanceof ExpandableSizeFileMapper) {
-            final ExpandableSizeFileMapper expandableMapper = (ExpandableSizeFileMapper)mapper;
-            expandableMapper.init();
-            expandableMapper.ensureFileLength(maxFileSize);
+    private File getOrCreateFile(final int fileIndex) {
+        final Int2ObjectHashMap<File> fileMap = files.get();
+        File file = fileMap.get(fileIndex);
+        if (file == null) {
+            file = indexFile(baseFile, fileIndex);
+            fileMap.put(fileIndex, file);
         }
-        return mapper;
+        return file;
+    }
+
+    private FileMapper getOrCreateFileMapper(final Int2ObjectHashMap<FileMapper> fileMappers,
+                                             final int fileIndex,
+                                             final File fileForIndex) {
+        assert fileForIndex != null : "fileForIndex cannot be null";
+        FileMapper fileMapper = fileMappers.get(fileIndex);
+        if (fileMapper == null) {
+            fileMapper = fileMapperFactory.apply(fileForIndex);
+            fileMappers.put(fileIndex, fileMapper);
+        }
+        return fileMapper;
     }
 
     @Override
     public void unmap(final long address, final long position, final int length) {
+        checkNotClosed();
         if (length != regionSize) {
-            LOGGER.warn("Length {} to map should match region size {}", length, regionSize);
+            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
         }
 
-        final int fileIndex = (int)(position / maxFileSize);
-        final long positionWithinFile = position % maxFileSize;
-
-        final FileMapper mapperForIndex = fileMappers.get(fileIndex);
+        final int fileIndex = positionToFileIndex(position);
+        final long positionWithinFile = position & positionInFileMask;
+        final FileMapper mapperForIndex = fileMappers.get().get(fileIndex);
         if (mapperForIndex != null) {
             mapperForIndex.unmap(address, positionWithinFile, length);
 
-            //As writing is done as append-only, we should close the file when the last region
-            //is unmapped.
-            //As for Read-only, however, it provides random access, so we should not close
-            //any files until this mapper is closed.
-            if (mapMode == AccessMode.READ_WRITE && positionWithinFile + length == maxFileSize) {
-                fileMappers.remove(fileIndex);
-                mapperForIndex.close();
+            //If closeFile == true, we should close the file when the last region of the file is unmapped.
+            if (closeFiles && positionWithinFile + length == maxFileSize) {
+                closeFile(fileIndex, mapperForIndex);
             }
+        }
+    }
+
+    private void closeFile(final int fileIndex, final FileMapper mapperForIndex) {
+        assert mapperForIndex != null : "mapperForIndex cannot be null";
+        FileMapper fileMapper = null;
+        try {
+            fileMapper = fileMappers.get().remove(fileIndex);
+            files.get().remove(fileIndex);
+        } finally {
+            if (fileMapper == mapperForIndex) {
+                fileMapper.close();
+            }
+        }
+    }
+
+    private void checkNotClosed() {
+        if (isClosed()) {
+            throw new IllegalStateException("Expandable-size file mapper is closed");
         }
     }
 
@@ -199,12 +258,15 @@ public class RollingFileMapper implements FileMapper {
     @Override
     public void close() {
         if (!closed) {
+            final Int2ObjectHashMap<FileMapper> mappers = fileMappers.get();
             try {
-                fileMappers.forEachInt((index, fileMapper) -> fileMapper.close());
-                fileMappers.clear();
+                mappers.forEachInt((index, fileMapper) -> fileMapper.close());
+                mappers.clear();
             } finally {
+                fileMappers.remove();
+                files.remove();
                 closed = true;
-                LOGGER.info("Closed rolling file mapper: mapMode={}, file={}", mapMode, file.getPath());
+                LOGGER.info("Closed rolling file mapper: mapMode={}, file={}", accessMode, baseFile.getPath());
             }
         }
     }

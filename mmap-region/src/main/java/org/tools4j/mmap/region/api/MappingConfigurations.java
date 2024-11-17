@@ -28,46 +28,48 @@ import org.agrona.concurrent.IdleStrategy;
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.tools4j.mmap.region.impl.Constraints;
 import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
-import org.tools4j.mmap.region.impl.MappingConfigImpl;
 
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
+import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
 /**
- * Defines default values and property constants to override them through system properties.
+ * Defines region mapping default configuration values and property constants to override default values via system
+ * properties.
  */
-public enum DefaultValues {
+public enum MappingConfigurations {
     ;
-    public static final String MAX_FILE_SIZE_PROPERTY = "mmap.maxFileSize";
+    public static final String MAX_FILE_SIZE_PROPERTY = "mmap.region.maxFileSize";
     public static final int MAX_FILE_SIZE_DEFAULT = 256*1024*1034;
-    public static final String EXPAND_FILE_PROPERTY = "mmap.expandFile";
+    public static final String EXPAND_FILE_PROPERTY = "mmap.region.expandFile";
     public static final boolean EXPAND_FILE_DEFAULT = true;
-    public static final String ROLL_FILES_PROPERTY = "mmap.rollFiles";
+    public static final String ROLL_FILES_PROPERTY = "mmap.region.rollFiles";
     public static final boolean ROLL_FILES_DEFAULT = true;
-    public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.filesToCreateAhead";
+    public static final String CLOSE_FILES_PROPERTY = "mmap.region.closeFiles";
+    public static final boolean CLOSE_FILES_DEFAULT = true;
+    public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.region.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
-    public static final String REGION_SIZE_PROPERTY = "mmap.regionSize";
+    public static final String REGION_SIZE_PROPERTY = "mmap.region.regionSize";
     public static final int REGION_SIZE_DEFAULT = (int)REGION_SIZE_GRANULARITY;
-    public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.regionCacheSize";
+    public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.region.regionCacheSize";
     public static final int REGION_CACHE_SIZE_DEFAULT = 16;
-    public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.regionsToMapAhead";
+    public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.regionsToMapAhead";
     public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 8;
-    public static final String MAPPING_IDLE_STRATEGY_PROPERTY = "mmap.mappingIdleStrategy";
+    public static final String MAPPING_IDLE_STRATEGY_PROPERTY = "mmap.region.mappingIdleStrategy";
     public static final IdleStrategy MAPPING_IDLE_STRATEGY_DEFAULT = BusySpinIdleStrategy.INSTANCE;
-    public static final String UNMAPPING_IDLE_STRATEGY_PROPERTY = "mmap.unmappingIdleStrategy";
+    public static final String UNMAPPING_IDLE_STRATEGY_PROPERTY = "mmap.region.unmappingIdleStrategy";
     public static final IdleStrategy UNMAPPING_IDLE_STRATEGY_DEFAULT = new SleepingMillisIdleStrategy(20);
-    public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.mappingAsyncRuntime";
+    public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.mappingAsyncRuntime";
     private static AsyncRuntime MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
-    public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.unmappingAsyncRuntime";
+    public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.unmappingAsyncRuntime";
     private static AsyncRuntime UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
-    public static final String MAPPING_STRATEGY_PROPERTY = "mmap.mappingStrategyDefault";
+    public static final String MAPPING_STRATEGY_PROPERTY = "mmap.region.mappingStrategy";
     public static final String MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     private static MappingStrategy MAPPING_STRATEGY_DEFAULT_VALUE;
     private static MappingStrategy SYNC_MAPPING_STRATEGY_DEFAULT_VALUE;
     private static MappingStrategy AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE;
-    private static MappingConfig MAPPING_CONFIG_DEFAULT_VALUE;
 
     public static int defaultMaxFileSize() {
         return getIntProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
@@ -79,6 +81,10 @@ public enum DefaultValues {
 
     public static boolean defaultRollFiles() {
         return getBooleanProperty(ROLL_FILES_PROPERTY, ROLL_FILES_DEFAULT);
+    }
+
+    public static boolean defaultCloseFiles() {
+        return getBooleanProperty(CLOSE_FILES_PROPERTY, CLOSE_FILES_DEFAULT);
     }
 
     public static int defaultFilesToCreateAhead() {
@@ -125,13 +131,6 @@ public enum DefaultValues {
         return UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
     }
 
-    public static MappingConfig defaultMappingConfig() {
-        if (MAPPING_CONFIG_DEFAULT_VALUE == null) {
-            MAPPING_CONFIG_DEFAULT_VALUE = new MappingConfigImpl();
-        }
-        return MAPPING_CONFIG_DEFAULT_VALUE;
-    }
-
     public static MappingStrategy defaultMappingStrategy() {
         if (MAPPING_STRATEGY_DEFAULT_VALUE == null) {
             MAPPING_STRATEGY_DEFAULT_VALUE = getMappingStrategyProperty();
@@ -149,7 +148,7 @@ public enum DefaultValues {
                 return defaultSyncMappingStrategy();
             default:
                 return getObjProperty(MAPPING_STRATEGY_PROPERTY, MappingStrategy.class,
-                        (Supplier<? extends MappingStrategy>) DefaultValues::defaultAheadMappingStrategy);
+                        (Supplier<? extends MappingStrategy>) MappingConfigurations::defaultAheadMappingStrategy);
         }
     }
 
@@ -165,6 +164,10 @@ public enum DefaultValues {
             AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE = new AheadMappingStrategy(defaultRegionSize(), defaultRegionCacheSize(), defaultRegionsToMapAhead());
         }
         return AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE;
+    }
+
+    public static MappingConfig defaultMappingConfig() {
+        return MAPPING_CONFIG_DEFAULTS;
     }
 
     private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {

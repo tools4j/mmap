@@ -58,20 +58,25 @@ interface ReaderMappings extends AutoCloseable {
      * Factory method for reader mappings.
      *
      * @param queueFiles    the queue files
-     * @param mappingConfig configuration for file and region mappers
+     * @param headerConfig  configuration for header file and region mappers
+     * @param payloadConfig configuration for payload file and region mappers
      * @return a new reader mappings instance
      */
-    static ReaderMappings create(final QueueFiles queueFiles, final MappingConfig mappingConfig) {
+    static ReaderMappings create(final QueueFiles queueFiles,
+                                 final MappingConfig headerConfig,
+                                 final MappingConfig payloadConfig) {
         requireNonNull(queueFiles);
-        requireNonNull(mappingConfig);
+        requireNonNull(headerConfig);
+        requireNonNull(payloadConfig);
 
         return new ReaderMappings() {
-            final MappingConfig config = mappingConfig.immutable();
+            final MappingConfig headerCfg = headerConfig.toImmutableMappingConfig();
+            final MappingConfig payloadCfg = payloadConfig.toImmutableMappingConfig();
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
-                    FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), config);
+                    FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
             final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();
             final IntFunction<OffsetMapping> payloadMappingFactory = appenderId -> Mappings.offsetMapping(
-                queueFiles.payloadFile(appenderId), AccessMode.READ_ONLY, config);
+                queueFiles.payloadFile(appenderId), AccessMode.READ_ONLY, payloadCfg);
 
             @Override
             public OffsetMapping header() {

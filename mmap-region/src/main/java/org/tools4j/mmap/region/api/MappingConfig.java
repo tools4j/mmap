@@ -30,16 +30,23 @@ public interface MappingConfig {
     long maxFileSize();
     boolean expandFile();
     boolean rollFiles();
+
+    /** @return in {@link #rollFiles()} mode, close files after unmapping the last region of a file */
+    boolean closeFiles();
     int filesToCreateAhead();
     MappingStrategy mappingStrategy();
 
-    MappingConfig immutable();
+    MappingConfig toImmutableMappingConfig();
 
     static MappingConfigurator configure() {
         return MappingConfigurator.create();
     }
 
+    static MappingConfigurator configure(final MappingConfig defaults) {
+        return MappingConfigurator.create(defaults);
+    }
+
     static MappingConfig getDefault() {
-        return DefaultValues.defaultMappingConfig();
+        return MappingConfigurations.defaultMappingConfig();
     }
 }
