@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 /**
  * Poller for sequential retrieval of {@link Queue} entries with callback to an {@link EntryHandler}.
  */
-public interface Poller extends IndexReader, AutoCloseable {
+public interface Poller extends AutoCloseable {
     /** No entry was polled but the cursor was moved towards {@link #nextIndex()} */
     int CURSOR_MOVED = 2;
     /** An entry was polled */

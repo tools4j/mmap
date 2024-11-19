@@ -24,9 +24,9 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * API shared between {@link Poller} and {@link Reader} for reading queue indices of a {@link Queue}.
+ * API for reading and checking entry indices of a {@link Queue}.
  */
-public interface IndexReader {
+public interface IndexReader extends AutoCloseable {
 
     /**
      * Returns the index of the first entry in the queue, or {@link Index#NULL} if the queue is empty.  Note that
@@ -82,4 +82,15 @@ public interface IndexReader {
     default boolean isEmpty() {
         return hasEntry(Index.FIRST);
     }
+
+    /**
+     * @return true if this reader is closed
+     */
+    boolean isClosed();
+
+    /**
+     * Closes this reader.
+     */
+    @Override
+    void close();
 }

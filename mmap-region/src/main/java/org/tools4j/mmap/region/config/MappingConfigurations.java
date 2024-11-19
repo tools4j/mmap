@@ -21,11 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.config;
 
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
+import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.impl.Constraints;
 import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
 

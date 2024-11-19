@@ -23,67 +23,34 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
-    }
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
 
-
-    @Override
-    public long lastIndex() {
-        return 0;
-    }
+public enum AppenderConfigDefaults implements AppenderConfig {
+    APPENDER_CONFIG_DEFAULTS;
 
     @Override
-    public boolean hasEntry(final long index) {
-        return false;
+    public MappingStrategy headerMappingStrategy() {
+        return defaultAppenderHeaderMappingStrategy();
     }
 
     @Override
-    public ReadingContext reading(final long index) {
-        return null;
+    public MappingStrategy payloadMappingStrategy() {
+        return defaultAppenderPayloadMappingStrategy();
     }
 
     @Override
-    public ReadingContext readingFirst() {
-        return null;
+    public AppenderConfig toImmutableAppenderConfig() {
+        return new AppenderConfigImpl(this);
     }
 
     @Override
-    public ReadingContext readingLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFrom(final long index) {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromFirst() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromEnd() {
-        return null;
-    }
-
-    @Override
-    public boolean isClosed() {
-        return false;
-    }
-
-    @Override
-    public void close() {
-
+    public String toString() {
+        return "AppenderConfigDefaults" +
+                ":headerMappingStrategy=" + headerMappingStrategy() +
+                "|payloadMappingStrategy=" + payloadMappingStrategy();
     }
 }

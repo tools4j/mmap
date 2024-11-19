@@ -21,15 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.config;
 
-import org.tools4j.mmap.region.api.MappingStrategy.AsyncOptions;
+import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.MappingStrategy.AsyncOptions;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultMappingAsyncRuntime;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultUnmappingAsyncRuntime;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingAsyncRuntime;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingAsyncRuntime;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionsToMapAhead;

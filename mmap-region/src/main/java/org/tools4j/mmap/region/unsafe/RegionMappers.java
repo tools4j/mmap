@@ -24,9 +24,9 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.api.MappingStrategy;
-import org.tools4j.mmap.region.api.MappingStrategy.AsyncOptions;
 import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategy.AsyncOptions;
 
 /**
  * Contains factory methods for {@link RegionMapper} instances.

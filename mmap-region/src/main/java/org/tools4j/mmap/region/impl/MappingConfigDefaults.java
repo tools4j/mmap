@@ -23,16 +23,16 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.MappingConfig;
-import org.tools4j.mmap.region.api.MappingConfigurations;
-import org.tools4j.mmap.region.api.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingConfig;
+import org.tools4j.mmap.region.config.MappingConfigurations;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultCloseFiles;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultExpandFile;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultFilesToCreateAhead;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultMappingStrategy;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultMaxFileSize;
-import static org.tools4j.mmap.region.api.MappingConfigurations.defaultRollFiles;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultCloseFiles;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultExpandFile;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultFilesToCreateAhead;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingStrategy;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMaxFileSize;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRollFiles;
 
 /**
  * Configuration taking values from {@link MappingConfigurations}.

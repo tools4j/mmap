@@ -21,32 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.config;
 
-/**
- * Configuration used to create {@link RegionMapping region mappings} from files through {@link Mappings}.
- */
-public interface MappingConfig {
-    long maxFileSize();
-    boolean expandFile();
-    boolean rollFiles();
+import org.tools4j.mmap.queue.impl.IndexReaderConfiguratorImpl;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-    /** @return in {@link #rollFiles()} mode, close files after unmapping the last region of a file */
-    boolean closeFiles();
-    int filesToCreateAhead();
-    MappingStrategy mappingStrategy();
+public interface IndexReaderConfigurator extends IndexReaderConfig {
+    IndexReaderConfigurator headerMappingStrategy(MappingStrategy strategy);
+    IndexReaderConfigurator closeHeaderFiles(boolean closeHeaderFiles);
+    IndexReaderConfigurator reset();
 
-    MappingConfig toImmutableMappingConfig();
-
-    static MappingConfigurator configure() {
-        return MappingConfigurator.create();
-    }
-
-    static MappingConfigurator configure(final MappingConfig defaults) {
-        return MappingConfigurator.create(defaults);
-    }
-
-    static MappingConfig getDefault() {
-        return MappingConfigurations.defaultMappingConfig();
+    static IndexReaderConfigurator configure() {
+        return new IndexReaderConfiguratorImpl();
     }
 }

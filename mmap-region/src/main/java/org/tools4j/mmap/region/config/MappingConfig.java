@@ -21,69 +21,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.config;
 
-import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.region.api.Mappings;
+import org.tools4j.mmap.region.api.RegionMapping;
 
-final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
+/**
+ * Configuration used to create {@link RegionMapping region mappings} from files through {@link Mappings}.
+ */
+public interface MappingConfig {
+    long maxFileSize();
+    boolean expandFile();
+    boolean rollFiles();
+
+    /** @return in {@link #rollFiles()} mode, close files after unmapping the last region of a file */
+    boolean closeFiles();
+    int filesToCreateAhead();
+    MappingStrategy mappingStrategy();
+
+    MappingConfig toImmutableMappingConfig();
+
+    static MappingConfigurator configure() {
+        return MappingConfigurator.create();
     }
 
-
-    @Override
-    public long lastIndex() {
-        return 0;
+    static MappingConfigurator configure(final MappingConfig defaults) {
+        return MappingConfigurator.create(defaults);
     }
 
-    @Override
-    public boolean hasEntry(final long index) {
-        return false;
-    }
-
-    @Override
-    public ReadingContext reading(final long index) {
-        return null;
-    }
-
-    @Override
-    public ReadingContext readingFirst() {
-        return null;
-    }
-
-    @Override
-    public ReadingContext readingLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFrom(final long index) {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromFirst() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromEnd() {
-        return null;
-    }
-
-    @Override
-    public boolean isClosed() {
-        return false;
-    }
-
-    @Override
-    public void close() {
-
+    static MappingConfig getDefault() {
+        return MappingConfigurations.defaultMappingConfig();
     }
 }

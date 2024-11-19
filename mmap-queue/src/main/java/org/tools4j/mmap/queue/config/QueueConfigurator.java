@@ -21,13 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
-import org.tools4j.mmap.region.api.MappingStrategy;
+
+import java.util.function.Consumer;
 
 public interface QueueConfigurator extends QueueConfig {
-
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);
     QueueConfigurator maxPayloadFileSize(long maxPayloadFileSize);
     QueueConfigurator expandHeaderFile(boolean expandHeaderFile);
@@ -36,14 +36,14 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator rollPayloadFiles(boolean rollPayloadFiles);
     QueueConfigurator headerFilesToCreateAhead(int headerFilesToCreateAhead);
     QueueConfigurator payloadFilesToCreateAhead(int payloadFilesToCreateAhead);
-    QueueConfigurator closePollerFiles(boolean closePollerFiles);
-    QueueConfigurator closeReaderFiles(boolean closeReaderFiles);
-    QueueConfigurator pollerHeaderMappingStrategy(MappingStrategy mappingStrategy);
-    QueueConfigurator pollerPayloadMappingStrategy(MappingStrategy mappingStrategy);
-    QueueConfigurator readerHeaderMappingStrategy(MappingStrategy mappingStrategy);
-    QueueConfigurator readerPayloadMappingStrategy(MappingStrategy mappingStrategy);
-    QueueConfigurator appenderHeaderMappingStrategy(MappingStrategy mappingStrategy);
-    QueueConfigurator appenderPayloadMappingStrategy(MappingStrategy mappingStrategy);
+    QueueConfigurator appenderConfig(AppenderConfig config);
+    QueueConfigurator appenderConfig(Consumer<? super AppenderConfigurator> configurator);
+    QueueConfigurator pollerConfig(ReaderConfig config);
+    QueueConfigurator pollerConfig(Consumer<? super ReaderConfigurator> configurator);
+    QueueConfigurator readerConfig(ReaderConfig config);
+    QueueConfigurator readerConfig(Consumer<? super ReaderConfigurator> configurator);
+    QueueConfigurator indexReaderConfig(IndexReaderConfig config);
+    QueueConfigurator indexReaderConfig(Consumer<? super IndexReaderConfigurator> configurator);
     QueueConfigurator reset();
 
     static QueueConfigurator create() {

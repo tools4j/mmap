@@ -23,13 +23,17 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
+import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConfig;
 
 /**
  * Header and payload mapping for queues appenders.
@@ -59,23 +63,24 @@ interface AppenderMappings extends AutoCloseable {
      *
      * @param queueFiles        the queue files
      * @param appenderIdPool    the appender ID pool
-     * @param headerConfig      configuration for header file and region mappers
-     * @param payloadConfig     configuration for payload file and region mappers
+     * @param queueConfig       the queue configuration settings
+     * @param appenderConfig    configuration for appender mappings
      * @return a new appender mappings instance
      */
     static AppenderMappings create(final QueueFiles queueFiles,
                                    final AppenderIdPool appenderIdPool,
-                                   final MappingConfig headerConfig,
-                                   final MappingConfig payloadConfig) {
+                                   final QueueConfig queueConfig,
+                                   final AppenderConfig appenderConfig) {
         requireNonNull(queueFiles);
+        requireNonNull(queueConfig);
         requireNonNull(appenderIdPool);
-        requireNonNull(headerConfig);
-        requireNonNull(payloadConfig);
+        final QueueConfig queueCfg = queueConfig.toImmutableQueueConfig();
+        final AppenderConfig appenderCfg = appenderConfig.toImmutableAppenderConfig();
 
         return new AppenderMappings() {
             final int appenderId = appenderIdPool.acquire();
-            final MappingConfig headerCfg = headerConfig.toImmutableMappingConfig();
-            final MappingConfig payloadCfg = payloadConfig.toImmutableMappingConfig();
+            final MappingConfig headerCfg = headerMappingConfig(queueCfg, appenderCfg);
+            final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
                     FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), headerCfg);
             final OffsetMapping payload = Mappings.offsetMapping(queueFiles.payloadFile(appenderId),

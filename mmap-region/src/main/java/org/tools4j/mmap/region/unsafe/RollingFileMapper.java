@@ -27,8 +27,8 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;

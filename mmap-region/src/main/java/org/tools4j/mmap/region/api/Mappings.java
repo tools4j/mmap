@@ -23,7 +23,8 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.tools4j.mmap.region.impl.DynamicRegionImpl;
+import org.tools4j.mmap.region.config.MappingConfig;
+import org.tools4j.mmap.region.impl.DynamicMappingImpl;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.FixedMapping;
 import org.tools4j.mmap.region.impl.NullMapping;
@@ -76,7 +77,7 @@ public enum Mappings {
 
     @Unsafe
     public static DynamicMapping dynamicMapping(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
-        return new DynamicRegionImpl(regionMapper, closeFileMapperOnClose);
+        return new DynamicMappingImpl(regionMapper, closeFileMapperOnClose);
     }
 
     public static OffsetMapping offsetMapping(final File file, final AccessMode accessMode) {

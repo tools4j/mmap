@@ -36,7 +36,7 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 
-public final class DynamicRegionImpl implements DynamicMapping {
+public final class DynamicMappingImpl implements DynamicMapping {
     private final RegionMapper regionMapper;
     private final boolean closeFileMapperOnClose;
     private final RegionMetrics regionMetrics;
@@ -44,7 +44,7 @@ public final class DynamicRegionImpl implements DynamicMapping {
     private long mappedPosition;
 
     @Unsafe
-    public DynamicRegionImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
+    public DynamicMappingImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
         this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
@@ -132,7 +132,7 @@ public final class DynamicRegionImpl implements DynamicMapping {
 
     @Override
     public String toString() {
-        return "DynamicRegionImpl:mapped=" + isMapped() +
+        return "DynamicMappingImpl:mapped=" + isMapped() +
                 "|regionStartPosition=" + regionStartPosition() +
                 "|offset=" + offset() +
                 "|regionSize=" + regionSize() +

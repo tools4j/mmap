@@ -21,13 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.config;
 
-/**
- * Defines the pattern in which file data can be accessed, for instance forward-only or random-access.
- */
-public enum AccessPattern {
-    FORWARD,
-    SEQUENTIAL,
-    RANDOM
+import org.tools4j.mmap.region.config.MappingStrategy;
+
+public interface AppenderConfig {
+    MappingStrategy headerMappingStrategy();
+    MappingStrategy payloadMappingStrategy();
+    AppenderConfig toImmutableAppenderConfig();
+
+    static AppenderConfigurator configure() {
+        return AppenderConfigurator.configure();
+    }
+
+    static AppenderConfig getDefault() {
+        return QueueConfigurations.defaultAppenderConfig();
+    }
 }

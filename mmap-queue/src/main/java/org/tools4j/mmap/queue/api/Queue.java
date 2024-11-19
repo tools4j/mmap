@@ -23,6 +23,10 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
+
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
@@ -33,6 +37,7 @@ public interface Queue extends AutoCloseable {
      * @return new instance of an appender
      */
     Appender createAppender();
+    Appender createAppender(AppenderConfig config);
 
     /**
      * Creates a poller for sequential read access via callback starting with the first queue entry.
@@ -40,6 +45,7 @@ public interface Queue extends AutoCloseable {
      * @return new instance of a poller
      */
     Poller createPoller();
+    Poller createPoller(ReaderConfig config);
 
     /**
      * Creates a reader for read access queue {@link Entry entries} via index or through iteration.
@@ -47,6 +53,15 @@ public interface Queue extends AutoCloseable {
      * @return new instance of a reader.
      */
     Reader createReader();
+    Reader createReader(ReaderConfig config);
+
+    /**
+     * Creates an index reader for reading and checking of queue entry indices.
+     *
+     * @return new instance of an index reader.
+     */
+    IndexReader createIndexReader();
+    IndexReader createIndexReader(IndexReaderConfig config);
 
     boolean isClosed();
 

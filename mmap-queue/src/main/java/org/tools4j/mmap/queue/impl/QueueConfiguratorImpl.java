@@ -23,11 +23,16 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.QueueConfig;
-import org.tools4j.mmap.queue.api.QueueConfigurations;
-import org.tools4j.mmap.queue.api.QueueConfigurator;
-import org.tools4j.mmap.region.api.MappingConfig;
-import org.tools4j.mmap.region.api.MappingStrategy;
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.AppenderConfigurator;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.IndexReaderConfigurator;
+import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.QueueConfigurator;
+import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.queue.config.ReaderConfigurator;
+
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
@@ -44,20 +49,10 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private Boolean rollPayloadFiles;
     private int headerFilesToCreateAhead;
     private int payloadFilesToCreateAhead;
-    private Boolean closePollerFiles;
-    private Boolean closeReaderFiles;
-    private MappingStrategy pollerHeaderMappingStrategy;
-    private MappingStrategy pollerPayloadMappingStrategy;
-    private MappingStrategy readerHeaderMappingStrategy;
-    private MappingStrategy readerPayloadMappingStrategy;
-    private MappingStrategy appenderHeaderMappingStrategy;
-    private MappingStrategy appenderPayloadMappingStrategy;
-    private final MappingConfig pollerHeaderConfig = QueueHeaderConfig.pollerHeaderConfig(this);
-    private final MappingConfig pollerPayloadConfig = QueuePayloadConfig.pollerPayloadConfig(this);
-    private final MappingConfig readerHeaderConfig = QueueHeaderConfig.readerHeaderConfig(this);
-    private final MappingConfig readerPayloadConfig = QueuePayloadConfig.readerPayloadConfig(this);
-    private final MappingConfig appenderHeaderConfig = QueueHeaderConfig.appenderHeaderConfig(this);
-    private final MappingConfig appenderPayloadConfig = QueuePayloadConfig.appenderPayloadConfig(this);
+    private AppenderConfig appenderConfig;
+    private ReaderConfig pollerConfig;
+    private ReaderConfig readerConfig;
+    private IndexReaderConfig indexReaderConfig;
 
     public QueueConfiguratorImpl() {
         this(QUEUE_CONFIG_DEFAULTS);
@@ -77,14 +72,10 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         rollPayloadFiles = null;
         headerFilesToCreateAhead = -1;
         payloadFilesToCreateAhead = -1;
-        closePollerFiles = null;
-        closeReaderFiles = null;
-        pollerHeaderMappingStrategy = null;
-        pollerPayloadMappingStrategy = null;
-        readerHeaderMappingStrategy = null;
-        readerPayloadMappingStrategy = null;
-        appenderHeaderMappingStrategy = null;
-        appenderPayloadMappingStrategy = null;
+        appenderConfig = null;
+        pollerConfig = null;
+        readerConfig = null;
+        indexReaderConfig = null;
         return this;
     }
 
@@ -94,7 +85,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             maxHeaderFileSize = defaults.maxHeaderFileSize();
         }
         if (maxHeaderFileSize <= 0) {
-            maxHeaderFileSize = QueueConfigurations.defaultMaxHeaderFileSize();
+            maxHeaderFileSize = org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize();
         }
         return maxHeaderFileSize;
     }
@@ -112,7 +103,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             maxPayloadFileSize = defaults.maxPayloadFileSize();
         }
         if (maxPayloadFileSize <= 0) {
-            maxPayloadFileSize = QueueConfigurations.defaultMaxPayloadFileSize();
+            maxPayloadFileSize = org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize();
         }
         return maxPayloadFileSize;
     }
@@ -186,7 +177,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             headerFilesToCreateAhead = defaults.headerFilesToCreateAhead();
         }
         if (headerFilesToCreateAhead < 0) {
-            headerFilesToCreateAhead = QueueConfigurations.defaultHeaderFilesToCreateAhead();
+            headerFilesToCreateAhead = org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead();
         }
         return headerFilesToCreateAhead;
     }
@@ -204,7 +195,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             payloadFilesToCreateAhead = defaults.payloadFilesToCreateAhead();
         }
         if (payloadFilesToCreateAhead < 0) {
-            payloadFilesToCreateAhead = QueueConfigurations.defaultPayloadFilesToCreateAhead();
+            payloadFilesToCreateAhead = org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead();
         }
         return payloadFilesToCreateAhead;
     }
@@ -217,163 +208,91 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
-    public boolean closePollerFiles() {
-        if (closePollerFiles == null) {
-            closePollerFiles = defaults.closePollerFiles();
+    public AppenderConfig appenderConfig() {
+        if (appenderConfig == null) {
+            appenderConfig = defaults.appenderConfig();
         }
-        return closePollerFiles;
+        return appenderConfig;
     }
 
     @Override
-    public QueueConfigurator closePollerFiles(final boolean closePollerFiles) {
-        this.closePollerFiles = closePollerFiles;
+    public QueueConfigurator appenderConfig(final AppenderConfig config) {
+        this.appenderConfig = requireNonNull(config);
         return this;
     }
 
     @Override
-    public boolean closeReaderFiles() {
-        if (closeReaderFiles == null) {
-            closeReaderFiles = defaults.closeReaderFiles();
-        }
-        return closeReaderFiles;
-    }
-
-    @Override
-    public QueueConfigurator closeReaderFiles(final boolean closeReaderFiles) {
-        this.closeReaderFiles = closeReaderFiles;
+    public QueueConfigurator appenderConfig(final Consumer<? super AppenderConfigurator> configurator) {
+        final AppenderConfigurator config = AppenderConfigurator.configure();
+        configurator.accept(config);
+        this.appenderConfig = config;
         return this;
     }
 
     @Override
-    public MappingStrategy pollerHeaderMappingStrategy() {
-        if (pollerHeaderMappingStrategy == null) {
-            pollerHeaderMappingStrategy = defaults.pollerHeaderMappingStrategy();
+    public ReaderConfig pollerConfig() {
+        if (pollerConfig == null) {
+            pollerConfig = defaults.pollerConfig();
         }
-        if (pollerHeaderMappingStrategy == null) {
-            pollerHeaderMappingStrategy = QueueConfigurations.defaultPollerHeaderMappingStrategy();
-        }
-        return pollerHeaderMappingStrategy;
+        return pollerConfig;
     }
 
     @Override
-    public QueueConfigurator pollerHeaderMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.pollerHeaderMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator pollerConfig(final ReaderConfig config) {
+        this.pollerConfig = requireNonNull(config);
         return this;
     }
 
     @Override
-    public MappingStrategy pollerPayloadMappingStrategy() {
-        if (pollerPayloadMappingStrategy == null) {
-            pollerPayloadMappingStrategy = defaults.pollerPayloadMappingStrategy();
-        }
-        if (pollerPayloadMappingStrategy == null) {
-            pollerPayloadMappingStrategy = QueueConfigurations.defaultPollerPayloadMappingStrategy();
-        }
-        return pollerPayloadMappingStrategy;
-    }
-
-    @Override
-    public QueueConfigurator pollerPayloadMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.pollerPayloadMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator pollerConfig(final Consumer<? super ReaderConfigurator> configurator) {
+        final ReaderConfigurator config = ReaderConfigurator.configurePoller();
+        configurator.accept(config);
+        this.pollerConfig = config;
         return this;
     }
 
     @Override
-    public MappingStrategy readerHeaderMappingStrategy() {
-        if (readerHeaderMappingStrategy == null) {
-            readerHeaderMappingStrategy = defaults.readerHeaderMappingStrategy();
+    public ReaderConfig readerConfig() {
+        if (readerConfig == null) {
+            readerConfig = defaults.readerConfig();
         }
-        if (readerHeaderMappingStrategy == null) {
-            readerHeaderMappingStrategy = QueueConfigurations.defaultReaderHeaderMappingStrategy();
-        }
-        return readerHeaderMappingStrategy;
+        return readerConfig;
     }
 
     @Override
-    public QueueConfigurator readerHeaderMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.readerHeaderMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator readerConfig(final ReaderConfig config) {
+        this.readerConfig = requireNonNull(config);
         return this;
     }
 
     @Override
-    public MappingStrategy readerPayloadMappingStrategy() {
-        if (readerPayloadMappingStrategy == null) {
-            readerPayloadMappingStrategy = defaults.readerPayloadMappingStrategy();
-        }
-        if (readerPayloadMappingStrategy == null) {
-            readerPayloadMappingStrategy = QueueConfigurations.defaultReaderPayloadMappingStrategy();
-        }
-        return readerPayloadMappingStrategy;
-    }
-
-    @Override
-    public QueueConfigurator readerPayloadMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.readerPayloadMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator readerConfig(final Consumer<? super ReaderConfigurator> configurator) {
+        final ReaderConfigurator config = ReaderConfigurator.configureReader();
+        configurator.accept(config);
+        this.readerConfig = config;
         return this;
     }
 
     @Override
-    public MappingStrategy appenderHeaderMappingStrategy() {
-        if (appenderHeaderMappingStrategy == null) {
-            appenderHeaderMappingStrategy = defaults.appenderHeaderMappingStrategy();
+    public IndexReaderConfig indexReaderConfig() {
+        if (indexReaderConfig == null) {
+            indexReaderConfig = defaults.indexReaderConfig();
         }
-        if (appenderHeaderMappingStrategy == null) {
-            appenderHeaderMappingStrategy = QueueConfigurations.defaultAppenderHeaderMappingStrategy();
-        }
-        return appenderHeaderMappingStrategy;
+        return indexReaderConfig;
     }
 
     @Override
-    public QueueConfigurator appenderHeaderMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.appenderHeaderMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator indexReaderConfig(final IndexReaderConfig config) {
+        this.indexReaderConfig = requireNonNull(config);
         return this;
     }
 
     @Override
-    public MappingStrategy appenderPayloadMappingStrategy() {
-        if (appenderPayloadMappingStrategy == null) {
-            appenderPayloadMappingStrategy = defaults.appenderPayloadMappingStrategy();
-        }
-        if (appenderPayloadMappingStrategy == null) {
-            appenderPayloadMappingStrategy = QueueConfigurations.defaultAppenderPayloadMappingStrategy();
-        }
-        return appenderPayloadMappingStrategy;
-    }
-
-    @Override
-    public QueueConfigurator appenderPayloadMappingStrategy(final MappingStrategy mappingStrategy) {
-        this.appenderPayloadMappingStrategy = requireNonNull(mappingStrategy);
+    public QueueConfigurator indexReaderConfig(final Consumer<? super IndexReaderConfigurator> configurator) {
+        final IndexReaderConfigurator config = IndexReaderConfigurator.configure();
+        configurator.accept(config);
+        this.indexReaderConfig = config;
         return this;
-    }
-
-    @Override
-    public MappingConfig pollerHeaderConfig() {
-        return pollerHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig pollerPayloadConfig() {
-        return pollerPayloadConfig;
-    }
-
-    @Override
-    public MappingConfig readerHeaderConfig() {
-        return readerHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig readerPayloadConfig() {
-        return readerPayloadConfig;
-    }
-
-    @Override
-    public MappingConfig appenderHeaderConfig() {
-        return appenderHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig appenderPayloadConfig() {
-        return appenderPayloadConfig;
     }
 
     @Override
@@ -392,13 +311,9 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|rollPayloadFiles=" + rollPayloadFiles +
                 "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
                 "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
-                "|closePollerFiles=" + closePollerFiles +
-                "|closeReaderFiles=" + closeReaderFiles +
-                "|pollerHeaderMappingStrategy=" + pollerHeaderMappingStrategy +
-                "|pollerPayloadMappingStrategy=" + pollerPayloadMappingStrategy +
-                "|readerHeaderMappingStrategy=" + readerHeaderMappingStrategy +
-                "|readerPayloadMappingStrategy=" + readerPayloadMappingStrategy +
-                "|appenderHeaderMappingStrategy=" + appenderHeaderMappingStrategy +
-                "|appenderPayloadMappingStrategy=" + appenderPayloadMappingStrategy;
+                "|appenderConfig={" + appenderConfig + "}" +
+                "|pollerConfig={" + pollerConfig + "}" +
+                "|readerConfig={" + readerConfig + "}" +
+                "|indexReaderConfig={" + indexReaderConfig + "}";
     }
 }

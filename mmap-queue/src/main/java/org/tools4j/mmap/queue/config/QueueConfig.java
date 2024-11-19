@@ -21,10 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
-
-import org.tools4j.mmap.region.api.MappingConfig;
-import org.tools4j.mmap.region.api.MappingStrategy;
+package org.tools4j.mmap.queue.config;
 
 public interface QueueConfig {
     long maxHeaderFileSize();
@@ -35,21 +32,11 @@ public interface QueueConfig {
     boolean rollPayloadFiles();
     int headerFilesToCreateAhead();
     int payloadFilesToCreateAhead();
-    boolean closePollerFiles();
-    boolean closeReaderFiles();
-    MappingStrategy pollerHeaderMappingStrategy();
-    MappingStrategy pollerPayloadMappingStrategy();
-    MappingStrategy readerHeaderMappingStrategy();
-    MappingStrategy readerPayloadMappingStrategy();
-    MappingStrategy appenderHeaderMappingStrategy();
-    MappingStrategy appenderPayloadMappingStrategy();
 
-    MappingConfig pollerHeaderConfig();
-    MappingConfig pollerPayloadConfig();
-    MappingConfig readerHeaderConfig();
-    MappingConfig readerPayloadConfig();
-    MappingConfig appenderHeaderConfig();
-    MappingConfig appenderPayloadConfig();
+    AppenderConfig appenderConfig();
+    ReaderConfig pollerConfig();
+    ReaderConfig readerConfig();
+    IndexReaderConfig indexReaderConfig();
 
     QueueConfig toImmutableQueueConfig();
 

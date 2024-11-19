@@ -21,69 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.config;
 
-import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.region.api.AsyncRuntime;
 
-final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
+import java.util.Optional;
+
+public interface MappingStrategy {
+    int regionSize();
+    int cacheSize();
+    Optional<AsyncOptions> asyncOptions();
+
+    interface AsyncOptions {
+        int regionsToMapAhead();
+        AsyncRuntime mappingRuntime();
+        AsyncRuntime unmappingRuntime();
     }
 
-
-    @Override
-    public long lastIndex() {
-        return 0;
+    static MappingStrategy defaultSyncMappingStrategy() {
+        return MappingConfigurations.defaultSyncMappingStrategy();
     }
 
-    @Override
-    public boolean hasEntry(final long index) {
-        return false;
-    }
-
-    @Override
-    public ReadingContext reading(final long index) {
-        return null;
-    }
-
-    @Override
-    public ReadingContext readingFirst() {
-        return null;
-    }
-
-    @Override
-    public ReadingContext readingLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFrom(final long index) {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromFirst() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromEnd() {
-        return null;
-    }
-
-    @Override
-    public boolean isClosed() {
-        return false;
-    }
-
-    @Override
-    public void close() {
-
+    static MappingStrategy defaultAheadMappingStrategy() {
+        return MappingConfigurations.defaultAheadMappingStrategy();
     }
 }

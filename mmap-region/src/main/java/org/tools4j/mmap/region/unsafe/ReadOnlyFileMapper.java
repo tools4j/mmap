@@ -105,7 +105,7 @@ public class ReadOnlyFileMapper implements FileMapper {
                 if (Files.size(filePath) == 0) {
                     return false;
                 }
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 LOGGER.error("Failed to check file size" + file, e);
                 return false;
             }

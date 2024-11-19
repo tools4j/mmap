@@ -23,67 +23,34 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
-    }
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseIndexReaderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultIndexReaderHeaderMappingStrategy;
 
-
-    @Override
-    public long lastIndex() {
-        return 0;
-    }
+public enum IndexReaderConfigDefaults implements IndexReaderConfig {
+    INDEX_READER_CONFIG_DEFAULTS;
 
     @Override
-    public boolean hasEntry(final long index) {
-        return false;
+    public MappingStrategy headerMappingStrategy() {
+        return defaultIndexReaderHeaderMappingStrategy();
     }
 
     @Override
-    public ReadingContext reading(final long index) {
-        return null;
+    public boolean closeHeaderFiles() {
+        return defaultCloseIndexReaderHeaderFiles();
     }
 
     @Override
-    public ReadingContext readingFirst() {
-        return null;
+    public IndexReaderConfig toImmutableIndexReaderConfig() {
+        return new IndexReaderConfigImpl(this);
     }
 
     @Override
-    public ReadingContext readingLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFrom(final long index) {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromFirst() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromEnd() {
-        return null;
-    }
-
-    @Override
-    public boolean isClosed() {
-        return false;
-    }
-
-    @Override
-    public void close() {
-
+    public String toString() {
+        return "IndexReaderConfigDefaults" +
+                ":headerMappingStrategy=" + headerMappingStrategy() +
+                "|closeHeaderFiles=" + closeHeaderFiles();
     }
 }

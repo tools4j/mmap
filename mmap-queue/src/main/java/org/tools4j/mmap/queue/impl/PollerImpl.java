@@ -56,18 +56,6 @@ final class PollerImpl implements Poller {
     }
 
     @Override
-    public long lastIndex() {
-        checkNotClosed();
-        return Headers.binarySearchLastIndex(header, Index.FIRST);
-    }
-
-    @Override
-    public boolean hasEntry(final long index) {
-        checkNotClosed();
-        return Headers.hasNonEmptyHeaderAt(header, index);
-    }
-
-    @Override
     public long currentIndex() {
         return currentIndex;
     }

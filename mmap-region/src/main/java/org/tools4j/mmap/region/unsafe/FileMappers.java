@@ -24,8 +24,8 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;

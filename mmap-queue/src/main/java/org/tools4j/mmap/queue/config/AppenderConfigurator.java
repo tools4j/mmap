@@ -21,30 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.impl.MappingConfiguratorImpl;
+import org.tools4j.mmap.queue.impl.AppenderConfiguratorImpl;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-/**
- * Configurator to build a {@link MappingConfig} used to create {@link RegionMapping region mappings} from files
- * through {@link Mappings}.
- */
-public interface MappingConfigurator extends MappingConfig {
+public interface AppenderConfigurator extends AppenderConfig {
+    AppenderConfigurator headerMappingStrategy(MappingStrategy strategy);
+    AppenderConfigurator payloadMappingStrategy(MappingStrategy strategy);
+    AppenderConfigurator reset();
 
-    MappingConfigurator maxFileSize(long maxFileSize);
-    MappingConfigurator expandFile(boolean expandFile);
-    MappingConfigurator rollFiles(boolean rollFiles);
-    MappingConfigurator closeFiles(boolean closeFiles);
-    MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
-    MappingConfigurator mappingStrategy(MappingStrategy mappingStrategy);
-
-    MappingConfigurator reset();
-
-    static MappingConfigurator create() {
-        return new MappingConfiguratorImpl();
-    }
-
-    static MappingConfigurator create(final MappingConfig defaults) {
-        return new MappingConfiguratorImpl(defaults);
+    static AppenderConfigurator configure() {
+        return new AppenderConfiguratorImpl();
     }
 }

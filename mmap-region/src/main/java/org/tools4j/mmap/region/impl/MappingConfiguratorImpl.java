@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.MappingConfigurations;
-import org.tools4j.mmap.region.api.MappingConfig;
-import org.tools4j.mmap.region.api.MappingConfigurator;
-import org.tools4j.mmap.region.api.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingConfig;
+import org.tools4j.mmap.region.config.MappingConfigurations;
+import org.tools4j.mmap.region.config.MappingConfigurator;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;

@@ -46,7 +46,8 @@ public interface AppendingContext extends AutoCloseable {
      *
      * @param capacity the capacity in bytes that determines the maximum length for the appended entry
      * @throws IllegalArgumentException if the specified capacity parameter exceeds the entry size limit
-     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
+     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed, or if capacity
+     *                                  extension is not possible with the current region cache settings
      */
     void ensureCapacity(int capacity);
 

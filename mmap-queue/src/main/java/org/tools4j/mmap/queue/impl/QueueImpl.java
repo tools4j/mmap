@@ -27,16 +27,20 @@ import org.agrona.CloseHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.IndexReader;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.queue.api.QueueConfig;
 import org.tools4j.mmap.queue.api.Reader;
-import org.tools4j.mmap.region.api.MappingStrategy;
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * Implementation of {@link Queue} that allows a multiple writing threads and
@@ -45,10 +49,12 @@ import java.util.function.Supplier;
 public final class QueueImpl implements Queue {
     private static final Logger LOGGER = LoggerFactory.getLogger(QueueImpl.class);
 
-    private final QueueFiles queueFiles;
-    private final Supplier<Poller> pollerFactory;
-    private final Supplier<Reader> readerFactory;
-    private final Supplier<Appender> appenderFactory;
+    private final QueueFiles files;
+    private final QueueConfig config;
+    private final Function<ReaderConfig, Poller> pollerFactory;
+    private final Function<ReaderConfig, Reader> readerFactory;
+    private final Function<IndexReaderConfig, IndexReader> indexReaderFactory;
+    private final Function<AppenderConfig, Appender> appenderFactory;
     private final List<AutoCloseable> closeables = new ArrayList<>();
 
     public QueueImpl(final File file, final int maxAppenders) {
@@ -56,26 +62,30 @@ public final class QueueImpl implements Queue {
     }
 
     public QueueImpl(final File file, final QueueConfig queueConfig, final int maxAppenders) {
-        this.queueFiles = new QueueFiles(file);
+        this.files = new QueueFiles(file);
+        this.config = queueConfig.toImmutableQueueConfig();
 
-        final AppenderIdPool idPool = open(appenderIdPool(queueFiles, maxAppenders));
-        final QueueConfig config = queueConfig.toImmutableQueueConfig();
-        this.pollerFactory = () -> open(new PollerImpl(
-                queueFiles.queueName(),
-                ReaderMappings.create(queueFiles, config.pollerHeaderConfig(), config.pollerPayloadConfig())
+        final AppenderIdPool idPool = open(appenderIdPool(files, maxAppenders));
+        this.pollerFactory = pollerConfig -> open(new PollerImpl(
+                files.queueName(),
+                ReaderMappings.create(files, config, pollerConfig)
         ));
-        this.readerFactory = () -> open(new ReaderImpl(
-                queueFiles.queueName(),
-                ReaderMappings.create(queueFiles, config.readerHeaderConfig(), config.readerPayloadConfig())
+        this.readerFactory = readerConfig -> open(new ReaderImpl(
+                files.queueName(),
+                ReaderMappings.create(files, config, readerConfig)
         ));
-        this.appenderFactory = () -> open(new AppenderImpl(
-                queueFiles.queueName(),
-                AppenderMappings.create(queueFiles, idPool, config.appenderHeaderConfig(), config.appenderPayloadConfig()),
-                enableCopyFromPreviousRegion(config.appenderPayloadConfig().mappingStrategy())
+        this.indexReaderFactory = indReaderConfig -> open(new IndexReaderImpl(
+                files.queueName(), IndexMappings.create(files, config, indReaderConfig)
+        ));
+        this.appenderFactory = appenderConfig -> open(new AppenderImpl(
+                files.queueName(),
+                AppenderMappings.create(files, idPool, config, appenderConfig),
+                enableCopyFromPreviousRegion(appenderConfig)
         ));
     }
 
-    private static boolean enableCopyFromPreviousRegion(final MappingStrategy mappingStrategy) {
+    private static boolean enableCopyFromPreviousRegion(final AppenderConfig appenderConfig) {
+        final MappingStrategy mappingStrategy = appenderConfig.payloadMappingStrategy();
         final int cacheSie = mappingStrategy.cacheSize();
         final int mapAhead = mappingStrategy.asyncOptions().isPresent() ?
                 mappingStrategy.asyncOptions().get().regionsToMapAhead() : 0;
@@ -102,17 +112,42 @@ public final class QueueImpl implements Queue {
 
     @Override
     public Appender createAppender() {
-        return appenderFactory.get();
+        return createAppender(config.appenderConfig());
+    }
+
+    @Override
+    public Appender createAppender(final AppenderConfig config) {
+        return appenderFactory.apply(config);
     }
 
     @Override
     public Poller createPoller() {
-        return pollerFactory.get();
+        return createPoller(config.pollerConfig());
+    }
+
+    @Override
+    public Poller createPoller(final ReaderConfig config) {
+        return pollerFactory.apply(config);
+    }
+
+    @Override
+    public IndexReader createIndexReader() {
+        return createIndexReader(config.indexReaderConfig());
     }
 
     @Override
     public Reader createReader() {
-        return readerFactory.get();
+        return createReader(config.readerConfig());
+    }
+
+    @Override
+    public Reader createReader(final ReaderConfig config) {
+        return readerFactory.apply(config);
+    }
+
+    @Override
+    public IndexReader createIndexReader(final IndexReaderConfig config) {
+        return indexReaderFactory.apply(config);
     }
 
     @Override
@@ -125,14 +160,14 @@ public final class QueueImpl implements Queue {
         if (!isClosed()) {
             CloseHelper.quietCloseAll(closeables);
             closeables.clear();
-            LOGGER.info("Closed queue: {}", queueFiles.queueName());
+            LOGGER.info("Closed queue: {}", files.queueName());
         }
     }
 
     @Override
     public String toString() {
         return "QueueImpl" +
-                ":queue=" + queueFiles.queueName() +
+                ":queue=" + files.queueName() +
                 "|closed=" + isClosed();
     }
 }

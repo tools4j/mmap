@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 /**
  * API for random read access of entries in a {@link Queue}.
  */
-public interface Reader extends IndexReader, AutoCloseable {
+public interface Reader extends IndexReader {
     /**
      * Returns the reading context with access to entry data and index if the requested queue entry is available;
      * otherwise {@link ReadingContext#index() index} is negative and the {@link ReadingContext#buffer() buffer}

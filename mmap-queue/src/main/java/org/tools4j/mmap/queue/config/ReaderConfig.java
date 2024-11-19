@@ -21,18 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.queue.config;
 
-import java.util.Optional;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-public interface MappingStrategy {
-    int regionSize();
-    int cacheSize();
-    Optional<AsyncOptions> asyncOptions();
+public interface ReaderConfig {
+    MappingStrategy headerMappingStrategy();
+    MappingStrategy payloadMappingStrategy();
+    boolean closeHeaderFiles();
+    boolean closePayloadFiles();
+    ReaderConfig toImmutableReaderConfig();
 
-    interface AsyncOptions {
-        int regionsToMapAhead();
-        AsyncRuntime mappingRuntime();
-        AsyncRuntime unmappingRuntime();
+    static ReaderConfigurator configurePoller() {
+        return ReaderConfigurator.configurePoller();
+    }
+
+    static ReaderConfigurator configureReader() {
+        return ReaderConfigurator.configureReader();
+    }
+
+    static ReaderConfig getDefaultPollerConfig() {
+        return QueueConfigurations.defaultPollerConfig();
+    }
+
+    static ReaderConfig getDefaultReaderConfig() {
+        return QueueConfigurations.defaultReaderConfig();
     }
 }

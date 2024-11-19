@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.api;
+package org.tools4j.mmap.region.config;
 
 import org.tools4j.mmap.region.unsafe.SyncRegionMapper;
 import org.tools4j.mmap.region.unsafe.SyncRingRegionMapper;

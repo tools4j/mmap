@@ -24,15 +24,19 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.collections.Int2ObjectHashMap;
+import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.api.MappingConfig;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
+import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConfig;
 
 /**
  * Header and payload mappings for pollers and readers of queues.
@@ -58,20 +62,20 @@ interface ReaderMappings extends AutoCloseable {
      * Factory method for reader mappings.
      *
      * @param queueFiles    the queue files
-     * @param headerConfig  configuration for header file and region mappers
-     * @param payloadConfig configuration for payload file and region mappers
+     * @param queueConfig   the queue configuration settings
+     * @param readerConfig  configuration for reader mappings
      * @return a new reader mappings instance
      */
     static ReaderMappings create(final QueueFiles queueFiles,
-                                 final MappingConfig headerConfig,
-                                 final MappingConfig payloadConfig) {
+                                 final QueueConfig queueConfig,
+                                 final ReaderConfig readerConfig) {
         requireNonNull(queueFiles);
-        requireNonNull(headerConfig);
-        requireNonNull(payloadConfig);
+        final QueueConfig queueCfg = queueConfig.toImmutableQueueConfig();
+        final ReaderConfig readerCfg = readerConfig.toImmutableReaderConfig();
 
         return new ReaderMappings() {
-            final MappingConfig headerCfg = headerConfig.toImmutableMappingConfig();
-            final MappingConfig payloadCfg = payloadConfig.toImmutableMappingConfig();
+            final MappingConfig headerCfg = headerMappingConfig(queueCfg, readerCfg);
+            final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, readerCfg);
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
                     FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
             final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();

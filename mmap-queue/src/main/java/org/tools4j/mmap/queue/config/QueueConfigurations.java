@@ -21,19 +21,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
+package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.api.AheadMappingStrategy;
-import org.tools4j.mmap.region.api.MappingConfigurations;
-import org.tools4j.mmap.region.api.MappingStrategy;
-import org.tools4j.mmap.region.api.SyncMappingStrategy;
+import org.tools4j.mmap.region.config.AheadMappingStrategy;
+import org.tools4j.mmap.region.config.MappingConfigurations;
+import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.SyncMappingStrategy;
 import org.tools4j.mmap.region.impl.Constraints;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
+import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.READER_CONFIG_DEFAULTS;
 
 /**
  * Defines queue default configuration values and property constants to override default values via system properties.
@@ -56,10 +60,16 @@ public enum QueueConfigurations {
     public static final int HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.payloadFilesToCreateAhead";
     public static final int PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
-    public static final String CLOSE_POLLER_FILES_PROPERTY = "mmap.queue.closePollerFiles";
-    public static final boolean CLOSE_POLLER_FILES_DEFAULT = true;
-    public static final String CLOSE_READER_FILES_PROPERTY = "mmap.queue.closeReaderFiles";
-    public static final boolean CLOSE_READER_FILES_DEFAULT = false;
+    public static final String CLOSE_POLLER_HEADER_FILES_PROPERTY = "mmap.queue.closePollerHeaderFiles";
+    public static final String CLOSE_POLLER_PAYLOAD_FILES_PROPERTY = "mmap.queue.closePollerPayloadFiles";
+    public static final boolean CLOSE_POLLER_HEADER_FILES_DEFAULT = true;
+    public static final boolean CLOSE_POLLER_PAYLOAD_FILES_DEFAULT = true;
+    public static final String CLOSE_READER_HEADER_FILES_PROPERTY = "mmap.queue.closeReaderHeaderFiles";
+    public static final String CLOSE_READER_PAYLOAD_FILES_PROPERTY = "mmap.queue.closeReaderPayloadFiles";
+    public static final boolean CLOSE_READER_HEADER_FILES_DEFAULT = false;
+    public static final boolean CLOSE_READER_PAYLOAD_FILES_DEFAULT = false;
+    public static final String CLOSE_INDEX_READER_HEADER_FILES_PROPERTY = "mmap.queue.closeIndexReaderHeaderFiles";
+    public static final boolean CLOSE_INDEX_READER_HEADER_FILES_DEFAULT = false;
     public static final String POLLER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.pollerHeaderRegionSize";
     public static final String POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.pollerHeaderRegionCacheSize";
     public static final String POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.pollerHeaderRegionsToMapAhead";
@@ -76,6 +86,10 @@ public enum QueueConfigurations {
     public static final String READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.readerPayloadRegionCacheSize";
     public static final String READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.readerPayloadRegionsToMapAhead";
     public static final String READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.readerPayloadMappingStrategy";
+    public static final String INDEX_READER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.indexReaderHeaderRegionSize";
+    public static final String INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.indexReaderHeaderRegionCacheSize";
+    public static final String INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.indexReaderHeaderRegionsToMapAhead";
+    public static final String INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.indexReaderHeaderMappingStrategy";
     public static final String APPENDER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionSize";
     public static final String APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionCacheSize";
     public static final String APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderHeaderRegionsToMapAhead";
@@ -88,6 +102,7 @@ public enum QueueConfigurations {
     private static MappingStrategy POLLER_PAYLOAD_MAPPING_STRATEGY;
     private static MappingStrategy READER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy READER_PAYLOAD_MAPPING_STRATEGY;
+    private static MappingStrategy INDEX_READER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy APPENDER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy APPENDER_PAYLOAD_MAPPING_STRATEGY;
 
@@ -123,12 +138,24 @@ public enum QueueConfigurations {
         return getIntProperty(PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
     }
 
-    public static boolean defaultClosePollerFiles() {
-        return getBooleanProperty(CLOSE_POLLER_FILES_PROPERTY, CLOSE_POLLER_FILES_DEFAULT);
+    public static boolean defaultClosePollerHeaderFiles() {
+        return getBooleanProperty(CLOSE_POLLER_HEADER_FILES_PROPERTY, CLOSE_POLLER_HEADER_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseReaderFiles() {
-        return getBooleanProperty(CLOSE_READER_FILES_PROPERTY, CLOSE_READER_FILES_DEFAULT);
+    public static boolean defaultClosePollerPayloadFiles() {
+        return getBooleanProperty(CLOSE_POLLER_PAYLOAD_FILES_PROPERTY, CLOSE_POLLER_PAYLOAD_FILES_DEFAULT);
+    }
+
+    public static boolean defaultCloseReaderHeaderFiles() {
+        return getBooleanProperty(CLOSE_READER_HEADER_FILES_PROPERTY, CLOSE_READER_HEADER_FILES_DEFAULT);
+    }
+
+    public static boolean defaultCloseReaderPayloadFiles() {
+        return getBooleanProperty(CLOSE_READER_PAYLOAD_FILES_PROPERTY, CLOSE_READER_PAYLOAD_FILES_DEFAULT);
+    }
+
+    public static boolean defaultCloseIndexReaderHeaderFiles() {
+        return getBooleanProperty(CLOSE_INDEX_READER_HEADER_FILES_PROPERTY, CLOSE_INDEX_READER_HEADER_FILES_DEFAULT);
     }
 
     // POLLER_HEADER_MAPPING_STRATEGY
@@ -219,6 +246,28 @@ public enum QueueConfigurations {
         return READER_PAYLOAD_MAPPING_STRATEGY;
     }
 
+    // INDEX_READER_HEADER_MAPPING_STRATEGY
+
+    public static int defaultIndexReaderHeaderRegionSize() {
+        return getIntProperty(INDEX_READER_HEADER_REGION_SIZE_PROPERTY, Constraints::validateRegionSize, MappingConfigurations::defaultRegionSize);
+    }
+
+    public static int defaultIndexReaderHeaderRegionCacheSize() {
+        return getIntProperty(INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+    }
+
+    public static int defaultIndexReaderHeaderRegionsToMapAhead() {
+        return getIntProperty(INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+    }
+
+    public static MappingStrategy defaultIndexReaderHeaderMappingStrategy() {
+        if (INDEX_READER_HEADER_MAPPING_STRATEGY == null) {
+            INDEX_READER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY);
+            assert INDEX_READER_HEADER_MAPPING_STRATEGY != null;
+        }
+        return INDEX_READER_HEADER_MAPPING_STRATEGY;
+    }
+
     // APPENDER_HEADER_MAPPING_STRATEGY
 
     public static int defaultAppenderHeaderRegionSize() {
@@ -265,6 +314,22 @@ public enum QueueConfigurations {
 
     public static QueueConfig defaultQueueConfig() {
         return QUEUE_CONFIG_DEFAULTS;
+    }
+
+    public static AppenderConfig defaultAppenderConfig() {
+        return APPENDER_CONFIG_DEFAULTS;
+    }
+
+    public static ReaderConfig defaultPollerConfig() {
+        return POLLER_CONFIG_DEFAULTS;
+    }
+
+    public static ReaderConfig defaultReaderConfig() {
+        return READER_CONFIG_DEFAULTS;
+    }
+
+    public static IndexReaderConfig defaultIndexReaderConfig() {
+        return INDEX_READER_CONFIG_DEFAULTS;
     }
 
     private static MappingStrategy getMappingStrategyProperty(final String mappingStrategyProperty) {

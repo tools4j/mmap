@@ -23,35 +23,26 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.QueueConfig;
-import org.tools4j.mmap.region.api.MappingConfig;
-import org.tools4j.mmap.region.api.MappingStrategy;
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
 
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultClosePollerFiles;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultCloseReaderFiles;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultExpandHeaderFile;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultExpandPayloadFiles;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultHeaderFilesToCreateAhead;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultMaxHeaderFileSize;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultMaxPayloadFileSize;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultPayloadFilesToCreateAhead;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultPollerHeaderMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultPollerPayloadMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultReaderHeaderMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultReaderPayloadMappingStrategy;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultRollHeaderFile;
-import static org.tools4j.mmap.queue.api.QueueConfigurations.defaultRollPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollHeaderFile;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollPayloadFiles;
+import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.READER_CONFIG_DEFAULTS;
 
 public enum QueueConfigDefaults implements QueueConfig {
     QUEUE_CONFIG_DEFAULTS;
-    private final MappingConfig pollerHeaderConfig = QueueHeaderConfig.pollerHeaderConfig(this);
-    private final MappingConfig pollerPayloadConfig = QueuePayloadConfig.pollerPayloadConfig(this);
-    private final MappingConfig readerHeaderConfig = QueueHeaderConfig.readerHeaderConfig(this);
-    private final MappingConfig readerPayloadConfig = QueuePayloadConfig.readerPayloadConfig(this);
-    private final MappingConfig appenderHeaderConfig = QueueHeaderConfig.appenderHeaderConfig(this);
-    private final MappingConfig appenderPayloadConfig = QueuePayloadConfig.appenderPayloadConfig(this);
 
     @Override
     public long maxHeaderFileSize() {
@@ -94,83 +85,33 @@ public enum QueueConfigDefaults implements QueueConfig {
     }
 
     @Override
-    public boolean closePollerFiles() {
-        return defaultClosePollerFiles();
+    public AppenderConfig appenderConfig() {
+        return APPENDER_CONFIG_DEFAULTS;
     }
 
     @Override
-    public boolean closeReaderFiles() {
-        return defaultCloseReaderFiles();
+    public ReaderConfig pollerConfig() {
+        return POLLER_CONFIG_DEFAULTS;
     }
 
     @Override
-    public MappingStrategy pollerHeaderMappingStrategy() {
-        return defaultPollerHeaderMappingStrategy();
+    public ReaderConfig readerConfig() {
+        return READER_CONFIG_DEFAULTS;
     }
 
     @Override
-    public MappingStrategy pollerPayloadMappingStrategy() {
-        return defaultPollerPayloadMappingStrategy();
-    }
-
-    @Override
-    public MappingStrategy readerHeaderMappingStrategy() {
-        return defaultReaderHeaderMappingStrategy();
-    }
-
-    @Override
-    public MappingStrategy readerPayloadMappingStrategy() {
-        return defaultReaderPayloadMappingStrategy();
-    }
-
-    @Override
-    public MappingStrategy appenderHeaderMappingStrategy() {
-        return defaultAppenderHeaderMappingStrategy();
-    }
-
-    @Override
-    public MappingStrategy appenderPayloadMappingStrategy() {
-        return defaultAppenderPayloadMappingStrategy();
-    }
-
-    @Override
-    public MappingConfig pollerHeaderConfig() {
-        return pollerHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig pollerPayloadConfig() {
-        return pollerPayloadConfig;
-    }
-
-    @Override
-    public MappingConfig readerHeaderConfig() {
-        return readerHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig readerPayloadConfig() {
-        return readerPayloadConfig;
-    }
-
-    @Override
-    public MappingConfig appenderHeaderConfig() {
-        return appenderHeaderConfig;
-    }
-
-    @Override
-    public MappingConfig appenderPayloadConfig() {
-        return appenderPayloadConfig;
+    public IndexReaderConfig indexReaderConfig() {
+        return INDEX_READER_CONFIG_DEFAULTS;
     }
 
     @Override
     public QueueConfig toImmutableQueueConfig() {
-        return this;
+        return new QueueConfigImpl(this);
     }
 
     @Override
     public String toString() {
-        return "QueueConfigImpl" +
+        return "QueueConfigDefaults" +
                 ":maxHeaderFileSize=" + maxHeaderFileSize() +
                 "|maxPayloadFileSize=" + maxPayloadFileSize() +
                 "|expandHeaderFile=" + expandHeaderFile() +
@@ -179,13 +120,9 @@ public enum QueueConfigDefaults implements QueueConfig {
                 "|rollPayloadFiles=" + rollPayloadFiles() +
                 "|headerFilesToCreateAhead=" + headerFilesToCreateAhead() +
                 "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead() +
-                "|closePollerFiles=" + closePollerFiles() +
-                "|closeReaderFiles=" + closeReaderFiles() +
-                "|pollerHeaderMappingStrategy=" + pollerHeaderMappingStrategy() +
-                "|pollerPayloadMappingStrategy=" + pollerPayloadMappingStrategy() +
-                "|readerHeaderMappingStrategy=" + readerHeaderMappingStrategy() +
-                "|readerPayloadMappingStrategy=" + readerPayloadMappingStrategy() +
-                "|appenderHeaderMappingStrategy=" + appenderHeaderMappingStrategy() +
-                "|appenderPayloadMappingStrategy=" + appenderPayloadMappingStrategy();
+                "|appenderConfig={" + appenderConfig() + "}" +
+                "|pollerConfig={" + pollerConfig() + "}" +
+                "|readerConfig={" + readerConfig() + "}" +
+                "|indexReaderConfig={" + indexReaderConfig() + "}";
     }
 }
