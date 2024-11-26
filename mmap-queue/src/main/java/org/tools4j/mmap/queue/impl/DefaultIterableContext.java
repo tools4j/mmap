@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.ReadingContext;
 
 import java.util.Iterator;
@@ -45,10 +45,10 @@ final class DefaultIterableContext implements IterableContext, Iterable<Entry>, 
     private Entry entry;
     private boolean reverse;
 
-    private final Reader reader;
+    private final EntryReader reader;
     private final MutableReadingContext readingContext;
 
-    DefaultIterableContext(final Reader reader, final MutableReadingContext readingContext) {
+    DefaultIterableContext(final EntryReader reader, final MutableReadingContext readingContext) {
         this.reader = requireNonNull(reader);
         this.readingContext = requireNonNull(readingContext);
     }

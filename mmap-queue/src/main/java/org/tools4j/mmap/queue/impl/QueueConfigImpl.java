@@ -41,7 +41,8 @@ public class QueueConfigImpl implements QueueConfig {
     private final int payloadFilesToCreateAhead;
     private final AppenderConfig appenderConfig;
     private final ReaderConfig pollerConfig;
-    private final ReaderConfig readerConfig;
+    private final ReaderConfig entryReaderConfig;
+    private final ReaderConfig entryIteratorConfig;
     private final IndexReaderConfig indexReaderConfig;
 
     public QueueConfigImpl() {
@@ -59,7 +60,8 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.payloadFilesToCreateAhead(),
                 queueConfig.appenderConfig(),
                 queueConfig.pollerConfig(),
-                queueConfig.readerConfig(),
+                queueConfig.entryReaderConfig(),
+                queueConfig.entryIteratorConfig(),
                 queueConfig.indexReaderConfig());
     }
 
@@ -73,7 +75,8 @@ public class QueueConfigImpl implements QueueConfig {
                            final int payloadFilesToCreateAhead,
                            final AppenderConfig appenderConfig,
                            final ReaderConfig pollerConfig,
-                           final ReaderConfig readerConfig,
+                           final ReaderConfig entryReaderConfig,
+                           final ReaderConfig entryIteratorConfig,
                            final IndexReaderConfig indexReaderConfig) {
         this.maxHeaderFileSize = maxHeaderFileSize;
         this.maxPayloadFileSize = maxPayloadFileSize;
@@ -85,7 +88,8 @@ public class QueueConfigImpl implements QueueConfig {
         this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
         this.appenderConfig = appenderConfig.toImmutableAppenderConfig();
         this.pollerConfig = pollerConfig.toImmutableReaderConfig();
-        this.readerConfig = readerConfig.toImmutableReaderConfig();
+        this.entryReaderConfig = entryReaderConfig.toImmutableReaderConfig();
+        this.entryIteratorConfig = entryIteratorConfig.toImmutableReaderConfig();
         this.indexReaderConfig = indexReaderConfig.toImmutableIndexReaderConfig();
     }
 
@@ -140,8 +144,13 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     @Override
-    public ReaderConfig readerConfig() {
-        return readerConfig;
+    public ReaderConfig entryReaderConfig() {
+        return entryReaderConfig;
+    }
+
+    @Override
+    public ReaderConfig entryIteratorConfig() {
+        return entryIteratorConfig;
     }
 
     @Override
@@ -167,7 +176,8 @@ public class QueueConfigImpl implements QueueConfig {
                 "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
                 "|appenderConfig={" + appenderConfig + "}" +
                 "|pollerConfig={" + pollerConfig + "}" +
-                "|readerConfig={" + readerConfig + "}" +
+                "|entryReaderConfig={" + entryReaderConfig + "}" +
+                "|entryIteratorConfig={" + entryIteratorConfig + "}" +
                 "|indexReaderConfig={" + indexReaderConfig + "}";
     }
 }

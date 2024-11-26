@@ -23,12 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.queue.api.Reader;
+import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.ReadingContext;
 
-final class ReaderImpl implements Reader {
-    ReaderImpl(final String queueName, final ReaderMappings readerMappings) {
+final class EntryReaderImpl implements EntryReader {
+    EntryReaderImpl(final String queueName, final ReaderMappings readerMappings) {
     }
 
 
@@ -54,26 +53,6 @@ final class ReaderImpl implements Reader {
 
     @Override
     public ReadingContext readingLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFrom(final long index) {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromFirst() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromLast() {
-        return null;
-    }
-
-    @Override
-    public IterableContext readingFromEnd() {
         return null;
     }
 

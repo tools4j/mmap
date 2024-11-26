@@ -37,7 +37,11 @@ public interface ReaderConfigurator extends ReaderConfig {
         return ReaderConfiguratorImpl.createPollerConfigurator();
     }
 
-    static ReaderConfigurator configureReader() {
-        return ReaderConfiguratorImpl.createReaderConfigurator();
+    static ReaderConfigurator configureEntryReader() {
+        return ReaderConfiguratorImpl.createEntryReaderConfigurator();
+    }
+
+    static ReaderConfigurator configureEntryIterator() {
+        return ReaderConfiguratorImpl.createEntryIteratorConfigurator();
     }
 }

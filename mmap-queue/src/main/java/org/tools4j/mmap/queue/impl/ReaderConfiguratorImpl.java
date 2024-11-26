@@ -28,8 +28,9 @@ import org.tools4j.mmap.queue.config.ReaderConfigurator;
 import org.tools4j.mmap.region.config.MappingStrategy;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.READER_CONFIG_DEFAULTS;
 
 public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private final ReaderConfig defaults;
@@ -46,8 +47,12 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         return new ReaderConfiguratorImpl(POLLER_CONFIG_DEFAULTS);
     }
 
-    public static ReaderConfigurator createReaderConfigurator() {
-        return new ReaderConfiguratorImpl(READER_CONFIG_DEFAULTS);
+    public static ReaderConfigurator createEntryReaderConfigurator() {
+        return new ReaderConfiguratorImpl(ENTRY_READER_CONFIG_DEFAULTS);
+    }
+
+    public static ReaderConfigurator createEntryIteratorConfigurator() {
+        return new ReaderConfiguratorImpl(ENTRY_ITERATOR_CONFIG_DEFAULTS);
     }
 
     @Override

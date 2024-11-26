@@ -38,8 +38,9 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollHeade
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollPayloadFiles;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.READER_CONFIG_DEFAULTS;
 
 public enum QueueConfigDefaults implements QueueConfig {
     QUEUE_CONFIG_DEFAULTS;
@@ -95,8 +96,13 @@ public enum QueueConfigDefaults implements QueueConfig {
     }
 
     @Override
-    public ReaderConfig readerConfig() {
-        return READER_CONFIG_DEFAULTS;
+    public ReaderConfig entryReaderConfig() {
+        return ENTRY_READER_CONFIG_DEFAULTS;
+    }
+
+    @Override
+    public ReaderConfig entryIteratorConfig() {
+        return ENTRY_ITERATOR_CONFIG_DEFAULTS;
     }
 
     @Override
@@ -122,7 +128,8 @@ public enum QueueConfigDefaults implements QueueConfig {
                 "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead() +
                 "|appenderConfig={" + appenderConfig() + "}" +
                 "|pollerConfig={" + pollerConfig() + "}" +
-                "|readerConfig={" + readerConfig() + "}" +
+                "|entryReaderConfig={" + entryReaderConfig() + "}" +
+                "|entryIteratorConfig={" + entryIteratorConfig() + "}" +
                 "|indexReaderConfig={" + indexReaderConfig() + "}";
     }
 }

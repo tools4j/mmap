@@ -35,7 +35,8 @@ public interface QueueConfig {
 
     AppenderConfig appenderConfig();
     ReaderConfig pollerConfig();
-    ReaderConfig readerConfig();
+    ReaderConfig entryReaderConfig();
+    ReaderConfig entryIteratorConfig();
     IndexReaderConfig indexReaderConfig();
 
     QueueConfig toImmutableQueueConfig();

@@ -48,15 +48,23 @@ public interface Queue extends AutoCloseable {
     Poller createPoller(ReaderConfig config);
 
     /**
-     * Creates a reader for read access queue {@link Entry entries} via index or through iteration.
+     * Creates an entry reader for accessing queue {@link Entry entries} via index.
      *
-     * @return new instance of a reader.
+     * @return new instance of an entry reader.
      */
-    Reader createReader();
-    Reader createReader(ReaderConfig config);
+    EntryReader createEntryReader();
+    EntryReader createEntryReader(ReaderConfig config);
 
     /**
-     * Creates an index reader for reading and checking of queue entry indices.
+     * Creates an entry iterator for sequential access of queue {@link Entry entries}.
+     *
+     * @return new instance of an entry iterator.
+     */
+    EntryIterator createEntryIterator();
+    EntryIterator createEntryIterator(ReaderConfig config);
+
+    /**
+     * Creates an index reader for querying queue entry indices.
      *
      * @return new instance of an index reader.
      */

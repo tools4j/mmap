@@ -26,14 +26,18 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.config.MappingStrategy;
 
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryReaderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryReaderPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultClosePollerHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultClosePollerPayloadFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseReaderHeaderFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseReaderPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPayloadMappingStrategy;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultReaderHeaderMappingStrategy;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultReaderPayloadMappingStrategy;
 
 public enum ReaderConfigDefaults implements ReaderConfig {
     POLLER_CONFIG_DEFAULTS {
@@ -57,25 +61,46 @@ public enum ReaderConfigDefaults implements ReaderConfig {
             return defaultClosePollerPayloadFiles();
         }
     },
-    READER_CONFIG_DEFAULTS {
+    ENTRY_READER_CONFIG_DEFAULTS {
         @Override
         public MappingStrategy headerMappingStrategy() {
-            return defaultReaderHeaderMappingStrategy();
+            return defaultEntryReaderHeaderMappingStrategy();
         }
 
         @Override
         public MappingStrategy payloadMappingStrategy() {
-            return defaultReaderPayloadMappingStrategy();
+            return defaultEntryReaderPayloadMappingStrategy();
         }
 
         @Override
         public boolean closeHeaderFiles() {
-            return defaultCloseReaderHeaderFiles();
+            return defaultCloseEntryReaderHeaderFiles();
         }
 
         @Override
         public boolean closePayloadFiles() {
-            return defaultCloseReaderPayloadFiles();
+            return defaultCloseEntryReaderPayloadFiles();
+        }
+    },
+    ENTRY_ITERATOR_CONFIG_DEFAULTS {
+        @Override
+        public MappingStrategy headerMappingStrategy() {
+            return defaultEntryIteratorHeaderMappingStrategy();
+        }
+
+        @Override
+        public MappingStrategy payloadMappingStrategy() {
+            return defaultEntryIteratorPayloadMappingStrategy();
+        }
+
+        @Override
+        public boolean closeHeaderFiles() {
+            return defaultCloseEntryIteratorHeaderFiles();
+        }
+
+        @Override
+        public boolean closePayloadFiles() {
+            return defaultCloseEntryIteratorPayloadFiles();
         }
     };
 

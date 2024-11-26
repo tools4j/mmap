@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 /**
- * Flyweight return by {@link Reader} with access to entry data and index.
+ * Flyweight return by {@link EntryReader} with access to entry data and index.
  */
 public interface ReadingContext extends Entry, AutoCloseable {
     /**

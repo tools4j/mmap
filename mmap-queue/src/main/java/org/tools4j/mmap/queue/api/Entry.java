@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 import org.agrona.DirectBuffer;
 
 /**
- * Representation of a queue entry used by {@link Reader}, with data accessible through {@link #buffer()}.
+ * Representation of a queue entry used by {@link EntryReader}, with data accessible through {@link #buffer()}.
  */
 public interface Entry {
     /**

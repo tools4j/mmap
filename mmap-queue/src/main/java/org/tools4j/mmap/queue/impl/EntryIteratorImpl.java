@@ -21,38 +21,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.config;
+package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.queue.api.EntryIterator;
+import org.tools4j.mmap.queue.api.IterableContext;
+import org.tools4j.mmap.queue.api.ReadingContext;
 
-public interface ReaderConfig {
-    MappingStrategy headerMappingStrategy();
-    MappingStrategy payloadMappingStrategy();
-    boolean closeHeaderFiles();
-    boolean closePayloadFiles();
-    ReaderConfig toImmutableReaderConfig();
-
-    static ReaderConfigurator configurePoller() {
-        return ReaderConfigurator.configurePoller();
+final class EntryIteratorImpl implements EntryIterator {
+    EntryIteratorImpl(final String queueName, final ReaderMappings readerMappings) {
     }
 
-    static ReaderConfigurator configureEntryReader() {
-        return ReaderConfigurator.configureEntryReader();
+    @Override
+    public IterableContext readingFrom(final long index) {
+        return null;
     }
 
-    static ReaderConfigurator configureEntryIterator() {
-        return ReaderConfigurator.configureEntryIterator();
+    @Override
+    public IterableContext readingFromFirst() {
+        return null;
     }
 
-    static ReaderConfig getDefaultPollerConfig() {
-        return QueueConfigurations.defaultPollerConfig();
+    @Override
+    public IterableContext readingFromLast() {
+        return null;
     }
 
-    static ReaderConfig getDefaultEntryReaderConfig() {
-        return QueueConfigurations.defaultEntryReaderConfig();
+    @Override
+    public IterableContext readingFromEnd() {
+        return null;
     }
 
-    static ReaderConfig getDefaultEntryIteratorConfig() {
-        return QueueConfigurations.defaultEntryIteratorConfig();
+    @Override
+    public boolean isClosed() {
+        return false;
+    }
+
+    @Override
+    public void close() {
+
     }
 }

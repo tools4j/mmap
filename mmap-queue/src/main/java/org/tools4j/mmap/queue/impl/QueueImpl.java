@@ -27,10 +27,11 @@ import org.agrona.CloseHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.EntryIterator;
+import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.IndexReader;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.queue.api.Reader;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
@@ -52,7 +53,8 @@ public final class QueueImpl implements Queue {
     private final QueueFiles files;
     private final QueueConfig config;
     private final Function<ReaderConfig, Poller> pollerFactory;
-    private final Function<ReaderConfig, Reader> readerFactory;
+    private final Function<ReaderConfig, EntryReader> entryReaderFactory;
+    private final Function<ReaderConfig, EntryIterator> entryIteratorFactory;
     private final Function<IndexReaderConfig, IndexReader> indexReaderFactory;
     private final Function<AppenderConfig, Appender> appenderFactory;
     private final List<AutoCloseable> closeables = new ArrayList<>();
@@ -70,7 +72,11 @@ public final class QueueImpl implements Queue {
                 files.queueName(),
                 ReaderMappings.create(files, config, pollerConfig)
         ));
-        this.readerFactory = readerConfig -> open(new ReaderImpl(
+        this.entryReaderFactory = readerConfig -> open(new EntryReaderImpl(
+                files.queueName(),
+                ReaderMappings.create(files, config, readerConfig)
+        ));
+        this.entryIteratorFactory = readerConfig -> open(new EntryIteratorImpl(
                 files.queueName(),
                 ReaderMappings.create(files, config, readerConfig)
         ));
@@ -136,13 +142,23 @@ public final class QueueImpl implements Queue {
     }
 
     @Override
-    public Reader createReader() {
-        return createReader(config.readerConfig());
+    public EntryReader createEntryReader() {
+        return createEntryReader(config.entryReaderConfig());
     }
 
     @Override
-    public Reader createReader(final ReaderConfig config) {
-        return readerFactory.apply(config);
+    public EntryReader createEntryReader(final ReaderConfig config) {
+        return entryReaderFactory.apply(config);
+    }
+
+    @Override
+    public EntryIterator createEntryIterator() {
+        return createEntryIterator(config.entryIteratorConfig());
+    }
+
+    @Override
+    public EntryIterator createEntryIterator(final ReaderConfig config) {
+        return entryIteratorFactory.apply(config);
     }
 
     @Override

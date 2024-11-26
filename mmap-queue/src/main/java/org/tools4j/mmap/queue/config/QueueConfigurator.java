@@ -40,8 +40,10 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator appenderConfig(Consumer<? super AppenderConfigurator> configurator);
     QueueConfigurator pollerConfig(ReaderConfig config);
     QueueConfigurator pollerConfig(Consumer<? super ReaderConfigurator> configurator);
-    QueueConfigurator readerConfig(ReaderConfig config);
-    QueueConfigurator readerConfig(Consumer<? super ReaderConfigurator> configurator);
+    QueueConfigurator entryReaderConfig(ReaderConfig config);
+    QueueConfigurator entryReaderConfig(Consumer<? super ReaderConfigurator> configurator);
+    QueueConfigurator entryIteratorConfig(ReaderConfig config);
+    QueueConfigurator entryIteratorConfig(Consumer<? super ReaderConfigurator> configurator);
     QueueConfigurator indexReaderConfig(IndexReaderConfig config);
     QueueConfigurator indexReaderConfig(Consumer<? super IndexReaderConfigurator> configurator);
     QueueConfigurator reset();

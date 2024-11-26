@@ -51,7 +51,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private int payloadFilesToCreateAhead;
     private AppenderConfig appenderConfig;
     private ReaderConfig pollerConfig;
-    private ReaderConfig readerConfig;
+    private ReaderConfig entryReaderConfig;
+    private ReaderConfig entryIteratorConfig;
     private IndexReaderConfig indexReaderConfig;
 
     public QueueConfiguratorImpl() {
@@ -74,7 +75,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         payloadFilesToCreateAhead = -1;
         appenderConfig = null;
         pollerConfig = null;
-        readerConfig = null;
+        entryReaderConfig = null;
+        entryIteratorConfig = null;
         indexReaderConfig = null;
         return this;
     }
@@ -252,24 +254,46 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
-    public ReaderConfig readerConfig() {
-        if (readerConfig == null) {
-            readerConfig = defaults.readerConfig();
+    public ReaderConfig entryReaderConfig() {
+        if (entryReaderConfig == null) {
+            entryReaderConfig = defaults.entryReaderConfig();
         }
-        return readerConfig;
+        return entryReaderConfig;
     }
 
     @Override
-    public QueueConfigurator readerConfig(final ReaderConfig config) {
-        this.readerConfig = requireNonNull(config);
+    public QueueConfigurator entryReaderConfig(final ReaderConfig config) {
+        this.entryReaderConfig = requireNonNull(config);
         return this;
     }
 
     @Override
-    public QueueConfigurator readerConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = ReaderConfigurator.configureReader();
+    public QueueConfigurator entryReaderConfig(final Consumer<? super ReaderConfigurator> configurator) {
+        final ReaderConfigurator config = ReaderConfigurator.configureEntryReader();
         configurator.accept(config);
-        this.readerConfig = config;
+        this.entryReaderConfig = config;
+        return this;
+    }
+
+    @Override
+    public ReaderConfig entryIteratorConfig() {
+        if (entryIteratorConfig == null) {
+            entryIteratorConfig = defaults.entryIteratorConfig();
+        }
+        return entryIteratorConfig;
+    }
+
+    @Override
+    public QueueConfigurator entryIteratorConfig(final ReaderConfig config) {
+        entryIteratorConfig = requireNonNull(config);
+        return this;
+    }
+
+    @Override
+    public QueueConfigurator entryIteratorConfig(final Consumer<? super ReaderConfigurator> configurator) {
+        final ReaderConfigurator config = ReaderConfigurator.configureEntryReader();
+        configurator.accept(config);
+        this.entryIteratorConfig = config;
         return this;
     }
 
@@ -313,7 +337,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
                 "|appenderConfig={" + appenderConfig + "}" +
                 "|pollerConfig={" + pollerConfig + "}" +
-                "|readerConfig={" + readerConfig + "}" +
+                "|entryReaderConfig={" + entryReaderConfig + "}" +
+                "|entryIteratorConfig={" + entryIteratorConfig + "}" +
                 "|indexReaderConfig={" + indexReaderConfig + "}";
     }
 }
