@@ -24,19 +24,23 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.collections.Int2ObjectHashMap;
+import org.agrona.collections.IntObjConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.config.MappingConfig;
+import org.tools4j.mmap.region.impl.AtomicArray;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static org.agrona.collections.Hashing.DEFAULT_LOAD_FACTOR;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
@@ -59,9 +63,10 @@ public class RollingFileMapper implements FileMapper {
     private final ThreadLocal<Int2ObjectHashMap<File>> files = ThreadLocal.withInitial(
             () -> new Int2ObjectHashMap<>(DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR)
     );
-    private final ThreadLocal<Int2ObjectHashMap<FileMapper>> fileMappers = ThreadLocal.withInitial(
-            () -> new Int2ObjectHashMap<>(DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR)
-    );
+    private final AtomicArray<FileMapper> fileMappers = new AtomicArray<>(DEFAULT_CAPACITY);
+    private final IntObjConsumer<FileMapper> fileMappersCloser = (fileIndex, fileMapper) ->
+            closeFileMapper(fileMappers, fileIndex, fileMapper);
+    private final AtomicLong lastUnmappedPosition = new AtomicLong(NULL_POSITION);
 
     private boolean closed;
 
@@ -170,7 +175,7 @@ public class RollingFileMapper implements FileMapper {
 
         final int fileIndex = positionToFileIndex(position);
         final long positionWithinFile = position & positionInFileMask;
-        final Int2ObjectHashMap<FileMapper> mappers = fileMappers.get();
+        final AtomicArray<FileMapper> mappers = fileMappers;
         FileMapper mapperForIndex = mappers.get(fileIndex);
         if (mapperForIndex == null) {
             final File fileForIndex = getOrCreateFile(fileIndex);
@@ -199,14 +204,16 @@ public class RollingFileMapper implements FileMapper {
         return file;
     }
 
-    private FileMapper getOrCreateFileMapper(final Int2ObjectHashMap<FileMapper> fileMappers,
+    private FileMapper getOrCreateFileMapper(final AtomicArray<FileMapper> fileMappers,
                                              final int fileIndex,
                                              final File fileForIndex) {
         assert fileForIndex != null : "fileForIndex cannot be null";
         FileMapper fileMapper = fileMappers.get(fileIndex);
         if (fileMapper == null) {
             fileMapper = fileMapperFactory.apply(fileForIndex);
-            fileMappers.put(fileIndex, fileMapper);
+            if (!fileMappers.compareAndSet(fileIndex, null, fileMapper)) {
+                fileMapper = fileMappers.get(fileIndex);
+            }
         }
         return fileMapper;
     }
@@ -220,27 +227,37 @@ public class RollingFileMapper implements FileMapper {
 
         final int fileIndex = positionToFileIndex(position);
         final long positionWithinFile = position & positionInFileMask;
-        final FileMapper mapperForIndex = fileMappers.get().get(fileIndex);
+        final FileMapper mapperForIndex = fileMappers.get(fileIndex);
         if (mapperForIndex != null) {
             mapperForIndex.unmap(address, positionWithinFile, length);
 
-            //If closeFile == true, we should close the file when the last region of the file is unmapped.
-            if (closeFiles && positionWithinFile + length == maxFileSize) {
-                closeFile(fileIndex, mapperForIndex);
+            //If closeFile == true, we should close the file when
+            // a) we are forward un-mapping, and the last region of the file was just unmapped
+            // b) we are backward un-mapping, and the first region of the file was just unmapped
+            // a) we are forward un-mapping, and the last (first(first) region of the file is unmapped.
+            if (closeFiles) {
+                final long lastUnmappedPos = lastUnmappedPosition.getAndSet(position);
+                if (lastUnmappedPos != NULL_POSITION && (
+                        (positionWithinFile + length == maxFileSize && position == lastUnmappedPos + length) ||
+                        (positionWithinFile == 0 && position == lastUnmappedPos - length)
+                )) {
+                    closeFile(fileIndex, mapperForIndex);
+                }
             }
         }
     }
 
     private void closeFile(final int fileIndex, final FileMapper mapperForIndex) {
-        assert mapperForIndex != null : "mapperForIndex cannot be null";
-        FileMapper fileMapper = null;
-        try {
-            fileMapper = fileMappers.get().remove(fileIndex);
-            files.get().remove(fileIndex);
-        } finally {
-            if (fileMapper == mapperForIndex) {
-                fileMapper.close();
-            }
+        closeFileMapper(fileMappers, fileIndex, mapperForIndex);
+        files.get().remove(fileIndex);
+    }
+
+    private static void closeFileMapper(final AtomicArray<FileMapper> mappers,
+                                        final int fileIndex,
+                                        final FileMapper mapperForIndex) {
+        if (mapperForIndex != null) {
+            mappers.compareAndSet(fileIndex, mapperForIndex, null);
+            mapperForIndex.close();
         }
     }
 
@@ -258,13 +275,10 @@ public class RollingFileMapper implements FileMapper {
     @Override
     public void close() {
         if (!closed) {
-            final Int2ObjectHashMap<FileMapper> mappers = fileMappers.get();
             try {
-                mappers.forEachInt((index, fileMapper) -> fileMapper.close());
-                mappers.clear();
-            } finally {
-                fileMappers.remove();
+                fileMappers.forEach(fileMappersCloser);
                 files.remove();
+            } finally {
                 closed = true;
                 LOGGER.info("Closed rolling file mapper: mapMode={}, file={}", accessMode, baseFile.getPath());
             }
