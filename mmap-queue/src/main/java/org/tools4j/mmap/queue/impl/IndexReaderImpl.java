@@ -61,7 +61,7 @@ final class IndexReaderImpl implements IndexReader {
 
     private void checkNotClosed() {
         if (isClosed()) {
-            throw new IllegalStateException("Reader is closed");
+            throw new IllegalStateException("Index reader is closed");
         }
     }
 

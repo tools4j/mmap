@@ -154,10 +154,6 @@ enum Headers {
         return (appenderId & APPENDER_ID_HEADER_MASK) | ((adjustedPosition << ADJUSTED_POSITION_SHIFT) & ADJUSTED_POSITION_HEADER_MASK);
     }
 
-    public static long header(final OffsetMapping header, final long index) {
-        return moveAndGetHeader(header, index);
-    }
-
     public static long moveAndGetHeader(final OffsetMapping header, final long index) {
         return moveToHeaderIndex(header, index) ? header.buffer().getLongVolatile(0) : NULL_HEADER;
     }

@@ -39,6 +39,11 @@ public interface ReadingContext extends Entry, AutoCloseable {
     boolean hasEntry();
 
     /**
+     * @return true if the context is closed.
+     */
+    boolean isClosed();
+
+    /**
      * Closes the reading context and unwraps the buffer
      */
     @Override

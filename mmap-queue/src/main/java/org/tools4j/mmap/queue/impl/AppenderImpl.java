@@ -35,6 +35,8 @@ import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.region.api.OffsetMapping;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.Exceptions.headerMoveException;
+import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class AppenderImpl implements Appender {
@@ -78,7 +80,7 @@ final class AppenderImpl implements Appender {
         long endIndex = Index.FIRST;
         long lastOwnHeader = NULL_HEADER;
         long header;
-        while ((header = Headers.header(hdr, endIndex)) != NULL_HEADER) {
+        while ((header = Headers.moveAndGetHeader(hdr, endIndex)) != NULL_HEADER) {
             endIndex++;
             if (Headers.appenderId(header) == ownAppenderId) {
                 lastOwnHeader = header;
@@ -99,12 +101,12 @@ final class AppenderImpl implements Appender {
 
     @Override
     public AppendingContext appending(final int capacity) {
-        ensureNotClosed();
+        checkNotClosed();
         return context.init(capacity);
     }
 
     private long appendEntry(final long payloadPosition) {
-        ensureNotClosed();
+        checkNotClosed();
         final OffsetMapping hdr = header;
         final AtomicBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
@@ -125,7 +127,7 @@ final class AppenderImpl implements Appender {
         return index;
     }
 
-    private void ensureNotClosed() {
+    private void checkNotClosed() {
         if (isClosed()) {
             throw new IllegalStateException("Appender " + appenderName() + " is closed");
         }
@@ -272,25 +274,13 @@ final class AppenderImpl implements Appender {
         }
     }
 
-    private String appenderName() {
+    String appenderName() {
         return queueName + ".appender-" + appenderId;
     }
 
     @Override
     public String toString() {
         return "AppenderImpl:queue=" + queueName + "|appenderId=" + appenderId + "|closed=" + closed;
-    }
-
-    private static IllegalStateException headerMoveException(final AppenderImpl appender, final long position) {
-        return mappingMoveException(appender.appenderName() + ".header", position);
-    }
-
-    private static IllegalStateException payloadMoveException(final AppenderImpl appender, final long position) {
-        return mappingMoveException(appender.appenderName() + ".payload", position);
-    }
-
-    private static IllegalStateException mappingMoveException(final String name, final long position) {
-        throw new IllegalStateException("Moving " + name + " mapping to position " + position + " failed");
     }
 
 }

@@ -54,6 +54,11 @@ public interface IterableContext extends Iterable<Entry>, AutoCloseable {
     IterableContext reverse();
 
     /**
+     * @return true if the context is closed.
+     */
+    boolean isClosed();
+
+    /**
      * Closes any iterator associated with this iterable and unwraps the current entry's buffer
      */
     @Override

@@ -111,6 +111,11 @@ final class DefaultIterableContext implements IterableContext, Iterable<Entry>, 
     }
 
     @Override
+    public boolean isClosed() {
+        return readingContext.isClosed();
+    }
+
+    @Override
     public void close() {
         startIndex = Index.NULL;
         reverse = false;
