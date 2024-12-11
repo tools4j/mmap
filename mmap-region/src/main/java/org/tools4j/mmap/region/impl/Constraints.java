@@ -100,6 +100,13 @@ public enum Constraints {
         validateNonNegative("Files to create ahead", filesToCreateAhead);
     }
 
+    public static void validateMaxAppenders(final int maxAppenders) {
+        if (maxAppenders == 1 || maxAppenders == 64 || maxAppenders == 256) {
+            return;
+        }
+        throw new IllegalArgumentException("Max appenders must be one of [1, 64, 256]");
+    }
+
     public static void validatePowerOfTwo(final String name, final int value) {
         if (!BitUtil.isPowerOfTwo(value)) {
             throw new IllegalArgumentException(name + " must be a power of two but was " + value);

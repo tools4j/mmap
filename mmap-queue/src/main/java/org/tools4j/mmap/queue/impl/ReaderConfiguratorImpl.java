@@ -26,6 +26,10 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
@@ -65,6 +69,23 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
+    public ReaderConfigurator mappingStrategy(final MappingStrategy strategy) {
+        return headerMappingStrategy(strategy).payloadMappingStrategy(strategy);
+    }
+
+    @Override
+    public ReaderConfigurator mappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
+    public ReaderConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
     public MappingStrategy headerMappingStrategy() {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaults.headerMappingStrategy();
@@ -73,9 +94,21 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
-    public ReaderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
-        this.payloadMappingStrategy = requireNonNull(strategy);
+    public ReaderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
+        this.headerMappingStrategy = requireNonNull(strategy);
         return this;
+    }
+
+    @Override
+    public ReaderConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public ReaderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config);
     }
 
     @Override
@@ -87,9 +120,21 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
-    public ReaderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
-        this.headerMappingStrategy = requireNonNull(strategy);
+    public ReaderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
+        this.payloadMappingStrategy = requireNonNull(strategy);
         return this;
+    }
+
+    @Override
+    public ReaderConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
+        return payloadMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public ReaderConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return payloadMappingStrategy(config);
     }
 
     @Override

@@ -26,6 +26,10 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.AppenderConfigurator;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
@@ -43,6 +47,23 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
+    public AppenderConfigurator mappingStrategy(final MappingStrategy strategy) {
+        return headerMappingStrategy(strategy).payloadMappingStrategy(strategy);
+    }
+
+    @Override
+    public AppenderConfigurator mappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
+    public AppenderConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
     public MappingStrategy headerMappingStrategy() {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaultAppenderHeaderMappingStrategy();
@@ -51,9 +72,21 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
-    public AppenderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
-        this.payloadMappingStrategy = requireNonNull(strategy);
+    public AppenderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
+        this.headerMappingStrategy = requireNonNull(strategy);
         return this;
+    }
+
+    @Override
+    public AppenderConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public AppenderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config);
     }
 
     @Override
@@ -65,9 +98,21 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
-    public AppenderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
-        this.headerMappingStrategy = requireNonNull(strategy);
+    public AppenderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
+        this.payloadMappingStrategy = requireNonNull(strategy);
         return this;
+    }
+
+    @Override
+    public AppenderConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
+        return payloadMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public AppenderConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return payloadMappingStrategy(config);
     }
 
     @Override

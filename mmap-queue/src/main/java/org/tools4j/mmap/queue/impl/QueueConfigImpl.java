@@ -31,6 +31,8 @@ import org.tools4j.mmap.queue.config.ReaderConfig;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 
 public class QueueConfigImpl implements QueueConfig {
+    private final int maxAppenders;
+    private final boolean deleteOnOpen;
     private final long maxHeaderFileSize;
     private final long maxPayloadFileSize;
     private final boolean expandHeaderFile;
@@ -50,7 +52,9 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     public QueueConfigImpl(final QueueConfig queueConfig) {
-        this(queueConfig.maxHeaderFileSize(),
+        this(queueConfig.maxAppenders(),
+                queueConfig.deleteOnOpen(),
+                queueConfig.maxHeaderFileSize(),
                 queueConfig.maxPayloadFileSize(),
                 queueConfig.expandHeaderFile(),
                 queueConfig.expandPayloadFiles(),
@@ -65,7 +69,9 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.indexReaderConfig());
     }
 
-    public QueueConfigImpl(final long maxHeaderFileSize,
+    public QueueConfigImpl(final int maxAppenders,
+                           final boolean deleteOnOpen,
+                           final long maxHeaderFileSize,
                            final long maxPayloadFileSize,
                            final boolean expandHeaderFile,
                            final boolean expandPayloadFiles,
@@ -78,6 +84,8 @@ public class QueueConfigImpl implements QueueConfig {
                            final ReaderConfig entryReaderConfig,
                            final ReaderConfig entryIteratorConfig,
                            final IndexReaderConfig indexReaderConfig) {
+        this.maxAppenders = maxAppenders;
+        this.deleteOnOpen = deleteOnOpen;
         this.maxHeaderFileSize = maxHeaderFileSize;
         this.maxPayloadFileSize = maxPayloadFileSize;
         this.expandHeaderFile = expandHeaderFile;
@@ -91,6 +99,16 @@ public class QueueConfigImpl implements QueueConfig {
         this.entryReaderConfig = entryReaderConfig.toImmutableReaderConfig();
         this.entryIteratorConfig = entryIteratorConfig.toImmutableReaderConfig();
         this.indexReaderConfig = indexReaderConfig.toImmutableIndexReaderConfig();
+    }
+
+    @Override
+    public int maxAppenders() {
+        return maxAppenders;
+    }
+
+    @Override
+    public boolean deleteOnOpen() {
+        return deleteOnOpen;
     }
 
     @Override
@@ -166,7 +184,9 @@ public class QueueConfigImpl implements QueueConfig {
     @Override
     public String toString() {
         return "QueueConfigImpl" +
-                ":maxHeaderFileSize=" + maxHeaderFileSize +
+                ":maxAppenders=" + maxAppenders +
+                "|deleteOnOpen=" + deleteOnOpen +
+                "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +

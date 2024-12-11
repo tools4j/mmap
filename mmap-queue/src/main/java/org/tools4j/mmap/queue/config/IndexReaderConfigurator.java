@@ -25,9 +25,15 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.IndexReaderConfiguratorImpl;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 public interface IndexReaderConfigurator extends IndexReaderConfig {
     IndexReaderConfigurator headerMappingStrategy(MappingStrategy strategy);
+    IndexReaderConfigurator headerMappingStrategy(MappingStrategyConfig config);
+    IndexReaderConfigurator headerMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     IndexReaderConfigurator closeHeaderFiles(boolean closeHeaderFiles);
     IndexReaderConfigurator reset();
 

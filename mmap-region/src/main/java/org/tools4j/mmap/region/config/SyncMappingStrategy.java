@@ -42,6 +42,10 @@ public class SyncMappingStrategy implements MappingStrategy {
     private final int regionSize;
     private final int cacheSize;
 
+    public SyncMappingStrategy(final MappingStrategyConfig config) {
+        this(config.regionSize(), config.cacheSize());
+    }
+
     public SyncMappingStrategy(final int regionSize) {
         this(regionSize, 0);
     }

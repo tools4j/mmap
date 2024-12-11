@@ -25,7 +25,11 @@ package org.tools4j.mmap.queue.api;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.queue.impl.QueueImpl;
+
+import java.io.File;
 
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
@@ -78,4 +82,12 @@ public interface Queue extends AutoCloseable {
      */
     @Override
     void close();
+
+    static Queue create(final File file) {
+        return new QueueImpl(file);
+    }
+
+    static Queue create(final File file, final QueueConfig config) {
+        return new QueueImpl(file, config);
+    }
 }

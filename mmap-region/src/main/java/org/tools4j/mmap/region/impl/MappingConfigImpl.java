@@ -103,7 +103,7 @@ public class MappingConfigImpl implements MappingConfig {
 
     @Override
     public String toString() {
-        return toString("ImmutableMappingConfig", this);
+        return toString("MappingConfigImpl", this);
     }
 
     public static String toString(final String name, final MappingConfig config) {

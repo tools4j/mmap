@@ -45,4 +45,8 @@ public interface MappingStrategy {
     static MappingStrategy defaultAheadMappingStrategy() {
         return MappingConfigurations.defaultAheadMappingStrategy();
     }
+
+    static MappingStrategy create(final MappingStrategyConfig config) {
+        return config.regionsToMapAhead() <= 0 ? new SyncMappingStrategy(config) : new AheadMappingStrategy(config);
+    }
 }

@@ -25,10 +25,21 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.ReaderConfiguratorImpl;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 public interface ReaderConfigurator extends ReaderConfig {
+    ReaderConfigurator mappingStrategy(MappingStrategy strategy);
+    ReaderConfigurator mappingStrategy(MappingStrategyConfig config);
+    ReaderConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     ReaderConfigurator headerMappingStrategy(MappingStrategy strategy);
+    ReaderConfigurator headerMappingStrategy(MappingStrategyConfig config);
+    ReaderConfigurator headerMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     ReaderConfigurator payloadMappingStrategy(MappingStrategy strategy);
+    ReaderConfigurator payloadMappingStrategy(MappingStrategyConfig config);
+    ReaderConfigurator payloadMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     ReaderConfigurator closeHeaderFiles(boolean closeHeaderFiles);
     ReaderConfigurator closePayloadFiles(boolean closePayloadFiles);
     ReaderConfigurator reset();

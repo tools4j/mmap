@@ -49,8 +49,10 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     }
     private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
-    public DefaultAsyncRuntime(final IdleStrategy idleStrategy, final boolean autoStopOnLastDeregister) {
-        this.name = "async-" + idleStrategy.alias();
+    public DefaultAsyncRuntime(final String name,
+                               final IdleStrategy idleStrategy,
+                               final boolean autoStopOnLastDeregister) {
+        this.name = requireNonNull(name);
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(idleStrategy);
         final Thread thread = new Thread(() -> {

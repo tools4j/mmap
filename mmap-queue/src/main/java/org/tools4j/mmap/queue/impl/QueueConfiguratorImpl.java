@@ -31,16 +31,27 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
+import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
+import static org.tools4j.mmap.region.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
+    private int maxAppenders;
+    private Boolean deleteOnOpen;
     private long maxHeaderFileSize;
     private long maxPayloadFileSize;
     private Boolean expandHeaderFile;
@@ -65,6 +76,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator reset() {
+        maxAppenders = 0;
+        deleteOnOpen = null;
         maxHeaderFileSize = 0;
         maxPayloadFileSize = 0;
         expandHeaderFile = null;
@@ -82,12 +95,44 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
+    public int maxAppenders() {
+        if (maxAppenders <= 0) {
+            maxAppenders = defaults.maxAppenders();
+        }
+        if (maxAppenders <= 0) {
+            maxAppenders = defaultMaxAppenders();
+        }
+        return maxAppenders;
+    }
+
+    @Override
+    public QueueConfigurator maxAppenders(final int maxAppenders) {
+        validateMaxAppenders(maxAppenders);
+        this.maxAppenders = maxAppenders;
+        return this;
+    }
+
+    @Override
+    public boolean deleteOnOpen() {
+        if (deleteOnOpen == null) {
+            deleteOnOpen = defaults.deleteOnOpen();
+        }
+        return deleteOnOpen;
+    }
+
+    @Override
+    public QueueConfigurator deleteOnOpen(final boolean deleteOnOpen) {
+        this.deleteOnOpen = deleteOnOpen;
+        return this;
+    }
+
+    @Override
     public long maxHeaderFileSize() {
         if (maxHeaderFileSize <= 0) {
             maxHeaderFileSize = defaults.maxHeaderFileSize();
         }
         if (maxHeaderFileSize <= 0) {
-            maxHeaderFileSize = org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize();
+            maxHeaderFileSize = defaultMaxHeaderFileSize();
         }
         return maxHeaderFileSize;
     }
@@ -105,7 +150,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             maxPayloadFileSize = defaults.maxPayloadFileSize();
         }
         if (maxPayloadFileSize <= 0) {
-            maxPayloadFileSize = org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize();
+            maxPayloadFileSize = defaultMaxPayloadFileSize();
         }
         return maxPayloadFileSize;
     }
@@ -179,7 +224,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             headerFilesToCreateAhead = defaults.headerFilesToCreateAhead();
         }
         if (headerFilesToCreateAhead < 0) {
-            headerFilesToCreateAhead = org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead();
+            headerFilesToCreateAhead = defaultHeaderFilesToCreateAhead();
         }
         return headerFilesToCreateAhead;
     }
@@ -197,7 +242,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             payloadFilesToCreateAhead = defaults.payloadFilesToCreateAhead();
         }
         if (payloadFilesToCreateAhead < 0) {
-            payloadFilesToCreateAhead = org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead();
+            payloadFilesToCreateAhead = defaultPayloadFilesToCreateAhead();
         }
         return payloadFilesToCreateAhead;
     }
@@ -207,6 +252,66 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         validateFilesToCreateAhead(payloadFilesToCreateAhead);
         this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
         return this;
+    }
+
+    @Override
+    public QueueConfigurator mappingStrategy(final MappingStrategy mappingStrategy) {
+        return headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy);
+    }
+
+    @Override
+    public QueueConfigurator mappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
+    public QueueConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config).payloadMappingStrategy(config);
+    }
+
+    @Override
+    public QueueConfigurator headerMappingStrategy(final MappingStrategy mappingStrategy) {
+        requireNonNull(mappingStrategy);
+        appenderConfig(config -> config.headerMappingStrategy(mappingStrategy));
+        entryReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
+        entryIteratorConfig(config -> config.headerMappingStrategy(mappingStrategy));
+        indexReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
+        return this;
+    }
+
+    @Override
+    public QueueConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
+        return headerMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public QueueConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return headerMappingStrategy(config);
+    }
+
+    @Override
+    public QueueConfigurator payloadMappingStrategy(final MappingStrategy mappingStrategy) {
+        requireNonNull(mappingStrategy);
+        appenderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
+        entryReaderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
+        entryIteratorConfig(config -> config.payloadMappingStrategy(mappingStrategy));
+        return this;
+    }
+
+    @Override
+    public QueueConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
+        return payloadMappingStrategy(MappingStrategy.create(config));
+    }
+
+    @Override
+    public QueueConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        configurator.accept(config);
+        return payloadMappingStrategy(config);
     }
 
     @Override
@@ -327,7 +432,9 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     @Override
     public String toString() {
         return "QueueConfiguratorImpl" +
-                ":maxHeaderFileSize=" + maxHeaderFileSize +
+                ":maxAppenders=" + maxAppenders +
+                "|deleteOnOpen=" + deleteOnOpen +
+                "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +

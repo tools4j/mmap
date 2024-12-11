@@ -33,8 +33,10 @@ import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 /**
  * Defines region mapping default configuration values and property constants to override default values via system
@@ -58,14 +60,18 @@ public enum MappingConfigurations {
     public static final int REGION_CACHE_SIZE_DEFAULT = 16;
     public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.regionsToMapAhead";
     public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 8;
-    public static final String MAPPING_IDLE_STRATEGY_PROPERTY = "mmap.region.mappingIdleStrategy";
-    public static final IdleStrategy MAPPING_IDLE_STRATEGY_DEFAULT = BusySpinIdleStrategy.INSTANCE;
-    public static final String UNMAPPING_IDLE_STRATEGY_PROPERTY = "mmap.region.unmappingIdleStrategy";
-    public static final IdleStrategy UNMAPPING_IDLE_STRATEGY_DEFAULT = new SleepingMillisIdleStrategy(20);
+    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.mappingRuntimeIdleStrategy";
+    public static final IdleStrategy MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BusySpinIdleStrategy.INSTANCE;
+    public static final String MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.mappingRuntimeAutoCloseOnLastDeregister";
+    public static final boolean MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
+    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.unmappingRuntimeIdleStrategy";
+    public static final IdleStrategy UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = new SleepingMillisIdleStrategy();
+    public static final String UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.unmappingRuntimeAutoCloseOnLastDeregister";
+    public static final boolean UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
     public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.mappingAsyncRuntime";
-    private static AsyncRuntime MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
+    private static Supplier<? extends AsyncRuntime> MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
     public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.unmappingAsyncRuntime";
-    private static AsyncRuntime UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
+    private static Supplier<? extends AsyncRuntime> UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
     public static final String MAPPING_STRATEGY_PROPERTY = "mmap.region.mappingStrategy";
     public static final String MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     private static MappingStrategy MAPPING_STRATEGY_DEFAULT_VALUE;
@@ -104,32 +110,58 @@ public enum MappingConfigurations {
         return getIntProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
     }
 
-    public static IdleStrategy defaultMappingIdleStrategy() {
-        return getObjProperty(MAPPING_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, MAPPING_IDLE_STRATEGY_DEFAULT);
+    public static Supplier<? extends IdleStrategy> defaultMappingRuntimeIdleStrategySupplier() {
+        return getSupplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
     }
 
-    public static IdleStrategy defaultUnmappingIdleStrategy() {
-        return getObjProperty(UNMAPPING_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, UNMAPPING_IDLE_STRATEGY_DEFAULT);
+    public static boolean defaultMappingRuntimeAutoCloseOnLastDeregister() {
+        return getBooleanProperty(MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY, MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
     }
 
-    public synchronized static AsyncRuntime defaultMappingAsyncRuntime() {
+    public static Supplier<? extends IdleStrategy> defaultUnmappingRuntimeIdleStrategySupplier() {
+        return getSupplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+    }
+
+    public static boolean defaultUnmappingRuntimeAutoCloseOnLastDeregister() {
+        return getBooleanProperty(UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY, UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
+    }
+
+    public synchronized static Supplier<? extends AsyncRuntime> defaultMappingAsyncRuntimeSupplier() {
         if (MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE == null) {
-            MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = getObjProperty(MAPPING_ASYNC_RUNTIME_PROPERTY, AsyncRuntime.class,
-                    (Supplier<AsyncRuntime>) () -> new DefaultAsyncRuntime(defaultMappingIdleStrategy(), false)
-            );
+            MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = createDefaultAsyncRuntimeSupplier(
+                    "mapper-default",
+                    MAPPING_ASYNC_RUNTIME_PROPERTY, MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
+                    MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT, MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY,
+                    MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
             assert MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE != null;
         }
         return MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
     }
 
-    public synchronized static AsyncRuntime defaultUnmappingAsyncRuntime() {
+    public synchronized static Supplier<? extends AsyncRuntime> defaultUnmappingAsyncRuntimeSupplier() {
         if (UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE == null) {
-            UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = getObjProperty(UNMAPPING_ASYNC_RUNTIME_PROPERTY, AsyncRuntime.class,
-                    (Supplier<AsyncRuntime>) () -> new DefaultAsyncRuntime(defaultUnmappingIdleStrategy(), false)
-            );
+            UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = createDefaultAsyncRuntimeSupplier(
+                    "unmapper-default",
+                    UNMAPPING_ASYNC_RUNTIME_PROPERTY, UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
+                    UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT, UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY,
+                    UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
             assert UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE != null;
         }
         return UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
+    }
+
+    private static Supplier<? extends AsyncRuntime> createDefaultAsyncRuntimeSupplier(final String name,
+                                                                                      final String runtimePropertyName,
+                                                                                      final String idleStrategyPropertyName,
+                                                                                      final IdleStrategy idleStrategyDefault,
+                                                                                      final String autoStopPropertyName,
+                                                                                      final boolean autoStopPropertyDefault) {
+        return getSupplierProperty(runtimePropertyName, AsyncRuntime.class, (Supplier<AsyncRuntime>)() -> {
+            final Supplier<? extends IdleStrategy> idleStrategySupplier = getSupplierProperty(idleStrategyPropertyName,
+                    IdleStrategy.class, idleStrategyDefault);
+            final boolean autoStopOnLastDeregister = getBooleanProperty(autoStopPropertyName, autoStopPropertyDefault);
+            return AsyncRuntime.create(name, idleStrategySupplier.get(), autoStopOnLastDeregister);
+        });
     }
 
     public static MappingStrategy defaultMappingStrategy() {
@@ -162,13 +194,20 @@ public enum MappingConfigurations {
 
     public static MappingStrategy defaultAheadMappingStrategy() {
         if (AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE == null) {
-            AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE = new AheadMappingStrategy(defaultRegionSize(), defaultRegionCacheSize(), defaultRegionsToMapAhead());
+            AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE = new AheadMappingStrategy(
+                    defaultRegionSize(), defaultRegionCacheSize(), defaultRegionsToMapAhead(),
+                    defaultMappingAsyncRuntimeSupplier(), defaultUnmappingAsyncRuntimeSupplier()
+            );
         }
         return AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE;
     }
 
     public static MappingConfig defaultMappingConfig() {
         return MAPPING_CONFIG_DEFAULTS;
+    }
+
+    public static MappingStrategyConfig defaultMappingStrategyConfig() {
+        return MAPPING_STRATEGY_CONFIG_DEFAULTS;
     }
 
     private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {
@@ -193,23 +232,62 @@ public enum MappingConfigurations {
     @SuppressWarnings("SameParameterValue")
     private static <T> T getObjProperty(final String propertyName, final Class<T> type, final T defaultValue) {
         final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValue : newObjInstance(propertyName, type);
+        return propVal == null ? defaultValue : newObjInstance(propertyName, propVal, type);
     }
 
     private static <T> T getObjProperty(final String propertyName,
                                         final Class<T> type,
                                         final Supplier<? extends T> defaultValueSupplier) {
         final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValueSupplier.get() : newObjInstance(propertyName, type);
+        return propVal == null ? defaultValueSupplier.get() : newObjInstance(propertyName, propVal, type);
     }
 
-    private static <T> T newObjInstance(final String propVal, final Class<T> type) {
+    private static <T> Supplier<T> getSupplierProperty(final String propertyName, final Class<T> type, final T defaultValue) {
+        return getSupplierProperty(propertyName, type, (Supplier<T>)() -> defaultValue);
+    }
+
+    private static <T> Supplier<T> getSupplierProperty(final String propertyName,
+                                                       final Class<T> type,
+                                                       final Supplier<T> defaultValueSupplier) {
+        requireNonNull(propertyName);
+        requireNonNull(type);
+        requireNonNull(defaultValueSupplier);
+        final String propVal = System.getProperty(propertyName, null);
+        return propVal == null ? defaultValueSupplier : newSupplier(propertyName, propVal, type);
+    }
+
+    private static <T> Supplier<T> newSupplier(final String propName, final String propVal, final Class<T> type) {
+        requireNonNull(propName);
+        requireNonNull(type);
+        final Supplier<?>[] supplierPtr = new Supplier<?>[]{null};
+        return () -> {
+            try {
+                if (supplierPtr[0] != null) {
+                    return type.cast(supplierPtr[0].get());
+                }
+                final Object value = newObjInstance(propName, propVal, Object.class);
+                if (type.isInstance(value)) {
+                    return type.cast(value);
+                }
+                if (value instanceof Supplier) {
+                    supplierPtr[0] = (Supplier<?>) value;
+                    return type.cast(supplierPtr[0].get());
+                }
+                throw new IllegalArgumentException("Value expected to be of type " + type.getName() +
+                        " or a supplier of such a value, but was found to be: " + value);
+            } catch (final Exception e) {
+                throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal);
+            }
+        };
+    }
+
+    private static <T> T newObjInstance(final String propName, final String propVal, final Class<T> type) {
         try {
             final Class<?> clazz = Class.forName(propVal);
             final Object value = clazz.newInstance();
             return type.cast(value);
         } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
+            throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal, e);
         }
     }
 }

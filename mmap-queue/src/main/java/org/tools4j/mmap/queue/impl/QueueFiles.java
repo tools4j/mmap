@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
  * Files used for a queue.
  */
 final class QueueFiles {
+    public static final String MMAP_FILE_ENDING = ".mmap";
 
     private final File queueFile;
     private final File headerFile;
@@ -39,11 +40,11 @@ final class QueueFiles {
     private final File[] payloadFiles;
     private final IntFunction<File> payloadFileFactory;
 
-    public QueueFiles(final File queueFile) {
+    public QueueFiles(final File queueFile, final int maxAppenders) {
         this.queueFile = requireNonNull(queueFile);
         this.headerFile = new File(queueFile, queueFile.getName() + "_hdr.mmap");
         this.appenderPoolFile = new File(queueFile, queueFile.getName() + "_ids.mmap");
-        this.payloadFiles = new File[AppenderIdPool256.MAX_APPENDERS];
+        this.payloadFiles = new File[maxAppenders];
         this.payloadFileFactory = appenderId -> new File(queueFile, queueFile.getName() + "_dat_" + appenderId + ".mmap");
     }
 
@@ -66,6 +67,10 @@ final class QueueFiles {
             payloadFiles[appenderId] = payloadFile;
         }
         return payloadFile;
+    }
+
+    public File[] listFiles() {
+        return queueFile.listFiles((dir, name) -> name != null && name.equals(MMAP_FILE_ENDING));
     }
 
     @Override

@@ -21,37 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.config;
+package org.tools4j.mmap.region.config;
 
-public interface QueueConfig {
-    int maxAppenders();
-    boolean deleteOnOpen();
-    long maxHeaderFileSize();
-    long maxPayloadFileSize();
-    boolean expandHeaderFile();
-    boolean expandPayloadFiles();
-    boolean rollHeaderFile();
-    boolean rollPayloadFiles();
-    int headerFilesToCreateAhead();
-    int payloadFilesToCreateAhead();
-
-    AppenderConfig appenderConfig();
-    ReaderConfig pollerConfig();
-    ReaderConfig entryReaderConfig();
-    ReaderConfig entryIteratorConfig();
-    IndexReaderConfig indexReaderConfig();
-
-    QueueConfig toImmutableQueueConfig();
-
-    static QueueConfigurator configure() {
-        return QueueConfigurator.create();
-    }
-
-    static QueueConfigurator configure(final QueueConfig defaults) {
-        return QueueConfigurator.create(defaults);
-    }
-
-    static QueueConfig getDefault() {
-        return QueueConfigurations.defaultQueueConfig();
-    }
+public enum AsyncThreadingPolicy {
+    /**
+     * Each element of a queue with this policy uses its own thread to perform mappings; the unmapping thread is shared
+     * between all queues.
+     */
+    INDIVIDUAL,
+    /**
+     * All mappings for a queue with this policy are performed in one queue specific mapping thread; the unmapping
+     * thread is shared between all queues.
+     */
+    QUEUE,
+    /**
+     * All mappings for all queues with this policy are performed in a shared mapping thread; the separate unmapping
+     * thread is also shared between all queues.
+     */
+    SHARED
 }

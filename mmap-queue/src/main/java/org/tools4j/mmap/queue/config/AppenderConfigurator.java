@@ -25,10 +25,21 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.AppenderConfiguratorImpl;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 public interface AppenderConfigurator extends AppenderConfig {
+    AppenderConfigurator mappingStrategy(MappingStrategy strategy);
+    AppenderConfigurator mappingStrategy(MappingStrategyConfig config);
+    AppenderConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     AppenderConfigurator headerMappingStrategy(MappingStrategy strategy);
+    AppenderConfigurator headerMappingStrategy(MappingStrategyConfig config);
+    AppenderConfigurator headerMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     AppenderConfigurator payloadMappingStrategy(MappingStrategy strategy);
+    AppenderConfigurator payloadMappingStrategy(MappingStrategyConfig config);
+    AppenderConfigurator payloadMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     AppenderConfigurator reset();
 
     static AppenderConfigurator configure() {

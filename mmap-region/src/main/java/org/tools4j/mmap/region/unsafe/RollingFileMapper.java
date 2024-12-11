@@ -234,7 +234,6 @@ public class RollingFileMapper implements FileMapper {
             //If closeFile == true, we should close the file when
             // a) we are forward un-mapping, and the last region of the file was just unmapped
             // b) we are backward un-mapping, and the first region of the file was just unmapped
-            // a) we are forward un-mapping, and the last (first(first) region of the file is unmapped.
             if (closeFiles) {
                 final long lastUnmappedPos = lastUnmappedPosition.getAndSet(position);
                 if (lastUnmappedPos != NULL_POSITION && (

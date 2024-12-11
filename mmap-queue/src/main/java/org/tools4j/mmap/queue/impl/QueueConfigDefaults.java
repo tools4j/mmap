@@ -28,9 +28,11 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultDeleteOnOpen;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead;
@@ -44,6 +46,16 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
 
 public enum QueueConfigDefaults implements QueueConfig {
     QUEUE_CONFIG_DEFAULTS;
+
+    @Override
+    public int maxAppenders() {
+        return defaultMaxAppenders();
+    }
+
+    @Override
+    public boolean deleteOnOpen() {
+        return defaultDeleteOnOpen();
+    }
 
     @Override
     public long maxHeaderFileSize() {
@@ -118,7 +130,9 @@ public enum QueueConfigDefaults implements QueueConfig {
     @Override
     public String toString() {
         return "QueueConfigDefaults" +
-                ":maxHeaderFileSize=" + maxHeaderFileSize() +
+                ":maxAppenders=" + maxAppenders() +
+                "|deleteOnOpen=" + deleteOnOpen() +
+                "|maxHeaderFileSize=" + maxHeaderFileSize() +
                 "|maxPayloadFileSize=" + maxPayloadFileSize() +
                 "|expandHeaderFile=" + expandHeaderFile() +
                 "|expandPayloadFiles=" + expandPayloadFiles() +

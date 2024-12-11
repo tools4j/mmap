@@ -24,10 +24,15 @@
 package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
+import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
 public interface QueueConfigurator extends QueueConfig {
+    QueueConfigurator maxAppenders(int maxAppenders);
+    QueueConfigurator deleteOnOpen(boolean deleteOnOpen);
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);
     QueueConfigurator maxPayloadFileSize(long maxPayloadFileSize);
     QueueConfigurator expandHeaderFile(boolean expandHeaderFile);
@@ -36,6 +41,15 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator rollPayloadFiles(boolean rollPayloadFiles);
     QueueConfigurator headerFilesToCreateAhead(int headerFilesToCreateAhead);
     QueueConfigurator payloadFilesToCreateAhead(int payloadFilesToCreateAhead);
+    QueueConfigurator mappingStrategy(MappingStrategy mappingStrategy);
+    QueueConfigurator mappingStrategy(MappingStrategyConfig mappingStrategyConfig);
+    QueueConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
+    QueueConfigurator headerMappingStrategy(MappingStrategy mappingStrategy);
+    QueueConfigurator headerMappingStrategy(MappingStrategyConfig mappingStrategyConfig);
+    QueueConfigurator headerMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
+    QueueConfigurator payloadMappingStrategy(MappingStrategy mappingStrategy);
+    QueueConfigurator payloadMappingStrategy(MappingStrategyConfig mappingStrategyConfig);
+    QueueConfigurator payloadMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
     QueueConfigurator appenderConfig(AppenderConfig config);
     QueueConfigurator appenderConfig(Consumer<? super AppenderConfigurator> configurator);
     QueueConfigurator pollerConfig(ReaderConfig config);

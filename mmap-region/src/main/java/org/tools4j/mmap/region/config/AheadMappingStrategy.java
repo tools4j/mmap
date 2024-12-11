@@ -27,10 +27,11 @@ import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.config.MappingStrategy.AsyncOptions;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingAsyncRuntime;
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingAsyncRuntime;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingAsyncRuntimeSupplier;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionsToMapAhead;
@@ -41,34 +42,40 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
     private final int regionSize;
     private final int cacheSize;
     private final int regionsToMapAhead;
-    private final AsyncRuntime mappingRuntime;
-    private final AsyncRuntime unmappingRuntime;
+    private final Supplier<? extends AsyncRuntime> mappingRuntimeSupplier;
+    private final Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier;
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private final Optional<AsyncOptions> asyncOptions = Optional.of(this);
+
+    public AheadMappingStrategy(final MappingStrategyConfig config) {
+        this(config.regionSize(), config.cacheSize(), config.regionsToMapAhead(), config.mappingAsyncRuntimeSupplier(),
+                config.unmappingAsyncRuntimeSupplier());
+    }
 
     public AheadMappingStrategy(final int regionSize, final int cacheSize) {
         this(regionSize, cacheSize, cacheSize <= 1 ? cacheSize : cacheSize / 2);
     }
 
     public AheadMappingStrategy(final int regionSize, final int cacheSize, final int regionsToMapAhead) {
-        this(regionSize, cacheSize, regionsToMapAhead, defaultMappingAsyncRuntime(), defaultUnmappingAsyncRuntime());
+        this(regionSize, cacheSize, regionsToMapAhead, defaultMappingAsyncRuntimeSupplier(),
+                defaultUnmappingAsyncRuntimeSupplier());
     }
 
     public AheadMappingStrategy(final int regionSize,
                                 final int cacheSize,
                                 final int regionsToMapAhead,
-                                final AsyncRuntime mappingRuntime,
-                                final AsyncRuntime unmappingRuntime) {
+                                final Supplier<? extends AsyncRuntime> mappingRuntimeSupplier,
+                                final Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier) {
         validateRegionSize(cacheSize);
         validateRegionCacheSize(cacheSize);
         validateRegionsToMapAhead(regionsToMapAhead);
-        requireNonNull(mappingRuntime);
-        requireNonNull(unmappingRuntime);
+        requireNonNull(mappingRuntimeSupplier);
+        requireNonNull(unmappingRuntimeSupplier);
         this.regionSize = regionSize;
         this.cacheSize = cacheSize;
         this.regionsToMapAhead = regionsToMapAhead;
-        this.mappingRuntime = mappingRuntime;
-        this.unmappingRuntime = unmappingRuntime;
+        this.mappingRuntimeSupplier = mappingRuntimeSupplier;
+        this.unmappingRuntimeSupplier = unmappingRuntimeSupplier;
     }
 
     public static MappingStrategy getDefault() {
@@ -92,12 +99,12 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
 
     @Override
     public AsyncRuntime mappingRuntime() {
-        return mappingRuntime;
+        return mappingRuntimeSupplier.get();
     }
 
     @Override
     public AsyncRuntime unmappingRuntime() {
-        return unmappingRuntime;
+        return unmappingRuntimeSupplier.get();
     }
 
     @Override
@@ -110,8 +117,6 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
         return "AheadMappingStrategy" +
                 ":regionSize=" + regionSize +
                 "|cacheSize=" + cacheSize +
-                "|regionsToMapAhead=" + regionsToMapAhead +
-                "|mappingRuntime=" + mappingRuntime +
-                "|unmappingRuntime=" + unmappingRuntime;
+                "|regionsToMapAhead=" + regionsToMapAhead;
     }
 }

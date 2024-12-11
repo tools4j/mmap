@@ -21,37 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.config;
+package org.tools4j.mmap.region.config;
 
-public interface QueueConfig {
-    int maxAppenders();
-    boolean deleteOnOpen();
-    long maxHeaderFileSize();
-    long maxPayloadFileSize();
-    boolean expandHeaderFile();
-    boolean expandPayloadFiles();
-    boolean rollHeaderFile();
-    boolean rollPayloadFiles();
-    int headerFilesToCreateAhead();
-    int payloadFilesToCreateAhead();
+import org.tools4j.mmap.region.api.AsyncRuntime;
 
-    AppenderConfig appenderConfig();
-    ReaderConfig pollerConfig();
-    ReaderConfig entryReaderConfig();
-    ReaderConfig entryIteratorConfig();
-    IndexReaderConfig indexReaderConfig();
+import java.util.function.Supplier;
 
-    QueueConfig toImmutableQueueConfig();
+public interface MappingStrategyConfig {
+    int regionSize();
+    int cacheSize();
+    int regionsToMapAhead();
+    Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier();
+    Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier();
 
-    static QueueConfigurator configure() {
-        return QueueConfigurator.create();
+    MappingStrategyConfig toImmutableMappingStrategyConfig();
+
+    static MappingStrategyConfigurator configure() {
+        return MappingStrategyConfigurator.create();
     }
 
-    static QueueConfigurator configure(final QueueConfig defaults) {
-        return QueueConfigurator.create(defaults);
+    static MappingStrategyConfigurator configure(final MappingStrategyConfig defaults) {
+        return MappingStrategyConfigurator.create(defaults);
     }
 
-    static QueueConfig getDefault() {
-        return QueueConfigurations.defaultQueueConfig();
+    static MappingStrategyConfig getDefault() {
+        return MappingConfigurations.defaultMappingStrategyConfig();
     }
+
 }

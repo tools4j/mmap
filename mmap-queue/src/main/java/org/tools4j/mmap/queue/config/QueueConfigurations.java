@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.tools4j.mmap.queue.impl.AppenderIdPool64;
 import org.tools4j.mmap.region.config.AheadMappingStrategy;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingStrategy;
@@ -46,6 +47,10 @@ import static org.tools4j.mmap.region.config.MappingConfigurations.MAPPING_STRAT
  */
 public enum QueueConfigurations {
     ;
+    public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
+    public static final int MAX_APPENDERS_DEFAULT = AppenderIdPool64.MAX_APPENDERS;
+    public static final String DELETE_ON_OPEN_PROPERTY = "mmap.queue.deleteOnOpen";
+    public static final boolean DELETE_ON_OPEN_DEFAULT = false;
     public static final String MAX_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.maxHeaderFileSize";
     public static final int MAX_HEADER_FILE_SIZE_DEFAULT = MappingConfigurations.MAX_FILE_SIZE_DEFAULT;
     public static final String MAX_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.maxPayloadFileSize";
@@ -121,6 +126,14 @@ public enum QueueConfigurations {
     private static MappingStrategy INDEX_READER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy APPENDER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy APPENDER_PAYLOAD_MAPPING_STRATEGY;
+
+    public static int defaultMaxAppenders() {
+        return getIntProperty(MAX_APPENDERS_PROPERTY, Constraints::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
+    }
+
+    public static boolean defaultDeleteOnOpen() {
+        return getBooleanProperty(DELETE_ON_OPEN_PROPERTY, DELETE_ON_OPEN_DEFAULT);
+    }
 
     public static int defaultMaxHeaderFileSize() {
         return getIntProperty(MAX_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_HEADER_FILE_SIZE_DEFAULT);

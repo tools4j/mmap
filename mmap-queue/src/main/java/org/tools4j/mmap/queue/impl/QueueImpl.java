@@ -59,13 +59,17 @@ public final class QueueImpl implements Queue {
     private final Function<AppenderConfig, Appender> appenderFactory;
     private final List<AutoCloseable> closeables = new ArrayList<>();
 
-    public QueueImpl(final File file, final int maxAppenders) {
-        this(file, QueueConfig.getDefault(), maxAppenders);
+    public QueueImpl(final File file) {
+        this(file, QueueConfig.getDefault());
     }
 
-    public QueueImpl(final File file, final QueueConfig queueConfig, final int maxAppenders) {
-        this.files = new QueueFiles(file);
+    public QueueImpl(final File file, final QueueConfig queueConfig) {
+        final int maxAppenders = queueConfig.maxAppenders();
+        this.files = new QueueFiles(file, maxAppenders);
         this.config = queueConfig.toImmutableQueueConfig();
+        if (queueConfig.deleteOnOpen()) {
+            deleteQueueFiles();
+        }
 
         final AppenderIdPool idPool = open(appenderIdPool(files, maxAppenders));
         this.pollerFactory = pollerConfig -> open(new PollerImpl(
@@ -88,6 +92,13 @@ public final class QueueImpl implements Queue {
                 AppenderMappings.create(files, idPool, config, appenderConfig),
                 enableCopyFromPreviousRegion(appenderConfig)
         ));
+    }
+
+    private void deleteQueueFiles() {
+        for (final File file : files.listFiles()) {
+            final boolean deleted = file.delete();
+            assert deleted : files.queueName();
+        }
     }
 
     private static boolean enableCopyFromPreviousRegion(final AppenderConfig appenderConfig) {
