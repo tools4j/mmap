@@ -45,4 +45,8 @@ public interface AppenderConfigurator extends AppenderConfig {
     static AppenderConfigurator configure() {
         return new AppenderConfiguratorImpl();
     }
+
+    static AppenderConfigurator configure(final AppenderConfig defaults) {
+        return new AppenderConfiguratorImpl(defaults);
+    }
 }

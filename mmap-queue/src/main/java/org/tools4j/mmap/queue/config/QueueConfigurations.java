@@ -24,6 +24,7 @@
 package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.AppenderIdPool64;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.AheadMappingStrategy;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingStrategy;
@@ -49,8 +50,8 @@ public enum QueueConfigurations {
     ;
     public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
     public static final int MAX_APPENDERS_DEFAULT = AppenderIdPool64.MAX_APPENDERS;
-    public static final String DELETE_ON_OPEN_PROPERTY = "mmap.queue.deleteOnOpen";
-    public static final boolean DELETE_ON_OPEN_DEFAULT = false;
+    public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
+    public static final AccessMode ACCESS_MODE_DEFAULT = AccessMode.READ_WRITE;
     public static final String MAX_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.maxHeaderFileSize";
     public static final int MAX_HEADER_FILE_SIZE_DEFAULT = MappingConfigurations.MAX_FILE_SIZE_DEFAULT;
     public static final String MAX_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.maxPayloadFileSize";
@@ -131,8 +132,8 @@ public enum QueueConfigurations {
         return getIntProperty(MAX_APPENDERS_PROPERTY, Constraints::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
     }
 
-    public static boolean defaultDeleteOnOpen() {
-        return getBooleanProperty(DELETE_ON_OPEN_PROPERTY, DELETE_ON_OPEN_DEFAULT);
+    public static AccessMode defaultAccessMode() {
+        return getEnumProperty(ACCESS_MODE_PROPERTY, AccessMode.class, ACCESS_MODE_DEFAULT);
     }
 
     public static int defaultMaxHeaderFileSize() {
@@ -510,6 +511,20 @@ public enum QueueConfigurations {
     private static boolean getBooleanProperty(final String propertyName, final boolean defaultValue) {
         final String propVal = System.getProperty(propertyName, null);
         return propVal == null ? defaultValue : Boolean.parseBoolean(propVal);
+    }
+
+    private static <E extends Enum<E>> E getEnumProperty(final String propertyName,
+                                                         final Class<E> enumType,
+                                                         final E defaultValue) {
+        final String propVal = System.getProperty(propertyName, null);
+        if (propVal == null) {
+            return defaultValue;
+        }
+        try {
+            return Enum.valueOf(enumType, propVal);
+        } catch (final Exception e) {
+            throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
+        }
     }
 
     private static <T> T getObjProperty(final String propertyName,

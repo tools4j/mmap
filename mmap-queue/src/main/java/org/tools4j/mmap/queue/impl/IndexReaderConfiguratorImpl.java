@@ -32,12 +32,21 @@ import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseIndexReaderHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultIndexReaderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 
 public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
+    private final IndexReaderConfig defaults;
     private MappingStrategy headerMappingStrategy;
     private Boolean closeHeaderFiles;
+
+    public IndexReaderConfiguratorImpl() {
+        this(INDEX_READER_CONFIG_DEFAULTS);
+    }
+
+    public IndexReaderConfiguratorImpl(final IndexReaderConfig defaults) {
+        this.defaults = requireNonNull(defaults);
+    }
 
     @Override
     public IndexReaderConfigurator reset() {
@@ -48,6 +57,9 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     @Override
     public MappingStrategy headerMappingStrategy() {
+        if (headerMappingStrategy == null) {
+            headerMappingStrategy = defaults.headerMappingStrategy();
+        }
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaultIndexReaderHeaderMappingStrategy();
         }
@@ -67,7 +79,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     @Override
     public IndexReaderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return headerMappingStrategy(config);
     }
@@ -75,7 +87,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     @Override
     public boolean closeHeaderFiles() {
         if (closeHeaderFiles == null) {
-            closeHeaderFiles = defaultCloseIndexReaderHeaderFiles();
+            closeHeaderFiles = defaults.closeHeaderFiles();
         }
         return closeHeaderFiles;
     }

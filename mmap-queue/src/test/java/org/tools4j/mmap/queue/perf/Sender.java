@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.perf;
 
+import org.agrona.hints.ThreadHints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
@@ -50,38 +51,42 @@ public class Sender {
 
         this.thread = new Thread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
-            try (Appender appender = appenderFactory.get()) {
-
+            final double seconds;
+            try (final Appender appender = appenderFactory.get()) {
+                final byte pubId = publisherId;
+                final long count = messages;
+                final int bytes = messageLength;
                 final double maxNanosPerMessage = NANOS_IN_SECOND / messagesPerSecond;
 
-                final MessageCodec testMessage = new MessageCodec(messageLength);
+                final MessageCodec testMessage = new MessageCodec(bytes);
                 final byte[] payload = new byte[testMessage.payloadLength()];
 
                 final long start = System.nanoTime();
-                final long lastMessageIdx = messages - 1;
-                for (int i = 0; i < messages; i++) {
-                    final long time = System.nanoTime();
-                    try (AppendingContext context = appender.appending(messageLength)) {
+                final long lastMessageIdx = count - 1;
+                for (int i = 0; i < count; i++) {
+                    try (final AppendingContext context = appender.appending(bytes)) {
                         testMessage
-                                .wrap(context.buffer())
-                                .publisherId(publisherId)
+                                .wrap(context.buffer(), 0, bytes)
+                                .publisherId(pubId)
                                 .putPayload(payload)
                                 .terminal(i == lastMessageIdx)
-                                .timestamp(time);
-
-                        long index = context.commit(messageLength);
+                                .timestamp(System.nanoTime());
+                        final long index = context.commit(bytes);
                         if (index < 0) {
                             LOGGER.warn("Failed to append message {}, error code {}", i, index);
                         }
                     }
 
-                    long end = System.nanoTime();
-                    final long waitUntil = start + (long)((i + 1) * maxNanosPerMessage);
-                    while (end < waitUntil) {
-                        end = System.nanoTime();
+                    final double nanosUntilNow = (i + 1) * maxNanosPerMessage;
+                    while (System.nanoTime() - start < nanosUntilNow) {
+                        ThreadHints.onSpinWait();
                     }
                 }
+                seconds = (System.nanoTime() - start)/NANOS_IN_SECOND;
             }
+            LOGGER.info("{} messages appended in {}s, which is {} messages/s",
+                    messages, (float)seconds, (float)(messages/seconds));
+            LOGGER.info("completed: {}", Thread.currentThread());
         });
         thread.setName("sender");
         thread.setDaemon(true);

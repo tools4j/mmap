@@ -55,4 +55,8 @@ public interface ReaderConfigurator extends ReaderConfig {
     static ReaderConfigurator configureEntryIterator() {
         return ReaderConfiguratorImpl.createEntryIteratorConfigurator();
     }
+
+    static ReaderConfigurator configure(final ReaderConfig defaults) {
+        return ReaderConfiguratorImpl.createConfigurator(defaults);
+    }
 }

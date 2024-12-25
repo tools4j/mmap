@@ -45,7 +45,7 @@ import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING
 public enum MappingConfigurations {
     ;
     public static final String MAX_FILE_SIZE_PROPERTY = "mmap.region.maxFileSize";
-    public static final int MAX_FILE_SIZE_DEFAULT = 256*1024*1034;
+    public static final int MAX_FILE_SIZE_DEFAULT = 256*1024*1024;
     public static final String EXPAND_FILE_PROPERTY = "mmap.region.expandFile";
     public static final boolean EXPAND_FILE_DEFAULT = true;
     public static final String ROLL_FILES_PROPERTY = "mmap.region.rollFiles";
@@ -55,7 +55,7 @@ public enum MappingConfigurations {
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.region.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String REGION_SIZE_PROPERTY = "mmap.region.regionSize";
-    public static final int REGION_SIZE_DEFAULT = (int)REGION_SIZE_GRANULARITY;
+    public static final int REGION_SIZE_DEFAULT = (int)(1024*REGION_SIZE_GRANULARITY);
     public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.region.regionCacheSize";
     public static final int REGION_CACHE_SIZE_DEFAULT = 16;
     public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.regionsToMapAhead";

@@ -42,11 +42,11 @@ public interface MappingConfig {
     MappingConfig toImmutableMappingConfig();
 
     static MappingConfigurator configure() {
-        return MappingConfigurator.create();
+        return MappingConfigurator.configure();
     }
 
     static MappingConfigurator configure(final MappingConfig defaults) {
-        return MappingConfigurator.create(defaults);
+        return MappingConfigurator.configure(defaults);
     }
 
     static MappingConfig getDefault() {

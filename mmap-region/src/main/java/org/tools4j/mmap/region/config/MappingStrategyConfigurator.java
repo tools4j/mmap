@@ -44,10 +44,15 @@ public interface MappingStrategyConfigurator extends MappingStrategyConfig {
 
     MappingStrategyConfigurator reset();
 
-    static MappingStrategyConfigurator create() {
+    static MappingStrategyConfigurator configure() {
         return new MappingStrategyConfiguratorImpl();
     }
-    static MappingStrategyConfigurator create(final MappingStrategyConfig defaults) {
+
+    static MappingStrategyConfigurator configure(final MappingStrategyConfig defaults) {
         return new MappingStrategyConfiguratorImpl(defaults);
+    }
+
+    static MappingStrategyConfigurator configure(final MappingStrategy defaultStrategy) {
+        return new MappingStrategyConfiguratorImpl(defaultStrategy);
     }
 }

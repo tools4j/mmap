@@ -27,8 +27,9 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.region.api.AccessMode;
 
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultDeleteOnOpen;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
@@ -48,13 +49,13 @@ public enum QueueConfigDefaults implements QueueConfig {
     QUEUE_CONFIG_DEFAULTS;
 
     @Override
-    public int maxAppenders() {
-        return defaultMaxAppenders();
+    public AccessMode accessMode() {
+        return defaultAccessMode();
     }
 
     @Override
-    public boolean deleteOnOpen() {
-        return defaultDeleteOnOpen();
+    public int maxAppenders() {
+        return defaultMaxAppenders();
     }
 
     @Override
@@ -130,8 +131,8 @@ public enum QueueConfigDefaults implements QueueConfig {
     @Override
     public String toString() {
         return "QueueConfigDefaults" +
-                ":maxAppenders=" + maxAppenders() +
-                "|deleteOnOpen=" + deleteOnOpen() +
+                ":accessMode=" + accessMode() +
+                "|maxAppenders=" + maxAppenders() +
                 "|maxHeaderFileSize=" + maxHeaderFileSize() +
                 "|maxPayloadFileSize=" + maxPayloadFileSize() +
                 "|expandHeaderFile=" + expandHeaderFile() +

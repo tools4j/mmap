@@ -23,9 +23,11 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.tools4j.mmap.region.api.AccessMode;
+
 public interface QueueConfig {
+    AccessMode accessMode();
     int maxAppenders();
-    boolean deleteOnOpen();
     long maxHeaderFileSize();
     long maxPayloadFileSize();
     boolean expandHeaderFile();
@@ -44,11 +46,11 @@ public interface QueueConfig {
     QueueConfig toImmutableQueueConfig();
 
     static QueueConfigurator configure() {
-        return QueueConfigurator.create();
+        return QueueConfigurator.configure();
     }
 
     static QueueConfigurator configure(final QueueConfig defaults) {
-        return QueueConfigurator.create(defaults);
+        return QueueConfigurator.configure(defaults);
     }
 
     static QueueConfig getDefault() {

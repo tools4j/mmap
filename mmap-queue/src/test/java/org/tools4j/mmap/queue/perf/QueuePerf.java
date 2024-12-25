@@ -40,6 +40,7 @@ import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.io.File;
@@ -51,27 +52,35 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class QueuePerf {
-    private static final IdleStrategy MAPPING_IDLE_STRATEGY = BusySpinIdleStrategy.INSTANCE;
-    private static final IdleStrategy UNMAPPING_IDLE_STRATEGY = new BackoffIdleStrategy();
-    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(30);
+    private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(300);
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);
 
     public static void main(final String... args) throws Throwable {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());
         tempDir.toFile().deleteOnExit();
 
-        final AsyncRuntime mapperRuntime = AsyncRuntime.create("mapper", MAPPING_IDLE_STRATEGY, true);
-        final AsyncRuntime unmapperRuntime = AsyncRuntime.create("unmapper", UNMAPPING_IDLE_STRATEGY, true);
+        final AsyncRuntime mapperRuntime = AsyncRuntime.create("mapper", BusySpinIdleStrategy.INSTANCE, true);
+        final AsyncRuntime unmapperRuntime = AsyncRuntime.create("unmapper", new BackoffIdleStrategy(), true);
         final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);   //~4MB
-        final int cacheSize = 4;
-        final int regionsToMapAhead = 2;
+        //final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
+        final int cacheSize = 64;
+        final int regionsToMapAhead = 32;
         final QueueConfig config = QueueConfig.configure()
-                .mappingStrategy(cfg -> cfg
+//                .mappingStrategy(MappingStrategy.defaultSyncMappingStrategy())
+                .headerMappingStrategy(cfg -> cfg
                         .regionSize(regionSize)
                         .cacheSize(cacheSize)
                         .regionsToMapAhead(regionsToMapAhead)
                         .mappingAsyncRuntime(mapperRuntime)
                         .unmappingAsyncRuntime(unmapperRuntime))
+                .payloadMappingStrategy(cfg -> cfg
+                        .regionSize(regionSize)
+                        .cacheSize(cacheSize)
+                        .regionsToMapAhead(regionsToMapAhead)
+                        .mappingAsyncRuntime(mapperRuntime)
+                        .unmappingAsyncRuntime(unmapperRuntime))
+                .expandHeaderFile(false)
+                .expandPayloadFiles(false)
                 .maxHeaderFileSize(1024 * 1024 * 1024)
                 .maxPayloadFileSize(1024 * 1024 * 1024)
                 .headerFilesToCreateAhead(0)
@@ -121,7 +130,7 @@ public class QueuePerf {
                     histogram.reset();
                 }
                 final long time = System.nanoTime();
-                try(ReadingContext context = reader.reading(i)) {
+                try (ReadingContext context = reader.reading(i)) {
                     if (context.hasEntry()) {
                         messageCodec.wrap(context.buffer());
                         messageCodec.getPayload(payload);
@@ -130,7 +139,7 @@ public class QueuePerf {
                 final long timeNanos = System.nanoTime() - time;
                 histogram.recordValue(Math.min(timeNanos, maxValue));
             }
-            HistogramPrinter.printHistogram("readAtIndex", histogram);
+            HistogramPrinter.printHistogram("readByIndex", histogram);
             final boolean exists = reader.hasEntry((long) messages * 2);
             assertFalse(exists);
         }

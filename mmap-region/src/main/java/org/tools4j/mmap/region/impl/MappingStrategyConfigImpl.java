@@ -24,6 +24,7 @@
 package org.tools4j.mmap.region.impl;
 
 import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import java.util.function.Supplier;

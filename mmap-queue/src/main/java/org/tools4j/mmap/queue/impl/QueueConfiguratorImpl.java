@@ -31,6 +31,7 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
@@ -38,6 +39,7 @@ import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
@@ -50,8 +52,8 @@ import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
+    private AccessMode accessMode;
     private int maxAppenders;
-    private Boolean deleteOnOpen;
     private long maxHeaderFileSize;
     private long maxPayloadFileSize;
     private Boolean expandHeaderFile;
@@ -76,8 +78,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator reset() {
+        accessMode = null;
         maxAppenders = 0;
-        deleteOnOpen = null;
         maxHeaderFileSize = 0;
         maxPayloadFileSize = 0;
         expandHeaderFile = null;
@@ -91,6 +93,23 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         entryReaderConfig = null;
         entryIteratorConfig = null;
         indexReaderConfig = null;
+        return this;
+    }
+
+    @Override
+    public AccessMode accessMode() {
+        if (accessMode == null) {
+            accessMode = defaults.accessMode();
+        }
+        if (accessMode == null) {
+            accessMode = defaultAccessMode();
+        }
+        return accessMode;
+    }
+
+    @Override
+    public QueueConfigurator accessMode(final AccessMode accessMode) {
+        this.accessMode = requireNonNull(accessMode);
         return this;
     }
 
@@ -109,20 +128,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator maxAppenders(final int maxAppenders) {
         validateMaxAppenders(maxAppenders);
         this.maxAppenders = maxAppenders;
-        return this;
-    }
-
-    @Override
-    public boolean deleteOnOpen() {
-        if (deleteOnOpen == null) {
-            deleteOnOpen = defaults.deleteOnOpen();
-        }
-        return deleteOnOpen;
-    }
-
-    @Override
-    public QueueConfigurator deleteOnOpen(final boolean deleteOnOpen) {
-        this.deleteOnOpen = deleteOnOpen;
         return this;
     }
 
@@ -256,25 +261,32 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator mappingStrategy(final MappingStrategy mappingStrategy) {
-        return headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy);
+        requireNonNull(mappingStrategy);
+        appenderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
+        pollerConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
+        entryReaderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
+        entryIteratorConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
+        indexReaderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy));
+        return this;
     }
 
     @Override
     public QueueConfigurator mappingStrategy(final MappingStrategyConfig config) {
-        return headerMappingStrategy(config).payloadMappingStrategy(config);
+        return mappingStrategy(MappingStrategy.create(config));
     }
 
     @Override
     public QueueConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
-        return headerMappingStrategy(config).payloadMappingStrategy(config);
+        return mappingStrategy(config);
     }
 
     @Override
     public QueueConfigurator headerMappingStrategy(final MappingStrategy mappingStrategy) {
         requireNonNull(mappingStrategy);
         appenderConfig(config -> config.headerMappingStrategy(mappingStrategy));
+        pollerConfig(config -> config.headerMappingStrategy(mappingStrategy));
         entryReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
         entryIteratorConfig(config -> config.headerMappingStrategy(mappingStrategy));
         indexReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
@@ -288,7 +300,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return headerMappingStrategy(config);
     }
@@ -297,6 +309,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator payloadMappingStrategy(final MappingStrategy mappingStrategy) {
         requireNonNull(mappingStrategy);
         appenderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
+        pollerConfig(config -> config.payloadMappingStrategy(mappingStrategy));
         entryReaderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
         entryIteratorConfig(config -> config.payloadMappingStrategy(mappingStrategy));
         return this;
@@ -309,7 +322,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return payloadMappingStrategy(config);
     }
@@ -330,7 +343,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator appenderConfig(final Consumer<? super AppenderConfigurator> configurator) {
-        final AppenderConfigurator config = AppenderConfigurator.configure();
+        final AppenderConfigurator config = appenderConfig != null ?
+                AppenderConfigurator.configure(appenderConfig) : AppenderConfigurator.configure();
         configurator.accept(config);
         this.appenderConfig = config;
         return this;
@@ -352,7 +366,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator pollerConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = ReaderConfigurator.configurePoller();
+        final ReaderConfigurator config = pollerConfig != null ?
+                ReaderConfigurator.configure(pollerConfig) : ReaderConfigurator.configurePoller();
         configurator.accept(config);
         this.pollerConfig = config;
         return this;
@@ -374,7 +389,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator entryReaderConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = ReaderConfigurator.configureEntryReader();
+        final ReaderConfigurator config = entryReaderConfig != null ?
+                ReaderConfigurator.configure(entryReaderConfig) : ReaderConfigurator.configureEntryReader();
         configurator.accept(config);
         this.entryReaderConfig = config;
         return this;
@@ -396,7 +412,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator entryIteratorConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = ReaderConfigurator.configureEntryReader();
+        final ReaderConfigurator config = entryIteratorConfig != null ?
+                ReaderConfigurator.configure(entryIteratorConfig) : ReaderConfigurator.configureEntryIterator();
         configurator.accept(config);
         this.entryIteratorConfig = config;
         return this;
@@ -418,7 +435,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator indexReaderConfig(final Consumer<? super IndexReaderConfigurator> configurator) {
-        final IndexReaderConfigurator config = IndexReaderConfigurator.configure();
+        final IndexReaderConfigurator config = indexReaderConfig != null ?
+                IndexReaderConfigurator.configure(indexReaderConfig) : IndexReaderConfigurator.configure();
         configurator.accept(config);
         this.indexReaderConfig = config;
         return this;
@@ -432,8 +450,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     @Override
     public String toString() {
         return "QueueConfiguratorImpl" +
-                ":maxAppenders=" + maxAppenders +
-                "|deleteOnOpen=" + deleteOnOpen +
+                ":accessMode=" + accessMode +
+                "|maxAppenders=" + maxAppenders +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +

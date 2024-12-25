@@ -63,7 +63,12 @@ public class MessageCodec {
     }
 
     public MessageCodec wrap(final DirectBuffer buffer) {
-        this.buffer.wrap(buffer, 0, encodedLength());
+        return wrap(buffer, 0, buffer.capacity());
+    }
+
+    public MessageCodec wrap(final DirectBuffer buffer, final int offset, final int length) {
+        final int len = Math.min(length, encodedLength());
+        this.buffer.wrap(buffer, offset, len);
         return this;
     }
 

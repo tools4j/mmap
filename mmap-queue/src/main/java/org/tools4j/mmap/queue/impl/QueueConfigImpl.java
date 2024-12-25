@@ -27,12 +27,14 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.region.api.AccessMode;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 
 public class QueueConfigImpl implements QueueConfig {
+    private final AccessMode accessMode;
     private final int maxAppenders;
-    private final boolean deleteOnOpen;
     private final long maxHeaderFileSize;
     private final long maxPayloadFileSize;
     private final boolean expandHeaderFile;
@@ -52,8 +54,8 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     public QueueConfigImpl(final QueueConfig queueConfig) {
-        this(queueConfig.maxAppenders(),
-                queueConfig.deleteOnOpen(),
+        this(queueConfig.accessMode(),
+                queueConfig.maxAppenders(),
                 queueConfig.maxHeaderFileSize(),
                 queueConfig.maxPayloadFileSize(),
                 queueConfig.expandHeaderFile(),
@@ -69,8 +71,8 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.indexReaderConfig());
     }
 
-    public QueueConfigImpl(final int maxAppenders,
-                           final boolean deleteOnOpen,
+    public QueueConfigImpl(final AccessMode accessMode,
+                           final int maxAppenders,
                            final long maxHeaderFileSize,
                            final long maxPayloadFileSize,
                            final boolean expandHeaderFile,
@@ -84,8 +86,8 @@ public class QueueConfigImpl implements QueueConfig {
                            final ReaderConfig entryReaderConfig,
                            final ReaderConfig entryIteratorConfig,
                            final IndexReaderConfig indexReaderConfig) {
+        this.accessMode = requireNonNull(accessMode);
         this.maxAppenders = maxAppenders;
-        this.deleteOnOpen = deleteOnOpen;
         this.maxHeaderFileSize = maxHeaderFileSize;
         this.maxPayloadFileSize = maxPayloadFileSize;
         this.expandHeaderFile = expandHeaderFile;
@@ -102,13 +104,13 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     @Override
-    public int maxAppenders() {
-        return maxAppenders;
+    public AccessMode accessMode() {
+        return accessMode;
     }
 
     @Override
-    public boolean deleteOnOpen() {
-        return deleteOnOpen;
+    public int maxAppenders() {
+        return maxAppenders;
     }
 
     @Override
@@ -184,8 +186,8 @@ public class QueueConfigImpl implements QueueConfig {
     @Override
     public String toString() {
         return "QueueConfigImpl" +
-                ":maxAppenders=" + maxAppenders +
-                "|deleteOnOpen=" + deleteOnOpen +
+                ":accessMode=" + accessMode +
+                "|maxAppenders=" + maxAppenders +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +

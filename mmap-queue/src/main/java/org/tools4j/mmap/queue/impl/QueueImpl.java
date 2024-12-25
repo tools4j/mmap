@@ -36,6 +36,7 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.MappingStrategy;
 
 import java.io.File;
@@ -64,11 +65,15 @@ public final class QueueImpl implements Queue {
     }
 
     public QueueImpl(final File file, final QueueConfig queueConfig) {
+        final AccessMode accessMode = queueConfig.accessMode();
         final int maxAppenders = queueConfig.maxAppenders();
         this.files = new QueueFiles(file, maxAppenders);
         this.config = queueConfig.toImmutableQueueConfig();
-        if (queueConfig.deleteOnOpen()) {
+        if (accessMode == AccessMode.READ_WRITE_CLEAR) {
             deleteQueueFiles();
+        }
+        if (!file.exists() && accessMode != AccessMode.READ_ONLY) {
+            createQueueDir(file);
         }
 
         final AppenderIdPool idPool = open(appenderIdPool(files, maxAppenders));
@@ -87,17 +92,27 @@ public final class QueueImpl implements Queue {
         this.indexReaderFactory = indReaderConfig -> open(new IndexReaderImpl(
                 files.queueName(), IndexMappings.create(files, config, indReaderConfig)
         ));
-        this.appenderFactory = appenderConfig -> open(new AppenderImpl(
-                files.queueName(),
-                AppenderMappings.create(files, idPool, config, appenderConfig),
-                enableCopyFromPreviousRegion(appenderConfig)
-        ));
+        this.appenderFactory = accessMode == AccessMode.READ_ONLY ?
+                appenderConfig -> {throw new IllegalStateException(
+                        "Cannot open appender in read-only mode for queue " + files.queueName());
+                } :
+                appenderConfig -> open(new AppenderImpl(
+                        files.queueName(),
+                        AppenderMappings.create(files, idPool, config, appenderConfig),
+                        enableCopyFromPreviousRegion(appenderConfig)
+                ));
     }
 
     private void deleteQueueFiles() {
         for (final File file : files.listFiles()) {
             final boolean deleted = file.delete();
             assert deleted : files.queueName();
+        }
+    }
+
+    private void createQueueDir(final File file) {
+        if (!file.mkdir()) {
+            throw new IllegalArgumentException("Parent directory does not exist: " + file);
         }
     }
 

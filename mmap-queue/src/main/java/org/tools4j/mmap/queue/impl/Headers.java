@@ -100,10 +100,14 @@ enum Headers {
         return ((header & ADJUSTED_POSITION_HEADER_MASK) >>> ADJUSTED_POSITION_SHIFT) - PAYLOAD_POSITION_ADJUSTMENT;
     }
 
+    private static long payloadBytesWithPadding(final int payloadBytes) {
+        return ((payloadBytes + PAYLOAD_GRANULARITY - 1) >>> PAYLOAD_GRANULARITY_BITS) << PAYLOAD_GRANULARITY_BITS;
+    }
+
     public static long nextPayloadPosition(final long currentPayloadPosition, final int currentPayloadBytes) {
         assert validPayloadPosition(currentPayloadPosition) : "currentPayloadPosition must be valid";
         assert currentPayloadBytes >= 0 : "currentPayloadBytes must not be negative";
-        return currentPayloadPosition + ((currentPayloadBytes + PAYLOAD_GRANULARITY - 1) >>> PAYLOAD_GRANULARITY_BITS);
+        return currentPayloadPosition + payloadBytesWithPadding(currentPayloadBytes);
     }
 
     public static boolean validAppenderId(final int appenderId) {

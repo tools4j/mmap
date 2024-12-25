@@ -58,6 +58,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
     private final BackgroundMapper backgroundMapper;
     private final BackgroundUnmapper backgroundUnmapper;
     private long lastPositionMapped;
+    private int lastAheadMapped;
     private boolean closed;
 
     public AsyncRingRegionMapper(final AsyncRuntime mappingRuntime,
@@ -88,7 +89,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         this.mapAhead = mapAhead;
         this.positions = new long[cacheSize];
         this.addresses = new long[cacheSize];
-        this.lastPositionMapped = -regionSize;
+        this.lastPositionMapped = -regionSize;//so that we map-ahead when mapping position 0
+        this.lastAheadMapped = 0;
         this.backgroundMapper = startBackgroundMapper(cacheSize);
         this.backgroundUnmapper = startBackgroundUnmapper(unmapCacheSize);
         Arrays.fill(positions, NULL_POSITION);
@@ -121,10 +123,12 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         return (int)(cacheSizeMask & (position >> regionSizeBits));
     }
 
+    long cache, ahead, sync, busy;
     @Override
     public long map(final long position) {
         final int cacheIndex = cacheIndex(position);
         if (positions[cacheIndex] == position) {
+            cache++;
             return addresses[cacheIndex];
         }
         return map(cacheIndex, position);
@@ -134,8 +138,10 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         final BackgroundMapper background = backgroundMapper;
         final long addr;
         if (background.isMappedTo(cacheIndex, position)) {
+            ahead++;
             addr = background.consumeMappedAddress(cacheIndex);
         } else {
+            sync++;
             addr = mapSync(position);
         }
         if (addr > NULL_ADDRESS) {
@@ -158,22 +164,30 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         final long lastPositionMapped = this.lastPositionMapped;
         if (position != lastPositionMapped) {
             final int regionSize = this.regionSize;
+            final int lastAhead = Math.max(lastAheadMapped - 1, 0);
+            lastAheadMapped = 0;
             long nextPosition = position;
             if (position == lastPositionMapped + regionSize) {
                 //sequential forward access
                 for (int i = 0; i < mapAhead; i++) {
                     nextPosition += regionSize;
+                    if (i < lastAhead) continue;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
+                        busy++;
                         return;
                     }
+                    lastAheadMapped = i;
                 }
             } else if (position == lastPositionMapped - regionSize) {
                 //sequential backward access
                 for (int i = 0; i < mapAhead && nextPosition >= regionSize; i++) {
                     nextPosition -= regionSize;
+                    if (i < lastAhead) continue;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
+                        busy++;
                         return;
                     }
+                    lastAheadMapped = i;
                 }
             }
             //else: random access pattern, we don't try to predict the next access
@@ -235,6 +249,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 unmappingRuntime.deregister(backgroundUnmapper);
                 closed = true;
             }
+            System.out.println(this + " closed: cache=" + cache + ", ahead=" + ahead + ", sync=" + sync + ", busy=" + busy);
         }
     }
 
@@ -455,7 +470,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
             this.buffer = new UnsafeBuffer(ByteBuffer.allocateDirect(HEADER_LENGTH + unmapCacheSize * RECORD_LENGTH));
         }
 
-        private int nextFree(final int index) {
+        private int ringIndex(final int index) {
             return index & ringMask;
         }
 
@@ -465,15 +480,15 @@ public final class AsyncRingRegionMapper implements RegionMapper {
 
         @Override
         public int execute() {
-            final int nextFree = buffer.getIntVolatile(PRODUCER_OFFSET);
-            final int endUnmap = buffer.getInt(CONSUMER_OFFSET);
-            if (nextFree != endUnmap) {
-                final int newEndUnmap = nextFree(endUnmap + 1);
-                final int offset = offset(nextFree);
+            final int ixProducer = buffer.getIntVolatile(PRODUCER_OFFSET);
+            final int ixConsumer = buffer.getInt(CONSUMER_OFFSET);
+            if (ixProducer != ixConsumer) {
+                final int ixConsumerNew = ringIndex(ixConsumer + 1);
+                final int offset = offset(ixConsumer);
                 final long pos = buffer.getLong(offset);
                 final long addr = buffer.getLong(offset + Long.BYTES);
                 buffer.setMemory(offset, Long.BYTES + Long.BYTES, (byte)0);
-                buffer.putIntOrdered(CONSUMER_OFFSET, newEndUnmap);
+                buffer.putIntOrdered(CONSUMER_OFFSET, ixConsumerNew);
                 fileMapper.unmap(addr, pos, regionSize);
                 return 1;
             }
@@ -484,14 +499,14 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         }
 
         boolean unmap(final long position, final long address) {
-            final int endUnmap = buffer.getIntVolatile(CONSUMER_OFFSET);
-            final int nextFree = buffer.getInt(PRODUCER_OFFSET);
-            final int newNextFree = nextFree(nextFree + 1);
-            if (newNextFree != endUnmap) {
-                final int offset = offset(nextFree);
+            final int ixConsumer = buffer.getIntVolatile(CONSUMER_OFFSET);
+            final int ixProducer = buffer.getInt(PRODUCER_OFFSET);
+            final int ixProducerNew = ringIndex(ixProducer + 1);
+            if (ixProducerNew != ixConsumer) {
+                final int offset = offset(ixProducer);
                 buffer.putLong(offset, position);
                 buffer.putLong(offset + Long.BYTES, address);
-                buffer.putIntOrdered(PRODUCER_OFFSET, newNextFree);
+                buffer.putIntOrdered(PRODUCER_OFFSET, ixProducerNew);
                 return true;
             }
             return false;

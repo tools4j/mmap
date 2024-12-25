@@ -66,7 +66,7 @@ public class AheadMappingStrategy implements MappingStrategy, AsyncOptions {
                                 final int regionsToMapAhead,
                                 final Supplier<? extends AsyncRuntime> mappingRuntimeSupplier,
                                 final Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier) {
-        validateRegionSize(cacheSize);
+        validateRegionSize(regionSize);
         validateRegionCacheSize(cacheSize);
         validateRegionsToMapAhead(regionsToMapAhead);
         requireNonNull(mappingRuntimeSupplier);

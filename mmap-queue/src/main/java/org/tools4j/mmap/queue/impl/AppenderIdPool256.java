@@ -85,7 +85,7 @@ public class AppenderIdPool256 implements AppenderIdPool {
             if (appenderBit != 0) {
                 final int appenderBitValue = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
                 final int appenderId = index / Long.BYTES * Long.SIZE + appenderBitValue;
-                LOGGER.info("Acquired appenderId {} for {}", appenderId, name);
+                LOGGER.info("Acquired appenderId {} from {}", appenderId, name);
                 return appenderId;
             }
         }

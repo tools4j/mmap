@@ -24,6 +24,7 @@
 package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
@@ -31,8 +32,8 @@ import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 public interface QueueConfigurator extends QueueConfig {
+    QueueConfigurator accessMode(AccessMode accessMode);
     QueueConfigurator maxAppenders(int maxAppenders);
-    QueueConfigurator deleteOnOpen(boolean deleteOnOpen);
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);
     QueueConfigurator maxPayloadFileSize(long maxPayloadFileSize);
     QueueConfigurator expandHeaderFile(boolean expandHeaderFile);
@@ -62,11 +63,11 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator indexReaderConfig(Consumer<? super IndexReaderConfigurator> configurator);
     QueueConfigurator reset();
 
-    static QueueConfigurator create() {
+    static QueueConfigurator configure() {
         return new QueueConfiguratorImpl();
     }
 
-    static QueueConfigurator create(final QueueConfig defaults) {
+    static QueueConfigurator configure(final QueueConfig defaults) {
         return new QueueConfiguratorImpl(defaults);
     }
 }

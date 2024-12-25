@@ -40,4 +40,8 @@ public interface IndexReaderConfigurator extends IndexReaderConfig {
     static IndexReaderConfigurator configure() {
         return new IndexReaderConfiguratorImpl();
     }
+
+    static IndexReaderConfigurator configure(final IndexReaderConfig defaults) {
+        return new IndexReaderConfiguratorImpl(defaults);
+    }
 }

@@ -38,8 +38,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
-import static org.tools4j.mmap.queue.impl.Exceptions.validateIndex;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class EntryIteratorImpl implements EntryIterator {
@@ -128,7 +128,11 @@ final class EntryIteratorImpl implements EntryIterator {
                 close();
                 throw new IllegalStateException("Iterable context has not been closed");
             }
-            validateIndex(index);
+            if (index < 0 || index > Index.MAX) {
+                if (index < Index.LAST) {
+                    throw invalidIndexException(iterator.iteratorName(), index);
+                }
+            }
             this.increment = FORWARD;
             this.startIndex = index;
             this.index = Index.NULL;
@@ -164,9 +168,11 @@ final class EntryIteratorImpl implements EntryIterator {
         }
 
         private long moveToStart(final long index) {
-            return index != Index.LAST ?
-                    Headers.moveAndGetHeader(header, index):
-                    Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST));
+            if (index < Index.LAST) {
+                return Headers.moveAndGetHeader(header, index);
+            }
+            return Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST)) +
+                    (index == Index.END ? 1 : 0);
         }
 
         @Override
@@ -187,7 +193,7 @@ final class EntryIteratorImpl implements EntryIterator {
                 return true;
             }
             next = cur + inc;
-            if (next <= Index.FIRST) {
+            if (next <= Index.FIRST || next > Index.MAX) {
                 return false;
             }
             final long hdr = Headers.moveAndGetHeader(header, next);
@@ -225,7 +231,7 @@ final class EntryIteratorImpl implements EntryIterator {
                 throw payloadMoveException(iterator, appenderId, position);
             }
             final int size = payload.buffer().getInt(0);
-            buffer.wrap(payload.buffer(), Integer.SIZE, size);
+            buffer.wrap(payload.buffer(), Integer.BYTES, size);
             return index;
         }
 
@@ -272,7 +278,7 @@ final class EntryIteratorImpl implements EntryIterator {
     }
 
     String iteratorName() {
-        return queueName + ".entryIterator";
+        return queueName + ".entryIterator-" + System.identityHashCode(this);
     }
 
     @Override

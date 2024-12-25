@@ -67,21 +67,25 @@ final class PollerImpl implements Poller {
 
     @Override
     public void seekStart() {
+        checkNotClosed();
         nextIndex = Index.FIRST;
     }
 
     @Override
     public void seekLast() {
+        checkNotClosed();
         nextIndex = Index.LAST;
     }
 
     @Override
     public void seekEnd() {
+        checkNotClosed();
         nextIndex = Index.END;
     }
 
     @Override
     public void seekNext(final long index) {
+        checkNotClosed();
         nextIndex = nextIndex(Index.FIRST, index);
     }
 
@@ -127,18 +131,19 @@ final class PollerImpl implements Poller {
         }
         final int upd;
         if (cur < nex) {
-            upd = cur < Index.MAX ? moveTo(cur + 1) : AFTER_MAX;
+            upd = cur < Index.MAX ? moveTo(cur, 1) : AFTER_MAX;
         } else {
-            upd = cur > Index.FIRST ? moveTo(cur - 1) : BEFORE_FIRST;
+            upd = cur > Index.FIRST ? moveTo(cur, -1) : BEFORE_FIRST;
         }
         return (upd == CURSOR_MOVED && currentIndex == nex) ? ENTRY_POLLED : upd;
     }
 
-    private int moveTo(final long index) {
+    private int moveTo(final long curIndex, final int inc) {
         final int error = errorState;
         if (error == CLOSED) {
             return CLOSED;
         }
+        final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
         final OffsetMapping headerMapping = this.header;
         if (!headerMapping.moveTo(position)) {
@@ -149,6 +154,15 @@ final class PollerImpl implements Poller {
         }
         final long header = headerMapping.buffer().getLongVolatile(0);
         if (header == NULL_HEADER) {
+            final long next = nextIndex;
+            if (next > Index.MAX && inc > 0) {
+                assert next == Index.LAST || next == Index.END : "invalid special index";
+                if (index > 0 && next == Index.LAST) {
+                    nextIndex = index - 1;
+                    return CURSOR_MOVED;
+                }
+                nextIndex = index;
+            }
             return PENDING_NEXT;
         }
         currentIndex = index;
@@ -163,8 +177,12 @@ final class PollerImpl implements Poller {
 
     private void checkNotClosed() {
         if (isClosed()) {
-            throw new IllegalStateException("Poller is closed");
+            throw new IllegalStateException("Poller " + pollerName() + " is closed");
         }
+    }
+
+    private String pollerName() {
+        return queueName + ".poller-" + System.identityHashCode(this);
     }
 
     @Override
@@ -175,7 +193,7 @@ final class PollerImpl implements Poller {
             currentIndex = Index.NULL;
             currentHeader = NULL_HEADER;
             mappings.close();
-            LOGGER.info("Poller closed, queue={}", queueName);
+            LOGGER.info("Poller closed: {}", pollerName());
         }
     }
 

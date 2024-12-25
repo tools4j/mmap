@@ -56,7 +56,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(idleStrategy);
         final Thread thread = new Thread(() -> {
-            LOGGER.info("Started async region mapping runtime");
+            LOGGER.info("Started async region mapping runtime with {} idle strategy", idleStrategy.alias());
             idleStrategy.reset();
             StopStatus stopSignal;
             int workCount = 0;

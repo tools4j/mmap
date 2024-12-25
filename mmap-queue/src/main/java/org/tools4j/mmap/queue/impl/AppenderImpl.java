@@ -51,6 +51,7 @@ final class AppenderImpl implements Appender {
     private final AppendingContextImpl context;
     private long endIndex;
     private long lastOwnHeader;
+    private int lastOwnPayloadLength;
     private boolean closed;
 
     public AppenderImpl(final String queueName, final AppenderMappings mappings, final boolean enableCopyFromPreviousRegion) {
@@ -63,6 +64,7 @@ final class AppenderImpl implements Appender {
         this.context = new AppendingContextImpl(this);
         this.endIndex = Index.NULL;
         this.lastOwnHeader = NULL_HEADER;
+        this.lastOwnPayloadLength = -1;
         initialMoveToEnd();
     }
 
@@ -89,6 +91,7 @@ final class AppenderImpl implements Appender {
         checkIndexNotExceedingMax(endIndex);
         this.endIndex = endIndex;
         this.lastOwnHeader = lastOwnHeader;
+        this.lastOwnPayloadLength = -1;
     }
 
     @Override
@@ -105,7 +108,7 @@ final class AppenderImpl implements Appender {
         return context.init(capacity);
     }
 
-    private long appendEntry(final long payloadPosition) {
+    private long appendEntry(final long payloadPosition, final int payloadLength) {
         checkNotClosed();
         final OffsetMapping hdr = header;
         final AtomicBuffer buf = hdr.buffer();
@@ -114,16 +117,23 @@ final class AppenderImpl implements Appender {
         checkIndexNotExceedingMax(index);
         while (!buf.compareAndSetLong(0, NULL_HEADER, headerValue)) {
             do {
-                endIndex++; //NOTE: may exceed MAX, but we check when appending (see above)
-                index = endIndex;
+                index++;
+                endIndex = index;
                 checkIndexNotExceedingMax(index);
                 if (!Headers.moveToHeaderIndex(hdr, index)) {
                     throw headerMoveException(this, Headers.headerPositionForIndex(index));
                 }
             } while (buf.getLongVolatile(0) != NULL_HEADER);
         }
-        endIndex = index + 1;//NOTE: may exceed MAX, but we check when appending (see above)
+        final long nextIndex = index + 1;
+        endIndex = nextIndex;//NOTE: may exceed MAX, but we check when appending (see above)
+        if (nextIndex <= Index.MAX) {
+            if (!Headers.moveToHeaderIndex(hdr, nextIndex)) {
+                throw headerMoveException(this, Headers.headerPositionForIndex(index));
+            }
+        }
         lastOwnHeader = headerValue;
+        lastOwnPayloadLength = payloadLength;
         return index;
     }
 
@@ -144,6 +154,7 @@ final class AppenderImpl implements Appender {
             closed = true;
             endIndex = Index.NULL;
             lastOwnHeader = NULL_HEADER;
+            lastOwnPayloadLength = -1;
             mappings.close();
             LOGGER.info("Appender closed: {}", appenderName());
         }
@@ -159,7 +170,7 @@ final class AppenderImpl implements Appender {
         AppendingContextImpl(final AppenderImpl appender) {
             this.appender = requireNonNull(appender);
             this.payload = requireNonNull(appender.payload);
-            this.maxEntrySize = payload.regionSize() - Integer.SIZE;
+            this.maxEntrySize = payload.regionSize() - Integer.BYTES;
         }
 
         private void validateCapacity(final int capacity) {
@@ -175,23 +186,23 @@ final class AppenderImpl implements Appender {
                 throw new IllegalStateException("Appending context has not been closed");
             }
             validateCapacity(capacity);
-            this.maxLength = initPayloadBuffer(appender.lastOwnHeader, Math.max(0, capacity));
+            this.maxLength = initPayloadBuffer(appender.lastOwnHeader, appender.lastOwnPayloadLength, Math.max(0, capacity));
             return this;
         }
 
-        private int initPayloadBuffer(final long lastOwnHeader, final int capacity) {
+        private int initPayloadBuffer(final long lastOwnHeader, final int lastOwnPayloadLen, final int capacity) {
             assert capacity >= 0 && capacity <= maxEntrySize;
             final OffsetMapping pld = payload;
-            final int minRequired = capacity + Integer.SIZE;
-            long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
-                    Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), minRequired);
+            final int minRequired = capacity + Integer.BYTES;
+            final long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
+                    Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), lastOwnPayloadLen);
             if (!pld.moveTo(payloadPosition)) {
                 throw payloadMoveException(appender, payloadPosition);
             }
             if (pld.bytesAvailable() < minRequired) {
                 moveToNextPayloadRegion(pld);
             }
-            buffer.wrap(pld.buffer(), Integer.SIZE, capacity);
+            buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
             return capacity;
         }
 
@@ -212,7 +223,7 @@ final class AppenderImpl implements Appender {
                 return;
             }
             validateCapacity(capacity);
-            final int minRequired = capacity + Integer.SIZE;
+            final int minRequired = capacity + Integer.BYTES;
             final OffsetMapping pld = payload;
             if (pld.bytesAvailable() < minRequired) {
                 if (!appender.enableCopyFromPreviousRegion) {
@@ -222,9 +233,9 @@ final class AppenderImpl implements Appender {
                 //NOTE: copy data from buffer to the mapping buffer
                 //      --> the buffer is still wrapped at old region address
                 //      --> old region address is still mapped because a region cache is in use
-                pld.buffer().getBytes(Integer.SIZE, buffer, 0, max);
+                pld.buffer().getBytes(Integer.BYTES, buffer, 0, max);
             }
-            buffer.wrap(pld.buffer(), Integer.SIZE, capacity);
+            buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
             maxLength = capacity;
         }
 
@@ -246,7 +257,7 @@ final class AppenderImpl implements Appender {
             validateLength(length, max);
             final OffsetMapping pld = payload;
             pld.buffer().putInt(0, length);
-            return appender.appendEntry(pld.position());
+            return appender.appendEntry(pld.position(), length + Integer.BYTES);
         }
 
         static void validateLength(final int length, final int maxLength) {

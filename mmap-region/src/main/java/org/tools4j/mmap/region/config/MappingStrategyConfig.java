@@ -37,11 +37,11 @@ public interface MappingStrategyConfig {
     MappingStrategyConfig toImmutableMappingStrategyConfig();
 
     static MappingStrategyConfigurator configure() {
-        return MappingStrategyConfigurator.create();
+        return MappingStrategyConfigurator.configure();
     }
 
     static MappingStrategyConfigurator configure(final MappingStrategyConfig defaults) {
-        return MappingStrategyConfigurator.create(defaults);
+        return MappingStrategyConfigurator.configure(defaults);
     }
 
     static MappingStrategyConfig getDefault() {

@@ -52,9 +52,9 @@ public class Receiver {
         this.id = id;
         this.thread = new Thread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
+            final MutableBoolean finished = new MutableBoolean(false);
             final long maxValue = TimeUnit.SECONDS.toNanos(1);
             final Histogram histogram = new Histogram(1, maxValue, 3);
-            final MutableBoolean finished = new MutableBoolean(false);
 
             final EntryHandler messageHandler = new EntryHandler() {
                 final MessageCodec messageCodec = new MessageCodec(messageLength);
@@ -64,18 +64,19 @@ public class Receiver {
 
                 @Override
                 public long onEntry(final long index, final DirectBuffer buffer, final int offset, final int length) {
+                    final long end = System.nanoTime();
                     received++;
-                    long end = System.nanoTime();
-                    messageCodec.wrap(buffer);//FIXME use index and length
-                    messageCodec.getPayload(payload);
+                    final MessageCodec code = messageCodec;
+                    code.wrap(buffer, offset, length);
+                    code.getPayload(payload);
 
-                    final long timeNanos = end - messageCodec.timestamp();
+                    final long timeNanos = end - code.timestamp();
                     histogram.recordValue(Math.min(timeNanos, maxValue));
 
                     if (received == warmup) {
                         histogram.reset();
                     }
-                    if (messageCodec.terminal()) {
+                    if (code.terminal()) {
                         finished.set(true);
                     }
                     return Move.NEXT;
@@ -88,7 +89,7 @@ public class Receiver {
                 }
                 atomicHistogram.set(histogram);
             }
-
+            LOGGER.info("completed: {}", Thread.currentThread());
         });
         thread.setName("receiver-" + id);
         thread.setDaemon(true);

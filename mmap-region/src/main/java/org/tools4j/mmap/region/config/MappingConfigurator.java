@@ -42,11 +42,11 @@ public interface MappingConfigurator extends MappingConfig {
 
     MappingConfigurator reset();
 
-    static MappingConfigurator create() {
+    static MappingConfigurator configure() {
         return new MappingConfiguratorImpl();
     }
 
-    static MappingConfigurator create(final MappingConfig defaults) {
+    static MappingConfigurator configure(final MappingConfig defaults) {
         return new MappingConfiguratorImpl(defaults);
     }
 }

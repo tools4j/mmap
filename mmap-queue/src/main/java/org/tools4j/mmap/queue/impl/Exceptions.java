@@ -23,15 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.api.Index;
-
 enum Exceptions {
     ;
 
-    static void validateIndex(final long index) {
-        if (index < 0 || index > Index.MAX) {
-            throw new IllegalArgumentException("Invalid index: " + index);
-        }
+    static IllegalArgumentException invalidIndexException(final String name, final long index) {
+        return new IllegalArgumentException("Invalid index for " + name + ": " + index);
     }
 
     static IllegalStateException headerMoveException(final AppenderImpl appender, final long position) {

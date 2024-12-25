@@ -106,12 +106,12 @@ public final class DynamicMappingImpl implements DynamicMapping {
         if (position == mappedPosition && position > NULL_POSITION) {
             return true;
         }
-        final RegionMetrics metrics = regionMetrics;
-        validateRegionPosition(position, metrics.regionSize());
+        final int regionSize = regionSize();
+        validateRegionPosition(position, regionSize);
         final long addr = regionMapper.map(position);
         if (addr > NULL_ADDRESS) {
             mappedPosition = position;
-            buffer.wrap(addr, metrics.regionSize());
+            buffer.wrap(addr, regionSize);
             return true;
         }
         mappedPosition = NULL_POSITION;

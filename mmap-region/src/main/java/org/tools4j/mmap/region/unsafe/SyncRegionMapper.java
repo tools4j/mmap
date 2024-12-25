@@ -101,6 +101,7 @@ public final class SyncRegionMapper implements RegionMapper {
             } finally {
                 closed = true;
             }
+            System.out.println(this + " closed");
         }
     }
 

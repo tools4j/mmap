@@ -47,16 +47,20 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         this.defaults = requireNonNull(defaults);
     }
 
+    public static ReaderConfigurator createConfigurator(final ReaderConfig defaults) {
+        return new ReaderConfiguratorImpl(defaults);
+    }
+
     public static ReaderConfigurator createPollerConfigurator() {
-        return new ReaderConfiguratorImpl(POLLER_CONFIG_DEFAULTS);
+        return createConfigurator(POLLER_CONFIG_DEFAULTS);
     }
 
     public static ReaderConfigurator createEntryReaderConfigurator() {
-        return new ReaderConfiguratorImpl(ENTRY_READER_CONFIG_DEFAULTS);
+        return createConfigurator(ENTRY_READER_CONFIG_DEFAULTS);
     }
 
     public static ReaderConfigurator createEntryIteratorConfigurator() {
-        return new ReaderConfiguratorImpl(ENTRY_ITERATOR_CONFIG_DEFAULTS);
+        return createConfigurator(ENTRY_ITERATOR_CONFIG_DEFAULTS);
     }
 
     @Override
@@ -80,7 +84,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return headerMappingStrategy(config).payloadMappingStrategy(config);
     }
@@ -106,7 +110,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return headerMappingStrategy(config);
     }
@@ -132,7 +136,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.create();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
         configurator.accept(config);
         return payloadMappingStrategy(config);
     }

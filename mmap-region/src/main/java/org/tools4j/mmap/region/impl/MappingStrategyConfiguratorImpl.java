@@ -25,6 +25,8 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategy.AsyncOptions;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
@@ -56,6 +58,26 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     public MappingStrategyConfiguratorImpl() {
         this(MAPPING_STRATEGY_CONFIG_DEFAULTS);
     }
+
+    public MappingStrategyConfiguratorImpl(final MappingStrategy defaultStrategy) {
+        this(toConfig(defaultStrategy));
+    }
+
+    private static MappingStrategyConfig toConfig(final MappingStrategy defaultStrategy) {
+        requireNonNull(defaultStrategy);
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure()
+                .regionSize(defaultStrategy.regionSize())
+                .cacheSize(defaultStrategy.cacheSize())
+                .regionsToMapAhead(0);
+        final AsyncOptions asyncOptions = defaultStrategy.asyncOptions().orElse(null);
+        if (asyncOptions != null) {
+            config.regionsToMapAhead(asyncOptions.regionsToMapAhead())
+                    .mappingAsyncRuntime(asyncOptions.mappingRuntime())
+                    .unmappingAsyncRuntime(asyncOptions.unmappingRuntime());
+        }
+        return config;
+    }
+
     public MappingStrategyConfiguratorImpl(final MappingStrategyConfig defaults) {
         this.defaults = requireNonNull(defaults);
     }

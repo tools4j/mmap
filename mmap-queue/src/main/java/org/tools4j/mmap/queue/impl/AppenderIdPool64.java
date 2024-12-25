@@ -83,7 +83,7 @@ public class AppenderIdPool64 implements AppenderIdPool {
         } while (appenderBit != 0 && !buf.compareAndSetLong(0, appenderBitSet, appenderBitSet | appenderBit));
         if (appenderBit != 0) {
             final int appenderId = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
-            LOGGER.info("Acquired appenderId {} for {}", appenderId, name);
+            LOGGER.info("Acquired appenderId {} from {}", appenderId, name);
             return appenderId;
         }
         throw new IllegalStateException("Exceeded max number of " + MAX_APPENDERS + " appenders in appender ID pool: "

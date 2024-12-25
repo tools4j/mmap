@@ -34,8 +34,8 @@ import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.region.api.OffsetMapping;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
-import static org.tools4j.mmap.queue.impl.Exceptions.validateIndex;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class EntryReaderImpl implements EntryReader {
@@ -123,7 +123,11 @@ final class EntryReaderImpl implements EntryReader {
                 close();
                 throw new IllegalStateException("Reading context has not been closed");
             }
-            validateIndex(index);
+            if (index < 0 || index > Index.MAX) {
+                if (index != Index.LAST) {
+                    throw invalidIndexException(reader.readerName(), index);
+                }
+            }
             final long actualIndex = initPayloadBuffer(index);
             this.index = actualIndex;
             this.closed = false;
@@ -147,7 +151,7 @@ final class EntryReaderImpl implements EntryReader {
                 throw payloadMoveException(reader, appenderId, position);
             }
             final int size = payload.buffer().getInt(0);
-            this.buffer.wrap(payload.buffer(), Integer.SIZE, size);
+            this.buffer.wrap(payload.buffer(), Integer.BYTES, size);
             return index;
         }
 
@@ -190,7 +194,7 @@ final class EntryReaderImpl implements EntryReader {
     }
 
     String readerName() {
-        return queueName + ".entryReader";
+        return queueName + ".entryReader-" + System.identityHashCode(this);
     }
 
     @Override
