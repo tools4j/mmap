@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@ import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class EntryIteratorImpl implements EntryIterator {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PollerImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EntryIteratorImpl.class);
 
     private final String queueName;
     private final ReaderMappings mappings;
@@ -92,7 +92,7 @@ final class EntryIteratorImpl implements EntryIterator {
     @Override
     public void close() {
         if (!isClosed()) {
-            header.close();
+            mappings.close();
             LOGGER.info("Entry iterator closed, queue={}", queueName);
         }
     }
@@ -128,17 +128,23 @@ final class EntryIteratorImpl implements EntryIterator {
                 close();
                 throw new IllegalStateException("Iterable context has not been closed");
             }
-            if (index < 0 || index > Index.MAX) {
-                if (index < Index.LAST) {
-                    throw invalidIndexException(iterator.iteratorName(), index);
-                }
-            }
+            this.startIndex = actualStartIndex(index);
             this.increment = FORWARD;
-            this.startIndex = index;
             this.index = Index.NULL;
             this.nextIndex = Index.NULL;
             this.nextHeader = NULL_HEADER;
             return this;
+        }
+
+        private long actualStartIndex(final long index) {
+            if (index >= 0 && index <= Index.MAX) {
+                return index;
+            }
+            if (index < Index.LAST) {
+                throw invalidIndexException(iterator.iteratorName(), index);
+            }
+            final long lastIndex = Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST));
+            return lastIndex != Index.NULL ? (index == Index.LAST ? lastIndex : lastIndex + 1) : Index.FIRST;
         }
 
         @Override
@@ -146,17 +152,8 @@ final class EntryIteratorImpl implements EntryIterator {
             if (isClosed()) {
                 throw new IllegalStateException("Iterable context is closed");
             }
-            final long start = startIndex;
-            final long hdr = moveToStart(start);
-            if (hdr != NULL_HEADER) {
-                startIndex = start;
-                nextIndex = start;
-                updateMaxIndex(start);
-            } else {
-                startIndex = Index.NULL;
-                nextIndex = Index.NULL;
-            }
-            nextHeader = hdr;
+            nextIndex = startIndex;
+            nextHeader = NULL_HEADER;
             index = Index.NULL;
             return this;
         }
@@ -167,14 +164,6 @@ final class EntryIteratorImpl implements EntryIterator {
             }
         }
 
-        private long moveToStart(final long index) {
-            if (index < Index.LAST) {
-                return Headers.moveAndGetHeader(header, index);
-            }
-            return Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST)) +
-                    (index == Index.END ? 1 : 0);
-        }
-
         @Override
         public IterableContext reverse() {
             increment = -increment;
@@ -183,36 +172,33 @@ final class EntryIteratorImpl implements EntryIterator {
 
         @Override
         public boolean hasNext() {
-            final int inc = increment;
-            if (inc == 0) {
+            final long next = nextIndex;
+            if (next == Index.NULL) {
                 return false;
             }
-            final long cur = index;
-            long next = nextIndex;
-            if (cur + inc == next) {
+            long hdr = nextHeader;
+            if (hdr != NULL_HEADER) {
                 return true;
             }
-            next = cur + inc;
-            if (next <= Index.FIRST || next > Index.MAX) {
-                return false;
+            hdr = Headers.moveAndGetHeader(header, next);
+            if (hdr != NULL_HEADER) {
+                updateMaxIndex(next);
+                nextHeader = hdr;
+                return true;
             }
-            final long hdr = Headers.moveAndGetHeader(header, next);
-            if (hdr == NULL_HEADER) {
-                nextIndex = Index.NULL;
-                nextHeader = NULL_HEADER;
-                return false;
-            }
-            nextIndex = next;
-            nextHeader = hdr;
-            updateMaxIndex(next);
-            return true;
+            nextIndex = Index.NULL;
+            nextHeader = NULL_HEADER;
+            return false;
         }
 
         @Override
         public Entry next() {
             if (hasNext()) {
-                index = moveToNextAndInitPayload(nextIndex, nextHeader);
-                nextIndex = Index.NULL;
+                final int inc = increment;
+                final long cur = moveToNextAndInitPayload(nextIndex, nextHeader);
+                final long next = cur + inc;
+                index = cur;
+                nextIndex = inc != 0 && next >= Index.FIRST && next <= Index.MAX ? next : Index.NULL;
                 nextHeader = NULL_HEADER;
                 return this;
             }

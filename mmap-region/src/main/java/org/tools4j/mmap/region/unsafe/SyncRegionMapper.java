@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.Unsafe;
 
 import static java.util.Objects.requireNonNull;
@@ -34,6 +36,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 @Unsafe
 public final class SyncRegionMapper implements RegionMapper {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapper.class);
     private final FileMapper fileMapper;
     private final int regionSize;
     private long mappedAddress = NULL_ADDRESS;
@@ -101,7 +104,7 @@ public final class SyncRegionMapper implements RegionMapper {
             } finally {
                 closed = true;
             }
-            System.out.println(this + " closed");
+            LOGGER.info("{} closed.", this);
         }
     }
 

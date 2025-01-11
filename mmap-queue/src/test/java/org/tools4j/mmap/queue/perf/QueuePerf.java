@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,12 @@ package org.tools4j.mmap.queue.perf;
 import org.HdrHistogram.Histogram;
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.BusySpinIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
+import org.tools4j.mmap.queue.api.IndexReader;
 import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.ReadingContext;
@@ -40,13 +40,15 @@ import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,30 +61,55 @@ public class QueuePerf {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());
         tempDir.toFile().deleteOnExit();
 
-        final AsyncRuntime mapperRuntime = AsyncRuntime.create("mapper", BusySpinIdleStrategy.INSTANCE, true);
-        final AsyncRuntime unmapperRuntime = AsyncRuntime.create("unmapper", new BackoffIdleStrategy(), true);
+        final AtomicInteger mappers = new AtomicInteger();
+        final AtomicInteger unmappers = new AtomicInteger();
+        final Supplier<AsyncRuntime> mapperRuntimeSupplier = () -> AsyncRuntime.create("mapper-" +
+                mappers.getAndIncrement(), BusySpinIdleStrategy.INSTANCE, false);
+        final Supplier<AsyncRuntime> unmapperRuntimeSupplier = () -> AsyncRuntime.create("unmapper-" +
+                unmappers.getAndIncrement(), new BackoffIdleStrategy(), false);
+
         final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);   //~4MB
-        //final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
         final int cacheSize = 64;
         final int regionsToMapAhead = 32;
         final QueueConfig config = QueueConfig.configure()
 //                .mappingStrategy(MappingStrategy.defaultSyncMappingStrategy())
-                .headerMappingStrategy(cfg -> cfg
+                .mappingStrategy(cfg -> cfg
                         .regionSize(regionSize)
                         .cacheSize(cacheSize)
                         .regionsToMapAhead(regionsToMapAhead)
-                        .mappingAsyncRuntime(mapperRuntime)
-                        .unmappingAsyncRuntime(unmapperRuntime))
-                .payloadMappingStrategy(cfg -> cfg
-                        .regionSize(regionSize)
-                        .cacheSize(cacheSize)
-                        .regionsToMapAhead(regionsToMapAhead)
-                        .mappingAsyncRuntime(mapperRuntime)
-                        .unmappingAsyncRuntime(unmapperRuntime))
+//                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
+                        .mappingAsyncRuntime(mapperRuntimeSupplier.get())
+                        .unmappingAsyncRuntime(unmapperRuntimeSupplier.get())
+//                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
+//                        .unmappingAsyncRuntimeSupplier(unmapperRuntimeSupplier)
+                )
+//                .payloadMappingStrategy(cfg -> cfg
+//                        .regionSize(regionSize)
+//                        .cacheSize(cacheSize)
+//                        .regionsToMapAhead(regionsToMapAhead)
+//                        .mappingAsyncRuntime(mapperRuntimeSupplier.get())
+//                        .unmappingAsyncRuntime(unmapperRuntimeSupplier.get())
+////                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
+////                        .unmappingAsyncRuntimeSupplier(unmapperRuntimeSupplier)
+//                )
+                .entryReaderConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(0)
+                        )
+                )
+                .indexReaderConfig(conf -> conf
+                        .headerMappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(0)
+                        )
+                )
                 .expandHeaderFile(false)
                 .expandPayloadFiles(false)
-                .maxHeaderFileSize(1024 * 1024 * 1024)
-                .maxPayloadFileSize(1024 * 1024 * 1024)
+                .maxHeaderFileSize(64 * 1024 * 1024)
+                .maxPayloadFileSize(64 * 1024 * 1024)
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
                 .toImmutableQueueConfig();
@@ -90,7 +117,7 @@ public class QueuePerf {
         final long messagesPerSecond = 1_000_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
-        final int messageLength = 256;
+        final int messageLength = 100;
 
         try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
             LOGGER.info("Queue created: {}", queue);
@@ -111,6 +138,7 @@ public class QueuePerf {
             receiver0.printHistogram();
             receiver1.printHistogram();
 
+            readIndices(queue, messages, warmup);
             readByIndex(queue, messages, warmup, messageLength);
             readByIterate(queue, messages, warmup, messageLength, true);
             readByIterate(queue, messages, warmup, messageLength, false);
@@ -130,7 +158,7 @@ public class QueuePerf {
                     histogram.reset();
                 }
                 final long time = System.nanoTime();
-                try (ReadingContext context = reader.reading(i)) {
+                try (final ReadingContext context = reader.reading(i)) {
                     if (context.hasEntry()) {
                         messageCodec.wrap(context.buffer());
                         messageCodec.getPayload(payload);
@@ -167,6 +195,27 @@ public class QueuePerf {
                 }
             }
             HistogramPrinter.printHistogram("readByIterate(forward=" + forward + ")", histogram);
+        }
+    }
+
+    private static void readIndices(final Queue queue, final int messages, final int warmup) {
+        try (final IndexReader indexReader = queue.createIndexReader()) {
+            final long maxValue = TimeUnit.SECONDS.toNanos(1);
+            final Histogram histogram = new Histogram(1, maxValue, 3);
+
+            for (int i = messages - 1; i >= 0; i--) {
+                if (i == messages - warmup - 1) {
+                    histogram.reset();
+                }
+                final long time = System.nanoTime();
+                final boolean exists = indexReader.hasEntry(i);
+                assertTrue(exists);
+                final long timeNanos = System.nanoTime() - time;
+                histogram.recordValue(Math.min(timeNanos, maxValue));
+            }
+            HistogramPrinter.printHistogram("readIndices", histogram);
+            final boolean exists = indexReader.hasEntry((long) messages * 2);
+            assertFalse(exists);
         }
     }
 }

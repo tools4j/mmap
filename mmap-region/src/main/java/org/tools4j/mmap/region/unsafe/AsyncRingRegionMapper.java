@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@ package org.tools4j.mmap.region.unsafe;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.Unsafe;
@@ -43,6 +45,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 @Unsafe
 public final class AsyncRingRegionMapper implements RegionMapper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncRingRegionMapper.class);
     private static final long GRACEFUL_CLOSE_TIMEOUT_MILLIS = 4000;
     private static final long MAX_CLOSE_TIMEOUT_MILLIS = 5000;
 
@@ -89,7 +92,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         this.mapAhead = mapAhead;
         this.positions = new long[cacheSize];
         this.addresses = new long[cacheSize];
-        this.lastPositionMapped = -regionSize;//so that we map-ahead when mapping position 0
+        this.lastPositionMapped = NULL_POSITION;
         this.lastAheadMapped = 0;
         this.backgroundMapper = startBackgroundMapper(cacheSize);
         this.backgroundUnmapper = startBackgroundUnmapper(unmapCacheSize);
@@ -161,13 +164,13 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         if (mapAhead <= 0) {
             return;
         }
-        final long lastPositionMapped = this.lastPositionMapped;
-        if (position != lastPositionMapped) {
+        final long lastPosMapped = this.lastPositionMapped;
+        if (position != lastPosMapped) {
             final int regionSize = this.regionSize;
             final int lastAhead = Math.max(lastAheadMapped - 1, 0);
             lastAheadMapped = 0;
             long nextPosition = position;
-            if (position == lastPositionMapped + regionSize) {
+            if (position == lastPosMapped + regionSize || (position == 0 && lastPosMapped == NULL_POSITION)) {
                 //sequential forward access
                 for (int i = 0; i < mapAhead; i++) {
                     nextPosition += regionSize;
@@ -178,7 +181,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                     }
                     lastAheadMapped = i;
                 }
-            } else if (position == lastPositionMapped - regionSize) {
+            } else if (position == lastPosMapped - regionSize || (position > 0 && lastPosMapped == NULL_POSITION)) {
                 //sequential backward access
                 for (int i = 0; i < mapAhead && nextPosition >= regionSize; i++) {
                     nextPosition -= regionSize;
@@ -249,7 +252,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 unmappingRuntime.deregister(backgroundUnmapper);
                 closed = true;
             }
-            System.out.println(this + " closed: cache=" + cache + ", ahead=" + ahead + ", sync=" + sync + ", busy=" + busy);
+            LOGGER.info("{} closed. Stats: cache={}, ahead={}, sync={}, busy={}", this, cache, ahead, sync, busy);
         }
     }
 

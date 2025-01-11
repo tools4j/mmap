@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -193,6 +193,11 @@ enum Headers {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
+    public static long binarySearchAndGetLastHeader(final OffsetMapping header, final long startIndex) {
+        final long lastIndex = binarySearchLastIndex(header, startIndex);
+        return lastIndex != Index.NULL ? moveAndGetHeader(header, lastIndex) : NULL_HEADER;
+    }
+
     public static long binarySearchLastIndex(final OffsetMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
@@ -201,7 +206,6 @@ enum Headers {
         if (!hasNonEmptyHeaderAt(header, startIndex)) {
             return Index.NULL;
         }
-        final long originalPosition = header.position();
         long lowIndex = startIndex;
         long highIndex = Index.NULL;
 
@@ -232,7 +236,6 @@ enum Headers {
                 }
             }
         }
-        header.moveTo(Math.max(originalPosition, Index.FIRST));
         return lowIndex;
     }
 }

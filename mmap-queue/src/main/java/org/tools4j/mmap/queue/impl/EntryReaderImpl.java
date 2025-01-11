@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +39,7 @@ import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class EntryReaderImpl implements EntryReader {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PollerImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EntryReaderImpl.class);
 
     private final String queueName;
     private final ReaderMappings mappings;
@@ -95,7 +95,7 @@ final class EntryReaderImpl implements EntryReader {
     @Override
     public void close() {
         if (!isClosed()) {
-            header.close();
+            mappings.close();
             LOGGER.info("Entry reader closed, queue={}", queueName);
         }
     }
@@ -140,7 +140,7 @@ final class EntryReaderImpl implements EntryReader {
         private long initPayloadBuffer(final long index) {
             final long hdr = index != Index.LAST ?
                     Headers.moveAndGetHeader(header, index):
-                    Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST));
+                    Headers.binarySearchAndGetLastHeader(header, Math.max(maxIndex, Index.FIRST));
             if (hdr == NULL_HEADER) {
                 return Index.NULL;
             }
@@ -152,7 +152,7 @@ final class EntryReaderImpl implements EntryReader {
             }
             final int size = payload.buffer().getInt(0);
             this.buffer.wrap(payload.buffer(), Integer.BYTES, size);
-            return index;
+            return index != Index.LAST ? index : Headers.indexForHeaderPosition(header.position());
         }
 
         @Override
