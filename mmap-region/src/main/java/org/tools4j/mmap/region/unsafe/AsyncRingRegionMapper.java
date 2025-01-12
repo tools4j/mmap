@@ -60,9 +60,14 @@ public final class AsyncRingRegionMapper implements RegionMapper {
     private final long[] addresses;
     private final BackgroundMapper backgroundMapper;
     private final BackgroundUnmapper backgroundUnmapper;
-    private final Stats stats = new Stats();
     private long lastPositionMapped;
     private boolean closed;
+
+    //some statistics reported on close
+    private long cacheStats;
+    private long aheadStats;
+    private long syncStats;
+    private long busyStats;
 
     public AsyncRingRegionMapper(final AsyncRuntime mappingRuntime,
                                  final AsyncRuntime unmappingRuntime,
@@ -129,7 +134,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
     public long map(final long position) {
         final int cacheIndex = cacheIndex(position);
         if (positions[cacheIndex] == position) {
-            stats.cache++;
+            cacheStats++;
             return addresses[cacheIndex];
         }
         return map(cacheIndex, position);
@@ -140,11 +145,11 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         long addr = NULL_ADDRESS;
         if (background.isMappedTo(cacheIndex, position)) {
             addr = background.consumeMappedAddress(cacheIndex);
-            stats.ahead++;
+            aheadStats++;
         }
         if (addr == NULL_ADDRESS) {
             addr = mapSync(position);
-            stats.sync++;
+            syncStats++;
         }
         if (addr == NULL_ADDRESS) {
             return NULL_ADDRESS;
@@ -171,8 +176,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 for (int i = 0; i < mapAhead; i++) {
                     nextPosition += regionSize;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
-                        stats.busy++;
-                        return;
+                        busyStats++;
+                        break;
                     }
                 }
             } else if (position == lastPosMapped - regionSize || (position > 0 && lastPosMapped == NULL_POSITION)) {
@@ -180,8 +185,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 for (int i = 0; i < mapAhead && nextPosition >= regionSize; i++) {
                     nextPosition -= regionSize;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
-                        stats.busy++;
-                        return;
+                        busyStats++;
+                        break;
                     }
                 }
             }
@@ -244,8 +249,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 unmappingRuntime.deregister(backgroundUnmapper);
                 closed = true;
             }
-            final Stats s = stats;
-            LOGGER.info("Closed {}. Stats:cache={}|ahead={}|sync={}|busy={}", this, s.cache, s.ahead, s.sync, s.busy);
+            LOGGER.info("Closed {}. Statistics:cache={}|ahead={}|sync={}|busy={}", this,
+                    cacheStats, aheadStats, syncStats, busyStats);
         }
     }
 
@@ -268,7 +273,10 @@ public final class AsyncRingRegionMapper implements RegionMapper {
 
     @Override
     public String toString() {
-        return "AsyncRingRegionMapper:cacheSize=" + (cacheSizeMask + 1) + "|regionSize=" + regionSize();
+        return "AsyncRingRegionMapper" +
+                ":cacheSize=" + (cacheSizeMask + 1) +
+                "|mapAhead=" + mapAhead +
+                "|regionSize=" + regionSize();
     }
 
     private static final class BackgroundMapper implements Recurring {
@@ -347,6 +355,7 @@ public final class AsyncRingRegionMapper implements RegionMapper {
 
         boolean mapAhead(final int index, final long position) {
             if (requestedPositions[index] == position) {
+                //NOTE: above read is not fence safe, but it is ok to sometimes return true if it is about to be updated
                 return true;
             }
             if (!available(index)) {
@@ -541,10 +550,6 @@ public final class AsyncRingRegionMapper implements RegionMapper {
             }
             return true;
         }
-    }
-
-    private static final class Stats {
-        long cache, ahead, sync, busy;
     }
 
     private static boolean sleep(final long millis) {

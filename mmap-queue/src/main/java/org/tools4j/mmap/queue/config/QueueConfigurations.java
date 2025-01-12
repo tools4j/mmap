@@ -41,7 +41,6 @@ import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAU
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.region.config.MappingConfigurations.MAPPING_STRATEGY_DEFAULT;
 
 /**
  * Defines queue default configuration values and property constants to override default values via system properties.
@@ -86,38 +85,47 @@ public enum QueueConfigurations {
     public static final String POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.pollerHeaderRegionCacheSize";
     public static final String POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.pollerHeaderRegionsToMapAhead";
     public static final String POLLER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.pollerHeaderMappingStrategy";
+    public static final String POLLER_HEADER_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     public static final String POLLER_PAYLOAD_REGION_SIZE_PROPERTY = "mmap.queue.pollerPayloadRegionSize";
     public static final String POLLER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.pollerPayloadRegionCacheSize";
     public static final String POLLER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.pollerPayloadRegionsToMapAhead";
     public static final String POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.pollerPayloadMappingStrategy";
+    public static final String POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     public static final String ENTRY_READER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.entryReaderHeaderRegionSize";
     public static final String ENTRY_READER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.entryReaderHeaderRegionCacheSize";
     public static final String ENTRY_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.entryReaderHeaderRegionsToMapAhead";
     public static final String ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.entryReaderHeaderMappingStrategy";
+    public static final String ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT = SyncMappingStrategy.NAME;
     public static final String ENTRY_READER_PAYLOAD_REGION_SIZE_PROPERTY = "mmap.queue.entryReaderPayloadRegionSize";
     public static final String ENTRY_READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.entryReaderPayloadRegionCacheSize";
     public static final String ENTRY_READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.entryReaderPayloadRegionsToMapAhead";
     public static final String ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.entryReaderPayloadMappingStrategy";
+    public static final String ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT = SyncMappingStrategy.NAME;
     public static final String ENTRY_ITERATOR_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.entryIteratorHeaderRegionSize";
     public static final String ENTRY_ITERATOR_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.entryIteratorHeaderRegionCacheSize";
     public static final String ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.entryIteratorHeaderRegionsToMapAhead";
     public static final String ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.entryIteratorHeaderMappingStrategy";
+    public static final String ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     public static final String ENTRY_ITERATOR_PAYLOAD_REGION_SIZE_PROPERTY = "mmap.queue.entryIteratorPayloadRegionSize";
     public static final String ENTRY_ITERATOR_PAYLOAD_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.entryIteratorPayloadRegionCacheSize";
     public static final String ENTRY_ITERATOR_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.entryIteratorPayloadRegionsToMapAhead";
     public static final String ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.entryIteratorPayloadMappingStrategy";
+    public static final String ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     public static final String INDEX_READER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.indexReaderHeaderRegionSize";
     public static final String INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.indexReaderHeaderRegionCacheSize";
     public static final String INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.indexReaderHeaderRegionsToMapAhead";
     public static final String INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.indexReaderHeaderMappingStrategy";
+    public static final String INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT = SyncMappingStrategy.NAME;
     public static final String APPENDER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionSize";
     public static final String APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionCacheSize";
     public static final String APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderHeaderRegionsToMapAhead";
     public static final String APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.appenderHeaderMappingStrategy";
+    public static final String APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     public static final String APPENDER_PAYLOAD_REGION_SIZE_PROPERTY = "mmap.queue.appenderPayloadRegionSize";
     public static final String APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.appenderPayloadRegionCacheSize";
     public static final String APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderPayloadRegionsToMapAhead";
     public static final String APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.appenderPayloadMappingStrategy";
+    public static final String APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
     private static MappingStrategy POLLER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategy POLLER_PAYLOAD_MAPPING_STRATEGY;
     private static MappingStrategy ENTRY_READER_HEADER_MAPPING_STRATEGY;
@@ -214,6 +222,7 @@ public enum QueueConfigurations {
         if (POLLER_HEADER_MAPPING_STRATEGY == null) {
             POLLER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
                     POLLER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                    POLLER_HEADER_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultPollerHeaderRegionSize,
                     QueueConfigurations::defaultPollerHeaderRegionCacheSize,
                     QueueConfigurations::defaultPollerHeaderRegionsToMapAhead
@@ -241,6 +250,7 @@ public enum QueueConfigurations {
         if (POLLER_PAYLOAD_MAPPING_STRATEGY == null) {
             POLLER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
                     POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                    POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultPollerPayloadRegionSize,
                     QueueConfigurations::defaultPollerPayloadRegionCacheSize,
                     QueueConfigurations::defaultPollerPayloadRegionsToMapAhead
@@ -268,6 +278,7 @@ public enum QueueConfigurations {
         if (ENTRY_READER_HEADER_MAPPING_STRATEGY == null) {
             ENTRY_READER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
                     ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                    ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultEntryReaderHeaderRegionSize,
                     QueueConfigurations::defaultEntryReaderHeaderRegionCacheSize,
                     QueueConfigurations::defaultEntryReaderHeaderRegionsToMapAhead
@@ -295,6 +306,7 @@ public enum QueueConfigurations {
         if (ENTRY_READER_PAYLOAD_MAPPING_STRATEGY == null) {
             ENTRY_READER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
                     ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                    ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultEntryReaderPayloadRegionSize,
                     QueueConfigurations::defaultEntryReaderPayloadRegionCacheSize,
                     QueueConfigurations::defaultEntryReaderPayloadRegionsToMapAhead
@@ -322,6 +334,7 @@ public enum QueueConfigurations {
         if (ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY == null) {
             ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
                     ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY,
+                    ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultEntryIteratorHeaderRegionSize,
                     QueueConfigurations::defaultEntryIteratorHeaderRegionCacheSize,
                     QueueConfigurations::defaultEntryIteratorHeaderRegionsToMapAhead
@@ -349,6 +362,7 @@ public enum QueueConfigurations {
         if (ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY == null) {
             ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
                     ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                    ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultEntryIteratorPayloadRegionSize,
                     QueueConfigurations::defaultEntryIteratorPayloadRegionCacheSize,
                     QueueConfigurations::defaultEntryIteratorPayloadRegionsToMapAhead
@@ -376,6 +390,7 @@ public enum QueueConfigurations {
         if (INDEX_READER_HEADER_MAPPING_STRATEGY == null) {
             INDEX_READER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
                     INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                    INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultIndexReaderHeaderRegionSize,
                     QueueConfigurations::defaultIndexReaderHeaderRegionCacheSize,
                     QueueConfigurations::defaultIndexReaderHeaderRegionsToMapAhead
@@ -403,6 +418,7 @@ public enum QueueConfigurations {
         if (APPENDER_HEADER_MAPPING_STRATEGY == null) {
             APPENDER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
                     APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                    APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultAppenderHeaderRegionSize,
                     QueueConfigurations::defaultAppenderHeaderRegionCacheSize,
                     QueueConfigurations::defaultAppenderHeaderRegionsToMapAhead
@@ -430,6 +446,7 @@ public enum QueueConfigurations {
         if (APPENDER_PAYLOAD_MAPPING_STRATEGY == null) {
             APPENDER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
                     APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                    APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
                     QueueConfigurations::defaultAppenderPayloadRegionSize,
                     QueueConfigurations::defaultAppenderPayloadRegionCacheSize,
                     QueueConfigurations::defaultAppenderPayloadRegionsToMapAhead
@@ -464,10 +481,11 @@ public enum QueueConfigurations {
     }
 
     private static MappingStrategy getMappingStrategyProperty(final String mappingStrategyProperty,
+                                                              final String mappingStrategyDefault,
                                                               final IntSupplier regionSizeSupplier,
                                                               final IntSupplier regionCacheSizeSupplier,
                                                               final IntSupplier regionsToMapAheadSupplier) {
-        final String strategy = System.getProperty(mappingStrategyProperty, MAPPING_STRATEGY_DEFAULT);
+        final String strategy = System.getProperty(mappingStrategyProperty, mappingStrategyDefault);
         switch (strategy) {
             case AheadMappingStrategy.NAME:
                 return new AheadMappingStrategy(regionSizeSupplier.getAsInt(), regionCacheSizeSupplier.getAsInt(),

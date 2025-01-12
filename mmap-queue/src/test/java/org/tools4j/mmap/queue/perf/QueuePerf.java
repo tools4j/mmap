@@ -24,8 +24,6 @@
 package org.tools4j.mmap.queue.perf;
 
 import org.HdrHistogram.Histogram;
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Entry;
@@ -35,19 +33,14 @@ import org.tools4j.mmap.queue.api.IndexReader;
 import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.ReadingContext;
-import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
-import org.tools4j.mmap.region.api.AsyncRuntime;
-import org.tools4j.mmap.region.impl.Constants;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,63 +53,53 @@ public class QueuePerf {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());
         tempDir.toFile().deleteOnExit();
 
-        final AtomicInteger mappers = new AtomicInteger();
-        final Supplier<AsyncRuntime> mapperRuntimeSupplier = () -> AsyncRuntime.create("mapper-" +
-                mappers.getAndIncrement(), BusySpinIdleStrategy.INSTANCE, true);
-        final AsyncRuntime unmapperRuntime = AsyncRuntime.create("unmapper", new BackoffIdleStrategy(), false);
-
-        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);   //~4MB
-        final int cacheSize = 64;
-        final int regionsToMapAhead = 32;
-        final QueueConfig config = QueueConfig.configure()
-//                .mappingStrategy(MappingStrategy.defaultSyncMappingStrategy())
-                .mappingStrategy(cfg -> cfg
-                        .regionSize(regionSize)
-                        .cacheSize(cacheSize)
-                        .regionsToMapAhead(regionsToMapAhead)
-//                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
-                        .mappingAsyncRuntime(mapperRuntimeSupplier.get())
-                        .unmappingAsyncRuntime(unmapperRuntime)
-//                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
-//                        .unmappingAsyncRuntimeSupplier(unmapperRuntimeSupplier)
-                )
-//                .payloadMappingStrategy(cfg -> cfg
-//                        .regionSize(regionSize)
-//                        .cacheSize(cacheSize)
-//                        .regionsToMapAhead(regionsToMapAhead)
-//                        .mappingAsyncRuntime(mapperRuntimeSupplier.get())
-//                        .unmappingAsyncRuntime(unmapperRuntimeSupplier.get())
-////                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
-////                        .unmappingAsyncRuntimeSupplier(unmapperRuntimeSupplier)
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);
+//        final int cacheSize = 4;
+//        final int regionsToMapAhead = 2;
+//        final QueueConfig config = QueueConfig.configure()
+//                .appenderConfig(conf -> conf
+//                        .mappingStrategy(cfg -> cfg
+//                                .regionSize(regionSize)
+//                                .cacheSize(cacheSize)
+//                                .regionsToMapAhead(regionsToMapAhead)
+//                        )
 //                )
-                .entryReaderConfig(conf -> conf
-                        .mappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
-                                .cacheSize(cacheSize)
-                                .regionsToMapAhead(0)
-                        )
-                )
-                .indexReaderConfig(conf -> conf
-                        .headerMappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
-                                .cacheSize(cacheSize)
-                                .regionsToMapAhead(0)
-                        )
-                )
-                .expandHeaderFile(false)
-                .expandPayloadFiles(false)
-                .maxHeaderFileSize(64 * 1024 * 1024)
-                .maxPayloadFileSize(64 * 1024 * 1024)
-                .headerFilesToCreateAhead(0)
-                .payloadFilesToCreateAhead(0)
-                .toImmutableQueueConfig();
+//                .pollerConfig(conf -> conf
+//                        .mappingStrategy(cfg -> cfg
+//                                .regionSize(regionSize)
+//                                .cacheSize(cacheSize)
+//                                .regionsToMapAhead(regionsToMapAhead)
+//                        )
+//                )
+//                .entryReaderConfig(conf -> conf
+//                        .mappingStrategy(cfg -> cfg
+//                                .regionSize(regionSize)
+//                                .cacheSize(cacheSize)
+//                                .regionsToMapAhead(0)
+//                        )
+//                )
+//                .indexReaderConfig(conf -> conf
+//                        .headerMappingStrategy(cfg -> cfg
+//                                .regionSize(regionSize)
+//                                .cacheSize(cacheSize)
+//                                .regionsToMapAhead(0)
+//                        )
+//                )
+//                .expandHeaderFile(false)
+//                .expandPayloadFiles(false)
+//                .maxHeaderFileSize(64 * 1024 * 1024)
+//                .maxPayloadFileSize(64 * 1024 * 1024)
+//                .headerFilesToCreateAhead(0)
+//                .payloadFilesToCreateAhead(0)
+//                .toImmutableQueueConfig();
 
         final long messagesPerSecond = 1_000_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
         final int messageLength = 10;
 
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
+//        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
+        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {
             LOGGER.info("Queue created: {}", queue);
 
             final Sender sender = new Sender((byte) 0, queue::createAppender, messagesPerSecond, messages, messageLength);
@@ -206,8 +189,8 @@ public class QueuePerf {
                 }
                 final long time = System.nanoTime();
                 final boolean exists = indexReader.hasEntry(i);
-                assertTrue(exists);
                 final long timeNanos = System.nanoTime() - time;
+                assertTrue(exists);
                 histogram.recordValue(Math.min(timeNanos, maxValue));
             }
             HistogramPrinter.printHistogram("readIndices", histogram);

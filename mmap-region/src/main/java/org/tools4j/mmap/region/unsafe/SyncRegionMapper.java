@@ -115,6 +115,6 @@ public final class SyncRegionMapper implements RegionMapper {
 
     @Override
     public String toString() {
-        return "SyncRegion:mappedPosition=" + mappedPosition;
+        return "SyncRegion:regionSize=" + regionSize;
     }
 }

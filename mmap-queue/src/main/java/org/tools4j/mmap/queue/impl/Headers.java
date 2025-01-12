@@ -29,7 +29,6 @@ import org.tools4j.mmap.region.impl.BlockMapping;
 import org.tools4j.mmap.region.impl.IndexMapping;
 
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
-import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
  * Methods to encode and decode header values, and related methods.
@@ -178,15 +177,7 @@ enum Headers {
     }
 
     public static boolean hasNonEmptyHeaderAt(final OffsetMapping header, final long index) {
-        if (index < Index.FIRST || index > Index.MAX) {
-            return false;
-        }
-        final long originalPosition = header.position();
-        final boolean result = NULL_HEADER != moveAndGetHeader(header, index);
-        if (originalPosition != NULL_POSITION) {
-            header.moveTo(originalPosition);
-        }
-        return result;
+        return index >= Index.FIRST && index <= Index.MAX && moveAndGetHeader(header, index) != NULL_HEADER;
     }
 
     private static long mid(final long a, final long b) {
@@ -203,7 +194,7 @@ enum Headers {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }
         //1) initial low
-        if (!hasNonEmptyHeaderAt(header, startIndex)) {
+        if (NULL_HEADER == moveAndGetHeader(header, startIndex)) {
             return Index.NULL;
         }
         long lowIndex = startIndex;

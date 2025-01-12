@@ -23,13 +23,14 @@
  */
 package org.tools4j.mmap.region.config;
 
+import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
-import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.impl.Constraints;
-import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
 
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
@@ -55,17 +56,25 @@ public enum MappingConfigurations {
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.region.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String REGION_SIZE_PROPERTY = "mmap.region.regionSize";
-    public static final int REGION_SIZE_DEFAULT = (int)(1024*REGION_SIZE_GRANULARITY);
+    public static final int REGION_SIZE_DEFAULT = (int)(1024*REGION_SIZE_GRANULARITY);//typically ~4MB
     public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.region.regionCacheSize";
-    public static final int REGION_CACHE_SIZE_DEFAULT = 16;
+    public static final int REGION_CACHE_SIZE_DEFAULT = 4;
     public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.regionsToMapAhead";
-    public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 8;
+    public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 2;
     public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.mappingRuntimeIdleStrategy";
-    public static final IdleStrategy MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BusySpinIdleStrategy.INSTANCE;
+    public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = () -> BusySpinIdleStrategy.INSTANCE;
+    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.mappingRuntimeIdleStrategyShared";
+    public static final boolean MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT = true;
+    public static final String MAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.mappingRuntimeShared";
+    public static final boolean MAPPING_RUNTIME_SHARED_DEFAULT = true;
     public static final String MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.mappingRuntimeAutoCloseOnLastDeregister";
     public static final boolean MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
     public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.unmappingRuntimeIdleStrategy";
-    public static final IdleStrategy UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = new SleepingMillisIdleStrategy();
+    public static final Supplier<IdleStrategy> UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
+    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.unmappingRuntimeIdleStrategyShared";
+    public static final boolean UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT = false;
+    public static final String UNMAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.unmappingRuntimeShared";
+    public static final boolean UNMAPPING_RUNTIME_SHARED_DEFAULT = true;
     public static final String UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.unmappingRuntimeAutoCloseOnLastDeregister";
     public static final boolean UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
     public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.mappingAsyncRuntime";
@@ -110,16 +119,34 @@ public enum MappingConfigurations {
         return getIntProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
     }
 
+    public static boolean defaultMappingRuntimeIdleStrategyShared() {
+        return getBooleanProperty(MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY, MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT);
+    }
+
     public static Supplier<? extends IdleStrategy> defaultMappingRuntimeIdleStrategySupplier() {
-        return getSupplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+        return getSupplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+                defaultMappingRuntimeIdleStrategyShared(), MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+    }
+
+    public static boolean defaultMappingRuntimeShared() {
+        return getBooleanProperty(MAPPING_RUNTIME_SHARED_PROPERTY, MAPPING_RUNTIME_SHARED_DEFAULT);
     }
 
     public static boolean defaultMappingRuntimeAutoCloseOnLastDeregister() {
         return getBooleanProperty(MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY, MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
     }
 
+    public static boolean defaultUnmappingRuntimeIdleStrategyShared() {
+        return getBooleanProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY, UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT);
+    }
+
     public static Supplier<? extends IdleStrategy> defaultUnmappingRuntimeIdleStrategySupplier() {
-        return getSupplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class, UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+        return getSupplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+                defaultUnmappingRuntimeIdleStrategyShared(), UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+    }
+
+    public static boolean defaultUnmappingRuntimeShared() {
+        return getBooleanProperty(UNMAPPING_RUNTIME_SHARED_PROPERTY, UNMAPPING_RUNTIME_SHARED_DEFAULT);
     }
 
     public static boolean defaultUnmappingRuntimeAutoCloseOnLastDeregister() {
@@ -129,10 +156,10 @@ public enum MappingConfigurations {
     public synchronized static Supplier<? extends AsyncRuntime> defaultMappingAsyncRuntimeSupplier() {
         if (MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE == null) {
             MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = createDefaultAsyncRuntimeSupplier(
-                    "mapper-default",
-                    MAPPING_ASYNC_RUNTIME_PROPERTY, MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
-                    MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT, MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY,
-                    MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
+                    "mapper-default", MAPPING_ASYNC_RUNTIME_PROPERTY,
+                    MappingConfigurations.defaultMappingRuntimeShared(),
+                    defaultMappingRuntimeIdleStrategySupplier(),
+                    MappingConfigurations::defaultMappingRuntimeAutoCloseOnLastDeregister);
             assert MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE != null;
         }
         return MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
@@ -141,10 +168,10 @@ public enum MappingConfigurations {
     public synchronized static Supplier<? extends AsyncRuntime> defaultUnmappingAsyncRuntimeSupplier() {
         if (UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE == null) {
             UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE = createDefaultAsyncRuntimeSupplier(
-                    "unmapper-default",
-                    UNMAPPING_ASYNC_RUNTIME_PROPERTY, UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
-                    UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT, UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY,
-                    UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT);
+                    "unmapper-default", UNMAPPING_ASYNC_RUNTIME_PROPERTY,
+                    MappingConfigurations.defaultUnmappingRuntimeShared(),
+                    defaultUnmappingRuntimeIdleStrategySupplier(),
+                    MappingConfigurations::defaultUnmappingRuntimeAutoCloseOnLastDeregister);
             assert UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE != null;
         }
         return UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
@@ -152,16 +179,16 @@ public enum MappingConfigurations {
 
     private static Supplier<? extends AsyncRuntime> createDefaultAsyncRuntimeSupplier(final String name,
                                                                                       final String runtimePropertyName,
-                                                                                      final String idleStrategyPropertyName,
-                                                                                      final IdleStrategy idleStrategyDefault,
-                                                                                      final String autoStopPropertyName,
-                                                                                      final boolean autoStopPropertyDefault) {
-        return getSupplierProperty(runtimePropertyName, AsyncRuntime.class, (Supplier<AsyncRuntime>)() -> {
-            final Supplier<? extends IdleStrategy> idleStrategySupplier = getSupplierProperty(idleStrategyPropertyName,
-                    IdleStrategy.class, idleStrategyDefault);
-            final boolean autoStopOnLastDeregister = getBooleanProperty(autoStopPropertyName, autoStopPropertyDefault);
-            return AsyncRuntime.create(name, idleStrategySupplier.get(), autoStopOnLastDeregister);
-        });
+                                                                                      final boolean sharedRuntime,
+                                                                                      final Supplier<? extends IdleStrategy> idleStrategySupplier,
+                                                                                      final BooleanSupplier autoStopOnLastDeregisterSupplier) {
+        requireNonNull(name);
+        requireNonNull(runtimePropertyName);
+        requireNonNull(idleStrategySupplier);
+        requireNonNull(autoStopOnLastDeregisterSupplier);
+        return getSupplierProperty(runtimePropertyName, AsyncRuntime.class, sharedRuntime, () ->
+                AsyncRuntime.create(name, idleStrategySupplier.get(), autoStopOnLastDeregisterSupplier.getAsBoolean())
+        );
     }
 
     public static MappingStrategy defaultMappingStrategy() {
@@ -242,36 +269,48 @@ public enum MappingConfigurations {
         return propVal == null ? defaultValueSupplier.get() : newObjInstance(propertyName, propVal, type);
     }
 
-    private static <T> Supplier<T> getSupplierProperty(final String propertyName, final Class<T> type, final T defaultValue) {
-        return getSupplierProperty(propertyName, type, (Supplier<T>)() -> defaultValue);
-    }
-
     private static <T> Supplier<T> getSupplierProperty(final String propertyName,
                                                        final Class<T> type,
+                                                       final boolean sharedInstance,
                                                        final Supplier<T> defaultValueSupplier) {
         requireNonNull(propertyName);
         requireNonNull(type);
         requireNonNull(defaultValueSupplier);
         final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValueSupplier : newSupplier(propertyName, propVal, type);
+        if (propVal == null) {
+            if (sharedInstance) {
+                final T instance = defaultValueSupplier.get();
+                return () -> instance;
+            }
+            return defaultValueSupplier;
+        }
+        return newSupplier(propertyName, propVal, type, sharedInstance);
     }
 
-    private static <T> Supplier<T> newSupplier(final String propName, final String propVal, final Class<T> type) {
+    private static <T> Supplier<T> newSupplier(final String propName,
+                                               final String propVal,
+                                               final Class<T> type,
+                                               final boolean sharedInstance) {
         requireNonNull(propName);
         requireNonNull(type);
-        final Supplier<?>[] supplierPtr = new Supplier<?>[]{null};
+        final AtomicReference<Supplier<?>> supplierPtr = new AtomicReference<>();
         return () -> {
             try {
-                if (supplierPtr[0] != null) {
-                    return type.cast(supplierPtr[0].get());
+                Supplier<?> supplier = supplierPtr.get();
+                if (supplier != null) {
+                    return type.cast(supplier.get());
                 }
                 final Object value = newObjInstance(propName, propVal, Object.class);
                 if (type.isInstance(value)) {
+                    supplier = sharedInstance ? () -> value : () -> newObjInstance(propName, propVal, type);
+                    supplierPtr.set(supplier);
                     return type.cast(value);
                 }
                 if (value instanceof Supplier) {
-                    supplierPtr[0] = (Supplier<?>) value;
-                    return type.cast(supplierPtr[0].get());
+                    supplier = (Supplier<?>) value;
+                    final T instance = type.cast(supplier.get());
+                    supplierPtr.set(sharedInstance ? () -> instance : supplier);
+                    return instance;
                 }
                 throw new IllegalArgumentException("Value expected to be of type " + type.getName() +
                         " or a supplier of such a value, but was found to be: " + value);
