@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2024 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -66,16 +66,18 @@ public class QueuePerf {
 
             final QueueBuilder builder = Queue.builder(name, tempDir.toString(), regionMapperFactory)
                     .regionSize((int) (Constants.REGION_SIZE_GRANULARITY * 1024))   //~4MB
-                    .regionCacheSize(4)
+//                    .regionCacheSize(64)
+//                    .regionsToMapAhead(32)
+                    .regionCacheSize(2)
                     .regionsToMapAhead(1)
                     .maxFileSize(1024 * 1024 * 1024)    //1GB
                     .filesToCreateAhead(0)
                     ;
 
             final long messagesPerSecond = 1_000_000;
-            final int messages = 11_000_000;
-            final int warmup = 1_000_000;
-            final int messageLength = 256;
+            final int messages = 20_000_000;
+            final int warmup = 10_000_000;
+            final int messageLength = 10;
 
             try (Queue queue = builder.build()) {
                 LOGGER.info("Queue created: {}", queue);
