@@ -46,16 +46,24 @@ public class AtomicArray<E> {
     private final int firstBlockBits;
     /**
      * <pre>
-     * NOTES: 1) block[0] has initial length, which is a power of two
-     *        2) for i>0, appending a block[i] doubles the total capacity
+     * NOTES:
+     *    A. Block lengths
+     *       (1) block[0] has initial length, which is a power of two
+     *       (2) for i>0, appending a block[i] doubles the total capacity
      *
-     *      from this it follows
-     *        i) from (2) we get for i>0: length of block[i] must be equal to the sum of all block lengths before it
-     *       ii) block[1] has same length as block[0]
-     *      iii) block[i].length = 2*block[i-1].length for all i>1
-     *       iv) all blocks have power of 2 lengths
-     *        v) if n=#blocks, then the total capacity is initialCapacity * 2^(n-1)
-     *       vi) for all i>=0, block[i].length = initialCapacity * 2^max(0, i-1)
+     *       from this it follows
+     *         i) from (2) we get for i>0: length of block[i] must be equal to the sum of all block lengths before it
+     *        ii) block[1] has same length as block[0]
+     *       iii) block[i].length = 2*block[i-1].length for all i>1
+     *        iv) all blocks have power of 2 lengths
+     *         v) if n=#blocks, then the total capacity is initialCapacity * 2^(n-1)
+     *        vi) for all i>=0, block[i].length = initialCapacity * 2^max(0, i-1)
+     *
+     *    B. Block nullability
+     *       (1) block[0] is never null
+     *       (2) block[i>0] can be null
+     *       (3) if block[i] != null, then block[j] != null for all j <= i
+     *
      * </pre>
      */
     private final AtomicReferenceArray<AtomicReferenceArray<E>> blocks;
