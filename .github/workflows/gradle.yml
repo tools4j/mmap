@@ -65,11 +65,11 @@ jobs:
           java -Xinternalversion
           echo "BUILD_JAVA_HOME=$env:JAVA_HOME" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           echo "BUILD_JAVA_VERSION=${{ matrix.java }}" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Setup java 8 to run the Gradle script
+      - name: Setup java to run the Gradle script
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 8
+          java-version: ${{ matrix.java }}
       - name: Build with Gradle
         run: ./gradlew
       - name: Copy test logs
