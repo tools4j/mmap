@@ -160,7 +160,7 @@ public class AtomicArray<E> {
             } else {
                 value = block.get(offset);
             }
-        } while (value == null);
+        } while (value == null && defaultValue != null);
         //NOTE: it should always be only 1 iteration, unless another thread wins the CAS, and then
         //      yet another thread sets the value back to null, which is highly unlikely
         //      BUT: we want to guarantee that non-null value is returned
