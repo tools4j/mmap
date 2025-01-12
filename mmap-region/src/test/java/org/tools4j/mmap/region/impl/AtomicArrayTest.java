@@ -83,7 +83,7 @@ class AtomicArrayTest {
 
     @ParameterizedTest(name = "initial length: {0}")
     @ValueSource(ints = {1, 2, 4, 8, 64, 256, 4096})
-    void getAndGet(final int initialLength) {
+    void getAndSet(final int initialLength) {
         //given
         final int n = 10000;
         final int bits = bits(n);
