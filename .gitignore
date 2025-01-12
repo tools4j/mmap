@@ -2,6 +2,7 @@
 .gradle
 .project
 .settings
+.run
 /bin
 **/build
 .idea
