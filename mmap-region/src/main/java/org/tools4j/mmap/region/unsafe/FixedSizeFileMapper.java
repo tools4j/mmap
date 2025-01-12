@@ -166,9 +166,9 @@ public class FixedSizeFileMapper implements FileMapper {
 
     @Override
     public String toString() {
-        return "FixedSizeFileMapper:" +
-                "fileSize=" + fileSize +
-                "|mapMode=" + accessMode +
+        return "FixedSizeFileMapper" +
+                ":fileSize=" + fileSize +
+                "|accessMode=" + accessMode +
                 "|file=" + file +
                 "|closed=" + isClosed();
     }

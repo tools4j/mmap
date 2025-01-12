@@ -66,7 +66,7 @@ public final class SyncRegionMapper implements RegionMapper {
             return mappedAddress;
         }
         if (isClosed()) {
-            return CLOSED;
+            return NULL_ADDRESS;
         }
         try {
             unmapIfNecessary();
@@ -76,10 +76,10 @@ public final class SyncRegionMapper implements RegionMapper {
                 mappedPosition = position;
                 return addr;
             } else {
-                return FAILED;
+                return NULL_ADDRESS;
             }
         } catch (final Exception exception) {
-            return FAILED;
+            return NULL_ADDRESS;
         }
     }
 
@@ -104,7 +104,7 @@ public final class SyncRegionMapper implements RegionMapper {
             } finally {
                 closed = true;
             }
-            LOGGER.info("{} closed.", this);
+            LOGGER.info("Closed {}.", this);
         }
     }
 

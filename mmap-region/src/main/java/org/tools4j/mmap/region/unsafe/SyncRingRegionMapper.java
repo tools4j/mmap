@@ -86,7 +86,7 @@ public final class SyncRingRegionMapper implements RegionMapper {
             addresses[cacheIndex] = addr;
             return addr;
         }
-        return FAILED;
+        return NULL_ADDRESS;
     }
 
     private void unmapIfNecessary(final int cacheIndex) {
@@ -118,7 +118,7 @@ public final class SyncRingRegionMapper implements RegionMapper {
             } finally {
                 closed = true;
             }
-            LOGGER.info("{} closed.", this);
+            LOGGER.info("Closed {}.", this);
         }
     }
 

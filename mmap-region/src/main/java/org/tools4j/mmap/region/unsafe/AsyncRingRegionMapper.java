@@ -60,8 +60,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
     private final long[] addresses;
     private final BackgroundMapper backgroundMapper;
     private final BackgroundUnmapper backgroundUnmapper;
+    private final Stats stats = new Stats();
     private long lastPositionMapped;
-    private int lastAheadMapped;
     private boolean closed;
 
     public AsyncRingRegionMapper(final AsyncRuntime mappingRuntime,
@@ -93,7 +93,6 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         this.positions = new long[cacheSize];
         this.addresses = new long[cacheSize];
         this.lastPositionMapped = NULL_POSITION;
-        this.lastAheadMapped = 0;
         this.backgroundMapper = startBackgroundMapper(cacheSize);
         this.backgroundUnmapper = startBackgroundUnmapper(unmapCacheSize);
         Arrays.fill(positions, NULL_POSITION);
@@ -126,12 +125,11 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         return (int)(cacheSizeMask & (position >> regionSizeBits));
     }
 
-    long cache, ahead, sync, busy;
     @Override
     public long map(final long position) {
         final int cacheIndex = cacheIndex(position);
         if (positions[cacheIndex] == position) {
-            cache++;
+            stats.cache++;
             return addresses[cacheIndex];
         }
         return map(cacheIndex, position);
@@ -139,23 +137,23 @@ public final class AsyncRingRegionMapper implements RegionMapper {
 
     private long map(final int cacheIndex, final long position) {
         final BackgroundMapper background = backgroundMapper;
-        final long addr;
+        long addr = NULL_ADDRESS;
         if (background.isMappedTo(cacheIndex, position)) {
-            ahead++;
             addr = background.consumeMappedAddress(cacheIndex);
-        } else {
-            sync++;
+            stats.ahead++;
+        }
+        if (addr == NULL_ADDRESS) {
             addr = mapSync(position);
+            stats.sync++;
         }
-        if (addr > NULL_ADDRESS) {
-            unmapIfNecessary(cacheIndex);
-            positions[cacheIndex] = position;
-            addresses[cacheIndex] = addr;
-            mapAhead(position);
-            return addr;
-        } else {
-            return FAILED;
+        if (addr == NULL_ADDRESS) {
+            return NULL_ADDRESS;
         }
+        unmapIfNecessary(cacheIndex);
+        positions[cacheIndex] = position;
+        addresses[cacheIndex] = addr;
+        mapAhead(position);
+        return addr;
     }
 
     private void mapAhead(final long position) {
@@ -167,30 +165,24 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         final long lastPosMapped = this.lastPositionMapped;
         if (position != lastPosMapped) {
             final int regionSize = this.regionSize;
-            final int lastAhead = Math.max(lastAheadMapped - 1, 0);
-            lastAheadMapped = 0;
             long nextPosition = position;
             if (position == lastPosMapped + regionSize || (position == 0 && lastPosMapped == NULL_POSITION)) {
                 //sequential forward access
                 for (int i = 0; i < mapAhead; i++) {
                     nextPosition += regionSize;
-                    if (i < lastAhead) continue;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
-                        busy++;
+                        stats.busy++;
                         return;
                     }
-                    lastAheadMapped = i;
                 }
             } else if (position == lastPosMapped - regionSize || (position > 0 && lastPosMapped == NULL_POSITION)) {
                 //sequential backward access
                 for (int i = 0; i < mapAhead && nextPosition >= regionSize; i++) {
                     nextPosition -= regionSize;
-                    if (i < lastAhead) continue;
                     if (!mapAhead(cacheIndex(nextPosition), nextPosition)) {
-                        busy++;
+                        stats.busy++;
                         return;
                     }
-                    lastAheadMapped = i;
                 }
             }
             //else: random access pattern, we don't try to predict the next access
@@ -252,7 +244,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
                 unmappingRuntime.deregister(backgroundUnmapper);
                 closed = true;
             }
-            LOGGER.info("{} closed. Stats: cache={}, ahead={}, sync={}, busy={}", this, cache, ahead, sync, busy);
+            final Stats s = stats;
+            LOGGER.info("Closed {}. Stats:cache={}|ahead={}|sync={}|busy={}", this, s.cache, s.ahead, s.sync, s.busy);
         }
     }
 
@@ -279,6 +272,8 @@ public final class AsyncRingRegionMapper implements RegionMapper {
     }
 
     private static final class BackgroundMapper implements Recurring {
+        private static final int FLAG_CLEAR = 0;
+        private static final int FLAG_PENDING = 1;
         private static final long NULL_SEQUENCE = 0;
         private static final int HEADER_OFFSET = CACHE_LINE_LENGTH;
         private static final int HEADER_LENGTH = 4 * CACHE_LINE_LENGTH;//need only 3x, but 4x makes it a power of two
@@ -317,15 +312,15 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         void setPendingFlag(final int index) {
             requestSequence++;
             requestSequences[index] = requestSequence;
-            headerBuffer.putIntOrdered(headerOffset(index), 1);
+            headerBuffer.putIntOrdered(headerOffset(index), FLAG_PENDING);
         }
 
         void clearPendingFlag(final int index) {
-            headerBuffer.putIntOrdered(headerOffset(index), 0);
+            headerBuffer.putIntOrdered(headerOffset(index), FLAG_CLEAR);
         }
 
         boolean isPendingFlagSet(final int index) {
-            return headerBuffer.getIntVolatile(headerOffset(index)) != 0;
+            return headerBuffer.getIntVolatile(headerOffset(index)) != FLAG_CLEAR;
         }
 
         boolean available(final int index) {
@@ -351,11 +346,17 @@ public final class AsyncRingRegionMapper implements RegionMapper {
         }
 
         boolean mapAhead(final int index, final long position) {
+            if (requestedPositions[index] == position) {
+                return true;
+            }
             if (!available(index)) {
                 return false;
             }
             if (mappedPositions[index] == position) {
-                return true;
+                if (mappedAddresses[index] != NULL_ADDRESS) {
+                    return true;
+                }
+                consumeMappedAddress(index);
             }
             requestedPositions[index] = position;
             setPendingFlag(index);
@@ -540,6 +541,10 @@ public final class AsyncRingRegionMapper implements RegionMapper {
             }
             return true;
         }
+    }
+
+    private static final class Stats {
+        long cache, ahead, sync, busy;
     }
 
     private static boolean sleep(final long millis) {

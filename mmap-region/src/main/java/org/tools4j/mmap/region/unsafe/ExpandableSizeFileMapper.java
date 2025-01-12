@@ -225,4 +225,11 @@ public class ExpandableSizeFileMapper implements FileMapper {
         }
     }
 
+    @Override
+    public String toString() {
+        return "ExpandableSizeFileMapper" +
+                ":maxSize=" + maxSize +
+                "|file=" + file +
+                "|closed=" + isClosed();
+    }
 }

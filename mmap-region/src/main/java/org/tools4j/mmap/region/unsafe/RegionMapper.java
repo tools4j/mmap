@@ -48,19 +48,6 @@ import org.tools4j.mmap.region.api.Unsafe;
 @Unsafe
 public interface RegionMapper extends AutoCloseable {
     /**
-     * Value returned by {@link #map(long)} if the mapping operation has failed, usually because the requested position
-     * does not exist; retried mapping requests might succeed eventually if the position is under creation by another
-     * process while re-attempting.
-     */
-    long FAILED = -2;
-
-    /**
-     * Value returned by {@link #map(long)} if this region mapper is closed or closing; re-attempted mapping requests
-     * will also fail.
-     */
-    long CLOSED = -1;
-
-    /**
      * @return the file access mode used by this region mapper
      */
     default AccessMode accessMode() {
@@ -79,7 +66,8 @@ public interface RegionMapper extends AutoCloseable {
      * Attempts to map the buffer at the specified position and returns the address at which the region was mapped.
      *
      * @param position      the requested position, a non-negative value and a multiple of region size
-     * @return the address at which the region was mapped
+     * @return  the address at which the region was mapped, or zero if mapping failed for instance because the file to
+     *          map does not exist yet
      * @throws IllegalArgumentException if position is negative or not a multiple of region size
      * @see #regionSize()
      */

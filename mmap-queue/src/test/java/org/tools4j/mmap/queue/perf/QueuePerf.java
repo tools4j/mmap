@@ -45,7 +45,6 @@ import org.tools4j.mmap.region.impl.Constants;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -62,11 +61,9 @@ public class QueuePerf {
         tempDir.toFile().deleteOnExit();
 
         final AtomicInteger mappers = new AtomicInteger();
-        final AtomicInteger unmappers = new AtomicInteger();
         final Supplier<AsyncRuntime> mapperRuntimeSupplier = () -> AsyncRuntime.create("mapper-" +
-                mappers.getAndIncrement(), BusySpinIdleStrategy.INSTANCE, false);
-        final Supplier<AsyncRuntime> unmapperRuntimeSupplier = () -> AsyncRuntime.create("unmapper-" +
-                unmappers.getAndIncrement(), new BackoffIdleStrategy(), false);
+                mappers.getAndIncrement(), BusySpinIdleStrategy.INSTANCE, true);
+        final AsyncRuntime unmapperRuntime = AsyncRuntime.create("unmapper", new BackoffIdleStrategy(), false);
 
         final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);   //~4MB
         final int cacheSize = 64;
@@ -79,7 +76,7 @@ public class QueuePerf {
                         .regionsToMapAhead(regionsToMapAhead)
 //                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
                         .mappingAsyncRuntime(mapperRuntimeSupplier.get())
-                        .unmappingAsyncRuntime(unmapperRuntimeSupplier.get())
+                        .unmappingAsyncRuntime(unmapperRuntime)
 //                        .mappingAsyncRuntimeSupplier(mapperRuntimeSupplier)
 //                        .unmappingAsyncRuntimeSupplier(unmapperRuntimeSupplier)
                 )
@@ -117,7 +114,7 @@ public class QueuePerf {
         final long messagesPerSecond = 1_000_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
-        final int messageLength = 100;
+        final int messageLength = 10;
 
         try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
             LOGGER.info("Queue created: {}", queue);

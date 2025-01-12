@@ -35,8 +35,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Objects;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
@@ -47,16 +45,15 @@ public class ReadOnlyFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
 
     private final File file;
-    private final Path filePath;
     private final FileInitialiser fileInitialiser;
 
     private RandomAccessFile rafFile = null;
     private FileChannel fileChannel = null;
+    private long fileSize;
     private boolean closed;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
-        this.filePath = file.toPath();
         this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
     }
 
@@ -79,9 +76,11 @@ public class ReadOnlyFileMapper implements FileMapper {
         }
 
         try {
-            if (position < fileChannel.size()) {
-                return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
+            final long end = position + length;
+            if (end > fileSize && end > (fileSize = fileChannel.size())) {
+                return NULL_ADDRESS;
             }
+            return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
         } catch (final IOException e) {
             LOGGER.error("Failed to map file {}", file, e);
         }
@@ -97,23 +96,14 @@ public class ReadOnlyFileMapper implements FileMapper {
 
     private boolean init() {
         if (rafFile == null) {
-            if (!file.exists()) {
-                return false;
-            }
-
-            try {
-                if (Files.size(filePath) == 0) {
-                    return false;
-                }
-            } catch (final IOException e) {
-                LOGGER.error("Failed to check file size" + file, e);
+            if (file.length() == 0) {
                 return false;
             }
 
             final RandomAccessFile raf;
             try {
                 raf = new RandomAccessFile(file, AccessMode.READ_ONLY.getRandomAccessMode());
-            } catch (FileNotFoundException e) {
+            } catch (final FileNotFoundException e) {
                 LOGGER.error("Failed to create new random access file " + file, e);
                 return false;
             }
@@ -166,5 +156,12 @@ public class ReadOnlyFileMapper implements FileMapper {
                 LOGGER.info("Closed read-only file mapper: file={}", file);
             }
         }
+    }
+
+    @Override
+    public String toString() {
+        return "ReadOnlyFileMapper" +
+                ":file=" + file +
+                "|closed=" + isClosed();
     }
 }

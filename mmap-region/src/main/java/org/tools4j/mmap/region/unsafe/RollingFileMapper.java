@@ -284,4 +284,15 @@ public class RollingFileMapper implements FileMapper {
         }
     }
 
+    @Override
+    public String toString() {
+        return "RollingFileMapper" +
+                ":accessMode=" + accessMode +
+                "|maxFileSize=" + maxFileSize +
+                "|regionSize=" + regionSize +
+                "|filesToCreateAhead=" + filesToCreateAhead +
+                "|closeFiles=" + closeFiles +
+                "|baseFile=" + baseFile +
+                "|closed=" + isClosed();
+    }
 }

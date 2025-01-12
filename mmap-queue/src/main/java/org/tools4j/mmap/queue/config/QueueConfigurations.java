@@ -53,13 +53,13 @@ public enum QueueConfigurations {
     public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
     public static final AccessMode ACCESS_MODE_DEFAULT = AccessMode.READ_WRITE;
     public static final String MAX_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.maxHeaderFileSize";
-    public static final int MAX_HEADER_FILE_SIZE_DEFAULT = MappingConfigurations.MAX_FILE_SIZE_DEFAULT;
+    public static final int MAX_HEADER_FILE_SIZE_DEFAULT = 64*1024*1024;
     public static final String MAX_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.maxPayloadFileSize";
-    public static final int MAX_PAYLOAD_FILE_SIZE_DEFAULT = MappingConfigurations.MAX_FILE_SIZE_DEFAULT;
+    public static final int MAX_PAYLOAD_FILE_SIZE_DEFAULT = 64*1024*1024;
     public static final String EXPAND_HEADER_FILE_PROPERTY = "mmap.queue.expandHeaderFile";
-    public static final boolean EXPAND_HEADER_FILE_DEFAULT = true;
+    public static final boolean EXPAND_HEADER_FILE_DEFAULT = false;
     public static final String EXPAND_PAYLOAD_FILES_PROPERTY = "mmap.queue.expandPayloadFiles";
-    public static final boolean EXPAND_PAYLOAD_FILES_DEFAULT = true;
+    public static final boolean EXPAND_PAYLOAD_FILES_DEFAULT = false;
     public static final String ROLL_HEADER_FILE_PROPERTY = "mmap.queue.rollHeaderFile";
     public static final boolean ROLL_HEADER_FILE_DEFAULT = true;
     public static final String ROLL_PAYLOAD_FILES_PROPERTY = "mmap.queue.rollPayloadFiles";

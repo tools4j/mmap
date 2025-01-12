@@ -129,6 +129,8 @@ public final class OffsetMappingImpl implements OffsetMapping {
     }
 
     private void initMapping(final long address, final long position, final int newOffset, final int regionSize) {
+        assert position >= NULL_POSITION : "invalid position";
+        assert address >= NULL_ADDRESS : "invalid address";
         mappedPosition = position;
         offset = newOffset;
         buffer.wrap(address + newOffset, regionSize - newOffset);
