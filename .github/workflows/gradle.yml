@@ -80,7 +80,7 @@ jobs:
           ./gradlew tarTestLogs
       - name: Upload crash logs
         if: always() && steps.copy_test_logs.outputs.file == 'build/distributions/test_logs.tbz2'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: crash-logs-${{ matrix.os }}-java-${{ matrix.java }}
           path: ${{ steps.copy_test_logs.outputs.file }}
