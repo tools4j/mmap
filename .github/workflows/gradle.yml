@@ -19,7 +19,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail'
+  # GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail'
+  GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=summary'
 
 permissions:
   contents: read
@@ -71,13 +72,13 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
       - name: Build with Gradle
-        run: ./gradlew clean build
-      - name: Copy test logs
-        id: copy_test_logs
-        if: failure()
-        run: |
-          echo "name=file::build/distributions/test_logs.tbz2" >> $GITHUB_OUTPUT
-          ./gradlew tarTestLogs
+        run: ./gradlew
+#      - name: Copy test logs
+#        id: copy_test_logs
+#        if: failure()
+#        run: |
+#          echo "name=file::build/distributions/test_logs.tbz2" >> $GITHUB_OUTPUT
+#          ./gradlew tarTestLogs
       - name: Upload crash logs
         if: always() && steps.copy_test_logs.outputs.file == 'build/distributions/test_logs.tbz2'
         uses: actions/upload-artifact@v4
