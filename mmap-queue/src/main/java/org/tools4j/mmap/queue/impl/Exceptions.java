@@ -23,11 +23,18 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import static org.tools4j.mmap.queue.impl.Headers.MAX_PAYLOAD_POSITION;
+
 enum Exceptions {
     ;
 
     static IllegalArgumentException invalidIndexException(final String name, final long index) {
         return new IllegalArgumentException("Invalid index for " + name + ": " + index);
+    }
+
+    static IllegalStateException payloadPositionExceedsMaxException(final AppenderImpl appender, final long position) {
+        throw new IllegalStateException("Moving " + appender.appenderName() + ".payload to position " + position +
+                " exceeds max allowed position " + MAX_PAYLOAD_POSITION);
     }
 
     static IllegalStateException headerMoveException(final AppenderImpl appender, final long position) {

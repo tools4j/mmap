@@ -34,9 +34,13 @@ import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.region.api.OffsetMapping;
 
+import java.nio.ByteBuffer;
+
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Exceptions.headerMoveException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
+import static org.tools4j.mmap.queue.impl.Exceptions.payloadPositionExceedsMaxException;
+import static org.tools4j.mmap.queue.impl.Headers.MAX_PAYLOAD_POSITION;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class AppenderImpl implements Appender {
@@ -92,6 +96,40 @@ final class AppenderImpl implements Appender {
         this.endIndex = endIndex;
         this.lastOwnHeader = lastOwnHeader;
         this.lastOwnPayloadLength = -1;
+    }
+
+    @Override
+    public long append(final byte[] bytes) {
+        return append(bytes, 0, bytes.length);
+    }
+
+    @Override
+    public long append(final byte[] bytes, final int offset, final int length) {
+        try (final AppendingContext context = appending(length)) {
+            context.buffer().putBytes(0, bytes, offset, length);
+            return context.commit(length);
+        }
+    }
+
+    @Override
+    public long append(final ByteBuffer buffer) {
+        return append(buffer, buffer.remaining());
+    }
+
+    @Override
+    public long append(final ByteBuffer buffer, final int length) {
+        try (final AppendingContext context = appending(length)) {
+            context.buffer().putBytes(0, buffer, length);
+            return context.commit(length);
+        }
+    }
+
+    @Override
+    public long append(final ByteBuffer buffer, final int offset, final int length) {
+        try (final AppendingContext context = appending(length)) {
+            context.buffer().putBytes(0, buffer, offset, length);
+            return context.commit(length);
+        }
     }
 
     @Override
@@ -201,6 +239,9 @@ final class AppenderImpl implements Appender {
             }
             if (pld.bytesAvailable() < minRequired) {
                 moveToNextPayloadRegion(pld);
+            }
+            if (pld.position() > MAX_PAYLOAD_POSITION) {
+                throw payloadPositionExceedsMaxException(appender, payloadPosition);
             }
             buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
             return capacity;

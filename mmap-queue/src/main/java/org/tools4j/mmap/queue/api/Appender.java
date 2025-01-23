@@ -25,20 +25,86 @@ package org.tools4j.mmap.queue.api;
 
 import org.agrona.DirectBuffer;
 
+import java.nio.ByteBuffer;
+
 /**
  * API to append entries at the end of a {@link Queue}. Existing data can be appended through
  * {@link #append(DirectBuffer, int, int)}. Alternatively a new entry can be coded directly into the
  * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending(int)}.
  */
 public interface Appender extends AutoCloseable {
+    /**
+     * Appends an entry copying the data provided in the given array.
+     *
+     * @param bytes - entry data
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if array length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    long append(byte[] bytes);
+
+    /**
+     * Appends an entry copying the data provided in the given array.
+     *
+     * @param bytes - entry data
+     * @param offset - offset of the entry data in the array
+     * @param length - length of the entry data
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    long append(byte[] bytes, int offset, int length);
+
+    /**
+     * Appends an entry copying the data provided in the given buffer. Bytes will be copied from current
+     * {@link ByteBuffer#position()} reading all {@link ByteBuffer#remaining()} bytes.
+     * <p>
+     * The source buffer will have its {@link ByteBuffer#position()} advanced as a result.
+     *
+     * @param buffer - buffer containing entry data
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if the buffer's remaining bytes exceeds the maximum length for an entry allowed
+     *                                  by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    long append(ByteBuffer buffer);
+
+    /**
+     * Appends an entry copying the data provided in the given buffer. Bytes will be copied from current
+     * {@link ByteBuffer#position()} for the given length.
+     * <p>
+     * The source buffer will have its {@link ByteBuffer#position()} advanced as a result.
+     *
+     * @param buffer - buffer containing entry data
+     * @param length - length of the entry data
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    long append(ByteBuffer buffer, int length);
+
+    /**
+     * Appends an entry copying the data provided in the given buffer. Bytes will be copied from the buffer index to
+     * the buffer index + length.
+     * <p>
+     * The source buffer will not have its {@link ByteBuffer#position()} advanced as a result.
+     *
+     * @param buffer - buffer containing entry data
+     * @param offset - offset of the entry data in the buffer
+     * @param length - length of the entry data
+     * @return  queue index at which entry was appended
+     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    long append(ByteBuffer buffer, int offset, int length);
 
     /**
      * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
      * buffer the {@link #appending(int)} method can be used instead.
      *
-     * @param buffer - direct buffer to read entry from
-     * @param offset - offset of the entry in the buffer
-     * @param length - length of the entry
+     * @param buffer - direct buffer containing entry data
+     * @param offset - offset of the entry data in the buffer
+     * @param length - length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed

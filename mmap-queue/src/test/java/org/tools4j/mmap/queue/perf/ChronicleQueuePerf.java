@@ -56,7 +56,7 @@ public class ChronicleQueuePerf {
             final long messagesPerSecond = 1_000_000;
             final int messages = 11_000_000;
             final int warmup = 1_000_000;
-            final int messageLength = 256;
+            final int messageLength = 100;
 
             final ChronicleSender sender = new ChronicleSender((byte) 0, queue::acquireAppender, messagesPerSecond, messages, messageLength);
             final ChronicleReceiver receiver0 = new ChronicleReceiver(0, queue::createTailer, warmup, messages, messageLength);

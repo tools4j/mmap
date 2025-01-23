@@ -33,8 +33,8 @@ public interface Index {
     /** Zero index used for first entry in the queue. */
     long FIRST = 0;
 
-    /** The maximum allowed index, which is 1,152,921,504,606,846,975. */
-    long MAX = Long.MAX_VALUE / Long.BYTES;//otherwise we cannot express the header position
+    /** The maximum allowed index. */
+    long MAX = Long.MAX_VALUE - 2;
 
     /**
      * Pseudo-index used to generically reference the last entry in the queue.

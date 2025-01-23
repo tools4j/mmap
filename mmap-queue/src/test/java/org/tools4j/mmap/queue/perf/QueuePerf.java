@@ -96,7 +96,7 @@ public class QueuePerf {
         final long messagesPerSecond = 1_000_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
-        final int messageLength = 10;
+        final int messageLength = 100;
 
 //        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
         try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {

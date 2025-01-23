@@ -71,7 +71,7 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
       - name: Build with Gradle
-        run: ./gradlew
+        run: ./gradlew clean build
       - name: Copy test logs
         id: copy_test_logs
         if: failure()
