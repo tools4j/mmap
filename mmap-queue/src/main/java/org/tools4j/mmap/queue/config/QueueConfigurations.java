@@ -555,7 +555,7 @@ public enum QueueConfigurations {
     private static <T> T newObjInstance(final String propVal, final Class<T> type) {
         try {
             final Class<?> clazz = Class.forName(propVal);
-            final Object value = clazz.newInstance();
+            final Object value = clazz.getDeclaredConstructor().newInstance();
             return type.cast(value);
         } catch (final Exception e) {
             throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
