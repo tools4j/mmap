@@ -10,8 +10,9 @@ plugins {
     id 'idea'
     id 'java-library'
     id 'io.freefair.javadoc-links' version '6.5.1' apply false
-    id 'biz.aQute.bnd.builder' version '6.3.1' apply false
     id 'com.github.hierynomus.license' version "0.16.1" apply false
+//    id 'biz.aQute.bnd.builder' version '7.1.0' apply false
+    id 'biz.aQute.bnd.builder' version '6.4.0' apply false
 }
 
 defaultTasks 'clean', 'build'
@@ -118,7 +119,7 @@ subprojects {
         }
     }
 
-    tasks.withType(Jar) {
+    tasks.withType(Jar).configureEach {
         enabled = true
         includeEmptyDirs = false
     }
@@ -195,10 +196,10 @@ subprojects {
     }
 
     license {
-        header rootProject.file('etc/LICENSE.template')
-        strictCheck true
-        include "**/*.java"
+        header = rootProject.file('etc/LICENSE.template')
+        strictCheck = true
         ext.year = Year.now().value
+        include "**/*.java"
         mapping {
             java='SLASHSTAR_STYLE'
         }
@@ -218,7 +219,7 @@ subprojects {
     }
 
     task testJar(type: Jar, dependsOn: testClasses) {
-        archiveClassifier.set "test-${project.archivesBaseName}"
+        archiveClassifier.set "test-${base.archivesName}"
         from sourceSets.test.output
     }
 
@@ -239,18 +240,20 @@ project(':mmap-region') {
     }
 
     jar {
-        bnd """
-            Automatic-Module-Name:  org.tools4j.mmap-region
-            Bundle-Name:            org.tools4j.mmap-region
-            Bundle-SymbolicName:    org.tools4j.mmap-region
-            Implementation-Title:   mmap
-            Implementation-Vendor:  tools4j.org
-            Implementation-Version: ${projVersion}
-            -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
-            # Suppress headers that reduce reproducibility.
-            -reproducible: true
-            -noextraheaders: true
-        """
+        bundle {
+            bnd """
+                Automatic-Module-Name:  org.tools4j.mmap-region
+                Bundle-Name:            org.tools4j.mmap-region
+                Bundle-SymbolicName:    org.tools4j.mmap-region
+                Implementation-Title:   mmap
+                Implementation-Vendor:  tools4j.org
+                Implementation-Version: ${projVersion}
+                -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
+                # Suppress headers that reduce reproducibility.
+                -reproducible: true
+                -noextraheaders: true
+            """
+        }
     }
 
     java {
@@ -294,18 +297,20 @@ project(':mmap-queue') {
     }
 
     jar {
-        bnd """
-            Automatic-Module-Name:  org.tools4j.mmap-queue
-            Bundle-Name:            org.tools4j.mmap-queue
-            Bundle-SymbolicName:    org.tools4j.mmap-queue
-            Implementation-Title:   mmap
-            Implementation-Vendor:  tools4j.org
-            Implementation-Version: ${projVersion}
-            -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
-            # Suppress headers that reduce reproducibility.
-            -reproducible: true
-            -noextraheaders: true
-        """
+        bundle {
+            bnd """
+                Automatic-Module-Name:  org.tools4j.mmap-queue
+                Bundle-Name:            org.tools4j.mmap-queue
+                Bundle-SymbolicName:    org.tools4j.mmap-queue
+                Implementation-Title:   mmap
+                Implementation-Vendor:  tools4j.org
+                Implementation-Version: ${projVersion}
+                -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
+                # Suppress headers that reduce reproducibility.
+                -reproducible: true
+                -noextraheaders: true
+            """
+        }
     }
 
     java {
