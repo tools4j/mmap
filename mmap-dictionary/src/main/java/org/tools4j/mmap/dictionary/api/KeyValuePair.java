@@ -21,39 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
-import org.agrona.MutableDirectBuffer;
+import org.agrona.DirectBuffer;
 
-public interface UpdatingContext extends AutoCloseable {
-    void ensureCapacity(int capacity);
-
-    MutableDirectBuffer keyBuffer();
-    void commitKey(int keyLength);
-    MutableDirectBuffer valueBuffer();
-    void commitValue(int keyLength);
-
-    UpdateResult put();
-    UpdateResult putIfAbsent();
-    UpdateResult putIfMatching(UpdatePredicate condition);
-
-    /**
-     * Aborts updating the key/value pair
-     */
-    void abort();
-
-    /**
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Aborts updating if not closed or committed yet.
-     */
-    @Override
-    default void close() {
-        if (!isClosed()) {
-            abort();
-        }
-    }
+/**
+ * Representation of a key/value pair, with key and value data accessible through {@link #key()} and {@link #value()}.
+ */
+public interface KeyValuePair {
+    DirectBuffer key();
+    DirectBuffer value();
 }

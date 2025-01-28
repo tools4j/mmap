@@ -21,11 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
-
-import org.agrona.DirectBuffer;
+package org.tools4j.mmap.dictionary.api;
 
 @FunctionalInterface
-public interface UpdatePredicate {
-    boolean test(DirectBuffer key, DirectBuffer oldValue, DirectBuffer newValue);
+public interface DeletePredicate {
+    boolean test(KeyValuePair keyValue);
 }

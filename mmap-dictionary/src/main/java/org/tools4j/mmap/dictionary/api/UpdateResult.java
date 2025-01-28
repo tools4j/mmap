@@ -21,14 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
 import org.agrona.DirectBuffer;
 
-/**
- * Representation of a key/value pair, with key and value data accessible through {@link #key()} and {@link #value()}.
- */
-public interface KeyValuePair {
-    DirectBuffer key();
-    DirectBuffer value();
+public interface UpdateResult extends KeyValuePair, AutoCloseable {
+    boolean isPresent();
+    boolean isUpdated();
+    boolean hasOldValue();
+
+    /**
+     * @return the buffer with the old value before updating, never null
+     */
+    DirectBuffer oldValue();
+
+    /**
+     * @return true if the context is closed.
+     */
+    boolean isClosed();
+
+    /**
+     * Closes the lookup context and unwraps the buffer
+     */
+    @Override
+    void close();
 }

@@ -21,19 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.marshal;
 
-public interface LookupContext extends KeyValuePair, AutoCloseable {
-    boolean isPresent();
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 
-    /**
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the lookup context and unwraps the buffer
-     */
-    @Override
-    void close();
+public interface Marshaller<T> {
+    int maxByteCapacity();
+    int marshal(T value, MutableDirectBuffer buffer);
+    T unmarshal(DirectBuffer  buffer);
 }

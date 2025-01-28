@@ -21,11 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
-public interface UpdateResult extends KeyValuePair, AutoCloseable {
-    boolean isPresent();
-    boolean isUpdated();
+import org.agrona.MutableDirectBuffer;
+
+public interface UpdatingContext extends AutoCloseable {
+    void ensureCapacity(int capacity);
+
+    MutableDirectBuffer valueBuffer();
+    void commitValue(int keyLength);
+
+    UpdateResult put();
+    UpdateResult putIfAbsent();
+    UpdateResult putIfMatching(UpdatePredicate condition);
+
+    /**
+     * Aborts updating the key/value pair
+     */
+    void abort();
 
     /**
      * @return true if the context is closed.
@@ -33,8 +46,12 @@ public interface UpdateResult extends KeyValuePair, AutoCloseable {
     boolean isClosed();
 
     /**
-     * Closes the lookup context and unwraps the buffer
+     * Aborts updating if not closed or committed yet.
      */
     @Override
-    void close();
+    default void close() {
+        if (!isClosed()) {
+            abort();
+        }
+    }
 }

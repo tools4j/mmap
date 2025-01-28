@@ -21,36 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
-import org.agrona.MutableDirectBuffer;
+public interface Dictionary extends AutoCloseable {
+    Updater createUpdater();
+    Lookup createLookup();
+    KeyValueIterable createIterable();
 
-public interface DeletingContext extends AutoCloseable {
-    void ensureCapacity(int capacity);
-
-    MutableDirectBuffer keyBuffer();
-    void commitKey(int keyLength);
-
-    boolean delete();
-    boolean deleteIfMatching(KeyValuePredicate condition);
-
-    /**
-     * Aborts deleting the key/value pair
-     */
-    void abort();
-
-    /**
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Aborts deleting if not closed or committed yet.
-     */
     @Override
-    default void close() {
-        if (!isClosed()) {
-            abort();
-        }
-    }
+    void close();
 }

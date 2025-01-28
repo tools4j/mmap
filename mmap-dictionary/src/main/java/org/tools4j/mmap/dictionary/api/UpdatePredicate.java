@@ -21,10 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
-public interface Dictionary {
-    Updater createUpdater();
-    Lookup createLookup();
-    KeyValueIterable createIterable();
+@FunctionalInterface
+public interface UpdatePredicate {
+    boolean test(KeyValuePair oldPair, KeyValuePair newPair);
 }
