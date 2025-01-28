@@ -21,11 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
-import org.agrona.DirectBuffer;
+public interface LookupResult extends KeyValuePair, AutoCloseable {
+    boolean isPresent();
 
-@FunctionalInterface
-public interface KeyValuePredicate {
-    boolean test(DirectBuffer key, DirectBuffer value);
+    /**
+     * @return true if the context is closed.
+     */
+    boolean isClosed();
+
+    /**
+     * Closes the lookup context and unwraps the buffer
+     */
+    @Override
+    void close();
 }

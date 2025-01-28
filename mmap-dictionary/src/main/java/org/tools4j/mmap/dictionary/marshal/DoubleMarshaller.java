@@ -21,29 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.marshal;
 
 import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 
-public interface Updater extends AutoCloseable {
-    void put(DirectBuffer key, DirectBuffer value);
-    UpdateResult putIfAbsent(DirectBuffer key, DirectBuffer value);
-    UpdateResult putIfMatching(DirectBuffer key, DirectBuffer value, UpdatePredicate condition);
-
-    boolean delete(DirectBuffer key);
-    boolean deleteIfMatching(DirectBuffer key, KeyValuePredicate condition);
-
-    DeletingContext updating(int capacity);
-    DeletingContext deleting(int capacity);
-
-    /**
-     * @return true if this appender is closed
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the appender.
-     */
+public interface DoubleMarshaller extends Marshaller<Double> {
     @Override
-    void close();
+    default int maxByteCapacity() {
+        return Double.BYTES;
+    }
+
+    @Override
+    default int marshal(final Double value, final MutableDirectBuffer buffer) {
+        marshal(value.doubleValue(), buffer);
+        return Double.BYTES;
+    }
+
+    @Override
+    default Double unmarshal(final DirectBuffer buffer) {
+        return unmarshalAsDouble(buffer);
+    }
+
+    void marshal(double value, MutableDirectBuffer buffer);
+
+    double unmarshalAsDouble(DirectBuffer buffer);
 }

@@ -21,23 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary;
+package org.tools4j.mmap.dictionary.api;
 
 import org.agrona.DirectBuffer;
 
-import java.util.Iterator;
+public interface Updater extends AutoCloseable {
+    void put(DirectBuffer key, DirectBuffer value);
+    UpdateResult putIfAbsent(DirectBuffer key, DirectBuffer value);
+    UpdateResult putIfMatching(DirectBuffer key, DirectBuffer value, UpdatePredicate condition);
 
-public interface KeyValueIterable extends Iterable<KeyValuePair>, AutoCloseable {
-    @Override
-    Iterator<KeyValuePair> iterator();
+    boolean delete(DirectBuffer key);
+    boolean deleteIfMatching(DirectBuffer key, DeletePredicate condition);
 
-    Iterator<DirectBuffer> keys();
-    Iterator<DirectBuffer> values();
+    InsertingContext inserting(int keyValueCapacity);
+    UpdatingContext updating(DirectBuffer key, int valueCapacity);
+    DeletingContext deleting();
 
+    /**
+     * @return true if this appender is closed
+     */
     boolean isClosed();
 
     /**
-     * Closes this reader.
+     * Closes the appender.
      */
     @Override
     void close();
