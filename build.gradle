@@ -347,6 +347,64 @@ project(':mmap-queue') {
     }
 }
 
+project(':mmap-dictionary') {
+    dependencies {
+        api "org.agrona:agrona:${agronaVersion}"
+        api "org.slf4j:slf4j-api:${slf4jVersion}"
+        api project(':mmap-region')
+
+        testImplementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
+        testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    }
+
+    jar {
+        bundle {
+            // workaround for https://github.com/bndtools/bnd/issues/6346
+            properties.put("project.group", provider({project.group}))
+            bnd """
+                Automatic-Module-Name:  org.tools4j.mmap-dictionary
+                Bundle-Name:            org.tools4j.mmap-dictionary
+                Bundle-SymbolicName:    org.tools4j.mmap-dictionary
+                Implementation-Title:   mmap
+                Implementation-Vendor:  tools4j.org
+                Implementation-Version: ${projVersion}
+                -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
+                # Suppress headers that reduce reproducibility.
+                -reproducible: true
+                -noextraheaders: true
+            """
+        }
+    }
+
+    java {
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    publishing {
+        publications {
+            mmapQueue(MavenPublication) {
+                from components.java
+                pom(projectPom)
+            }
+        }
+
+        repositories {
+            maven {
+                url = !isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl
+                credentials {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
+        }
+    }
+
+    signing {
+        sign publishing.publications.mmapQueue
+    }
+}
+
 
 tasks.register('testReport', TestReport) {
     destinationDirectory = file("${rootDir}/reports/allTests")
