@@ -23,18 +23,10 @@
  */
 package org.tools4j.mmap.dictionary.api;
 
+import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 
 public interface UpdatingContext extends AutoCloseable {
-    void ensureCapacity(int capacity);
-
-    MutableDirectBuffer valueBuffer();
-    void commitValue(int keyLength);
-
-    UpdateResult put();
-    UpdateResult putIfAbsent();
-    UpdateResult putIfMatching(UpdatePredicate condition);
-
     /**
      * Aborts updating the key/value pair
      */
@@ -53,5 +45,33 @@ public interface UpdatingContext extends AutoCloseable {
         if (!isClosed()) {
             abort();
         }
+    }
+
+    interface Key extends UpdatingContext {
+        void ensureCapacity(int capacity);
+        MutableDirectBuffer keyBuffer();
+        Value commitKey(int keyLength);
+    }
+
+    interface Value extends UpdatingContext {
+        void ensureCapacity(int capacity);
+        DirectBuffer keyBuffer();
+        MutableDirectBuffer valueBuffer();
+
+        Result put(int valueLength);
+        Result putIfAbsent(int valueLength);
+        Result putIfMatching(int valueLength, UpdatePredicate condition);
+    }
+
+    interface Result extends KeyValueResult {
+        @Override
+        boolean isPresent();
+        boolean isUpdated();
+        boolean hasOldValue();
+
+        /**
+         * @return the buffer with the old value before updating, never null
+         */
+        DirectBuffer oldValue();
     }
 }

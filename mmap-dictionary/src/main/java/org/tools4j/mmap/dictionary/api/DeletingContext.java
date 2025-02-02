@@ -26,14 +26,6 @@ package org.tools4j.mmap.dictionary.api;
 import org.agrona.MutableDirectBuffer;
 
 public interface DeletingContext extends AutoCloseable {
-    void ensureCapacity(int capacity);
-
-    MutableDirectBuffer keyBuffer();
-    void commitKey(int keyLength);
-
-    DeleteResult delete();
-    DeleteResult deleteIfMatching(DeletePredicate condition);
-
     /**
      * Aborts deleting the key/value pair
      */
@@ -52,5 +44,22 @@ public interface DeletingContext extends AutoCloseable {
         if (!isClosed()) {
             abort();
         }
+    }
+
+    interface Key extends DeletingContext {
+        MutableDirectBuffer keyBuffer();
+
+        Result delete(int keyLength);
+        Result deleteIfMatching(int keyLength, DeletePredicate condition);
+    }
+
+    interface Result extends KeyValueResult {
+        /**
+         * @return true if the key/value pair was present in the dictionary when performing or attempting
+         * the delete operation
+         */
+        @Override
+        boolean isPresent();
+        boolean isDeleted();
     }
 }

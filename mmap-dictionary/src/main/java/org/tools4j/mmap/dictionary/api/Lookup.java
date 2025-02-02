@@ -24,7 +24,6 @@
 package org.tools4j.mmap.dictionary.api;
 
 import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
 
 import java.nio.ByteBuffer;
 
@@ -37,35 +36,25 @@ public interface Lookup extends AutoCloseable {
     boolean containsKey(DirectBuffer key);
     boolean containsKey(DirectBuffer key, int keyOffset, int keyLength);
 
-    KeySpecifier getting();
-    LookupResult getting(byte[] key);
-    LookupResult getting(byte[] key, int keyOffset, int keyLength);
-    LookupResult getting(ByteBuffer key);
-    LookupResult getting(ByteBuffer key, int keyLength);
-    LookupResult getting(ByteBuffer key, int keyOffset, int keyLength);
-    LookupResult getting(DirectBuffer key);
-    LookupResult getting(DirectBuffer key, int keyOffset, int keyLength);
+    LookupContext.Result get(byte[] key);
+    LookupContext.Result get(byte[] key, int keyOffset, int keyLength);
+    LookupContext.Result get(ByteBuffer key);
+    LookupContext.Result get(ByteBuffer key, int keyLength);
+    LookupContext.Result get(ByteBuffer key, int keyOffset, int keyLength);
+    LookupContext.Result get(DirectBuffer key);
+    LookupContext.Result get(DirectBuffer key, int keyOffset, int keyLength);
+
+    LookupContext.Key getting();
 
     /**
-     * @return true if this appender is closed
+     * @return true if this lookup is closed
      */
     boolean isClosed();
 
     /**
-     * Closes the appender.
+     * Closes the lookup.
      */
     @Override
     void close();
-
-    interface KeySpecifier extends AutoCloseable {
-        MutableDirectBuffer keyBuffer();
-        LookupResult commitKey(int keyLength);
-
-        /**
-         * Closes the lookup context and unwraps the buffer
-         */
-        @Override
-        void close();
-    }
 
 }

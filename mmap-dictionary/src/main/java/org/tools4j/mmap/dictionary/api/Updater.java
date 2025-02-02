@@ -27,23 +27,23 @@ import org.agrona.DirectBuffer;
 
 public interface Updater extends AutoCloseable {
     void put(DirectBuffer key, DirectBuffer value);
-    UpdateResult putIfAbsent(DirectBuffer key, DirectBuffer value);
-    UpdateResult putIfMatching(DirectBuffer key, DirectBuffer value, UpdatePredicate condition);
+    UpdatingContext.Result putIfAbsent(DirectBuffer key, DirectBuffer value);
+    UpdatingContext.Result putIfMatching(DirectBuffer key, DirectBuffer value, UpdatePredicate condition);
 
-    boolean delete(DirectBuffer key);
-    boolean deleteIfMatching(DirectBuffer key, DeletePredicate condition);
+    DeletingContext.Result delete(DirectBuffer key);
+    DeletingContext.Result deleteIfMatching(DirectBuffer key, DeletePredicate condition);
 
-    InsertingContext inserting(int keyValueCapacity);
-    UpdatingContext updating(DirectBuffer key, int valueCapacity);
-    DeletingContext deleting();
+    UpdatingContext.Key updating(int capacity);
+    UpdatingContext.Value updating(DirectBuffer key, int valueCapacity);
+    DeletingContext.Key deleting();
 
     /**
-     * @return true if this appender is closed
+     * @return true if this updater is closed
      */
     boolean isClosed();
 
     /**
-     * Closes the appender.
+     * Closes the updater.
      */
     @Override
     void close();

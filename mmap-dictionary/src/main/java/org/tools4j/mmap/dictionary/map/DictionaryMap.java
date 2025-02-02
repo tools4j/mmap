@@ -24,17 +24,16 @@
 package org.tools4j.mmap.dictionary.map;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.dictionary.api.DeleteResult;
+import org.agrona.ExpandableArrayBuffer;
+import org.agrona.MutableDirectBuffer;
 import org.tools4j.mmap.dictionary.api.DeletingContext;
 import org.tools4j.mmap.dictionary.api.Dictionary;
-import org.tools4j.mmap.dictionary.api.InsertingContext;
-import org.tools4j.mmap.dictionary.api.KeyValueIterable;
+import org.tools4j.mmap.dictionary.api.DictionaryIterator;
+import org.tools4j.mmap.dictionary.api.IteratingContext;
 import org.tools4j.mmap.dictionary.api.KeyValuePair;
 import org.tools4j.mmap.dictionary.api.Lookup;
-import org.tools4j.mmap.dictionary.api.Lookup.KeySpecifier;
-import org.tools4j.mmap.dictionary.api.LookupResult;
+import org.tools4j.mmap.dictionary.api.LookupContext;
 import org.tools4j.mmap.dictionary.api.UpdatePredicate;
-import org.tools4j.mmap.dictionary.api.UpdateResult;
 import org.tools4j.mmap.dictionary.api.Updater;
 import org.tools4j.mmap.dictionary.api.UpdatingContext;
 import org.tools4j.mmap.dictionary.marshal.Marshaller;
@@ -64,7 +63,7 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     private final Marshaller<V> valueMarshaller;
     private final ThreadLocal<Updater> updater;
     private final ThreadLocal<Lookup> lookup;
-    private final ThreadLocal<KeyValueIterable> iterable;
+    private final ThreadLocal<DictionaryIterator> iterator;
 
     private transient KeySetView<K, V> keySet;
     private transient ValuesView<K, V> values;
@@ -80,7 +79,7 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
         this.valueMarshaller = requireNonNull(valueMarshaller);
         this.updater = ThreadLocal.withInitial(dictionary::createUpdater);
         this.lookup = ThreadLocal.withInitial(dictionary::createLookup);
-        this.iterable = ThreadLocal.withInitial(dictionary::createIterable);
+        this.iterator = ThreadLocal.withInitial(dictionary::createIterator);
     }
 
     @Override
@@ -89,7 +88,7 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     }
 
     public long sizeAsLong() {
-        return iterable.get().size();
+        return iterator.get().size();
     }
 
     @Override
@@ -100,7 +99,7 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
     @Override
     public boolean isEmpty() {
-        return iterable.get().isEmpty();
+        return iterator.get().isEmpty();
     }
 
     @Override
@@ -109,18 +108,20 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
             return false;
         }
         final K typedKey = keyType.cast(key);
-        try (final KeySpecifier keySpec = lookup.get().getting()) {
-            final int len = keyMarshaller.marshal(typedKey, keySpec.keyBuffer());
-            return keySpec.commitKey(len).isPresent();
+        try (final LookupContext.Key keyContext = lookup.get().getting()) {
+            final int len = keyMarshaller.marshal(typedKey, keyContext.keyBuffer());
+            return keyContext.containsKey(len);
         }
     }
 
     @Override
     public boolean containsValue(final Object value) {
-        for (final DirectBuffer buffer : iterable.get().values()) {
-            final V candidate = valueMarshaller.unmarshal(buffer);
-            if (Objects.equals(value, candidate)) {
-                return true;
+        try (final IteratingContext.Values values = iterator.get().iteratingValues()) {
+            for (final DirectBuffer valueBuffer : values) {
+                final V candidate = valueMarshaller.unmarshal(valueBuffer);
+                if (Objects.equals(value, candidate)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -137,17 +138,17 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
             return null;
         }
         final K typedKey = keyType.cast(key);
-        try (final KeySpecifier keySpec = lookup.get().getting()) {
-            final int len = keyMarshaller.marshal(typedKey, keySpec.keyBuffer());
-            final LookupResult result = keySpec.commitKey(len);
+        try (final LookupContext.Key keyContext = lookup.get().getting()) {
+            final int len = keyMarshaller.marshal(typedKey, keyContext.keyBuffer());
+            final LookupContext.Result result = keyContext.lookup(len);
             return result.isPresent() ? valueMarshaller.unmarshal(result.value()) : defaultValue;
         }
     }
 
-    private <T> T get(final K key, final BiFunction<? super DictionaryMap<K,V>, ? super LookupResult, T> result) {
-        try (final KeySpecifier keySpec = lookup.get().getting()) {
-            final int len = keyMarshaller.marshal(key, keySpec.keyBuffer());
-            final LookupResult lookupResult = keySpec.commitKey(len);
+    private <T> T get(final K key, final BiFunction<? super DictionaryMap<K,V>, ? super LookupContext.Result, T> result) {
+        try (final LookupContext.Key keyContext = lookup.get().getting()) {
+            final int len = keyMarshaller.marshal(key, keyContext.keyBuffer());
+            final LookupContext.Result lookupResult = keyContext.lookup(len);
             return result.apply(this, lookupResult);
         }
     }
@@ -160,43 +161,42 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
     private <T> T put(final K key,
                       final V value,
-                      final BiFunction<? super DictionaryMap<K,V>, ? super UpdateResult, T> result) {
+                      final BiFunction<? super DictionaryMap<K,V>, ? super UpdatingContext.Result, T> result) {
         final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final InsertingContext context = updater.get().inserting(capacity)) {
-            final int keyLen = keyMarshaller.marshal(key, context.keyBuffer());
-            context.commitKey(keyLen);
-            final int valueLen = valueMarshaller.marshal(value, context.valueBuffer());
-            context.commitValue(valueLen);
-            final UpdateResult updateResult = context.put();
-            return result.apply(this, updateResult);
+        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+            final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
+            try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
+                final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());
+                final UpdatingContext.Result updateResult = valueContext.put(valueLen);
+                return result.apply(this, updateResult);
+            }
         }
     }
-
 
     @Override
     public V putIfAbsent(final K key, final V value) {
         final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final InsertingContext context = updater.get().inserting(capacity)) {
-            final int keyLen = keyMarshaller.marshal(key, context.keyBuffer());
-            context.commitKey(keyLen);
-            final int valueLen = valueMarshaller.marshal(value, context.valueBuffer());
-            context.commitValue(valueLen);
-            final UpdateResult result = context.putIfAbsent();
-            return result.isUpdated() ? value : valueMarshaller.unmarshal(result.value());
+        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+            final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
+            try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
+                final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());
+                final UpdatingContext.Result result = valueContext.putIfAbsent(valueLen);
+                return result.isUpdated() ? value : valueMarshaller.unmarshal(result.value());
+            }
         }
     }
 
     private <T> T putIfMatching(final K key,
                                 final V value,
                                 final UpdatePredicate condition,
-                                final BiFunction<? super DictionaryMap<K, V>, ? super UpdateResult, T> result) {
+                                final BiFunction<? super DictionaryMap<K, V>, ? super UpdatingContext.Result, T> result) {
         final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final InsertingContext context = updater.get().inserting(capacity)) {
-            final int keyLen = keyMarshaller.marshal(key, context.keyBuffer());
-            context.commitKey(keyLen);
-            final int valueLen = valueMarshaller.marshal(value, context.valueBuffer());
-            context.commitValue(valueLen);
-            return result.apply(this, context.putIfMatching(condition));
+        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+            final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
+            try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
+                final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());
+                return result.apply(this, valueContext.putIfMatching(valueLen, condition));
+            }
         }
     }
 
@@ -210,11 +210,10 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     }
 
     private <T> T remove(final K key,
-                         final BiFunction<? super DictionaryMap<K,V>, ? super DeleteResult, T> result) {
-        try (final DeletingContext context = updater.get().deleting()) {
+                         final BiFunction<? super DictionaryMap<K,V>, ? super DeletingContext.Result, T> result) {
+        try (final DeletingContext.Key context = updater.get().deleting()) {
             final int keyLen = keyMarshaller.marshal(key, context.keyBuffer());
-            context.commitKey(keyLen);
-            final DeleteResult deleteResult = context.delete();
+            final DeletingContext.Result deleteResult = context.delete(keyLen);
             return result.apply(this, deleteResult);
         }
     }
@@ -225,10 +224,9 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
             return false;
         }
         final K typedKey = keyType.cast(key);
-        try (final DeletingContext context = updater.get().deleting()) {
+        try (final DeletingContext.Key context = updater.get().deleting()) {
             final int keyLen = keyMarshaller.marshal(typedKey, context.keyBuffer());
-            context.commitKey(keyLen);
-            final DeleteResult result = context.deleteIfMatching(keyValue -> {
+            final DeletingContext.Result result = context.deleteIfMatching(keyLen, keyValue -> {
                 final V current = valueMarshaller.unmarshal(keyValue.value());
                 return Objects.equals(value, current);
             });
@@ -263,8 +261,10 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
     @Override
     public void clear() {
-        for (final DirectBuffer buffer : iterable.get().keys()) {
-            updater.get().delete(buffer);
+        try (final IteratingContext.Keys keys = iterator.get().iteratingKeys()) {
+            for (final DirectBuffer key : keys) {
+                updater.get().delete(key);
+            }
         }
     }
 
@@ -289,10 +289,12 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     @Override
     public void forEach(final BiConsumer<? super K, ? super V> action) {
         requireNonNull(action);
-        for (final KeyValuePair kv : iterable.get()) {
-            final K key = keyMarshaller.unmarshal(kv.key());
-            final V value = valueMarshaller.unmarshal(kv.value());
-            action.accept(key, value);
+        try (final IteratingContext.KeyValuePairs pairs = iterator.get().iteratingKeyValuePairs()) {
+            for (final KeyValuePair kv : pairs) {
+                final K key = keyMarshaller.unmarshal(kv.key());
+                final V value = valueMarshaller.unmarshal(kv.value());
+                action.accept(key, value);
+            }
         }
     }
 
@@ -300,26 +302,27 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     public void replaceAll(final BiFunction<? super K, ? super V, ? extends V> function) {
         requireNonNull(function);
         final int valueCapacity = valueMarshaller.maxByteCapacity();
-        for (final DirectBuffer keyBuf : iterable.get().keys()) {
-            final K key = keyMarshaller.unmarshal(keyBuf);
-            boolean repeat;
-            do {
-                try (final UpdatingContext context = updater.get().updating(keyBuf, valueCapacity)) {
-                    final V oldValue = valueMarshaller.unmarshal(context.valueBuffer());
-                    final V newValue = function.apply(key, oldValue);
-                    final int valueLen = valueMarshaller.marshal(newValue, context.valueBuffer());
-                    context.commitValue(valueLen);
-                    final UpdateResult result = context.putIfMatching((oldPair, newPair) -> {
-                        if (oldPair == null) {
-                            //has been deleted
-                            return false;
-                        }
-                        final V curValue = valueMarshaller.unmarshal(oldPair.value());
-                        return Objects.equals(oldPair, curValue);
-                    });
-                    repeat = result.isPresent() && !result.isUpdated();
-                }
-            } while (repeat);
+        try (final IteratingContext.Keys keys = iterator.get().iteratingKeys()) {
+            for (final DirectBuffer keyBuf : keys) {
+                final K key = keyMarshaller.unmarshal(keyBuf);
+                boolean repeat;
+                do {
+                    try (final UpdatingContext.Value context = updater.get().updating(keyBuf, valueCapacity)) {
+                        final V oldValue = valueMarshaller.unmarshal(context.valueBuffer());
+                        final V newValue = function.apply(key, oldValue);
+                        final int valueLen = valueMarshaller.marshal(newValue, context.valueBuffer());
+                        final UpdatingContext.Result result = context.putIfMatching(valueLen, (oldPair, newPair) -> {
+                            if (oldPair == null) {
+                                //has been deleted
+                                return false;
+                            }
+                            final V curValue = valueMarshaller.unmarshal(oldPair.value());
+                            return Objects.equals(oldPair, curValue);
+                        });
+                        repeat = result.isPresent() && !result.isUpdated();
+                    }
+                } while (repeat);
+            }
         }
     }
 
@@ -583,9 +586,11 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
         @Override
         public void forEach(final Consumer<? super K> action) {
             requireNonNull(action);
-            for (final KeyValuePair kv : map.iterable.get()) {
-                final K key = map.keyMarshaller.unmarshal(kv.key());
-                action.accept(key);
+            try (final IteratingContext.KeyValuePairs pairs = map.iterator.get().iteratingKeyValuePairs()) {
+                for (final KeyValuePair kv : pairs) {
+                    final K key = map.keyMarshaller.unmarshal(kv.key());
+                    action.accept(key);
+                }
             }
         }
     }
@@ -598,7 +603,7 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
         ValuesView(final DictionaryMap<K,V> map) {
             super(map);
         }
-        
+
         @Override
         public boolean contains(final Object o) {
             //noinspection SuspiciousMethodCalls
@@ -638,9 +643,11 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
         @Override
         public void forEach(final Consumer<? super V> action) {
             requireNonNull(action);
-            for (final KeyValuePair kv : map.iterable.get()) {
-                final V value = map.valueMarshaller.unmarshal(kv.value());
-                action.accept(value);
+            try (final IteratingContext.KeyValuePairs pairs = map.iterator.get().iteratingKeyValuePairs()) {
+                for (final KeyValuePair kv : pairs) {
+                    final V value = map.valueMarshaller.unmarshal(kv.value());
+                    action.accept(value);
+                }
             }
         }
     }
@@ -711,10 +718,12 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
         @Override
         public int hashCode() {
             int h = 0;
-            for (final KeyValuePair kv : map.iterable.get()) {
-                final K key = map.keyMarshaller.unmarshal(kv.key());
-                final V value = map.valueMarshaller.unmarshal(kv.value());
-                h += MapEntry.hashCode(key, value);
+            try (final IteratingContext.KeyValuePairs pairs = map.iterator.get().iteratingKeyValuePairs()) {
+                for (final KeyValuePair kv : pairs) {
+                    final K key = map.keyMarshaller.unmarshal(kv.key());
+                    final V value = map.valueMarshaller.unmarshal(kv.value());
+                    h += MapEntry.hashCode(key, value);
+                }
             }
             return h;
         }
@@ -734,24 +743,28 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
         public void forEach(final Consumer<? super Map.Entry<K,V>> action) {
             requireNonNull(action);
-            for (final KeyValuePair kv : map.iterable.get()) {
-                final K key = map.keyMarshaller.unmarshal(kv.key());
-                final V value = map.valueMarshaller.unmarshal(kv.value());
-                action.accept(new MapEntry<>(map, key, value));
+            try (final IteratingContext.KeyValuePairs pairs = map.iterator.get().iteratingKeyValuePairs()) {
+                for (final KeyValuePair kv : pairs) {
+                    final K key = map.keyMarshaller.unmarshal(kv.key());
+                    final V value = map.valueMarshaller.unmarshal(kv.value());
+                    action.accept(new MapEntry<>(map, key, value));
+                }
             }
         }
     }
 
     private abstract static class BaseIterator<K,V,E> implements Iterator<E> {
         final DictionaryMap<K,V> map;
-        KeyValueIterable iterable;
+        DictionaryIterator dictionaryIterator;
+        IteratingContext.KeyValuePairs iterableContext;
         Iterator<KeyValuePair> iterator;
-        KeyValuePair lastReturned;
+        DirectBuffer lastReturnedKey;
 
         BaseIterator(final DictionaryMap<K,V> map) {
             this.map = requireNonNull(map);
-            this.iterable = map.dictionary.createIterable();
-            this.iterator = iterable.iterator();
+            this.dictionaryIterator = map.dictionary.createIterator();
+            this.iterableContext = dictionaryIterator.iteratingKeyValuePairs();
+            this.iterator = iterableContext.iterator();
         }
 
         @Override
@@ -760,8 +773,16 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
                 if (iterator.hasNext()) {
                     return true;
                 }
-                iterable.close();
-                iterable = null;
+                if (lastReturnedKey != null) {
+                    //NOTE: buffers get unwrapped below, so we need to copy the key to still support removal
+                    final MutableDirectBuffer copy = new ExpandableArrayBuffer(lastReturnedKey.capacity());
+                    copy.putBytes(0, lastReturnedKey, 0, lastReturnedKey.capacity());
+                    lastReturnedKey = copy;
+                }
+                iterableContext.close();
+                iterableContext = null;
+                dictionaryIterator.close();
+                dictionaryIterator = null;
                 iterator = null;
             }
             return false;
@@ -769,22 +790,22 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
         @Override
         public E next() {
-            if (iterator == null) {
+            if (iterator == null || !hasNext()) {
                 throw new NoSuchElementException();
             }
             final KeyValuePair pair = iterator.next();
-            lastReturned = pair;
+            lastReturnedKey = pair.key();
             return unmarshal(pair);
         }
 
         @Override
         public void remove() {
-            final KeyValuePair pair = lastReturned;
-            if (pair == null) {
+            final DirectBuffer key = lastReturnedKey;
+            if (key == null) {
                 throw new IllegalStateException();
             }
-            lastReturned = null;
-            map.updater.get().delete(pair.key());
+            lastReturnedKey = null;
+            map.updater.get().delete(key);
         }
 
         abstract protected E unmarshal(final KeyValuePair pair);

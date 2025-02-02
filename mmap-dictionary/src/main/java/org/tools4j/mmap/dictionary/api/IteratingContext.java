@@ -23,17 +23,17 @@
  */
 package org.tools4j.mmap.dictionary.api;
 
-public interface LookupResult extends KeyValuePair, AutoCloseable {
-    boolean isPresent();
+import org.agrona.DirectBuffer;
 
-    /**
-     * @return true if the context is closed.
-     */
+public interface IteratingContext<E> extends Iterable<E> {
     boolean isClosed();
 
     /**
-     * Closes the lookup context and unwraps the buffer
+     * Closes this context.
      */
-    @Override
     void close();
+
+    interface KeyValuePairs extends IteratingContext<KeyValuePair>, AutoCloseable {}
+    interface Keys extends IteratingContext<DirectBuffer>, AutoCloseable {}
+    interface Values extends IteratingContext<DirectBuffer>, AutoCloseable {}
 }
