@@ -78,7 +78,7 @@ public interface Queue extends AutoCloseable {
     boolean isClosed();
 
     /**
-     * Closes the queue and all appender, pollers and readers.
+     * Closes the queue and all appenders, pollers, readers and iterators created via this queue.
      */
     @Override
     void close();

@@ -36,7 +36,7 @@ public interface EntryReader extends IndexReader {
      * in the following example:
      * <pre>
      * long start = 123;
-     * try (ReadingContext context = queue.reading(start)) {
+     * try (ReadingContext context = entryReader.reading(start)) {
      *     if (context.hasEntry()) {
      *         byte byte0 = context.buffer().get(0);
      *         ...
@@ -58,7 +58,7 @@ public interface EntryReader extends IndexReader {
      * The returned context should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (ReadingContext context = queue.readingFirst()) {
+     * try (ReadingContext context = entryReader.readingFirst()) {
      *     if (context.hasEntry()) {
      *         byte byte0 = context.buffer().get(0);
      *         ...
@@ -79,7 +79,7 @@ public interface EntryReader extends IndexReader {
      * The returned context should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (ReadingContext context = queue.readingLast()) {
+     * try (ReadingContext context = entryReader.readingLast()) {
      *     if (context.hasEntry()) {
      *         byte byte0 = context.buffer().get(0);
      *         ...

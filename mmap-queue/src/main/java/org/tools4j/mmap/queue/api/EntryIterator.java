@@ -34,7 +34,7 @@ public interface EntryIterator extends AutoCloseable {
      * in the following example:
      * <pre>
      * long start = 123;
-     * try (IterableContext iterable = queue.readingFrom(start)) {
+     * try (IterableContext iterable = entryIterator.readingFrom(start)) {
      *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
@@ -56,7 +56,7 @@ public interface EntryIterator extends AutoCloseable {
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (IterableContext iterable = queue.readingFromFirst()) {
+     * try (IterableContext iterable = entryIterator.readingFromFirst()) {
      *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
@@ -76,7 +76,7 @@ public interface EntryIterator extends AutoCloseable {
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (IterableContext iterable = queue.readingFromLast().reverse()) {
+     * try (IterableContext iterable = entryIterator.readingFromLast().reverse()) {
      *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
@@ -99,7 +99,7 @@ public interface EntryIterator extends AutoCloseable {
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (IterableContext iterable = queue.readingFromEnd()) {
+     * try (IterableContext iterable = entryIterator.readingFromEnd()) {
      *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...

@@ -124,7 +124,7 @@ public interface Appender extends AutoCloseable {
      *     MutableDirectBuffer buffer = context.buffer();
      *     //code entry data into buffer here
      *     int length = ...;//actual number of bytes encoded
-     *     buffer.commit(length);
+     *     context.commit(length);
      * }
      * </pre>
      *
