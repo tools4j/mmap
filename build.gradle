@@ -359,6 +359,8 @@ project(':mmap-dictionary') {
 
     jar {
         bundle {
+            // workaround for https://github.com/bndtools/bnd/issues/6346
+            properties.put("project.group", provider({project.group}))
             bnd """
                 Automatic-Module-Name:  org.tools4j.mmap-dictionary
                 Bundle-Name:            org.tools4j.mmap-dictionary
