@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
-import org.agrona.UnsafeAccess;
+import org.agrona.UnsafeApi;
 import org.tools4j.mmap.region.api.AccessMode;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,9 +57,8 @@ final class PreTouchHelper {
                 return;
             }
         }
-        final sun.misc.Unsafe unsafe = UnsafeAccess.UNSAFE;
         for (long i = 0; i < length; i += REGION_SIZE_GRANULARITY) {
-            unsafe.compareAndSwapLong(null, address + i, 0L, 0L);
+            UnsafeApi.compareAndExchangeLong(null, address + i, 0L, 0L);
         }
     }
 

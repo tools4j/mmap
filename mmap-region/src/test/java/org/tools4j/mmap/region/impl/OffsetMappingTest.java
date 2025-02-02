@@ -28,6 +28,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -35,7 +36,6 @@ import org.mockito.stubbing.Answer;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
-import org.tools4j.spockito.jupiter.TableSource;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,18 +68,17 @@ class OffsetMappingTest {
     }
 
     @ParameterizedTest(name = "regionSize={0}, bytes={2}, startPosition={1}, expectedPosition={3}")
-    @TableSource({
-            "| regionSize | bytes | startPosition | expectedPosition |",
-            "|       4096 |    1  |         0     |         -1       |",
-            "|       4096 |    1  |         0     |       8195       |",
-            "|       4096 |    2  |         0     |       8196       |",
-            "|       4096 |    4  |         0     |       8192       |",
-            "|       4096 |    8  |         0     |       8160       |",
-            "|       4096 |    1  |       100     |         -1       |",
-            "|       4096 |    1  |       100     |       8195       |",
-            "|       4096 |    2  |       100     |       8196       |",
-            "|       4096 |    4  |       100     |       8192       |",
-            "|       4096 |    8  |       120     |       8160       |",
+    @CsvSource(delimiter = '|', value = {
+            "4096 |    1  |         0     |         -1",
+            "4096 |    1  |         0     |       8195",
+            "4096 |    2  |         0     |       8196",
+            "4096 |    4  |         0     |       8192",
+            "4096 |    8  |         0     |       8160",
+            "4096 |    1  |       100     |         -1",
+            "4096 |    1  |       100     |       8195",
+            "4096 |    2  |       100     |       8196",
+            "4096 |    4  |       100     |       8192",
+            "4096 |    8  |       120     |       8160",
     })
     void findAndSearchLast4K(final int regionSize, final int bytes, final long startPosition, final long expectedPosition) {
         //given

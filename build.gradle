@@ -11,8 +11,7 @@ plugins {
     id 'java-library'
     id 'io.freefair.javadoc-links' version '6.5.1' apply false
     id 'com.github.hierynomus.license' version "0.16.1" apply false
-//    id 'biz.aQute.bnd.builder' version '7.1.0' apply false
-    id 'biz.aQute.bnd.builder' version '6.4.0' apply false
+    id 'biz.aQute.bnd.builder' version '7.1.0' apply false
 }
 
 defaultTasks 'clean', 'build'
@@ -20,14 +19,14 @@ defaultTasks 'clean', 'build'
 def projGroup = 'org.tools4j'
 def projVersion = file('version.txt').text.trim()
 
-def agronaVersion = '1.22.0'    //1.23.x requires Java 17
+def agronaVersion = '2.0.1'
 def slf4jVersion = '2.0.16'
-def junitVersion = '5.11.3'
-def mockitoVersion = '4.11.0'   //5.x requires Java 11
-def hdrHistogramVersion = '2.1.12'
-def spockitoVersion = '2.0'
-def assertjVersion = '3.26.3'
+def junitVersion = '5.11.4'
+def mockitoVersion = '5.15.2'
+def assertjVersion = '3.27.3'
+def hdrHistogramVersion = '2.2.2'
 def chronicleVersion = '5.21.98'//fastest now??
+//def chronicleVersion = '5.23.37'
 
 
 ext {
@@ -103,9 +102,7 @@ subprojects {
 
     dependencies {
         testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
-        testImplementation "org.mockito:mockito-inline:${mockitoVersion}"
         testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
-        testImplementation "org.tools4j:spockito-junit5:${spockitoVersion}"
         testImplementation "org.assertj:assertj-core:${assertjVersion}"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     }
@@ -141,14 +138,8 @@ subprojects {
         enableAssertions = true
         jvmArgs('-Ddisable.thread.safety=true')
 
-        if (JavaVersion.current().isJava9Compatible()) {
-            jvmArgs('--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/java.net=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/java.util.zip=ALL-UNNAMED')
-            jvmArgs('--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED')
-        }
+        jvmArgs('--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED')
+        jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
 
         useJUnitPlatform {
             excludeTags 'perf'
@@ -359,6 +350,6 @@ task copyCrashLogs(type: Copy) {
 }
 
 wrapper {
-    gradleVersion = '6.1.1'
+    gradleVersion = '8.12'
     distributionType = 'ALL'
 }

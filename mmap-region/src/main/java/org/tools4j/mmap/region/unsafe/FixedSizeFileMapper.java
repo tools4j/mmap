@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
-import org.agrona.IoUtil;
 import org.agrona.LangUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,7 +90,7 @@ public class FixedSizeFileMapper implements FileMapper {
         if (position < 0 || length < 0 || position + length > fileSize) {
             return NULL_ADDRESS;
         }
-        final long address = IoUtil.map(fileChannel, accessMode.getMapMode(), position, length);
+        final long address = FileChannels.map(fileChannel, accessMode.getMapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
     }
@@ -101,7 +100,7 @@ public class FixedSizeFileMapper implements FileMapper {
         checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        IoUtil.unmap(fileChannel, address, length);
+        FileChannels.unmap(fileChannel, address, length);
     }
 
     private void init() {

@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
-import org.agrona.IoUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
@@ -80,7 +79,7 @@ public class ReadOnlyFileMapper implements FileMapper {
             if (end > fileSize && end > (fileSize = fileChannel.size())) {
                 return NULL_ADDRESS;
             }
-            return IoUtil.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
+            return FileChannels.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
         } catch (final IOException e) {
             LOGGER.error("Failed to map file {}", file, e);
         }
@@ -91,7 +90,7 @@ public class ReadOnlyFileMapper implements FileMapper {
     public void unmap(long address, long position, int length) {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        IoUtil.unmap(fileChannel, address, length);
+        FileChannels.unmap(fileChannel, address, length);
     }
 
     private boolean init() {
