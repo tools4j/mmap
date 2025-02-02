@@ -197,7 +197,7 @@ subprojects {
     }
 
     license {
-        header = rootProject.file('etc/LICENSE.template')
+        header = file("${rootDir}/etc/LICENSE.template")
         strictCheck = true
         ext.year = Year.now().value
         include "**/*.java"
@@ -349,7 +349,7 @@ project(':mmap-queue') {
 
 
 tasks.register('testReport', TestReport) {
-    destinationDirectory = file("${layout.buildDirectory.get()}/reports/allTests")
+    destinationDirectory = file("${rootDir}/reports/allTests")
     // Include the results from the `test` task in all sub-projects
     testResults.setFrom(subprojects*.test)
 }
