@@ -23,25 +23,19 @@
  */
 package org.tools4j.mmap.dictionary.api;
 
-import org.agrona.DirectBuffer;
-
-public interface UpdateResult extends KeyValuePair, AutoCloseable {
-    boolean isPresent();
-    boolean isUpdated();
-    boolean hasOldValue();
-
+public interface KeyValueResult extends KeyValuePair, AutoCloseable {
     /**
-     * @return the buffer with the old value before updating, never null
+     * @return true if the key/value pair is present in the dictionary
      */
-    DirectBuffer oldValue();
+    boolean isPresent();
 
     /**
-     * @return true if the context is closed.
+     * @return true if the result is closed.
      */
     boolean isClosed();
 
     /**
-     * Closes the lookup context and unwraps the buffer
+     * Closes the result and unwraps the buffers
      */
     @Override
     void close();

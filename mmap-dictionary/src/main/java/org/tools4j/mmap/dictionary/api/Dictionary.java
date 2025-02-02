@@ -26,7 +26,7 @@ package org.tools4j.mmap.dictionary.api;
 public interface Dictionary extends AutoCloseable {
     Updater createUpdater();
     Lookup createLookup();
-    KeyValueIterable createIterable();
+    DictionaryIterator createIterator();
 
     @Override
     void close();

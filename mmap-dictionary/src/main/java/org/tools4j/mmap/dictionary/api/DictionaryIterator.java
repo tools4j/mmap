@@ -23,37 +23,19 @@
  */
 package org.tools4j.mmap.dictionary.api;
 
-import org.agrona.MutableDirectBuffer;
+public interface DictionaryIterator extends AutoCloseable {
+    IteratingContext.KeyValuePairs iteratingKeyValuePairs();
+    IteratingContext.Keys iteratingKeys();
+    IteratingContext.Values iteratingValues();
 
-public interface InsertingContext extends AutoCloseable {
-    void ensureCapacity(int capacity);
+    long size();
+    boolean isEmpty();
 
-    MutableDirectBuffer keyBuffer();
-    void commitKey(int keyLength);
-    MutableDirectBuffer valueBuffer();
-    void commitValue(int keyLength);
-
-    UpdateResult put();
-    UpdateResult putIfAbsent();
-    UpdateResult putIfMatching(UpdatePredicate condition);
-
-    /**
-     * Aborts updating the key/value pair
-     */
-    void abort();
-
-    /**
-     * @return true if the context is closed.
-     */
     boolean isClosed();
 
     /**
-     * Aborts updating if not closed or committed yet.
+     * Closes this reader.
      */
     @Override
-    default void close() {
-        if (!isClosed()) {
-            abort();
-        }
-    }
+    void close();
 }
