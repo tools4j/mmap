@@ -9,7 +9,6 @@ buildscript {
 plugins {
     id 'idea'
     id 'java-library'
-    id 'io.freefair.javadoc-links' version '6.5.1' apply false
     id 'com.github.hierynomus.license' version "0.16.1" apply false
     id 'biz.aQute.bnd.builder' version '7.1.0' apply false
 }
@@ -28,6 +27,17 @@ def hdrHistogramVersion = '2.2.2'
 def chronicleVersion = '5.21.98'//fastest now??
 //def chronicleVersion = '5.23.37'
 
+static def getBuildJavaVersion() {
+    def buildJavaVersion = JavaVersion.current().getMajorVersion()
+    if (buildJavaVersion.indexOf('.') > 0) {
+        buildJavaVersion = buildJavaVersion.substring(0, buildJavaVersion.indexOf('.'))
+    }
+    if (buildJavaVersion.indexOf('-') > 0) {
+        buildJavaVersion = buildJavaVersion.substring(0, buildJavaVersion.indexOf('-'))
+    }
+    Integer.parseInt(buildJavaVersion)
+}
+int buildJavaVersion = getBuildJavaVersion()
 
 ext {
     //gradle clean build publish -PossrhUsername=mterzer -PossrhPassword=xxx
@@ -98,13 +108,13 @@ subprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'signing'
     apply plugin: 'biz.aQute.bnd.builder'
-    apply plugin: 'io.freefair.javadoc-links'
 
     dependencies {
         testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
         testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
         testImplementation "org.assertj:assertj-core:${assertjVersion}"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
     }
 
     group = projGroup
@@ -206,7 +216,7 @@ subprojects {
         options.charSet = 'UTF-8'
         if (JavaVersion.current().isJava10Compatible()) {
             options.addBooleanOption 'html5', true
-        }
+            options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")        }
     }
 
     task testJar(type: Jar, dependsOn: testClasses) {
@@ -232,6 +242,8 @@ project(':mmap-region') {
 
     jar {
         bundle {
+            // workaround for https://github.com/bndtools/bnd/issues/6346
+            properties.put("project.group", provider({project.group}))
             bnd """
                 Automatic-Module-Name:  org.tools4j.mmap-region
                 Bundle-Name:            org.tools4j.mmap-region
@@ -289,6 +301,8 @@ project(':mmap-queue') {
 
     jar {
         bundle {
+            // workaround for https://github.com/bndtools/bnd/issues/6346
+            properties.put("project.group", provider({project.group}))
             bnd """
                 Automatic-Module-Name:  org.tools4j.mmap-queue
                 Bundle-Name:            org.tools4j.mmap-queue
@@ -335,7 +349,7 @@ project(':mmap-queue') {
 
 
 tasks.register('testReport', TestReport) {
-    destinationDirectory = file("${buildDir}/reports/allTests")
+    destinationDirectory = file("${layout.buildDirectory.get()}/reports/allTests")
     // Include the results from the `test` task in all sub-projects
     testResults.setFrom(subprojects*.test)
 }
@@ -350,6 +364,6 @@ task copyCrashLogs(type: Copy) {
 }
 
 wrapper {
-    gradleVersion = '8.12'
+    gradleVersion = '8.12.1'
     distributionType = 'ALL'
 }

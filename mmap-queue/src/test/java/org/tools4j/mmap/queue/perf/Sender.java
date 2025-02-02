@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.perf;
 
-import org.agrona.hints.ThreadHints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
@@ -79,7 +78,7 @@ public class Sender {
 
                     final double nanosUntilNow = (i + 1) * maxNanosPerMessage;
                     while (System.nanoTime() - start < nanosUntilNow) {
-                        ThreadHints.onSpinWait();
+                        Thread.onSpinWait();
                     }
                 }
                 seconds = (System.nanoTime() - start)/NANOS_IN_SECOND;
