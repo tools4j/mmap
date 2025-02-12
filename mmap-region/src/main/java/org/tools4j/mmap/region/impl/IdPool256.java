@@ -91,7 +91,6 @@ public class IdPool256 implements IdPool {
             throw new IllegalArgumentException("Invalid ID: " + id);
         }
         final AtomicBuffer buf = mapping.buffer();
-
         final int index = (id / Long.SIZE) * Long.BYTES;
         final int bit = id % Long.SIZE;
         final long mask = ~(1L << bit);

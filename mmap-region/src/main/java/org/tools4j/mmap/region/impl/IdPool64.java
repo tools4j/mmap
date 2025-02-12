@@ -88,9 +88,7 @@ public class IdPool64 implements IdPool {
             throw new IllegalArgumentException("Invalid ID: " + id);
         }
         final AtomicBuffer buf = mapping.buffer();
-
-        final int bit = id % Long.SIZE;
-        final long mask = ~(1L << bit);
+        final long mask = ~(1L << id);
 
         long curBitSet;
         long newBitSet;
