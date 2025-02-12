@@ -21,38 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary.api;
+package org.tools4j.mmap.dictionary.impl;
 
-import org.tools4j.mmap.dictionary.config.DictionaryConfig;
-import org.tools4j.mmap.dictionary.config.ReaderConfig;
-import org.tools4j.mmap.dictionary.config.UpdaterConfig;
-import org.tools4j.mmap.dictionary.impl.DictionaryImpl;
+import org.agrona.concurrent.AtomicBuffer;
 
-import java.io.File;
-
-public interface Dictionary extends AutoCloseable {
-    Updater createUpdater();
-    Updater createUpdater(UpdaterConfig config);
-
-    Lookup createLookup();
-    Lookup createLookup(ReaderConfig config);
-
-    DictionaryIterator createIterator();
-    DictionaryIterator createIterator(ReaderConfig config);
-
-    boolean isClosed();
-
-    /**
-     * Closes the dictionary and all updaters, lookups and iterators created via this dictionary.
-     */
-    @Override
-    void close();
-
-    static Dictionary create(final File file) {
-        return new DictionaryImpl(file);
+/**
+ * Compare and set utility
+ */
+public enum CompareAndSet {
+    ;
+    static long incrementAndGet(final AtomicBuffer buffer, final int index) {
+        long current, next;
+        do {
+            current = buffer.getLongVolatile(index);
+            next = current + 1;
+        } while (next >= 0 && !buffer.compareAndSetLong(index, current, next));
+        return next;
     }
 
-    static Dictionary create(final File file, final DictionaryConfig config) {
-        return new DictionaryImpl(file, config);
+    static long decrementAndGet(final AtomicBuffer buffer, final int index) {
+        long current, next;
+        do {
+            current = buffer.getLongVolatile(index);
+            next = current - 1;
+        } while (next >= 0 && !buffer.compareAndSetLong(index, current, next));
+        return next;
     }
 }

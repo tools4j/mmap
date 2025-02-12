@@ -162,8 +162,8 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
     private <T> T put(final K key,
                       final V value,
                       final BiFunction<? super DictionaryMap<K,V>, ? super UpdatingContext.Result, T> result) {
-        final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+        try (final UpdatingContext.Key keyContext = updater.get()
+                .updating(keyMarshaller.maxByteCapacity(), valueMarshaller.maxByteCapacity())) {
             final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
             try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
                 final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());
@@ -175,8 +175,8 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
 
     @Override
     public V putIfAbsent(final K key, final V value) {
-        final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+        try (final UpdatingContext.Key keyContext = updater.get()
+                .updating(keyMarshaller.maxByteCapacity(), valueMarshaller.maxByteCapacity())) {
             final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
             try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
                 final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());
@@ -190,8 +190,8 @@ public class DictionaryMap<K, V> implements ConcurrentMap<K, V>, AutoCloseable {
                                 final V value,
                                 final UpdatePredicate condition,
                                 final BiFunction<? super DictionaryMap<K, V>, ? super UpdatingContext.Result, T> result) {
-        final int capacity = keyMarshaller.maxByteCapacity() + valueMarshaller.maxByteCapacity();
-        try (final UpdatingContext.Key keyContext = updater.get().updating(capacity)) {
+        try (final UpdatingContext.Key keyContext = updater.get()
+                .updating(keyMarshaller.maxByteCapacity(), valueMarshaller.maxByteCapacity())) {
             final int keyLen = keyMarshaller.marshal(key, keyContext.keyBuffer());
             try (final UpdatingContext.Value valueContext = keyContext.commitKey(keyLen)) {
                 final int valueLen = valueMarshaller.marshal(value, valueContext.valueBuffer());

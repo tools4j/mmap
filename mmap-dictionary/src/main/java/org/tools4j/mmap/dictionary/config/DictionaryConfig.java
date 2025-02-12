@@ -21,38 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary.api;
+package org.tools4j.mmap.dictionary.config;
 
-import org.tools4j.mmap.dictionary.config.DictionaryConfig;
-import org.tools4j.mmap.dictionary.config.ReaderConfig;
-import org.tools4j.mmap.dictionary.config.UpdaterConfig;
-import org.tools4j.mmap.dictionary.impl.DictionaryImpl;
+import org.tools4j.mmap.region.api.AccessMode;
 
-import java.io.File;
+public interface DictionaryConfig {
+    AccessMode accessMode();
+    int maxUpdaters();
+    long maxHeaderFileSize();
+    long maxPayloadFileSize();
+    boolean expandHeaderFile();
+    boolean expandPayloadFiles();
+    boolean rollHeaderFile();
+    boolean rollPayloadFiles();
+    int headerFilesToCreateAhead();
+    int payloadFilesToCreateAhead();
 
-public interface Dictionary extends AutoCloseable {
-    Updater createUpdater();
-    Updater createUpdater(UpdaterConfig config);
+    UpdaterConfig updaterConfig();
+    ReaderConfig lookupConfig();
+    ReaderConfig iteratorConfig();
 
-    Lookup createLookup();
-    Lookup createLookup(ReaderConfig config);
+    DictionaryConfig toImmutableDictionaryConfig();
 
-    DictionaryIterator createIterator();
-    DictionaryIterator createIterator(ReaderConfig config);
-
-    boolean isClosed();
-
-    /**
-     * Closes the dictionary and all updaters, lookups and iterators created via this dictionary.
-     */
-    @Override
-    void close();
-
-    static Dictionary create(final File file) {
-        return new DictionaryImpl(file);
-    }
-
-    static Dictionary create(final File file, final DictionaryConfig config) {
-        return new DictionaryImpl(file, config);
-    }
+//    static DictionaryConfigurator configure() {
+//        return DictionaryConfigurator.configure();
+//    }
+//
+//    static DictionaryConfigurator configure(final DictionaryConfig defaults) {
+//        return DictionaryConfigurator.configure(defaults);
+//    }
+//
+//    static DictionaryConfig getDefault() {
+//        return DictionaryConfigurations.defaultDictionaryConfig();
+//    }
 }

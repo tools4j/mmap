@@ -33,7 +33,7 @@ public interface Updater extends AutoCloseable {
     DeletingContext.Result delete(DirectBuffer key);
     DeletingContext.Result deleteIfMatching(DirectBuffer key, DeletePredicate condition);
 
-    UpdatingContext.Key updating(int capacity);
+    UpdatingContext.Key updating(int keyCapacity, int valueCapacity);
     UpdatingContext.Value updating(DirectBuffer key, int valueCapacity);
     DeletingContext.Key deleting();
 

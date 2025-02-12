@@ -21,38 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.dictionary.api;
+package org.tools4j.mmap.dictionary.config;
 
-import org.tools4j.mmap.dictionary.config.DictionaryConfig;
-import org.tools4j.mmap.dictionary.config.ReaderConfig;
-import org.tools4j.mmap.dictionary.config.UpdaterConfig;
-import org.tools4j.mmap.dictionary.impl.DictionaryImpl;
+import org.tools4j.mmap.region.config.MappingStrategy;
 
-import java.io.File;
+public interface UpdaterConfig {
+    MappingStrategy headerMappingStrategy();
+    MappingStrategy payloadMappingStrategy();
+    UpdaterConfig toImmutableUpdaterConfig();
 
-public interface Dictionary extends AutoCloseable {
-    Updater createUpdater();
-    Updater createUpdater(UpdaterConfig config);
-
-    Lookup createLookup();
-    Lookup createLookup(ReaderConfig config);
-
-    DictionaryIterator createIterator();
-    DictionaryIterator createIterator(ReaderConfig config);
-
-    boolean isClosed();
-
-    /**
-     * Closes the dictionary and all updaters, lookups and iterators created via this dictionary.
-     */
-    @Override
-    void close();
-
-    static Dictionary create(final File file) {
-        return new DictionaryImpl(file);
-    }
-
-    static Dictionary create(final File file, final DictionaryConfig config) {
-        return new DictionaryImpl(file, config);
-    }
+//    static UpdaterConfigurator configure() {
+//        return UpdaterConfigurator.configure();
+//    }
+//
+//    static UpdaterConfig getDefault() {
+//        return DictionaryConfigurations.defaultUpdaterConfig();
+//    }
 }
