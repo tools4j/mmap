@@ -35,9 +35,9 @@ public interface IdPool extends AutoCloseable {
     int acquire();
 
     /**
-     * Release appender ID (no-op if single appender pool)
-     * @param id appender ID to release
-     * @return true if the appender ID was released
+     * Release the given ID
+     * @param id the ID to release
+     * @return true if the ID was released
      * @throws IllegalArgumentException if the ID is invalid for the range supported by this pool
      * @throws IllegalStateException if the pool is closed
      */

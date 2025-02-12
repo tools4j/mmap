@@ -47,18 +47,18 @@ class IdPoolTest {
     private static final long TIMEOUT_MILLIS = 3_000;
 
     enum PoolFactory {
-        AppenderIdPool64(64, IdPool64::new),
-        AppenderIdPool256(256, IdPool256::new);
-        final int maxAppenders;
+        IdPool64(64, IdPool64::new),
+        IdPool256(256, IdPool256::new);
+        final int maxIds;
         private final Function<File, IdPool> factoryMethod;
 
-        PoolFactory(final int maxAppenders, final Function<File, IdPool> factoryMethod) {
-            this.maxAppenders = maxAppenders;
+        PoolFactory(final int maxIds, final Function<File, IdPool> factoryMethod) {
+            this.maxIds = maxIds;
             this.factoryMethod = requireNonNull(factoryMethod);
         }
 
-        IdPool createPool(final File appenderIdFile) {
-            return factoryMethod.apply(appenderIdFile);
+        IdPool createPool(final File idIdFile) {
+            return factoryMethod.apply(idIdFile);
         }
     }
 
@@ -67,11 +67,11 @@ class IdPoolTest {
     void acquireAndReleaseAll(final PoolFactory poolFactory) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
+        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
         final int min = 0;
-        final int cnt = poolFactory.maxAppenders;
+        final int cnt = poolFactory.maxIds;
 
-        //when + then: open appenders
+        //when + then: acquired
         assertEquals(0, pool.acquired());
 
         //when + then: acquire
@@ -80,7 +80,7 @@ class IdPoolTest {
         }
         assertThrows(IllegalStateException.class, pool::acquire);
 
-        //when + then: open appenders
+        //when + then: acquired
         assertEquals(cnt, pool.acquired());
 
         for (int i = 0; i < cnt; i++) {
@@ -91,12 +91,12 @@ class IdPoolTest {
             assertEquals(cnt - i - 1, pool.acquired());
         }
 
-        //when + then: open appenders
+        //when + then: acquired
         assertEquals(0, pool.acquired());
 
         //when + then: illegal releases
         assertThrows(IllegalArgumentException.class, () -> pool.release(-1));
-        assertThrows(IllegalArgumentException.class, () -> pool.release(poolFactory.maxAppenders));
+        assertThrows(IllegalArgumentException.class, () -> pool.release(poolFactory.maxIds));
         assertThrows(IllegalArgumentException.class, () -> pool.release(min - 1));
 
         //when
@@ -120,7 +120,7 @@ class IdPoolTest {
     @ParameterizedTest(name = "poolFactory={0}")
     @EnumSource(PoolFactory.class)
     void concurrentlyAcquireAndReleaseMany(final PoolFactory poolFactory) throws Exception {
-        final int threads = poolFactory.maxAppenders;
+        final int threads = poolFactory.maxIds;
         final int repeat = 3;
         final long maxWaitMillis = 20;
         runConcurrentTest(poolFactory, threads, repeat, maxWaitMillis);
@@ -132,7 +132,7 @@ class IdPoolTest {
                                    final long maxWaitMillis) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
+        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
         final BitSet acquired = new BitSet();
         final BitSet released = new BitSet();
         final CountDownLatch latch = new CountDownLatch(threadCount);
@@ -153,10 +153,10 @@ class IdPoolTest {
         assertEquals(threadCount, released.length());
         
         //when
-        final int appendedId = pool.acquire();
+        final int id = pool.acquire();
         
         //then
-        assertEquals(0, appendedId);
+        assertEquals(0, id);
     }
 
     private Thread[] initThreads(final int count,
@@ -172,20 +172,20 @@ class IdPoolTest {
         requireNonNull(latch);
         final Thread[] threads = new Thread[count];
         for (int i = 0; i < count; i++) {
-            final String name = "appender-" + i;
+            final String name = "id-" + i;
             threads[i] = new Thread(null, () -> {
                 for (int j = 0; j < repeat; j++) {
                     sleepRandom(maxWaitMillis);
-                    final int appenderId = pool.acquire();
+                    final int id = pool.acquire();
                     if (j == 0) {
-                        sync(() -> acquired.set(appenderId));
+                        sync(() -> acquired.set(id));
                         latch.countDown();
                         await(latch);
                     }
                     sleepRandom(maxWaitMillis);
-                    pool.release(appenderId);
+                    pool.release(id);
                     if (j == 0) {
-                        sync(() -> released.set(appenderId));
+                        sync(() -> released.set(id));
                     }
                 }
             }, name);
