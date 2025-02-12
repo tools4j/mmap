@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
@@ -35,39 +35,31 @@ import java.io.File;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A pool of 64 appender ids based on a memory-mapped file associated with a given queue name.
- * It guarantees that there are no two or more processes/threads acquiring the same id for given queue name.
+ * A pool of 64 IDs based on a memory-mapped file.
  * <p>
- * The mapped file is used as a bit set with each bit representing an appender ID. The file content is updated
- * atomically in a thread (and process) safe manner when {@link #acquire() acquiring} or
- * {@link #release(int) releasing} appender IDs.
+ * The mapped file is used as a bit set with each bit representing an ID. The file content is updated atomically in a
+ * thread (and process) safe manner when {@link #acquire() acquiring} or {@link #release(int) releasing} IDs.
  */
-public class AppenderIdPool64 implements AppenderIdPool {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AppenderIdPool64.class);
+public class IdPool64 implements IdPool {
+    private static final Logger LOGGER = LoggerFactory.getLogger(IdPool64.class);
 
-    public static final int MAX_APPENDERS = Long.SIZE;
-    public static final int FILE_SIZE = MAX_APPENDERS / Byte.SIZE;
+    public static final int MAX_IDS = Long.SIZE;
+    public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
 
-    public AppenderIdPool64(final File file) {
+    public IdPool64(final File file) {
         this(file.getPath(), Mappings.fixedSizeMapping(file, FILE_SIZE, AccessMode.READ_WRITE));
     }
 
-    public AppenderIdPool64(final String name, final Mapping mapping) {
+    public IdPool64(final String name, final Mapping mapping) {
         if (mapping.bytesAvailable() != FILE_SIZE) {
             throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
-                    + mapping.bytesAvailable() + " for appender ID pool: " + name);
+                    + mapping.bytesAvailable() + " for ID pool: " + name);
         }
         this.name = requireNonNull(name);
         this.mapping = requireNonNull(mapping);
-        LOGGER.info("Opened appender ID pool: {} ({} open appenders)", name, openAppenders());
-    }
-
-    private void ensureNotClosed() {
-        if (mapping.isClosed()) {
-            throw new IllegalStateException("Appender ID pool is closed: " + name);
-        }
+        LOGGER.info("Opened ID pool: {} ({} acquired IDs)", name, acquired());
     }
 
     @Override
@@ -75,30 +67,29 @@ public class AppenderIdPool64 implements AppenderIdPool {
         ensureNotClosed();
         final AtomicBuffer buf = mapping.buffer();
 
-        long appenderBitSet;
-        long appenderBit;
+        long idBitSet;
+        long idBit;
         do {
-            appenderBitSet = buf.getLongVolatile(0);
-            appenderBit = Long.lowestOneBit(~appenderBitSet);
-        } while (appenderBit != 0 && !buf.compareAndSetLong(0, appenderBitSet, appenderBitSet | appenderBit));
-        if (appenderBit != 0) {
-            final int appenderId = Long.SIZE - Long.numberOfLeadingZeros(appenderBit - 1);
-            LOGGER.info("Acquired appenderId {} from {}", appenderId, name);
-            return appenderId;
+            idBitSet = buf.getLongVolatile(0);
+            idBit = Long.lowestOneBit(~idBitSet);
+        } while (idBit != 0 && !buf.compareAndSetLong(0, idBitSet, idBitSet | idBit));
+        if (idBit != 0) {
+            final int id = Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
+            LOGGER.info("Acquired ID {} from {} pool", id, name);
+            return id;
         }
-        throw new IllegalStateException("Exceeded max number of " + MAX_APPENDERS + " appenders in appender ID pool: "
-                + name);
+        throw new IllegalStateException("Exceeded max number of " + MAX_IDS + " IDs in pool: " + name);
     }
 
     @Override
-    public boolean release(final int appenderId) {
+    public boolean release(final int id) {
         ensureNotClosed();
-        if (appenderId < 0 || appenderId >= MAX_APPENDERS) {
-            throw new IllegalArgumentException("Invalid appender id: " + appenderId);
+        if (id < 0 || id >= MAX_IDS) {
+            throw new IllegalArgumentException("Invalid ID: " + id);
         }
         final AtomicBuffer buf = mapping.buffer();
 
-        final int bit = appenderId % Long.SIZE;
+        final int bit = id % Long.SIZE;
         final long mask = ~(1L << bit);
 
         long curBitSet;
@@ -108,33 +99,44 @@ public class AppenderIdPool64 implements AppenderIdPool {
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(0, curBitSet, newBitSet));
         if (curBitSet != newBitSet) {
-            LOGGER.info("Released appenderId {} for {}", appenderId, name);
+            LOGGER.info("Released ID {} to {} pool", id, name);
             return true;
         }
         return false;
     }
 
     @Override
-    public int openAppenders() {
+    public int acquired() {
         if (mapping.isClosed()) {
             return 0;
         }
         return Long.bitCount(mapping.buffer().getLongVolatile(0));
     }
 
+    private void ensureNotClosed() {
+        if (isClosed()) {
+            throw new IllegalStateException("ID pool is closed: " + name);
+        }
+    }
+
+    @Override
+    public boolean isClosed() {
+        return mapping.isClosed();
+    }
+
     @Override
     public void close() {
-        if (!mapping.isClosed()) {
-            final int open = openAppenders();
+        if (!isClosed()) {
+            final int open = acquired();
             mapping.close();
-            LOGGER.info("Closed appender ID pool: {} ({} open appenders)", name, open);
+            LOGGER.info("Closed ID pool: {} ({} acquired IDs)", name, open);
         }
     }
 
     @Override
     public String toString() {
-        return "AppenderIdPool64" +
+        return "IdPool64" +
                 ":name='" + name + '\'' +
-                "|open-appenders=" + openAppenders();
+                "|acquired=" + acquired();
     }
 }

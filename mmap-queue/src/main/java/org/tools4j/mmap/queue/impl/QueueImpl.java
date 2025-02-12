@@ -38,15 +38,19 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.impl.IdPool;
+import org.tools4j.mmap.region.impl.IdPool256;
+import org.tools4j.mmap.region.impl.IdPool64;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
  * Implementation of {@link Queue} that allows a multiple writing threads and
- * multiple reading threads, when each thread creates a separate instance of {@link Poller}.
+ * multiple reading threads, when each thread creates their own instances of
+ * {@link #createAppender() appender}, {@link #createPoller() poller} etc.
  */
 public final class QueueImpl implements Queue {
     private static final Logger LOGGER = LoggerFactory.getLogger(QueueImpl.class);
@@ -58,7 +62,8 @@ public final class QueueImpl implements Queue {
     private final Function<ReaderConfig, EntryIterator> entryIteratorFactory;
     private final Function<IndexReaderConfig, IndexReader> indexReaderFactory;
     private final Function<AppenderConfig, Appender> appenderFactory;
-    private final List<AutoCloseable> closeables = new ArrayList<>();
+    private final AtomicBoolean closed = new AtomicBoolean();
+    private final java.util.Queue<AutoCloseable> closeables = new ConcurrentLinkedQueue<>();
 
     public QueueImpl(final File file) {
         this(file, QueueConfig.getDefault());
@@ -76,28 +81,28 @@ public final class QueueImpl implements Queue {
             createQueueDir(file);
         }
 
-        final AppenderIdPool idPool = open(appenderIdPool(files, maxAppenders));
+        final IdPool idPool = open(idPool(files, maxAppenders));
         this.pollerFactory = pollerConfig -> open(new PollerImpl(
-                files.queueName(),
+                queueNameIfNotClosed(),
                 ReaderMappings.create(files, config, pollerConfig)
         ));
         this.entryReaderFactory = readerConfig -> open(new EntryReaderImpl(
-                files.queueName(),
+                queueNameIfNotClosed(),
                 ReaderMappings.create(files, config, readerConfig)
         ));
         this.entryIteratorFactory = readerConfig -> open(new EntryIteratorImpl(
-                files.queueName(),
+                queueNameIfNotClosed(),
                 ReaderMappings.create(files, config, readerConfig)
         ));
         this.indexReaderFactory = indReaderConfig -> open(new IndexReaderImpl(
-                files.queueName(), IndexMappings.create(files, config, indReaderConfig)
+                queueNameIfNotClosed(), IndexMappings.create(files, config, indReaderConfig)
         ));
         this.appenderFactory = accessMode == AccessMode.READ_ONLY ?
                 appenderConfig -> {throw new IllegalStateException(
-                        "Cannot open appender in read-only mode for queue " + files.queueName());
+                        "Cannot open appender in read-only mode for queue " + queueNameIfNotClosed());
                 } :
                 appenderConfig -> open(new AppenderImpl(
-                        files.queueName(),
+                        queueNameIfNotClosed(),
                         AppenderMappings.create(files, idPool, config, appenderConfig),
                         enableCopyFromPreviousRegion(appenderConfig)
                 ));
@@ -124,20 +129,17 @@ public final class QueueImpl implements Queue {
         return cacheSie > Math.max(1, mapAhead + 1);
     }
 
-    private static AppenderIdPool appenderIdPool(final QueueFiles queueFiles, final int maxAppenders) {
-        switch (maxAppenders) {
-            case 1:
-                return ConstantAppenderId.ALWAYS_ZERO;
-            case AppenderIdPool64.MAX_APPENDERS:
-                return new AppenderIdPool64(queueFiles.appenderPoolFile());
-            case AppenderIdPool256.MAX_APPENDERS:
-                return new AppenderIdPool256(queueFiles.appenderPoolFile());
-            default:
-                throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
+    private static IdPool idPool(final QueueFiles queueFiles, final int maxAppenders) {
+        if (maxAppenders <= IdPool64.MAX_IDS) {
+            return new IdPool64(queueFiles.idPoolFile());
         }
+        if (maxAppenders <= IdPool256.MAX_IDS) {
+            return new IdPool256(queueFiles.idPoolFile());
+        }
+        throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
     }
 
-    private synchronized <T extends AutoCloseable> T open(final T closeable) {
+    private <T extends AutoCloseable> T open(final T closeable) {
         closeables.add(closeable);
         return closeable;
     }
@@ -192,14 +194,21 @@ public final class QueueImpl implements Queue {
         return indexReaderFactory.apply(config);
     }
 
-    @Override
-    public boolean isClosed() {
-        return closeables.isEmpty();
+    private String queueNameIfNotClosed() {
+        if (!isClosed()) {
+            return files.queueName();
+        }
+        throw new IllegalStateException("Queue is closed: " + files.queueName());
     }
 
     @Override
-    public synchronized void close() {
-        if (!isClosed()) {
+    public boolean isClosed() {
+        return closed.get();
+    }
+
+    @Override
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
             CloseHelper.quietCloseAll(closeables);
             closeables.clear();
             LOGGER.info("Closed queue: {}", files.queueName());

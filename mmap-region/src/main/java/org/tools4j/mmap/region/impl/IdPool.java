@@ -21,33 +21,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.impl;
 
 /**
- * A pool of appender IDs.
+ * A pool of IDs that can be acquired and released atomically.
  */
-interface AppenderIdPool extends AutoCloseable {
+public interface IdPool extends AutoCloseable {
     /**
-     * Acquire appender ID
-     * @return newly appender ID (reused if single appender pool)
+     * Acquire a new ID
+     * @return the acquired ID
+     * @throws IllegalStateException if no IDs are left in the pool or if the pool is closed
      */
     int acquire();
 
     /**
      * Release appender ID (no-op if single appender pool)
-     * @param appenderId appender ID to release
+     * @param id appender ID to release
      * @return true if the appender ID was released
+     * @throws IllegalArgumentException if the ID is invalid for the range supported by this pool
+     * @throws IllegalStateException if the pool is closed
      */
-    boolean release(int appenderId);
+    boolean release(int id);
 
     /**
-     * Returns the number of appenders currently acquired, or zero if this pool is closed.
-     * @return the open appenders, or zero if the pool is closed
+     * Returns the number of IDs currently acquired, or zero if this pool is closed.
+     * @return the IDs currently acquired, or zero if the pool is closed
      */
-    int openAppenders();
+    int acquired();
 
     /**
-     * Closes the appender ID pool (no-op if single appender pool)
+     * Returns true if this ID pool is closed.
+     * @return true if the pool is closed.
+     */
+    boolean isClosed();
+
+    /**
+     * Closes the ID pool (no-op if already closed)
      */
     @Override
     void close();

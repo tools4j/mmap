@@ -26,6 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.impl.BlockMapping;
+import org.tools4j.mmap.region.impl.IdPool256;
 import org.tools4j.mmap.region.impl.IndexMapping;
 
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
@@ -35,6 +36,13 @@ import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
  */
 enum Headers {
     ;
+    public static final int HEADER_LENGTH = Long.BYTES;
+    private static final int HEADER_SHIFT = 3;
+
+    /**
+     * This is the logarithm base 2 of {@link #PAYLOAD_GRANULARITY} used to shift the payload position to erase the
+     * unused zero bits.
+     */
     public static final int PAYLOAD_GRANULARITY_BITS = 3;
 
     /**
@@ -43,12 +51,14 @@ enum Headers {
      * which only happens for zero payload entries.
      */
     public static final long PAYLOAD_GRANULARITY = 1L << PAYLOAD_GRANULARITY_BITS;
+
+
     /**
      * One byte for appender ID
      */
     public static final int APPENDER_ID_BITS = Byte.SIZE;
     /**
-     * At most 256 appenders, whose IDs can for instance be managed by {@link AppenderIdPool256}
+     * At most 256 appenders, whose IDs can for instance be managed by {@link IdPool256}
      */
     public static final int MAX_APPENDERS = 1 << APPENDER_ID_BITS;
     /**
@@ -59,7 +69,8 @@ enum Headers {
      * Minimum allowed appender ID is 0.
      */
     public static final int MIN_APPENDER_ID = 0;
-    private static final int APPENDER_ID_MASK = MAX_APPENDERS - 1;
+
+    private static final long APPENDER_ID_MASK = (MAX_APPENDERS - 1);
     private static final long APPENDER_ID_HEADER_MASK = APPENDER_ID_MASK;
     private static final int ADJUSTED_POSITION_SHIFT = APPENDER_ID_BITS - PAYLOAD_GRANULARITY_BITS;
     private static final long ADJUSTED_POSITION_HEADER_MASK = ~APPENDER_ID_HEADER_MASK;
@@ -68,11 +79,15 @@ enum Headers {
     private static final long PAYLOAD_POSITION_ADJUSTMENT = PAYLOAD_GRANULARITY;
     /**
      * Max payload position is 576,460,752,303,423,472, which is > 500,000 terabytes.
+     * 144115188075855871
      */
     public static final long MAX_PAYLOAD_POSITION = ADJUSTED_POSITION_MASK - PAYLOAD_POSITION_ADJUSTMENT;
-    public static final int HEADER_LENGTH = Long.BYTES;
-    private static final int HEADER_BITS = 3;
+
+    /**
+     * Header position cannot be negative and must be a multiple of {@link #HEADER_LENGTH}
+     */
     private static final long HEADER_POSITION_MASK = Long.MAX_VALUE & -HEADER_LENGTH;
+
     /**
      * Mapping of entry index to position to minimize updating of the same cache line when writing sequential entries.
      * <p><br>
@@ -168,12 +183,12 @@ enum Headers {
 
     public static long headerPositionForIndex(final long index) {
         assert validIndex(index) : "index is invalid";
-        return headerIndexMapping.indexToPosition(index) << HEADER_BITS;
+        return headerIndexMapping.indexToPosition(index) << HEADER_SHIFT;
     }
 
     public static long indexForHeaderPosition(final long position) {
         assert validHeaderPosition(position) : "header position is invalid";
-        return headerIndexMapping.positionToIndex(position >>> HEADER_BITS);
+        return headerIndexMapping.positionToIndex(position >>> HEADER_SHIFT);
     }
 
     public static boolean hasNonEmptyHeaderAt(final OffsetMapping header, final long index) {

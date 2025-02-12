@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.impl;
+package org.tools4j.mmap.region.impl;
 
 import org.agrona.LangUtil;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,24 +40,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Unit test for {@link AppenderIdPool}, {@link AppenderIdPool64} and {@link AppenderIdPool256}
+ * Unit test for {@link IdPool}, {@link IdPool64} and {@link IdPool256}
  */
-class AppenderIdPoolTest {
+class IdPoolTest {
 
     private static final long TIMEOUT_MILLIS = 3_000;
 
     enum PoolFactory {
-        AppenderIdPool64(64, AppenderIdPool64::new),
-        AppenderIdPool256(256, AppenderIdPool256::new);
+        AppenderIdPool64(64, IdPool64::new),
+        AppenderIdPool256(256, IdPool256::new);
         final int maxAppenders;
-        private final Function<File, AppenderIdPool> factoryMethod;
+        private final Function<File, IdPool> factoryMethod;
 
-        PoolFactory(final int maxAppenders, final Function<File, AppenderIdPool> factoryMethod) {
+        PoolFactory(final int maxAppenders, final Function<File, IdPool> factoryMethod) {
             this.maxAppenders = maxAppenders;
             this.factoryMethod = requireNonNull(factoryMethod);
         }
 
-        AppenderIdPool createPool(final File appenderIdFile) {
+        IdPool createPool(final File appenderIdFile) {
             return factoryMethod.apply(appenderIdFile);
         }
     }
@@ -67,12 +67,12 @@ class AppenderIdPoolTest {
     void acquireAndReleaseAll(final PoolFactory poolFactory) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
+        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
         final int min = 0;
         final int cnt = poolFactory.maxAppenders;
 
         //when + then: open appenders
-        assertEquals(0, pool.openAppenders());
+        assertEquals(0, pool.acquired());
 
         //when + then: acquire
         for (int i = 0; i < cnt; i++) {
@@ -81,18 +81,18 @@ class AppenderIdPoolTest {
         assertThrows(IllegalStateException.class, pool::acquire);
 
         //when + then: open appenders
-        assertEquals(cnt, pool.openAppenders());
+        assertEquals(cnt, pool.acquired());
 
         for (int i = 0; i < cnt; i++) {
             //when
             pool.release(i + min);
 
             //then
-            assertEquals(cnt - i - 1, pool.openAppenders());
+            assertEquals(cnt - i - 1, pool.acquired());
         }
 
         //when + then: open appenders
-        assertEquals(0, pool.openAppenders());
+        assertEquals(0, pool.acquired());
 
         //when + then: illegal releases
         assertThrows(IllegalArgumentException.class, () -> pool.release(-1));
@@ -105,7 +105,7 @@ class AppenderIdPoolTest {
         //then
         assertThrows(IllegalStateException.class, pool::acquire);
         assertThrows(IllegalStateException.class, () -> pool.release(min));
-        assertEquals(0, pool.openAppenders());
+        assertEquals(0, pool.acquired());
     }
 
     @ParameterizedTest(name = "poolFactory={0}")
@@ -132,7 +132,7 @@ class AppenderIdPoolTest {
                                    final long maxWaitMillis) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
+        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "appender-ids"));
         final BitSet acquired = new BitSet();
         final BitSet released = new BitSet();
         final CountDownLatch latch = new CountDownLatch(threadCount);
@@ -162,7 +162,7 @@ class AppenderIdPoolTest {
     private Thread[] initThreads(final int count,
                                  final int repeat,
                                  final long maxWaitMillis,
-                                 final AppenderIdPool pool,
+                                 final IdPool pool,
                                  final BitSet acquired,
                                  final BitSet released,
                                  final CountDownLatch latch) {

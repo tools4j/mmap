@@ -30,6 +30,7 @@ import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
+import org.tools4j.mmap.region.impl.IdPool;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
@@ -62,23 +63,23 @@ interface AppenderMappings extends AutoCloseable {
      * Factory method for appender mappings.
      *
      * @param queueFiles        the queue files
-     * @param appenderIdPool    the appender ID pool
+     * @param idPool            the ID pool
      * @param queueConfig       the queue configuration settings
      * @param appenderConfig    configuration for appender mappings
      * @return a new appender mappings instance
      */
     static AppenderMappings create(final QueueFiles queueFiles,
-                                   final AppenderIdPool appenderIdPool,
+                                   final IdPool idPool,
                                    final QueueConfig queueConfig,
                                    final AppenderConfig appenderConfig) {
         requireNonNull(queueFiles);
         requireNonNull(queueConfig);
-        requireNonNull(appenderIdPool);
+        requireNonNull(idPool);
         final QueueConfig queueCfg = queueConfig.toImmutableQueueConfig();
         final AppenderConfig appenderCfg = appenderConfig.toImmutableAppenderConfig();
 
         return new AppenderMappings() {
-            final int appenderId = appenderIdPool.acquire();
+            final int appenderId = idPool.acquire();
             final MappingConfig headerCfg = headerMappingConfig(queueCfg, appenderCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
             final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
@@ -111,7 +112,7 @@ interface AppenderMappings extends AutoCloseable {
                 if (!isClosed()) {
                     header.close();
                     payload.close();
-                    appenderIdPool.release(appenderId);
+                    idPool.release(appenderId);
                 }
             }
 

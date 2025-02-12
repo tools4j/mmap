@@ -51,7 +51,7 @@ public interface FileMapper extends AutoCloseable {
      * Unmaps previously mapped address of the region starting at absolute position with length.
      *
      * @param address previously mapped address
-     * @param position ab position
+     * @param position absolute position
      * @param length region length
      */
     void unmap(long address, long position, int length);

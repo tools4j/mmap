@@ -23,13 +23,13 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.queue.impl.AppenderIdPool64;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.AheadMappingStrategy;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.SyncMappingStrategy;
 import org.tools4j.mmap.region.impl.Constraints;
+import org.tools4j.mmap.region.impl.IdPool64;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
@@ -48,7 +48,7 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
 public enum QueueConfigurations {
     ;
     public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
-    public static final int MAX_APPENDERS_DEFAULT = AppenderIdPool64.MAX_APPENDERS;
+    public static final int MAX_APPENDERS_DEFAULT = IdPool64.MAX_IDS;
     public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
     public static final AccessMode ACCESS_MODE_DEFAULT = AccessMode.READ_WRITE;
     public static final String MAX_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.maxHeaderFileSize";
