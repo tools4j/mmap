@@ -23,33 +23,48 @@
  */
 package org.tools4j.mmap.dictionary.impl;
 
+import org.agrona.collections.Hashing;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.dictionary.config.DictionaryConfig;
 import org.tools4j.mmap.dictionary.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Mapping;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.dictionary.impl.DictMappingConfigs.headerMappingConfig;
 import static org.tools4j.mmap.dictionary.impl.DictMappingConfigs.payloadMappingConfig;
+import static org.tools4j.mmap.dictionary.impl.Headers.MAX_UPDATERS;
+import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SECTORS;
 
 /**
- * Header and payload mappings for lookup and iterator of dictionaries.
+ * Mappings for dictionary readers. Note that some mappings still have write access so the
+ * reader can help with copying of key/value headers and hashes to new sectors.
  */
 interface ReaderMappings extends AutoCloseable {
     /**
-     * @return header region
+     * Returns the read/write mapping with the sector index.
+     * @return mapping with sector index
      */
-    OffsetMapping header();
+    Mapping index();
 
     /**
-     * @param updaterId updater id
-     * @return payload region
+     * Returns the read/write mapping with sector data containing keys and value headers and hashes.
+     *
+     * @param sector the sector, referencing an entry from the index file
+     * @return mapping with sector data
+     */
+    OffsetMapping sector(int sector);
+
+    /**
+     * Returns the read-only mapping with payload data containing key and value payload data owned by the updater
+     * specified by ID.
+     *
+     * @param updaterId the ID of the updater writing the given data
+     * @return mapping with key and value payload data
      */
     OffsetMapping payload(int updaterId);
 
@@ -74,17 +89,28 @@ interface ReaderMappings extends AutoCloseable {
         final ReaderConfig readerCfg = readerConfig.toImmutableReaderConfig();
 
         return new ReaderMappings() {
-            final MappingConfig headerCfg = headerMappingConfig(queueCfg, readerCfg);
+            final MappingConfig sectorCfg = DictMappingConfigs.sectorMappingConfig(queueCfg, readerCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, readerCfg);
-            final OffsetMapping header = Mappings.offsetMapping(dictFiles.indexFile(), AccessMode.READ_ONLY,
-                    FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
-            final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();
-            final IntFunction<OffsetMapping> payloadMappingFactory = appenderId -> Mappings.offsetMapping(
-                dictFiles.payloadFile(appenderId), AccessMode.READ_ONLY, payloadCfg);
+            final Mapping index = Mappings.fixedSizeMapping(dictFiles.indexFile(), IndexDescriptor.FILE_SIZE,
+                    AccessMode.READ_WRITE);
+            final Int2ObjectHashMap<OffsetMapping> sectorMappings = new Int2ObjectHashMap<>(MAX_SECTORS,
+                    Hashing.DEFAULT_LOAD_FACTOR);
+            final IntFunction<OffsetMapping> sectorMappingFactory = sector -> Mappings.offsetMapping(
+                    dictFiles.sectorFile(sector), AccessMode.READ_WRITE, sectorCfg);
+
+            final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>(MAX_UPDATERS,
+                    Hashing.DEFAULT_LOAD_FACTOR);
+            final IntFunction<OffsetMapping> payloadMappingFactory = updaterId -> Mappings.offsetMapping(
+                    dictFiles.sectorFile(updaterId), AccessMode.READ_ONLY, payloadCfg);
 
             @Override
-            public OffsetMapping header() {
-                return header;
+            public Mapping index() {
+                return index;
+            }
+
+            @Override
+            public OffsetMapping sector(final int sector) {
+                return sectorMappings.computeIfAbsent(sector, sectorMappingFactory);
             }
 
             @Override
@@ -94,13 +120,13 @@ interface ReaderMappings extends AutoCloseable {
 
             @Override
             public boolean isClosed() {
-                return header.isClosed();
+                return index.isClosed();
             }
 
             @Override
             public void close() {
                 if (!isClosed()) {
-                    header.close();
+                    index.close();
                     payloadMappings.forEachInt((appenderId, mapping) -> mapping.close());
                     payloadMappings.clear();
                 }
@@ -108,7 +134,7 @@ interface ReaderMappings extends AutoCloseable {
 
             @Override
             public String toString() {
-                return "ReadMappings" +
+                return "ReaderMappings" +
                         ":dictionary=" + dictFiles.dictionaryName() +
                         "|closed=" + isClosed();
             }

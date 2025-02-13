@@ -26,7 +26,7 @@ package org.tools4j.mmap.dictionary.impl;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 
-import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SLOTS_BITS;
+import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SECTORS;
 
 /**
  * Describes the layout of the dictionary index file:
@@ -35,7 +35,7 @@ import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SLOTS_BITS;
     0         1         2         3         4         5         6
     0 2 4 6 8 0 2 4 6 8 0 2 4 6 8 0 2 4 6 8 0 2 4 6 8 0 2 4 6 8 0 2 4
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |            (Unused)           |         First Sector          |
+    |            (Unused)           |      First Sector Entry       |
     +=======+=======+=======+=======+=======+=======+=======+=======+
     |                     Sector Start Position                     |
     +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -43,7 +43,7 @@ import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SLOTS_BITS;
     +-------+-------+-------+-------+-------+-------+-------+-------+
     |                           Used Slots                          |
     +-------+-------+-------+-------+-------+-------+-------+-------+
-    |    Log2 Sector Slots (Bits)   |          Next Sector          |
+    |    Log2 Sector Slots (Bits)   |        Next Sector Entry      |
     +=======+=======+=======+=======+=======+=======+=======+=======+
     |                     Sector Start Position                     |
     +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -51,7 +51,7 @@ import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SLOTS_BITS;
     +-------+-------+-------+-------+-------+-------+-------+-------+
     |                           Used Slots                          |
     +-------+-------+-------+-------+-------+-------+-------+-------+
-    |    Log2 Sector Slots (Bits)   |          Next Sector          |
+    |    Log2 Sector Slots (Bits)   |       Next Sector Entry       |
     +=======+=======+=======+=======+=======+=======+=======+=======+
     |                              ...                              |
 
@@ -62,11 +62,11 @@ public enum IndexDescriptor {
     //offsets from start of file
     public static final int UNUSED_OFFSET = 0;
     public static final int UNUSED_LENGTH = Integer.BYTES;
-    public static final int FIRST_SECTOR_OFFSET = UNUSED_OFFSET + UNUSED_LENGTH;
-    public static final int FIRST_SECTOR_LENGTH = Integer.BYTES;
-    public static final int SECTOR_0_OFFSET = FIRST_SECTOR_OFFSET + FIRST_SECTOR_LENGTH;
+    public static final int FIRST_ENTRY_OFFSET = UNUSED_OFFSET + UNUSED_LENGTH;
+    public static final int FIRST_ENTRY_LENGTH = Integer.BYTES;
+    public static final int ENTRY_0_OFFSET = FIRST_ENTRY_OFFSET + FIRST_ENTRY_LENGTH;
 
-    //offsets relative to sector offset
+    //offsets relative to sector entry offset
     public static final int START_POSITION_OFFSET = 0;
     public static final int START_POSITION_LENGTH = Long.BYTES;
     public static final int ACTIVE_SLOTS_OFFSET = START_POSITION_OFFSET + START_POSITION_LENGTH;
@@ -75,21 +75,21 @@ public enum IndexDescriptor {
     public static final int USED_SLOTS_LENGTH = Long.BYTES;
     public static final int SECTOR_SLOTS_OFFSET = USED_SLOTS_OFFSET + USED_SLOTS_LENGTH;
     public static final int SECTOR_SLOTS_LENGTH = Integer.BYTES;
-    public static final int NEXT_SECTOR_OFFSET = SECTOR_SLOTS_OFFSET + SECTOR_SLOTS_LENGTH;
-    public static final int NEXT_SECTOR_LENGTH = Integer.BYTES;
+    public static final int NEXT_ENTRY_OFFSET = SECTOR_SLOTS_OFFSET + SECTOR_SLOTS_LENGTH;
+    public static final int NEXT_ENTRY_LENGTH = Integer.BYTES;
 
-    public static final int SECTOR_LENGTH = START_POSITION_LENGTH + ACTIVE_SLOTS_LENGTH + USED_SLOTS_LENGTH
-                                            + SECTOR_SLOTS_LENGTH + NEXT_SECTOR_LENGTH;
+    public static final int ENTRY_LENGTH = START_POSITION_LENGTH + ACTIVE_SLOTS_LENGTH + USED_SLOTS_LENGTH
+                                            + SECTOR_SLOTS_LENGTH + NEXT_ENTRY_LENGTH;
 
-    public static final long FILE_SIZE = SECTOR_0_OFFSET + MAX_SLOTS_BITS * SECTOR_LENGTH;
+    public static final int FILE_SIZE = ENTRY_0_OFFSET + MAX_SECTORS * ENTRY_LENGTH;
 
     static int firstSectorIndexVolatile(final AtomicBuffer buffer) {
-        return buffer.getIntVolatile(FIRST_SECTOR_OFFSET);
+        return buffer.getIntVolatile(FIRST_ENTRY_OFFSET);
     }
 
     static int sectorOffset(final int sector) {
         assert sector >= 0 : "invalid sector";
-        return SECTOR_0_OFFSET + sector * SECTOR_LENGTH;
+        return ENTRY_0_OFFSET + sector * ENTRY_LENGTH;
     }
 
     static long sectorStartPosition(final DirectBuffer buffer, final int sector) {
@@ -136,7 +136,7 @@ public enum IndexDescriptor {
     }
 
     static int nextSectorVolatile(final AtomicBuffer buffer, final int sector) {
-        return buffer.getIntVolatile(sectorOffset(sector) + NEXT_SECTOR_OFFSET);
+        return buffer.getIntVolatile(sectorOffset(sector) + NEXT_ENTRY_OFFSET);
     }
 
     static boolean sectorInit(final AtomicBuffer buffer,
@@ -156,13 +156,13 @@ public enum IndexDescriptor {
             if ((value = buffer.getLongVolatile(offset + ACTIVE_SLOTS_OFFSET)) != 0) {
                 throw new IllegalArgumentException("Active slots for sector " + sector + " should be zero but is " + value);
             }
-            if ((value = buffer.getIntVolatile(offset + NEXT_SECTOR_OFFSET)) != 0) {
+            if ((value = buffer.getIntVolatile(offset + NEXT_ENTRY_OFFSET)) != 0) {
                 throw new IllegalArgumentException("Next sector for sector " + sector + " should be zero but is " + value);
             }
         }
         buffer.putLong(offset + START_POSITION_OFFSET, startPosition);
         buffer.putLong(offset + SECTOR_SLOTS_OFFSET, sectorSlotsInBits);
-        final int prevOffset = sector == 0 ? FIRST_SECTOR_OFFSET : (sectorOffset(sector - 1) + NEXT_SECTOR_OFFSET);
+        final int prevOffset = sector == 0 ? FIRST_ENTRY_OFFSET : (sectorOffset(sector - 1) + NEXT_ENTRY_OFFSET);
 
         //NOTE: - returning false below means another thread beat us to it
         //      - it is highly likely that it set exactly the same value that we wanted to set

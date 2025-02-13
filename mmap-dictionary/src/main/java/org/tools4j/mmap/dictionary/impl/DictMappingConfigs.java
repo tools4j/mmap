@@ -26,6 +26,7 @@ package org.tools4j.mmap.dictionary.impl;
 import org.tools4j.mmap.dictionary.config.DictionaryConfig;
 import org.tools4j.mmap.dictionary.config.ReaderConfig;
 import org.tools4j.mmap.dictionary.config.UpdaterConfig;
+import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.impl.MappingConfigImpl;
@@ -35,43 +36,41 @@ import static java.util.Objects.requireNonNull;
 enum DictMappingConfigs {
     ;
 
-    static MappingConfig headerMappingConfig(final DictionaryConfig dictionaryConfig, final UpdaterConfig updaterConfig) {
-        return headerMappingConfig(dictionaryConfig, updaterConfig.headerMappingStrategy(), true);
+    static MappingConfig sectorMappingConfig(final DictionaryConfig dictionaryConfig, final UpdaterConfig updaterConfig) {
+        return sectorMappingConfig(dictionaryConfig, updaterConfig.sectorMappingStrategy());
     }
 
-    static MappingConfig headerMappingConfig(final DictionaryConfig dictionaryConfig, final ReaderConfig readerConfig) {
-        return headerMappingConfig(dictionaryConfig, readerConfig.headerMappingStrategy(), readerConfig.closeHeaderFiles());
+    static MappingConfig sectorMappingConfig(final DictionaryConfig dictionaryConfig, final ReaderConfig readerConfig) {
+        return sectorMappingConfig(dictionaryConfig, readerConfig.sectorMappingStrategy());
     }
 
-    static MappingConfig headerMappingConfig(final DictionaryConfig dictionaryConfig,
-                                             final MappingStrategy mappingStrategy,
-                                             final boolean closeHeaderFiles) {
-        requireNonNull(dictionaryConfig);
+    static MappingConfig sectorMappingConfig(final DictionaryConfig dictConfig, final MappingStrategy mappingStrategy) {
+        requireNonNull(dictConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
             @Override
             public long maxFileSize() {
-                return dictionaryConfig.maxHeaderFileSize();
+                return dictConfig.maxHeaderFileSize();
             }
 
             @Override
             public boolean expandFile() {
-                return dictionaryConfig.expandHeaderFile();
+                return dictConfig.expandHeaderFile();
             }
 
             @Override
             public boolean rollFiles() {
-                return dictionaryConfig.rollHeaderFile();
+                return dictConfig.rollHeaderFile();
             }
 
             @Override
             public boolean closeFiles() {
-                return closeHeaderFiles;
+                return false;
             }
 
             @Override
             public int filesToCreateAhead() {
-                return dictionaryConfig.headerFilesToCreateAhead();
+                return dictConfig.headerFilesToCreateAhead();
             }
 
             @Override
@@ -81,54 +80,57 @@ enum DictMappingConfigs {
 
             @Override
             public MappingConfig toImmutableMappingConfig() {
-                final DictionaryConfig immutableConfig = dictionaryConfig.toImmutableDictionaryConfig();
-                return dictionaryConfig == immutableConfig ? this
-                        : headerMappingConfig(immutableConfig, mappingStrategy, closeHeaderFiles);
+                final DictionaryConfig immutableConfig = dictConfig.toImmutableDictionaryConfig();
+                return dictConfig == immutableConfig ? this : sectorMappingConfig(immutableConfig, mappingStrategy);
             }
 
             @Override
             public String toString() {
-                return MappingConfigImpl.toString("HeaderMappingConfig", this);
+                return MappingConfigImpl.toString("sectorMappingConfig", this);
             }
         };
     }
-    static MappingConfig payloadMappingConfig(final DictionaryConfig dictionaryConfig, final UpdaterConfig appenderConfig) {
-        return headerMappingConfig(dictionaryConfig, appenderConfig.payloadMappingStrategy(), true);
+
+    static MappingConfig payloadMappingConfig(final DictionaryConfig dictionaryConfig,
+                                              final UpdaterConfig updaterConfig,
+                                              final AccessMode accessMode) {
+        return payloadMappingConfig(dictionaryConfig, accessMode == AccessMode.READ_WRITE
+                ? updaterConfig.ownPayloadMappingStrategy()
+                : updaterConfig.otherPayloadMappingStrategy());
     }
 
     static MappingConfig payloadMappingConfig(final DictionaryConfig dictionaryConfig, final ReaderConfig readerConfig) {
-        return headerMappingConfig(dictionaryConfig, readerConfig.payloadMappingStrategy(), readerConfig.closePayloadFiles());
+        return payloadMappingConfig(dictionaryConfig, readerConfig.payloadMappingStrategy());
     }
 
-    static MappingConfig payloadMappingConfig(final DictionaryConfig dictionaryConfig,
-                                              final MappingStrategy mappingStrategy,
-                                              final boolean closePayloadFiles) {
-        requireNonNull(dictionaryConfig);
+    static MappingConfig payloadMappingConfig(final DictionaryConfig dictConfig,
+                                              final MappingStrategy mappingStrategy) {
+        requireNonNull(dictConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
             @Override
             public long maxFileSize() {
-                return dictionaryConfig.maxPayloadFileSize();
+                return dictConfig.maxPayloadFileSize();
             }
 
             @Override
             public boolean expandFile() {
-                return dictionaryConfig.expandPayloadFiles();
+                return dictConfig.expandPayloadFiles();
             }
 
             @Override
             public boolean rollFiles() {
-                return dictionaryConfig.rollPayloadFiles();
+                return dictConfig.rollPayloadFiles();
             }
 
             @Override
             public boolean closeFiles() {
-                return closePayloadFiles;
+                return false;
             }
 
             @Override
             public int filesToCreateAhead() {
-                return dictionaryConfig.payloadFilesToCreateAhead();
+                return dictConfig.payloadFilesToCreateAhead();
             }
 
             @Override
@@ -138,9 +140,8 @@ enum DictMappingConfigs {
 
             @Override
             public MappingConfig toImmutableMappingConfig() {
-                final DictionaryConfig immutableConfig = dictionaryConfig.toImmutableDictionaryConfig();
-                return dictionaryConfig == immutableConfig ? this
-                        : headerMappingConfig(immutableConfig, mappingStrategy, closePayloadFiles);
+                final DictionaryConfig immutableConfig = dictConfig.toImmutableDictionaryConfig();
+                return dictConfig == immutableConfig ? this : sectorMappingConfig(immutableConfig, mappingStrategy);
             }
 
             @Override

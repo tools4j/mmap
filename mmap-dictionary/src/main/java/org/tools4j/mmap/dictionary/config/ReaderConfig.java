@@ -26,10 +26,8 @@ package org.tools4j.mmap.dictionary.config;
 import org.tools4j.mmap.region.config.MappingStrategy;
 
 public interface ReaderConfig {
-    MappingStrategy headerMappingStrategy();
+    MappingStrategy sectorMappingStrategy();
     MappingStrategy payloadMappingStrategy();
-    boolean closeHeaderFiles();
-    boolean closePayloadFiles();
     ReaderConfig toImmutableReaderConfig();
 
 //    static ReaderConfigurator configureLookup() {

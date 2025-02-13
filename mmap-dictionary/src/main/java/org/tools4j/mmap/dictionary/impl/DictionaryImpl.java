@@ -115,7 +115,7 @@ public final class DictionaryImpl implements Dictionary {
     }
 
     private static boolean enableCopyFromPreviousRegion(final UpdaterConfig updaterConfig) {
-        final MappingStrategy mappingStrategy = updaterConfig.payloadMappingStrategy();
+        final MappingStrategy mappingStrategy = updaterConfig.ownPayloadMappingStrategy();
         final int cacheSie = mappingStrategy.cacheSize();
         final int mapAhead = mappingStrategy.asyncOptions().isPresent() ?
                 mappingStrategy.asyncOptions().get().regionsToMapAhead() : 0;

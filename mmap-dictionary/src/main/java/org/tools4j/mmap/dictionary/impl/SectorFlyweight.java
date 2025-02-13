@@ -78,20 +78,20 @@ public class SectorFlyweight {
         return slots;
     }
 
-    public long entry(final long hash) {
-        return SectorDescriptor.entry(hash, slots);
+    public long slot(final long hash) {
+        return SectorDescriptor.slot(hash, slots);
     }
 
-    public long moveToAndGetKeyHeaderVolatile(final long entry) {
-        return SectorDescriptor.moveToAndGetKeyHeaderVolatile(headerMapping, startPosition, entry);
+    public long moveToAndGetKeyHeaderVolatile(final long slot) {
+        return SectorDescriptor.moveToAndGetKeyHeaderVolatile(headerMapping, startPosition, slot);
     }
 
-    public long moveToAndGetValueHeaderVolatile(final long entry) {
-        return SectorDescriptor.moveToAndGetValueHeaderVolatile(headerMapping, startPosition, entry);
+    public long moveToAndGetValueHeaderVolatile(final long slot) {
+        return SectorDescriptor.moveToAndGetValueHeaderVolatile(headerMapping, startPosition, slot);
     }
 
-    public long moveToAndGetHash(final long entry) {
-        return SectorDescriptor.moveToAndGetHash(headerMapping, startPosition, slots, entry);
+    public long moveToAndGetHash(final long slot) {
+        return SectorDescriptor.moveToAndGetHash(headerMapping, startPosition, slots, slot);
     }
 
     public long activeSlotsVolatile() {

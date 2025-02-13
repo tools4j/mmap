@@ -23,34 +23,62 @@
  */
 package org.tools4j.mmap.dictionary.impl;
 
+import org.agrona.collections.Hashing;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.dictionary.config.DictionaryConfig;
 import org.tools4j.mmap.dictionary.config.UpdaterConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Mapping;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.IdPool;
 
+import java.util.function.IntFunction;
+
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.dictionary.impl.DictMappingConfigs.headerMappingConfig;
 import static org.tools4j.mmap.dictionary.impl.DictMappingConfigs.payloadMappingConfig;
+import static org.tools4j.mmap.dictionary.impl.Headers.MAX_UPDATERS;
+import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SECTORS;
 
 /**
- * Header and payload mapping for dictionary updaters.
+ * Mappings for dictionary updaters.
  */
 interface UpdaterMappings extends AutoCloseable {
     /**
-     * @return the appender ID
+     * Returns the updater ID. 
+     * @return the updater ID
      */
     int updaterId();
-    /**
-     * @return header region
-     */
-    OffsetMapping header();
 
     /**
-     * @return payload region
+     * Returns the read/write mapping with the sector index.
+     * @return mapping with sector index
+     */
+    Mapping index();
+
+    /**
+     * Returns the read/write mapping with sector data containing keys and value headers and hashes.
+     *
+     * @param sector the sector, referencing an entry from the index file
+     * @return mapping with sector data
+     */
+    OffsetMapping sector(int sector);
+
+    /**
+     * Returns the read-only mapping with payload data containing key and value payload data owned by the updater
+     * specified by ID.
+     *
+     * @param updaterId the ID of the updater writing the given data
+     * @return mapping with key and value payload data
+     */
+    OffsetMapping payload(int updaterId);
+
+    /**
+     * Returns the read/write mapping with payload data containing key and value payload data of the updater specified
+     * by {@link #updaterId()}.
+     *
+     * @return mapping with key and value payload data
      */
     OffsetMapping payload();
 
@@ -60,18 +88,18 @@ interface UpdaterMappings extends AutoCloseable {
     void close();
 
     /**
-     * Factory method for appender mappings.
+     * Factory method for updater mappings.
      *
      * @param dictFiles         the dictionary files
-     * @param updaterIdPool     the appender ID pool
+     * @param updaterIdPool     the updater ID pool
      * @param dictionaryConfig  the dictionary configuration settings
      * @param updaterConfig     configuration for updater mappings
      * @return a new updater mappings instance
      */
     static UpdaterMappings create(final DictFiles dictFiles,
-                                   final IdPool updaterIdPool,
-                                   final DictionaryConfig dictionaryConfig,
-                                   final UpdaterConfig updaterConfig) {
+                                  final IdPool updaterIdPool,
+                                  final DictionaryConfig dictionaryConfig,
+                                  final UpdaterConfig updaterConfig) {
         requireNonNull(dictFiles);
         requireNonNull(dictionaryConfig);
         requireNonNull(updaterIdPool);
@@ -80,20 +108,41 @@ interface UpdaterMappings extends AutoCloseable {
 
         return new UpdaterMappings() {
             final int updaterId = updaterIdPool.acquire();
-            final MappingConfig headerCfg = headerMappingConfig(queueCfg, updaterCfg);
-            final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, updaterCfg);
-            final OffsetMapping header = Mappings.offsetMapping(dictFiles.indexFile(), AccessMode.READ_WRITE,
-                    FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), headerCfg);
+            final MappingConfig sectorCfg = DictMappingConfigs.sectorMappingConfig(queueCfg, updaterCfg);
+            final MappingConfig roPayloadCfg = payloadMappingConfig(queueCfg, updaterCfg, AccessMode.READ_ONLY);
+            final MappingConfig rwPayloadCfg = payloadMappingConfig(queueCfg, updaterCfg, AccessMode.READ_WRITE);
+            final Mapping index = Mappings.fixedSizeMapping(dictFiles.indexFile(), IndexDescriptor.FILE_SIZE,
+                    AccessMode.READ_WRITE);
+            final Int2ObjectHashMap<OffsetMapping> sectorMappings = new Int2ObjectHashMap<>(MAX_SECTORS,
+                    Hashing.DEFAULT_LOAD_FACTOR);
+            final IntFunction<OffsetMapping> sectorMappingFactory = sector -> Mappings.offsetMapping(
+                    dictFiles.sectorFile(sector), AccessMode.READ_WRITE, sectorCfg);
+
+            final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>(MAX_UPDATERS,
+                    Hashing.DEFAULT_LOAD_FACTOR);
+            final IntFunction<OffsetMapping> payloadMappingFactory = updaterId -> Mappings.offsetMapping(
+                    dictFiles.sectorFile(updaterId), AccessMode.READ_ONLY, roPayloadCfg);
+
             final OffsetMapping payload = Mappings.offsetMapping(dictFiles.payloadFile(updaterId),
-                    AccessMode.READ_WRITE, payloadCfg);
+                    AccessMode.READ_WRITE, rwPayloadCfg);
 
             public int updaterId() {
                 return updaterId;
             }
 
             @Override
-            public OffsetMapping header() {
-                return header;
+            public Mapping index() {
+                return index;
+            }
+
+            @Override
+            public OffsetMapping sector(final int sector) {
+                return sectorMappings.computeIfAbsent(sector, sectorMappingFactory);
+            }
+
+            @Override
+            public OffsetMapping payload(final int updaterId) {
+                return payloadMappings.computeIfAbsent(updaterId, payloadMappingFactory);
             }
 
             @Override
@@ -103,13 +152,13 @@ interface UpdaterMappings extends AutoCloseable {
 
             @Override
             public boolean isClosed() {
-                return header.isClosed();
+                return index.isClosed();
             }
 
             @Override
             public void close() {
                 if (!isClosed()) {
-                    header.close();
+                    index.close();
                     payload.close();
                     updaterIdPool.release(updaterId);
                 }

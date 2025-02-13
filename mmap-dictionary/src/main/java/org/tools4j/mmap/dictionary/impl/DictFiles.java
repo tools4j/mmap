@@ -27,13 +27,13 @@ import java.io.File;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.dictionary.impl.SectorDescriptor.MAX_SECTORS;
 
 /**
  * Files used for a dictionary.
  */
 final class DictFiles {
     public static final String FILE_ENDING = ".mmd";
-    private static final int MAX_SECTORS = 64;
 
     private final File dictionaryFile;
     private final File indexFile;

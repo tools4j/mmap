@@ -26,8 +26,9 @@ package org.tools4j.mmap.dictionary.config;
 import org.tools4j.mmap.region.config.MappingStrategy;
 
 public interface UpdaterConfig {
-    MappingStrategy headerMappingStrategy();
-    MappingStrategy payloadMappingStrategy();
+    MappingStrategy sectorMappingStrategy();
+    MappingStrategy ownPayloadMappingStrategy();
+    MappingStrategy otherPayloadMappingStrategy();
     UpdaterConfig toImmutableUpdaterConfig();
 
 //    static UpdaterConfigurator configure() {
