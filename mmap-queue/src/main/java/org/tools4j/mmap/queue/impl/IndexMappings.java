@@ -37,7 +37,7 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfi
 /**
  * Header mapping for index reader of queues.
  */
-interface IndexMappings extends AutoCloseable {
+interface IndexMappings {
     /**
      * Factory method for reader mappings.
      *

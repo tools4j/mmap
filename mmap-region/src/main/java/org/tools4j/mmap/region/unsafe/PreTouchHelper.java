@@ -58,7 +58,7 @@ final class PreTouchHelper {
             }
         }
         for (long i = 0; i < length; i += REGION_SIZE_GRANULARITY) {
-            UnsafeApi.compareAndExchangeLong(null, address + i, 0L, 0L);
+            UnsafeApi.compareAndSetLong(null, address + i, 0L, 0L);
         }
     }
 

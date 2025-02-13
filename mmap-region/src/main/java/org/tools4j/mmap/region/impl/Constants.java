@@ -33,8 +33,9 @@ public enum Constants {
      * Memory page size that is exposed from internal java implementation.
      * All memory region sizes are expected to be evenly divisible by this value
      * to ensure alignment of regions with memory pages and cache lines.
+     * Typical minimum region size is 4K bytes.
      */
-    public static final long REGION_SIZE_GRANULARITY = regionSizeGranularity(); //4KB - page size
+    public static final long REGION_SIZE_GRANULARITY = regionSizeGranularity();
 
     /**
      * Digging into protected java code to get the memory page size.

@@ -108,7 +108,7 @@ interface ReaderMappings extends AutoCloseable {
 
             @Override
             public String toString() {
-                return "ReadMappings" +
+                return "ReaderMappings" +
                         ":queue=" + queueFiles.queueName() +
                         "|closed=" + isClosed();
             }
