@@ -33,10 +33,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
+import org.tools4j.mmap.region.api.AdaptiveMapping;
 import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 import org.tools4j.mmap.region.unsafe.RegionMappers;
@@ -113,7 +113,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final OffsetMapping mapping = Mappings.offsetMapping(regionMapper, true);
+        final AdaptiveMapping mapping = Mappings.adaptiveMapping(regionMapper, true);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -164,7 +164,7 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final OffsetMapping mapping = Mappings.offsetMapping(regionMapper, true);
+        final AdaptiveMapping mapping = Mappings.adaptiveMapping(regionMapper, true);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -209,7 +209,7 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final OffsetMapping mapping = Mappings.offsetMapping(regionMapper, true);
+        final AdaptiveMapping mapping = Mappings.adaptiveMapping(regionMapper, true);
 
         //when
         mapping.moveTo(position);

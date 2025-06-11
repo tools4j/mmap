@@ -74,6 +74,44 @@ public enum Constraints {
         }
     }
 
+    public static void validatePositionDelta(final long position, final long delta) {
+        if (position + delta < 0) {
+            throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position);
+        }
+    }
+
+    public static void validateLimit(final long position, final long limit, final RegionMetrics regionMetrics) {
+        final long maxLimit = regionMetrics.regionPosition(position) + regionMetrics.regionSize();
+        if (position > limit || limit > maxLimit) {
+            throw new IllegalArgumentException("Invalid limit " + limit + " for position " + position +
+                    " and region size " + regionMetrics.regionSize());
+        }
+    }
+
+    public static int validateLength(final long position, final int length, final RegionMetrics regionMetrics) {
+        //NOTE: below also works for NULL_POSITION
+        final int offset = regionMetrics.regionOffset(position);
+        if (length == -1) {
+            return regionMetrics.regionSize() - offset;
+        } else if (0 <= length && offset + length <= regionMetrics.regionSize()) {
+            return length;
+        }
+        throw new IllegalArgumentException("Invalid length " + length + " for position " + position +
+                " and region size " + regionMetrics.regionSize());
+    }
+
+    public static void validateRegionSlice(final int offset, final int length, final RegionMetrics regionMetrics) {
+        validateRegionSlice(offset, length, regionMetrics.regionSize());
+    }
+
+    public static void validateRegionSlice(final int offset, final int length, final int regionSize) {
+        validateRegionOffset(offset, regionSize);
+        if (length < 0 || offset + length > regionSize) {
+            throw new IllegalArgumentException("Invalid slice length " + length + " for offset " + offset +
+                    " and region size " + regionSize);
+        }
+    }
+
     public static void validateRegionSize(final int regionSize) {
         if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +

@@ -33,8 +33,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
+import org.tools4j.mmap.region.api.AdaptiveMapping;
+import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.nio.ByteBuffer;
@@ -51,16 +52,16 @@ import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 
 /**
- * Unit test for {@link OffsetMapping} and {@link OffsetMappingImpl}
+ * Unit test for {@link AdaptiveMapping} and {@link AdaptiveMappingImpl}
  */
-class OffsetMappingTest {
+class AdaptiveMappingTest {
 
     private static final int nOfRegions = 4;
 
     @Mock
     private RegionMapper regionMapper;
 
-    private OffsetMapping mapping;
+    private AdaptiveMapping mapping;
 
     @BeforeEach
     void init() {
@@ -129,11 +130,11 @@ class OffsetMappingTest {
         final AtomicInteger counter = count ? new AtomicInteger() : null;
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));
-        final Predicate<OffsetMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
+        final Predicate<DynamicMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
         final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        mapping = Mappings.offsetMapping(regionMapper, true);
+        mapping = Mappings.adaptiveMapping(regionMapper, true);
 
         //when
         if (counter != null) counter.set(0);
@@ -249,7 +250,7 @@ class OffsetMappingTest {
             return NULL_ADDRESS;
         };
     }
-    private static Predicate<OffsetMapping> counter(final Predicate<? super OffsetMapping> matcher, final AtomicInteger counter) {
+    private static Predicate<DynamicMapping> counter(final Predicate<? super DynamicMapping> matcher, final AtomicInteger counter) {
         requireNonNull(matcher);
         requireNonNull(counter);
         return region -> {
@@ -258,8 +259,8 @@ class OffsetMappingTest {
         };
     }
 
-    private static Predicate<OffsetMapping> matcher(final int bytes) {
-        final Predicate<OffsetMapping> matcher;
+    private static Predicate<DynamicMapping> matcher(final int bytes) {
+        final Predicate<DynamicMapping> matcher;
         switch (bytes) {
             case 1:
                 matcher = region -> region.buffer().getByte(0) != 0;

@@ -31,6 +31,8 @@ import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
+import java.util.function.Predicate;
+
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
@@ -128,6 +130,84 @@ public final class DynamicMappingImpl implements DynamicMapping {
                 regionMapper.close();
             }
         }
+    }
+
+    @Override
+    public boolean findLast(final long startPosition,
+                            final long positionIncrement,
+                            final Predicate<? super DynamicMapping> matcher) {
+        return findLast(this, startPosition, positionIncrement, matcher);
+    }
+
+    static boolean findLast(final DynamicMapping mapping,
+                            final long startPosition,
+                            final long positionIncrement,
+                            final Predicate<? super DynamicMapping> matcher) {
+        long lastPosition = NULL_POSITION;
+        for (long position = startPosition; mapping.moveTo(position) && matcher.test(mapping); position += positionIncrement) {
+            lastPosition = position;
+        }
+        if (lastPosition != NULL_POSITION) {
+            mapping.moveTo(lastPosition);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean binarySearchLast(final long startPosition,
+                                    final long positionIncrement,
+                                    final Predicate<? super DynamicMapping> matcher) {
+        return binarySearchLast(this, startPosition, positionIncrement, matcher);
+    }
+
+    static boolean binarySearchLast(final DynamicMapping mapping,
+                                    final long startPosition,
+                                    final long positionIncrement,
+                                    final Predicate<? super DynamicMapping> matcher) {
+        if (positionIncrement <= 0) {
+            throw new IllegalArgumentException("Position increment most be positive: " + positionIncrement);
+        }
+        //1) initial low
+        if (!mapping.moveTo(startPosition) || !matcher.test(mapping)) {
+            return false;
+        }
+        long lowPosition = startPosition;
+        long highPosition = NULL_POSITION;
+
+        //2) find low + high
+        while (highPosition == NULL_POSITION && lowPosition + positionIncrement >= 0) {
+            long increment = positionIncrement;
+            do {
+                if (highPosition != NULL_POSITION) {
+                    lowPosition = highPosition;
+                }
+                highPosition = lowPosition + increment;
+                if (increment <= 0 || highPosition < 0) {
+                    highPosition = NULL_POSITION;
+                    break;
+                }
+                increment <<= 1;
+            } while (mapping.moveTo(highPosition) && matcher.test(mapping));
+        }
+
+        //3) find middle
+        if (highPosition != NULL_POSITION) {
+            while (lowPosition + positionIncrement < highPosition) {
+                final long midPosition = mid(lowPosition, highPosition);
+                if (mapping.moveTo(midPosition) && matcher.test(mapping)) {
+                    lowPosition = midPosition;
+                } else {
+                    highPosition = midPosition;
+                }
+            }
+        }
+        mapping.moveTo(lowPosition);
+        return true;
+    }
+
+    private static long mid(final long a, final long b) {
+        return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
     @Override

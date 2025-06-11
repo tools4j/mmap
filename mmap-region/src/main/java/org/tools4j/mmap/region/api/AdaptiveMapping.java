@@ -24,21 +24,23 @@
 package org.tools4j.mmap.region.api;
 
 
-import org.tools4j.mmap.region.impl.Constraints;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
-import java.util.function.Predicate;
-
+import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
 /**
- * An offset mapping is a {@link DynamicMapping} that starts at an {@linkplain #offset() offset} from the region's
- * {@linkplain #regionStartPosition() start position}. It can be re-positioned at any arbitrary file position
- * within the same region, or at any other position in the underlying file. Moving to a new position triggers mapping
- * and unmapping operations if necessary which are performed through a {@link RegionMapper}.
+ * An adaptive mapping is a {@link DynamicMapping} that starts at an {@linkplain #offset() offset} from the region's
+ * {@linkplain #regionStartPosition() start position} and spans all bytes to the end of that region. It can be
+ * re-positioned at any arbitrary file position within the same region, or at any other position in the underlying file.
+ * <p>
+ * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
+ * {@link RegionMapper}.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-public interface OffsetMapping extends DynamicMapping {
+public interface AdaptiveMapping extends DynamicMapping {
 
     /**
      * Moves the mapping to the specified position. If the position lies within the region already mapped, the buffer
@@ -64,6 +66,7 @@ public interface OffsetMapping extends DynamicMapping {
     default boolean moveBy(final long delta) {
         final long position = position();
         validatePositionState(position);
+        validatePositionDelta(position, delta);
         return moveTo(position + delta);
     }
 
@@ -88,9 +91,9 @@ public interface OffsetMapping extends DynamicMapping {
      * @throws IllegalStateException if this mapping has no current position
      */
     default boolean moveToCurrentRegion(final int offset) {
-        validateRegionOffset(offset, regionMetrics());
         final long regionStartPosition = regionStartPosition();
         validatePositionState(regionStartPosition);
+        validateRegionOffset(offset, regionMetrics());
         return moveTo(regionStartPosition + offset);
     }
 
@@ -116,7 +119,7 @@ public interface OffsetMapping extends DynamicMapping {
      */
     default boolean moveToNextRegion(final int offset) {
         final int regionSize = regionSize();
-        Constraints.validateRegionOffset(offset, regionSize);
+        validateRegionOffset(offset, regionSize);
         final long regionStartPosition = regionStartPosition();
         final long nextStartPosition = regionStartPosition >= 0 ? regionStartPosition + regionSize : 0;
         return moveTo(nextStartPosition + offset);
@@ -135,34 +138,10 @@ public interface OffsetMapping extends DynamicMapping {
     default boolean moveToPreviousRegion(final int offset) {
         final long startPosition = regionStartPosition();
         final int regionSize = regionSize();
-        Constraints.validateRegionOffset(offset, regionSize);
+        validateRegionOffset(offset, regionSize);
         if (startPosition < regionSize) {
             throw new IllegalStateException("There is no previous region from start position " + startPosition);
         }
         return moveTo(startPosition - regionSize + offset);
     }
-
-    /**
-     * Performs a linear search for the last position that still results in a match given the specified matcher. Returns
-     * true if a match is found, and leaves the mapping at the matching position. If no match is found, false is
-     * returned and the mapping is left at the position last tried.
-     *
-     * @param startPosition     the first position to test
-     * @param positionIncrement the increment to add to position at every step
-     * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
-     * @return true if a match is found, and false otherwise
-     */
-    boolean findLast(long startPosition, long positionIncrement, Predicate<? super OffsetMapping> matcher);
-
-    /**
-     * Performs a logarithmic binary search for the last position that still results in a match given the specified
-     * matcher. Returns true if a match is found, and leaves the mapping at the matching position. If no match is found,
-     * false is returned and the mapping is left at the position last tried.
-     *
-     * @param startPosition     the first position to test
-     * @param positionIncrement the increment to add to position at every step
-     * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
-     * @return true if a match is found, and false otherwise
-     */
-    boolean binarySearchLast(long startPosition, long positionIncrement, Predicate<? super OffsetMapping> matcher);
 }

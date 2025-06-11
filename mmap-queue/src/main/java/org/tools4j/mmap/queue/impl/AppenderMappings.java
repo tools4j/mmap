@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.AdaptiveMapping;
 import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.IdPool;
@@ -47,12 +47,12 @@ interface AppenderMappings extends AutoCloseable {
     /**
      * @return header region
      */
-    OffsetMapping header();
+    AdaptiveMapping header();
 
     /**
      * @return payload region
      */
-    OffsetMapping payload();
+    AdaptiveMapping payload();
 
     boolean isClosed();
 
@@ -82,9 +82,9 @@ interface AppenderMappings extends AutoCloseable {
             final int appenderId = idPool.acquire();
             final MappingConfig headerCfg = headerMappingConfig(queueCfg, appenderCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
-            final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
+            final AdaptiveMapping header = Mappings.adaptiveMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
                     FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), headerCfg);
-            final OffsetMapping payload = Mappings.offsetMapping(queueFiles.payloadFile(appenderId),
+            final AdaptiveMapping payload = Mappings.adaptiveMapping(queueFiles.payloadFile(appenderId),
                     AccessMode.READ_WRITE, payloadCfg);
 
             @Override
@@ -93,12 +93,12 @@ interface AppenderMappings extends AutoCloseable {
             }
 
             @Override
-            public OffsetMapping header() {
+            public AdaptiveMapping header() {
                 return header;
             }
 
             @Override
-            public OffsetMapping payload() {
+            public AdaptiveMapping payload() {
                 return payload;
             }
 

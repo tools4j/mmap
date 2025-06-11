@@ -262,7 +262,7 @@ public class RollingFileMapper implements FileMapper {
 
     private void checkNotClosed() {
         if (isClosed()) {
-            throw new IllegalStateException("Expandable-size file mapper is closed");
+            throw new IllegalStateException("Rolling file mapper is closed");
         }
     }
 

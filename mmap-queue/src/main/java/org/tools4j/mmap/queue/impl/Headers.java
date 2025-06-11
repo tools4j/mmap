@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.AdaptiveMapping;
 import org.tools4j.mmap.region.impl.IdPool256;
 
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
@@ -174,11 +174,11 @@ enum Headers {
         return (appenderId & APPENDER_ID_HEADER_MASK) | ((adjustedPosition << ADJUSTED_POSITION_SHIFT) & ADJUSTED_POSITION_HEADER_MASK);
     }
 
-    public static long moveAndGetHeader(final DynamicMapping header, final long index) {
+    public static long moveAndGetHeader(final AdaptiveMapping header, final long index) {
         return moveToHeaderIndex(header, index) ? header.buffer().getLongVolatile(0) : NULL_HEADER;
     }
 
-    public static boolean moveToHeaderIndex(final DynamicMapping header, final long index) {
+    public static boolean moveToHeaderIndex(final AdaptiveMapping header, final long index) {
         final long position = headerPositionForIndex(index);
         return header.moveTo(position);
     }
@@ -200,7 +200,7 @@ enum Headers {
         return (index & BIJECTION_BLOCK_MASK_HI) | (product & BIJECTION_BLOCK_MASK_LO);
     }
 
-    public static boolean hasNonEmptyHeaderAt(final DynamicMapping header, final long index) {
+    public static boolean hasNonEmptyHeaderAt(final AdaptiveMapping header, final long index) {
         return index >= Index.FIRST && index <= Index.MAX && moveAndGetHeader(header, index) != NULL_HEADER;
     }
 
@@ -208,12 +208,12 @@ enum Headers {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
-    public static long binarySearchAndGetLastHeader(final DynamicMapping header, final long startIndex) {
+    public static long binarySearchAndGetLastHeader(final AdaptiveMapping header, final long startIndex) {
         final long lastIndex = binarySearchLastIndex(header, startIndex);
         return lastIndex != Index.NULL ? moveAndGetHeader(header, lastIndex) : NULL_HEADER;
     }
 
-    public static long binarySearchLastIndex(final DynamicMapping header, final long startIndex) {
+    public static long binarySearchLastIndex(final AdaptiveMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }

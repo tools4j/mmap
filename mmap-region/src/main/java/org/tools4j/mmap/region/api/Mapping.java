@@ -32,7 +32,23 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
  * A mapping is a file block directly mapped into memory. The file data is accessible through the {@link #buffer()}.
- * Mapping is implemented by {@link FixedMapping}, {@link DynamicMapping} and {@link OffsetMapping}.
+ * <p>
+ * The different mapping subtypes are:
+ * <ul>
+ *     <li>{@link FixedMapping}:  A mapping that has arbitrary start and end position, but both are fixed for the
+ *                                lifetime of the mapping.</li>
+ *     <li>{@link RegionMapping}: A mapping of a predefined region size (typically powers of two), or a slice of such a
+ *                                region; it has the following specialisations:<ul>
+ *       <li>{@link DynamicMapping}:  A region mapping that can be moved to map different positions from the underlying
+ *                                    file.</li>
+ *       <li>{@link AdaptiveMapping}: A dynamic mapping that starts at an arbitrary offset from the region start
+ *                                    position.</li>
+ *       <li>{@link ElasticMapping}:  A dynamic mapping that starts at an offset and has a fixed length within the
+ *                                    region, i.e. it maps an arbitrary slice of the region.</li>
+ *     </ul></li>
+ * </ul>
+ * <p>
+ * Use one of the static factory methods in {@link Mappings} to create mapping instances.
  */
 public interface Mapping extends AutoCloseable {
     /**

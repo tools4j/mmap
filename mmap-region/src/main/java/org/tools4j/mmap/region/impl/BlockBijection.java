@@ -26,11 +26,10 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.BitUtil;
 
 /**
- * A block mapping can be used as an index mapping to minimize updating of the same cache line when writing sequential
- * indices. To make forward and backward mapping as efficient as possible, block dimensions have to be powers of two.
+ * A bijection that uses blocks and column-wise enumeration to map indices to positions and back. It is defined by a
+ * rectangular block which is enumerated column by column. When the block is full a new block is started.
  * <p>
- * A block mapping is defined by a rectangular block which is enumerated column by column. When the block is full a next
- * block is started, for instance
+ * To illustrate this consider the following example:
  * <pre>
               +----+----+----+----+
     Block 0 : |  0 |  2 |  4 |  6 |
@@ -40,8 +39,14 @@ import org.agrona.BitUtil;
               |  9 | 11 | 13 | 15 |
               +----+----+----+----+
 
-    The mapping is (row by row): [0]=0, [1]=2, [2]=4, [3]=6, [4]=1, [5]=3, [6]=5, [7]=7, [8]=8, [9]=10, ...
+    Reading row by row, the bijection is then:
+
+    [0]=0, [1]=2, [2]=4, [3]=6, [4]=1, [5]=3, [6]=5, [7]=7, [8]=8, [9]=10, ...
  * </pre>
+ * To make forward and backward calculation as efficient as possible, block dimensions have to be powers of two.
+ * <p>
+ * Block bijections can for instance be used to minimize updating of the same cache line when writing sequential
+ * indices.
  */
 public class BlockBijection implements IndexBijection {
 
@@ -52,7 +57,7 @@ public class BlockBijection implements IndexBijection {
     private final int heightBits;
 
     /**
-     * Constructor for block mapping with a square block of the specified size.
+     * Constructor for block bijection with a square block of the specified size.
      * @param size the block size, a power of two
      * @throws IllegalArgumentException if size is not a power of two
      */
@@ -61,7 +66,7 @@ public class BlockBijection implements IndexBijection {
     }
 
     /**
-     * Constructor for block mapping with a rectangular block of the specified with and height.
+     * Constructor for block bijection with a rectangular block of the specified with and height.
      * @param width the block width, a power of two
      * @param height the block height, a power of two
      * @throws IllegalArgumentException if width or height is not a power of two
@@ -98,6 +103,6 @@ public class BlockBijection implements IndexBijection {
 
     @Override
     public String toString() {
-        return "BlockMapping:width=" + (1 << widthBits) + "|height=" + (1 << heightBits);
+        return "BlockBijection:width=" + (1 << widthBits) + "|height=" + (1 << heightBits);
     }
 }

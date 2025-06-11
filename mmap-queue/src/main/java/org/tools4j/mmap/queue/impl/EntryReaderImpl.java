@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.ReadingContext;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.AdaptiveMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
@@ -43,7 +43,7 @@ final class EntryReaderImpl implements EntryReader {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final OffsetMapping header;
+    private final AdaptiveMapping header;
     private final ReadingContextImpl context;
 
     EntryReaderImpl(final String queueName, final ReaderMappings mappings) {
@@ -102,7 +102,7 @@ final class EntryReaderImpl implements EntryReader {
 
     private static final class ReadingContextImpl implements ReadingContext {
         final EntryReaderImpl reader;
-        final OffsetMapping header;
+        final AdaptiveMapping header;
         final ReaderMappings mappings;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long maxIndex;
@@ -146,7 +146,7 @@ final class EntryReaderImpl implements EntryReader {
             }
             final int appenderId = Headers.appenderId(hdr);
             final long position = Headers.payloadPosition(hdr);
-            final OffsetMapping payload = mappings.payload(appenderId);
+            final AdaptiveMapping payload = mappings.payload(appenderId);
             if (!payload.moveTo(position)) {
                 throw payloadMoveException(reader, appenderId, position);
             }

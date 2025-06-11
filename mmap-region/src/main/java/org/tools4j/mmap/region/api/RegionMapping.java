@@ -28,6 +28,11 @@ package org.tools4j.mmap.region.api;
  * A region mapping is a {@link Mapping} whose size follows a standard {@linkplain #regionSize() region size}, typically
  * powers of two. The file block of the size of a region is directly mapped into memory. The file data is accessible
  * through the {@link #buffer()}.
+ * <p>
+ * The mapping {@linkplain #position() position} may or may not be a multiple of the {@linkplain #regionSize() region
+ * size} depending on the implementation.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
 public interface RegionMapping extends Mapping {
 
