@@ -26,21 +26,36 @@ package org.tools4j.mmap.region.api;
 
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
+import java.util.function.Predicate;
+
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 /**
  * A dynamic mapping is a {@link RegionMapping} whose {@linkplain #position() position} can be changed by
  * {@link #moveTo(long) moving} to another position in the file. The position is a multiple of the
- * {@link #regionSize() region size} unless this dynamic mapping is also an {@link OffsetMapping}. Moving the region to
- * a new position triggers mapping and unmapping operations if necessary which are performed through a
- * {@link RegionMapper}.
+ * {@link #regionSize() region size} unless this dynamic mapping is also a {@link ElasticMapping} or
+ * {@link AdaptiveMapping}.
+ * <p>
+ * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
+ * through a {@link RegionMapper}.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
 public interface DynamicMapping extends RegionMapping {
+    /**
+     * The granularity (or minimum increment) of position passed to {@link #moveTo(long)} method.
+     * It is one for {@link ElasticMapping}, between one and max-length for {@link AdaptiveMapping}, and equal to
+     * {@link #regionSize()} otherwise when only region start positions are valid positions.
+     *
+     * @return the position granularity, typically one or region size
+     */
+    int positionGranularity();
+
     /**
      * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
      *
      * @param position  the position to move to, must be a multiple of {@linkplain #regionSize() region size} unless
-     *                  this is an {@link OffsetMapping}
+     *                  this is an {@link ElasticMapping} or an {@link AdaptiveMapping}
      * @return true if the region is ready for data access, and false otherwise
      * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping
      */
@@ -99,4 +114,28 @@ public interface DynamicMapping extends RegionMapping {
         }
         return moveTo(startPosition - regionSize);
     }
+
+    /**
+     * Performs a linear search for the last position that still results in a match given the specified matcher. Returns
+     * true if a match is found, and leaves the mapping at the matching position. If no match is found, false is
+     * returned and the mapping is left at the position last tried.
+     *
+     * @param startPosition     the first position to test
+     * @param positionIncrement the increment to add to position at every step
+     * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
+     * @return true if a match is found, and false otherwise
+     */
+    boolean findLast(long startPosition, long positionIncrement, Predicate<? super DynamicMapping> matcher);
+
+    /**
+     * Performs a logarithmic binary search for the last position that still results in a match given the specified
+     * matcher. Returns true if a match is found, and leaves the mapping at the matching position. If no match is found,
+     * false is returned and the mapping is left at the position last tried.
+     *
+     * @param startPosition     the first position to test
+     * @param positionIncrement the increment to add to position at every step
+     * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
+     * @return true if a match is found, and false otherwise
+     */
+    boolean binarySearchLast(long startPosition, long positionIncrement, Predicate<? super DynamicMapping> matcher);
 }

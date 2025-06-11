@@ -24,15 +24,13 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
 
-public class AppenderConfigImpl implements AppenderConfig {
-    private final MappingStrategy headerMappingStrategy;
-    private final MappingStrategy payloadMappingStrategy;
-
+public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
+                                 MappingStrategyConfig payloadMappingStrategy) implements AppenderConfig {
     public AppenderConfigImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
     }
@@ -41,20 +39,10 @@ public class AppenderConfigImpl implements AppenderConfig {
         this(config.headerMappingStrategy(), config.payloadMappingStrategy());
     }
 
-    public AppenderConfigImpl(final MappingStrategy headerMappingStrategy,
-                              final MappingStrategy payloadMappingStrategy) {
+    public AppenderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
+                              final MappingStrategyConfig payloadMappingStrategy) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
-    }
-
-    @Override
-    public MappingStrategy headerMappingStrategy() {
-        return headerMappingStrategy;
-    }
-
-    @Override
-    public MappingStrategy payloadMappingStrategy() {
-        return payloadMappingStrategy;
     }
 
     @Override

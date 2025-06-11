@@ -30,7 +30,7 @@ import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
@@ -40,7 +40,7 @@ final class PollerImpl implements Poller {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final OffsetMapping header;
+    private final ElasticMapping header;
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
@@ -117,7 +117,7 @@ final class PollerImpl implements Poller {
         final long header = currentHeader;
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);
-        final OffsetMapping mapping = mappings.payload(appenderId);
+        final ElasticMapping mapping = mappings.payload(appenderId);
         final boolean success = mapping.moveTo(payloadPosition);
         assert success : "moving to payload position failed";
         return mapping.buffer();
@@ -145,7 +145,7 @@ final class PollerImpl implements Poller {
         }
         final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
-        final OffsetMapping headerMapping = this.header;
+        final ElasticMapping headerMapping = this.header;
         if (!headerMapping.moveTo(position)) {
             return error;
         }

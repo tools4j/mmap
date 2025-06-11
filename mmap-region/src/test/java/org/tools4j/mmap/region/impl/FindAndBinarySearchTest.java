@@ -25,6 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -33,8 +34,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
-import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.nio.ByteBuffer;
@@ -51,34 +52,37 @@ import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 
 /**
- * Unit test for {@link OffsetMapping} and {@link OffsetMappingImpl}
+ * Base test class implemented for different concrete mappings to test
+ * {@link DynamicMapping#findLast(long, long, Predicate) findLast(..)} and
+ * {@link DynamicMapping#binarySearchLast(long, long, Predicate) binarySearchLast(..)}.
  */
-class OffsetMappingTest {
+abstract class FindAndBinarySearchTest {
 
     private static final int nOfRegions = 4;
 
     @Mock
     private RegionMapper regionMapper;
 
-    private OffsetMapping mapping;
-
     @BeforeEach
     void init() {
         MockitoAnnotations.openMocks(this);
     }
 
+    abstract DynamicMapping createMapping(RegionMapper regionMapper, int positionGranularity);
+
+
     @ParameterizedTest(name = "regionSize={0}, bytes={2}, startPosition={1}, expectedPosition={3}")
     @CsvSource(delimiter = '|', value = {
-            "4096 |    1  |         0     |         -1",
-            "4096 |    1  |         0     |       8195",
-            "4096 |    2  |         0     |       8196",
-            "4096 |    4  |         0     |       8192",
-            "4096 |    8  |         0     |       8160",
-            "4096 |    1  |       100     |         -1",
-            "4096 |    1  |       100     |       8195",
-            "4096 |    2  |       100     |       8196",
-            "4096 |    4  |       100     |       8192",
-            "4096 |    8  |       120     |       8160",
+            "4096 |  1  |   0 |   -1",
+            "4096 |  1  |   0 | 8195",
+            "4096 |  2  |   0 | 8196",
+            "4096 |  4  |   0 | 8192",
+            "4096 |  8  |   0 | 8160",
+            "4096 |  1  | 100 |   -1",
+            "4096 |  1  | 100 | 8195",
+            "4096 |  2  | 100 | 8196",
+            "4096 |  4  | 100 | 8192",
+            "4096 |  8  | 120 | 8160"
     })
     void findAndSearchLast4K(final int regionSize, final int bytes, final long startPosition, final long expectedPosition) {
         //given
@@ -126,14 +130,18 @@ class OffsetMappingTest {
                          final long expectedPosition,
                          final boolean count) {
         //given
+        final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
         final AtomicInteger counter = count ? new AtomicInteger() : null;
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));
-        final Predicate<OffsetMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
+        final Predicate<DynamicMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
         final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
+        when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        mapping = Mappings.offsetMapping(regionMapper, true);
+        final DynamicMapping mapping = createMapping(regionMapper, bytes);
+        Assumptions.assumeTrue(bytes % mapping.positionGranularity() == 0, bytes +
+                " position increments not supported by " + mapping.getClass().getSimpleName());
 
         //when
         if (counter != null) counter.set(0);
@@ -249,7 +257,7 @@ class OffsetMappingTest {
             return NULL_ADDRESS;
         };
     }
-    private static Predicate<OffsetMapping> counter(final Predicate<? super OffsetMapping> matcher, final AtomicInteger counter) {
+    private static Predicate<DynamicMapping> counter(final Predicate<? super DynamicMapping> matcher, final AtomicInteger counter) {
         requireNonNull(matcher);
         requireNonNull(counter);
         return region -> {
@@ -258,8 +266,8 @@ class OffsetMappingTest {
         };
     }
 
-    private static Predicate<OffsetMapping> matcher(final int bytes) {
-        final Predicate<OffsetMapping> matcher;
+    private static Predicate<DynamicMapping> matcher(final int bytes) {
+        final Predicate<DynamicMapping> matcher;
         switch (bytes) {
             case 1:
                 matcher = region -> region.buffer().getByte(0) != 0;

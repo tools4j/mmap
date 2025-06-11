@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IndexReader;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,9 +35,9 @@ final class IndexReaderImpl implements IndexReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexReaderImpl.class);
 
     private final String queueName;
-    private final OffsetMapping header;
+    private final ElasticMapping header;
 
-    IndexReaderImpl(final String queueName, final OffsetMapping header) {
+    IndexReaderImpl(final String queueName, final ElasticMapping header) {
         this.queueName = requireNonNull(queueName);
         this.header = requireNonNull(header);
     }

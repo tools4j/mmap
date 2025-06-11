@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
 
 import java.nio.ByteBuffer;
 
@@ -49,8 +49,8 @@ final class AppenderImpl implements Appender {
     private final String queueName;
     private final AppenderMappings mappings;
     private final int appenderId;
-    private final OffsetMapping header;
-    private final OffsetMapping payload;
+    private final ElasticMapping header;
+    private final ElasticMapping payload;
     private final boolean enableCopyFromPreviousRegion;
     private final AppendingContextImpl context;
     private long endIndex;
@@ -80,7 +80,7 @@ final class AppenderImpl implements Appender {
 
     /** Linear move to end while also remembering the last of our own headers */
     private void initialMoveToEnd() {
-        final OffsetMapping hdr = header;
+        final ElasticMapping hdr = header;
         //noinspection UnnecessaryLocalVariable
         final int ownAppenderId = appenderId;
         long endIndex = Index.FIRST;
@@ -148,7 +148,7 @@ final class AppenderImpl implements Appender {
 
     private long appendEntry(final long payloadPosition, final int payloadLength) {
         checkNotClosed();
-        final OffsetMapping hdr = header;
+        final ElasticMapping hdr = header;
         final AtomicBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
@@ -200,7 +200,7 @@ final class AppenderImpl implements Appender {
 
     private static final class AppendingContextImpl implements AppendingContext {
         final AppenderImpl appender;
-        final OffsetMapping payload;
+        final ElasticMapping payload;
         final int maxEntrySize;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         int maxLength = -1;
@@ -230,7 +230,7 @@ final class AppenderImpl implements Appender {
 
         private int initPayloadBuffer(final long lastOwnHeader, final int lastOwnPayloadLen, final int capacity) {
             assert capacity >= 0 && capacity <= maxEntrySize;
-            final OffsetMapping pld = payload;
+            final ElasticMapping pld = payload;
             final int minRequired = capacity + Integer.BYTES;
             final long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
                     Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), lastOwnPayloadLen);
@@ -247,7 +247,7 @@ final class AppenderImpl implements Appender {
             return capacity;
         }
 
-        private void moveToNextPayloadRegion(final OffsetMapping payload) {
+        private void moveToNextPayloadRegion(final ElasticMapping payload) {
             if (!payload.moveToNextRegion()) {
                 final long regionStartPosition = payload.regionStartPosition() + payload.regionSize();
                 throw payloadMoveException(appender, regionStartPosition);
@@ -265,7 +265,7 @@ final class AppenderImpl implements Appender {
             }
             validateCapacity(capacity);
             final int minRequired = capacity + Integer.BYTES;
-            final OffsetMapping pld = payload;
+            final ElasticMapping pld = payload;
             if (pld.bytesAvailable() < minRequired) {
                 if (!appender.enableCopyFromPreviousRegion) {
                     throw new IllegalStateException("Need to enable payload region cache (for async no less than map-ahead + 2) to fully support ensureCapacity(..)");
@@ -296,7 +296,7 @@ final class AppenderImpl implements Appender {
             maxLength = -1;
             buffer.wrap(0, 0);
             validateLength(length, max);
-            final OffsetMapping pld = payload;
+            final ElasticMapping pld = payload;
             pld.buffer().putInt(0, length);
             return appender.appendEntry(pld.position(), length + Integer.BYTES);
         }

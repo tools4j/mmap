@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 public interface AppenderConfig {
-    MappingStrategy headerMappingStrategy();
-    MappingStrategy payloadMappingStrategy();
+    MappingStrategyConfig headerMappingStrategy();
+    MappingStrategyConfig payloadMappingStrategy();
     AppenderConfig toImmutableAppenderConfig();
 
     static AppenderConfigurator configure() {

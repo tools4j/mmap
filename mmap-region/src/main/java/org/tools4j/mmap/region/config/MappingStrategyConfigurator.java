@@ -23,24 +23,21 @@
  */
 package org.tools4j.mmap.region.config;
 
-import org.agrona.concurrent.IdleStrategy;
-import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.impl.MappingStrategyConfiguratorImpl;
 
-import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 public interface MappingStrategyConfigurator extends MappingStrategyConfig {
     MappingStrategyConfigurator regionSize(int regionSize);
     MappingStrategyConfigurator cacheSize(int cacheSize);
-    MappingStrategyConfigurator regionsToMapAhead(int regionsToMapAhead);
-    MappingStrategyConfigurator mappingAsyncRuntime(AsyncRuntime mappingRuntime);
-    MappingStrategyConfigurator mappingAsyncRuntimeSupplier(Supplier<? extends AsyncRuntime> mappingRuntimeSupplier);
-    MappingStrategyConfigurator mappingAsyncRuntimeSupplierUsing(IdleStrategy idleStrategy);
-    MappingStrategyConfigurator mappingAsyncRuntimeSupplierUsing(Supplier<? extends IdleStrategy> idleStrategy);
-    MappingStrategyConfigurator unmappingAsyncRuntime(AsyncRuntime unmappingRuntime);
-    MappingStrategyConfigurator unmappingAsyncRuntimeSupplier(Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier);
-    MappingStrategyConfigurator unmappingAsyncRuntimeSupplierUsing(IdleStrategy idleStrategy);
-    MappingStrategyConfigurator unmappingAsyncRuntimeSupplierUsing(Supplier<? extends IdleStrategy> idleStrategy);
+    MappingStrategyConfigurator lruCacheSize(int cacheSize);
+    MappingStrategyConfigurator deferUnmapping(boolean deferUnmapping);
+    MappingStrategyConfigurator asyncMapping(boolean asyncMapping);
+    MappingStrategyConfigurator asyncMapping(AsyncMappingConfig config);
+    MappingStrategyConfigurator asyncMapping(Consumer<? super AsyncMappingConfigurator> configurator);
+    MappingStrategyConfigurator asyncUnmapping(boolean asyncUnmapping);
+    MappingStrategyConfigurator asyncUnmapping(AsyncUnmappingConfig config);
+    MappingStrategyConfigurator asyncUnmapping(Consumer<? super AsyncUnmappingConfigurator> configurator);
 
     MappingStrategyConfigurator reset();
 
@@ -50,9 +47,5 @@ public interface MappingStrategyConfigurator extends MappingStrategyConfig {
 
     static MappingStrategyConfigurator configure(final MappingStrategyConfig defaults) {
         return new MappingStrategyConfiguratorImpl(defaults);
-    }
-
-    static MappingStrategyConfigurator configure(final MappingStrategy defaultStrategy) {
-        return new MappingStrategyConfiguratorImpl(defaultStrategy);
     }
 }

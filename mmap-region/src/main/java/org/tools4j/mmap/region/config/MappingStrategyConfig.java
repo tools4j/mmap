@@ -23,16 +23,21 @@
  */
 package org.tools4j.mmap.region.config;
 
-import org.tools4j.mmap.region.api.AsyncRuntime;
+import java.util.Optional;
 
-import java.util.function.Supplier;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS;
 
 public interface MappingStrategyConfig {
     int regionSize();
     int cacheSize();
-    int regionsToMapAhead();
-    Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier();
-    Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier();
+    int lruCacheSize();
+    boolean deferUnmapping();
+
+    Optional<AsyncMappingConfig> asyncMapping();
+    Optional<AsyncUnmappingConfig> asyncUnmapping();
 
     MappingStrategyConfig toImmutableMappingStrategyConfig();
 
@@ -45,7 +50,15 @@ public interface MappingStrategyConfig {
     }
 
     static MappingStrategyConfig getDefault() {
-        return MappingConfigurations.defaultMappingStrategyConfig();
+        return MAPPING_STRATEGY_CONFIG_DEFAULTS;
     }
-
+    static MappingStrategyConfig getDefaultSync() {
+        return MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS;
+    }
+    static MappingStrategyConfig getDefaultSyncWithAsyncUnmapping() {
+        return MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS;
+    }
+    static MappingStrategyConfig getDefaultAsyncMapAhead() {
+        return MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS;
+    }
 }

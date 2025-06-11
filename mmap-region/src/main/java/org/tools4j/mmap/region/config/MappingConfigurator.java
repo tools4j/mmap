@@ -27,6 +27,8 @@ import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.RegionMapping;
 import org.tools4j.mmap.region.impl.MappingConfiguratorImpl;
 
+import java.util.function.Consumer;
+
 /**
  * Configurator to build a {@link MappingConfig} used to create {@link RegionMapping region mappings} from files
  * through {@link Mappings}.
@@ -38,7 +40,8 @@ public interface MappingConfigurator extends MappingConfig {
     MappingConfigurator rollFiles(boolean rollFiles);
     MappingConfigurator closeFiles(boolean closeFiles);
     MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
-    MappingConfigurator mappingStrategy(MappingStrategy mappingStrategy);
+    MappingConfigurator mappingStrategy(MappingStrategyConfig config);
+    MappingConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
 
     MappingConfigurator reset();
 

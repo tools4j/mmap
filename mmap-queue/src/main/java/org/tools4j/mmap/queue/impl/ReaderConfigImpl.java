@@ -24,49 +24,26 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
 
-public class ReaderConfigImpl implements ReaderConfig {
-    private final MappingStrategy headerMappingStrategy;
-    private final MappingStrategy payloadMappingStrategy;
-    private final boolean closeHeaderFiles;
-    private final boolean closePayloadFiles;
-
+public record ReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
+                               MappingStrategyConfig payloadMappingStrategy, boolean closeHeaderFiles,
+                               boolean closePayloadFiles) implements ReaderConfig {
     public ReaderConfigImpl(final ReaderConfig config) {
         this(config.headerMappingStrategy(), config.payloadMappingStrategy(),
                 config.closeHeaderFiles(), config.closePayloadFiles());
     }
 
-    public ReaderConfigImpl(final MappingStrategy headerMappingStrategy,
-                            final MappingStrategy payloadMappingStrategy,
+    public ReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
+                            final MappingStrategyConfig payloadMappingStrategy,
                             final boolean closeHeaderFiles,
                             final boolean closePayloadFiles) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
         this.closeHeaderFiles = closeHeaderFiles;
         this.closePayloadFiles = closePayloadFiles;
-    }
-
-    @Override
-    public MappingStrategy headerMappingStrategy() {
-        return headerMappingStrategy;
-    }
-
-    @Override
-    public MappingStrategy payloadMappingStrategy() {
-        return payloadMappingStrategy;
-    }
-
-    @Override
-    public boolean closeHeaderFiles() {
-        return closeHeaderFiles;
-    }
-
-    @Override
-    public boolean closePayloadFiles() {
-        return closePayloadFiles;
     }
 
     @Override

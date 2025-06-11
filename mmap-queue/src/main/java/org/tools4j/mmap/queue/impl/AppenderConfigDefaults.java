@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
@@ -33,12 +33,12 @@ public enum AppenderConfigDefaults implements AppenderConfig {
     APPENDER_CONFIG_DEFAULTS;
 
     @Override
-    public MappingStrategy headerMappingStrategy() {
+    public MappingStrategyConfig headerMappingStrategy() {
         return defaultAppenderHeaderMappingStrategy();
     }
 
     @Override
-    public MappingStrategy payloadMappingStrategy() {
+    public MappingStrategyConfig payloadMappingStrategy() {
         return defaultAppenderPayloadMappingStrategy();
     }
 

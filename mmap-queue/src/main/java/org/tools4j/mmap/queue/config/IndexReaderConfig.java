@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 public interface IndexReaderConfig {
-    MappingStrategy headerMappingStrategy();
+    MappingStrategyConfig headerMappingStrategy();
     boolean closeHeaderFiles();
     IndexReaderConfig toImmutableIndexReaderConfig();
 

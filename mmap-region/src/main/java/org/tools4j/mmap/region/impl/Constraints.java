@@ -26,6 +26,7 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.BitUtil;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 public enum Constraints {
@@ -41,15 +42,29 @@ public enum Constraints {
         }
     }
 
-    public static void validatePosition(final long position) {
-        if (position < 0) {
-            throw new IllegalArgumentException("Position cannot be negative, but was " + position);
+    public static void validateAddress(final long address) {
+        if (address <= NULL_ADDRESS) {
+            throw new IllegalArgumentException("Invalid address " + address);
         }
     }
 
     public static void validatePositionState(final long position) {
         if (position < 0) {
             throw new IllegalStateException("Invalid current position");
+        }
+    }
+
+    public static void validatePosition(final long position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("Position cannot be negative, but was " + position);
+        }
+    }
+
+    public static void validatePosition(final long position, final long positionGranularity) {
+        assert BitUtil.isPowerOfTwo(positionGranularity);
+        if (position < 0 || 0 != (position & (positionGranularity - 1))) {
+            throw new IllegalArgumentException("Invalid position " + position +
+                    " for mapping with position granularity " + positionGranularity);
         }
     }
 
@@ -74,10 +89,49 @@ public enum Constraints {
         }
     }
 
+    public static void validatePositionDelta(final long position, final long delta) {
+        assert position >= 0;
+        if (position + delta < 0) {
+            throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position);
+        }
+    }
+
+    public static void validatePositionDelta(final long position, final long delta, final long positionGranularity) {
+        assert position >= 0;
+        assert BitUtil.isPowerOfTwo(positionGranularity);
+        final long pos = position + delta;
+        if (pos < 0 || 0 != (pos & (positionGranularity - 1))) {
+            throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position +
+                    " for mapping with position granularity " + positionGranularity);
+        }
+    }
+
+    public static void validateLimit(final long position, final long limit, final int maxLength) {
+        if (position > limit || (limit - position) > maxLength) {
+            throw new IllegalArgumentException("Invalid limit " + limit + " for position " + position +
+                    " and adaptive mapping with max-length " + maxLength);
+        }
+    }
+
+    public static void validateLength(final int length, final int maxLength) {
+        if (length < 0 || length >= maxLength) {
+            throw new IllegalArgumentException("Invalid length " + length + " for adaptive mapping with max-length " +
+                    maxLength);
+        }
+    }
+
     public static void validateRegionSize(final int regionSize) {
         if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + regionSize);
+        }
+    }
+
+    public static void validatePositionGranularity(final int positionGranularity, final int regionSize) {
+        assert BitUtil.isPowerOfTwo(regionSize);
+        if (!BitUtil.isPowerOfTwo(positionGranularity) || regionSize % positionGranularity != 0) {
+            throw new IllegalArgumentException("Position granularity must be a power of two and aligned with region size " +
+                    regionSize + " but was " + positionGranularity);
         }
     }
 
@@ -92,8 +146,22 @@ public enum Constraints {
         validatePowerOfTwo("Region cache size", cacheSize);
     }
 
+    public static void validateRegionLruCacheSize(final int cacheSize) {
+        validateNonNegative("Region LRU cache size", cacheSize);
+    }
+
     public static void validateRegionsToMapAhead(final int regionsToMapAhead) {
-        validateNonNegative("Regions to map ahead", regionsToMapAhead);
+        validateGreaterThanZero("Regions to map ahead", regionsToMapAhead);
+    }
+
+    public static void validateAheadMappingCacheSize(final int aheadMappingCacheSize) {
+        if (aheadMappingCacheSize > 0) {
+            validatePowerOfTwo("Ahead-mapping cache size", aheadMappingCacheSize);
+        }
+    }
+
+    public static void validateUnmappingCacheSize(final int cacheSize) {
+        validateNonNegative("Unmapping cache size", cacheSize);
     }
 
     public static void validateFilesToCreateAhead(final int filesToCreateAhead) {
@@ -110,6 +178,12 @@ public enum Constraints {
     public static void validatePowerOfTwo(final String name, final int value) {
         if (!BitUtil.isPowerOfTwo(value)) {
             throw new IllegalArgumentException(name + " must be a power of two but was " + value);
+        }
+    }
+
+    public static void validateNotClosed(final Closeable closeable) {
+        if (closeable.isClosed()) {
+            throw new IllegalStateException("Already closed: " + closeable);
         }
     }
 

@@ -24,14 +24,16 @@
 package org.tools4j.mmap.region.api;
 
 import org.tools4j.mmap.region.config.MappingConfig;
+import org.tools4j.mmap.region.impl.AdaptiveMappingImpl;
 import org.tools4j.mmap.region.impl.DynamicMappingImpl;
+import org.tools4j.mmap.region.impl.ElasticMappingImpl;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.FixedMapping;
 import org.tools4j.mmap.region.impl.NullMapping;
-import org.tools4j.mmap.region.impl.OffsetMappingImpl;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.FileMappers;
 import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
+import org.tools4j.mmap.region.unsafe.MappingPoolImpl;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 import org.tools4j.mmap.region.unsafe.RegionMappers;
 
@@ -41,7 +43,7 @@ public enum Mappings {
     ;
 
     /**
-     * Returns an empty, unmapped, non-closeable null-mapping.
+     * Returns an empty, unmapped null-mapping.
      * @return the null mapping singleton instance
      */
     public static Mapping nullMapping() {
@@ -76,30 +78,81 @@ public enum Mappings {
     }
 
     @Unsafe
-    public static DynamicMapping dynamicMapping(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
-        return new DynamicMappingImpl(regionMapper, closeFileMapperOnClose);
+    public static DynamicMapping dynamicMapping(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
+        return new DynamicMappingImpl(regionMapper, closeRegionMapperOnClose);
     }
 
-    public static OffsetMapping offsetMapping(final File file, final AccessMode accessMode) {
-        return offsetMapping(file, accessMode, MappingConfig.getDefault());
+    public static ElasticMapping elasticMapping(final File file, final AccessMode accessMode) {
+        return elasticMapping(file, accessMode, MappingConfig.getDefault());
     }
 
-    public static OffsetMapping offsetMapping(final File file, final AccessMode accessMode, final MappingConfig config) {
-        return offsetMapping(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
+    public static ElasticMapping elasticMapping(final File file, final AccessMode accessMode, final MappingConfig config) {
+        return elasticMapping(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
     }
 
-    public static OffsetMapping offsetMapping(final File file,
-                                              final AccessMode accessMode,
-                                              final FileInitialiser fileInitialiser,
-                                              final MappingConfig config) {
+    public static ElasticMapping elasticMapping(final File file,
+                                                final AccessMode accessMode,
+                                                final FileInitialiser fileInitialiser,
+                                                final MappingConfig config) {
         final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
-        return offsetMapping(regionMapper, true);
+        return elasticMapping(regionMapper, true);
     }
 
     @Unsafe
-    public static OffsetMapping offsetMapping(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
-        return new OffsetMappingImpl(regionMapper, closeFileMapperOnClose);
+    public static ElasticMapping elasticMapping(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
+        return new ElasticMappingImpl(regionMapper, closeRegionMapperOnClose);
     }
 
+    public static AdaptiveMapping adaptiveMapping(final File file,
+                                                  final AccessMode accessMode,
+                                                  final int positionGranularity) {
+        return adaptiveMapping(file, accessMode, positionGranularity, MappingConfig.getDefault());
+    }
+
+    public static AdaptiveMapping adaptiveMapping(final File file,
+                                                  final AccessMode accessMode,
+                                                  final int positionGranularity,
+                                                  final MappingConfig config) {
+        return adaptiveMapping(file, accessMode, positionGranularity, FileInitialiser.zeroBytes(accessMode, 0), config);
+    }
+
+    public static AdaptiveMapping adaptiveMapping(final File file,
+                                                  final AccessMode accessMode,
+                                                  final int positionGranularity,
+                                                  final FileInitialiser fileInitialiser,
+                                                  final MappingConfig config) {
+        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        return adaptiveMapping(regionMapper, positionGranularity, true);
+    }
+
+    @Unsafe
+    public static AdaptiveMapping adaptiveMapping(final RegionMapper regionMapper,
+                                                  final int positionGranularity,
+                                                  final boolean closeRegionMapperOnClose) {
+        return new AdaptiveMappingImpl(regionMapper, positionGranularity, closeRegionMapperOnClose);
+    }
+
+    public static MappingPool mappingPool(final File file, final AccessMode accessMode) {
+        return mappingPool(file, accessMode, MappingConfig.getDefault());
+    }
+
+    public static MappingPool mappingPool(final File file, final AccessMode accessMode, final MappingConfig config) {
+        return mappingPool(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
+    }
+
+    public static MappingPool mappingPool(final File file,
+                                          final AccessMode accessMode,
+                                          final FileInitialiser fileInitialiser,
+                                          final MappingConfig config) {
+        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        return mappingPool(regionMapper);
+    }
+
+    @Unsafe
+    public static MappingPool mappingPool(final RegionMapper regionMapper) {
+        return new MappingPoolImpl(regionMapper, 64);//FIXME parameterize pool size and ring-caching
+    }
 }

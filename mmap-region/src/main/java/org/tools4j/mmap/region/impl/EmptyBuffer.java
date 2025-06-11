@@ -45,6 +45,7 @@ public final class EmptyBuffer extends UnsafeBuffer {
     public void wrap(final byte[] buffer) {
         if (buffer == EMPTY_ARRAY) {
             //invocation from constructor
+            super.wrap(EMPTY_ARRAY);
             return;
         }
         throw new UnsupportedOperationException();

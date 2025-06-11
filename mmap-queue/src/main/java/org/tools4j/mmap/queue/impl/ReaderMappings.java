@@ -27,8 +27,8 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.ElasticMapping;
 import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
@@ -45,13 +45,13 @@ interface ReaderMappings extends AutoCloseable {
     /**
      * @return header region
      */
-    OffsetMapping header();
+    ElasticMapping header();
 
     /**
      * @param appenderId appender id
      * @return payload region
      */
-    OffsetMapping payload(int appenderId);
+    ElasticMapping payload(int appenderId);
 
     boolean isClosed();
 
@@ -76,19 +76,19 @@ interface ReaderMappings extends AutoCloseable {
         return new ReaderMappings() {
             final MappingConfig headerCfg = headerMappingConfig(queueCfg, readerCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, readerCfg);
-            final OffsetMapping header = Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
+            final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
                     FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
-            final Int2ObjectHashMap<OffsetMapping> payloadMappings = new Int2ObjectHashMap<>();
-            final IntFunction<OffsetMapping> payloadMappingFactory = appenderId -> Mappings.offsetMapping(
+            final Int2ObjectHashMap<ElasticMapping> payloadMappings = new Int2ObjectHashMap<>();
+            final IntFunction<ElasticMapping> payloadMappingFactory = appenderId -> Mappings.elasticMapping(
                 queueFiles.payloadFile(appenderId), AccessMode.READ_ONLY, payloadCfg);
 
             @Override
-            public OffsetMapping header() {
+            public ElasticMapping header() {
                 return header;
             }
 
             @Override
-            public OffsetMapping payload(final int appenderId) {
+            public ElasticMapping payload(final int appenderId) {
                 return payloadMappings.computeIfAbsent(appenderId, payloadMappingFactory);
             }
 

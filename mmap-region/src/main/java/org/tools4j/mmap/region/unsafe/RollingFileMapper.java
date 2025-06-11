@@ -219,7 +219,7 @@ public class RollingFileMapper implements FileMapper {
     }
 
     @Override
-    public void unmap(final long address, final long position, final int length) {
+    public void unmap(final long position, final long address, final int length) {
         checkNotClosed();
         if (length != regionSize) {
             throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
@@ -229,7 +229,7 @@ public class RollingFileMapper implements FileMapper {
         final long positionWithinFile = position & positionInFileMask;
         final FileMapper mapperForIndex = fileMappers.get(fileIndex);
         if (mapperForIndex != null) {
-            mapperForIndex.unmap(address, positionWithinFile, length);
+            mapperForIndex.unmap(positionWithinFile, address, length);
 
             //If closeFile == true, we should close the file when
             // a) we are forward un-mapping, and the last region of the file was just unmapped
@@ -262,7 +262,7 @@ public class RollingFileMapper implements FileMapper {
 
     private void checkNotClosed() {
         if (isClosed()) {
-            throw new IllegalStateException("Expandable-size file mapper is closed");
+            throw new IllegalStateException("Rolling file mapper is closed");
         }
     }
 

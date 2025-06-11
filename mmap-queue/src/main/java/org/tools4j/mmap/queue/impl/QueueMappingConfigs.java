@@ -28,7 +28,7 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.impl.MappingConfigImpl;
 
 import static java.util.Objects.requireNonNull;
@@ -49,7 +49,7 @@ enum QueueMappingConfigs {
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig,
-                                             final MappingStrategy mappingStrategy,
+                                             final MappingStrategyConfig mappingStrategy,
                                              final boolean closeHeaderFiles) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
@@ -80,7 +80,7 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public MappingStrategy mappingStrategy() {
+            public MappingStrategyConfig mappingStrategy() {
                 return mappingStrategy;
             }
 
@@ -106,7 +106,7 @@ enum QueueMappingConfigs {
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig,
-                                              final MappingStrategy mappingStrategy,
+                                              final MappingStrategyConfig mappingStrategy,
                                               final boolean closePayloadFiles) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
@@ -137,7 +137,7 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public MappingStrategy mappingStrategy() {
+            public MappingStrategyConfig mappingStrategy() {
                 return mappingStrategy;
             }
 

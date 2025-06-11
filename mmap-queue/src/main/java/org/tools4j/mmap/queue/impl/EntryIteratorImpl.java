@@ -32,7 +32,7 @@ import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.region.api.OffsetMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -47,7 +47,7 @@ final class EntryIteratorImpl implements EntryIterator {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final OffsetMapping header;
+    private final ElasticMapping header;
     private final IterableContextImpl context;
 
     EntryIteratorImpl(final String queueName, final ReaderMappings mappings) {
@@ -101,7 +101,7 @@ final class EntryIteratorImpl implements EntryIterator {
         static final int FORWARD = 1;
         static final int CLOSED = 0;
         final EntryIteratorImpl iterator;
-        final OffsetMapping header;
+        final ElasticMapping header;
         final ReaderMappings mappings;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long startIndex;
@@ -212,7 +212,7 @@ final class EntryIteratorImpl implements EntryIterator {
             }
             final int appenderId = Headers.appenderId(hdr);
             final long position = Headers.payloadPosition(hdr);
-            final OffsetMapping payload = mappings.payload(appenderId);
+            final ElasticMapping payload = mappings.payload(appenderId);
             if (!payload.moveTo(position)) {
                 throw payloadMoveException(iterator, appenderId, position);
             }

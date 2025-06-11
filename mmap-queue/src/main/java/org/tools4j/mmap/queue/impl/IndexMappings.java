@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.ElasticMapping;
 import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.api.OffsetMapping;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
@@ -46,14 +46,14 @@ interface IndexMappings {
      * @param indexReaderConfig configuration for index reader mappings
      * @return a new header mapping
      */
-    static OffsetMapping create(final QueueFiles queueFiles,
-                                final QueueConfig queueConfig,
-                                final IndexReaderConfig indexReaderConfig) {
+    static ElasticMapping create(final QueueFiles queueFiles,
+                                 final QueueConfig queueConfig,
+                                 final IndexReaderConfig indexReaderConfig) {
         requireNonNull(queueFiles);
         final MappingConfig headerCfg = headerMappingConfig(
                 queueConfig.toImmutableQueueConfig(), indexReaderConfig.toImmutableIndexReaderConfig()
         );
-        return Mappings.offsetMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
+        return Mappings.elasticMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
                 FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
     }
 

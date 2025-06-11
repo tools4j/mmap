@@ -28,8 +28,13 @@ package org.tools4j.mmap.region.api;
  * A region mapping is a {@link Mapping} whose size follows a standard {@linkplain #regionSize() region size}, typically
  * powers of two. The file block of the size of a region is directly mapped into memory. The file data is accessible
  * through the {@link #buffer()}.
+ * <p>
+ * The mapping {@linkplain #position() position} may or may not be a multiple of the {@linkplain #regionSize() region
+ * size} depending on the implementation.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-public interface RegionMapping extends Mapping {
+public interface RegionMapping extends Mapping, RegionAware {
 
     /**
      * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
@@ -51,19 +56,6 @@ public interface RegionMapping extends Mapping {
      * @return {@code position - regionStartPosition}
      */
     int offset();
-
-    /**
-     * @return the size of a mappable memory region in bytes
-     * @see #regionMetrics()
-     */
-    default int regionSize() {
-        return regionMetrics().regionSize();
-    }
-
-    /**
-     * @return the region metrics determined by the {@linkplain #regionSize() region size}
-     */
-    RegionMetrics regionMetrics();
 
     /**
      * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or

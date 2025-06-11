@@ -32,7 +32,28 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
  * A mapping is a file block directly mapped into memory. The file data is accessible through the {@link #buffer()}.
- * Mapping is implemented by {@link FixedMapping}, {@link DynamicMapping} and {@link OffsetMapping}.
+ * <p>
+ * The different mapping subtypes are:
+ * <ul>
+ *     <li>{@link FixedMapping}:  A mapping that has arbitrary start and end position, but both are fixed for the
+ *                                lifetime of the mapping.</li>
+ *     <li>{@link RegionMapping}: A mapping of a predefined region size (typically powers of two), or a slice of such a
+ *                                region. Most region mappings are also a <code>DynamicMapping</code>:<ul>
+ *       <li>{@link DynamicMapping}: A region mapping that can be moved to map different positions from the underlying
+ *                                   file. A pure dynamic mapping can only move to region start positions; the following
+ *                                   subtypes allow moving to arbitrary positions:<ul>
+ *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an arbitrary offset from the region start
+ *                                      position and spans all bytes until the end of that region.</li>
+ *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the file. Adaptive mappings can span
+ *                                      across region boundaries. This is achieved by mapping blocks into memory that
+ *                                      are slightly larger than the region size if necessary. Adaptive mappings can be
+ *                                      moved around to any position in the file, with or without changing the mapping
+ *                                      length.</li>
+ *       </ul></li>
+ *     </ul></li>
+ * </ul>
+ * <p>
+ * Use one of the static factory methods in {@link Mappings} to create mapping instances.
  */
 public interface Mapping extends AutoCloseable {
     /**
@@ -70,6 +91,16 @@ public interface Mapping extends AutoCloseable {
      */
     default int bytesAvailable() {
         return buffer().capacity();
+    }
+
+    /**
+     * Returns the limit of this mapping, the position <i>after</i> the last byte that is accessible through this
+     * mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is not {@link #isMapped() mapped}.
+     *
+     * @return the absolute position limit of this mapping (exclusive)
+     */
+    default long limit() {
+        return position() + bytesAvailable();//NOTE: also works for NULL_POSITION with zero bytes available
     }
 
     /**

@@ -23,49 +23,38 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.AsyncMappingConfig;
+import org.tools4j.mmap.region.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
-import java.util.function.Supplier;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionLruCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
-public class MappingStrategyConfigImpl implements MappingStrategyConfig {
-
-    private final int regionSize;
-    private final int cacheSize;
-    private final int regionsToMapAhead;
-    private final Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier;
-    private final Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier;
+public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCacheSize, boolean deferUnmapping,
+                                        Optional<AsyncMappingConfig> asyncMapping,
+                                        Optional<AsyncUnmappingConfig> asyncUnmapping) implements MappingStrategyConfig {
 
     public MappingStrategyConfigImpl() {
         this(MAPPING_STRATEGY_CONFIG_DEFAULTS);
     }
 
     public MappingStrategyConfigImpl(final MappingStrategyConfig toCopy) {
-        this(toCopy.regionSize(), toCopy.cacheSize(), toCopy.regionsToMapAhead(),
-                toCopy.mappingAsyncRuntimeSupplier(), toCopy.unmappingAsyncRuntimeSupplier());
+        this(toCopy.regionSize(), toCopy.cacheSize(), toCopy.lruCacheSize(), toCopy.deferUnmapping(),
+                toCopy.asyncMapping().map(AsyncMappingConfig::toImmutableAsyncMappingConfig),
+                toCopy.asyncUnmapping().map(AsyncUnmappingConfig::toImmutableAsyncUnmappingConfig));
     }
 
-    public MappingStrategyConfigImpl(final int regionSize,
-                                     final int cacheSize,
-                                     final int regionsToMapAhead,
-                                     final Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier,
-                                     final Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier) {
+    public MappingStrategyConfigImpl {
         validateRegionSize(regionSize);
         validateRegionCacheSize(cacheSize);
-        validateFilesToCreateAhead(regionsToMapAhead);
-        requireNonNull(mappingAsyncRuntimeSupplier);
-        requireNonNull(unmappingAsyncRuntimeSupplier);
-        this.regionSize = regionSize;
-        this.cacheSize = cacheSize;
-        this.regionsToMapAhead = regionsToMapAhead;
-        this.mappingAsyncRuntimeSupplier = mappingAsyncRuntimeSupplier;
-        this.unmappingAsyncRuntimeSupplier = unmappingAsyncRuntimeSupplier;
+        validateRegionLruCacheSize(lruCacheSize);
+        requireNonNull(asyncMapping);
+        requireNonNull(asyncUnmapping);
     }
 
     @Override
@@ -74,35 +63,15 @@ public class MappingStrategyConfigImpl implements MappingStrategyConfig {
     }
 
     @Override
-    public int regionSize() {
-        return regionSize;
-    }
-
-    @Override
-    public int cacheSize() {
-        return cacheSize;
-    }
-
-    @Override
-    public int regionsToMapAhead() {
-        return regionsToMapAhead;
-    }
-
-    @Override
-    public Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier() {
-        return mappingAsyncRuntimeSupplier;
-    }
-
-    @Override
-    public Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier() {
-        return unmappingAsyncRuntimeSupplier;
-    }
-
-    @Override
     public String toString() {
-        return "MappingStrategyConfigImpl" +
-                ":regionSize=" + regionSize() +
-                "|cacheSize=" + cacheSize() +
-                "|regionsToMapAhead=" + regionsToMapAhead();
+        return toString("MappingStrategyConfigImpl", this);
+    }
+
+    public static String toString(final String name, final MappingStrategyConfig config) {
+        return name +
+                ":regionSize=" + config.regionSize() +
+                "|cacheSize=" + config.cacheSize() +
+                "|asyncMapping=" + config.asyncMapping().map(Object::toString).orElse("n/a") +
+                "|asyncUnmapping=" + config.asyncUnmapping().map(Object::toString).orElse("n/a");
     }
 }

@@ -36,8 +36,6 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 /**
  * Defines region mapping default configuration values and property constants to override default values via system
@@ -59,33 +57,43 @@ public enum MappingConfigurations {
     public static final int REGION_SIZE_DEFAULT = (int)(1024*REGION_SIZE_GRANULARITY);//typically ~4MB
     public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.region.regionCacheSize";
     public static final int REGION_CACHE_SIZE_DEFAULT = 4;
-    public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.regionsToMapAhead";
+    public static final String REGION_LRU_CACHE_SIZE_PROPERTY = "mmap.region.regionLruCacheSize";
+    public static final int REGION_LRU_CACHE_SIZE_DEFAULT = 0;
+    public static final String DEFER_UNMAPPING_PROPERTY = "mmap.region.deferUnmapping";
+    public static final boolean DEFER_UNMAPPING_DEFAULT = false;
+
+    public static final String ASYNC_MAPPING_PROPERTY = "mmap.region.asyncMapping";
+    public static final boolean ASYNC_MAPPING_DEFAULT = true;
+    public static final String ASYNC_UNMAPPING_PROPERTY = "mmap.region.asyncUnmapping";
+    public static final boolean ASYNC_UNMAPPING_DEFAULT = true;
+
+    //async mapping properties
+    public static final String REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.region.async.regionsToMapAhead";
     public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 2;
-    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.mappingRuntimeIdleStrategy";
+    public static final String AHEAD_MAPPING_CACHE_SIZE_PROPERTY = "mmap.region.async.aheadMappingCacheSize";
+    public static final int AHEAD_MAPPING_CACHE_SIZE_DEFAULT = 0;
+    public static final String UNMAPPING_CACHE_SIZE_PROPERTY = "mmap.region.async.unmappingCacheSize";
+    public static final int UNMAPPING_CACHE_SIZE_DEFAULT = 32;
+    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.async.mappingRuntimeIdleStrategy";
     public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = () -> BusySpinIdleStrategy.INSTANCE;
-    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.mappingRuntimeIdleStrategyShared";
+    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.async.mappingRuntimeIdleStrategyShared";
     public static final boolean MAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT = true;
-    public static final String MAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.mappingRuntimeShared";
+    public static final String MAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.async.mappingRuntimeShared";
     public static final boolean MAPPING_RUNTIME_SHARED_DEFAULT = true;
-    public static final String MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.mappingRuntimeAutoCloseOnLastDeregister";
+    public static final String MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.async.mappingRuntimeAutoCloseOnLastDeregister";
     public static final boolean MAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
-    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.unmappingRuntimeIdleStrategy";
+    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.region.async.unmappingRuntimeIdleStrategy";
     public static final Supplier<IdleStrategy> UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
-    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.unmappingRuntimeIdleStrategyShared";
+    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_PROPERTY = "mmap.region.async.unmappingRuntimeIdleStrategyShared";
     public static final boolean UNMAPPING_RUNTIME_IDLE_STRATEGY_SHARED_DEFAULT = false;
-    public static final String UNMAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.unmappingRuntimeShared";
+    public static final String UNMAPPING_RUNTIME_SHARED_PROPERTY = "mmap.region.async.unmappingRuntimeShared";
     public static final boolean UNMAPPING_RUNTIME_SHARED_DEFAULT = true;
-    public static final String UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.unmappingRuntimeAutoCloseOnLastDeregister";
+    public static final String UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_PROPERTY = "mmap.region.async.unmappingRuntimeAutoCloseOnLastDeregister";
     public static final boolean UNMAPPING_RUNTIME_AUTO_CLOSE_ON_LAST_DEREGISTER_DEFAULT = false;
-    public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.mappingAsyncRuntime";
+    public static final String MAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.async.mappingAsyncRuntime";
     private static Supplier<? extends AsyncRuntime> MAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
-    public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.unmappingAsyncRuntime";
+    public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.async.unmappingAsyncRuntime";
     private static Supplier<? extends AsyncRuntime> UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
-    public static final String MAPPING_STRATEGY_PROPERTY = "mmap.region.mappingStrategy";
-    public static final String MAPPING_STRATEGY_DEFAULT = AheadMappingStrategy.NAME;
-    private static MappingStrategy MAPPING_STRATEGY_DEFAULT_VALUE;
-    private static MappingStrategy SYNC_MAPPING_STRATEGY_DEFAULT_VALUE;
-    private static MappingStrategy AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE;
 
     public static int defaultMaxFileSize() {
         return getIntProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
@@ -115,8 +123,32 @@ public enum MappingConfigurations {
         return getIntProperty(REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, REGION_CACHE_SIZE_DEFAULT);
     }
 
+    public static int defaultRegionLruCacheSize() {
+        return getIntProperty(REGION_LRU_CACHE_SIZE_PROPERTY, Constraints::validateRegionLruCacheSize, REGION_LRU_CACHE_SIZE_DEFAULT);
+    }
+
+    public static boolean defaultDeferUnmapping() {
+        return getBooleanProperty(DEFER_UNMAPPING_PROPERTY, DEFER_UNMAPPING_DEFAULT);
+    }
+
+    public static boolean defaultAsyncMapping() {
+        return getBooleanProperty(ASYNC_MAPPING_PROPERTY, ASYNC_MAPPING_DEFAULT);
+    }
+
+    public static boolean defaultAsyncUnmapping() {
+        return getBooleanProperty(ASYNC_UNMAPPING_PROPERTY, ASYNC_UNMAPPING_DEFAULT);
+    }
+
     public static int defaultRegionsToMapAhead() {
         return getIntProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
+    }
+
+    public static int defaultAheadMappingCacheSize() {
+        return getIntProperty(AHEAD_MAPPING_CACHE_SIZE_PROPERTY, Constraints::validateAheadMappingCacheSize, AHEAD_MAPPING_CACHE_SIZE_DEFAULT);
+    }
+
+    public static int defaultUnmappingCacheSize() {
+        return getIntProperty(UNMAPPING_CACHE_SIZE_PROPERTY, Constraints::validateUnmappingCacheSize, UNMAPPING_CACHE_SIZE_DEFAULT);
     }
 
     public static boolean defaultMappingRuntimeIdleStrategyShared() {
@@ -189,52 +221,6 @@ public enum MappingConfigurations {
         return getSupplierProperty(runtimePropertyName, AsyncRuntime.class, sharedRuntime, () ->
                 AsyncRuntime.create(name, idleStrategySupplier.get(), autoStopOnLastDeregisterSupplier.getAsBoolean())
         );
-    }
-
-    public static MappingStrategy defaultMappingStrategy() {
-        if (MAPPING_STRATEGY_DEFAULT_VALUE == null) {
-            MAPPING_STRATEGY_DEFAULT_VALUE = getMappingStrategyProperty();
-            assert MAPPING_STRATEGY_DEFAULT_VALUE != null;
-        }
-        return MAPPING_STRATEGY_DEFAULT_VALUE;
-    }
-
-    private static MappingStrategy getMappingStrategyProperty() {
-        final String propVal = System.getProperty(MAPPING_STRATEGY_PROPERTY, MAPPING_STRATEGY_DEFAULT);
-        switch (propVal) {
-            case AheadMappingStrategy.NAME:
-                return defaultAheadMappingStrategy();
-            case SyncMappingStrategy.NAME:
-                return defaultSyncMappingStrategy();
-            default:
-                return getObjProperty(MAPPING_STRATEGY_PROPERTY, MappingStrategy.class,
-                        (Supplier<? extends MappingStrategy>) MappingConfigurations::defaultAheadMappingStrategy);
-        }
-    }
-
-    public static MappingStrategy defaultSyncMappingStrategy() {
-        if (SYNC_MAPPING_STRATEGY_DEFAULT_VALUE == null) {
-            SYNC_MAPPING_STRATEGY_DEFAULT_VALUE = new SyncMappingStrategy(defaultRegionSize());
-        }
-        return SYNC_MAPPING_STRATEGY_DEFAULT_VALUE;
-    }
-
-    public static MappingStrategy defaultAheadMappingStrategy() {
-        if (AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE == null) {
-            AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE = new AheadMappingStrategy(
-                    defaultRegionSize(), defaultRegionCacheSize(), defaultRegionsToMapAhead(),
-                    defaultMappingAsyncRuntimeSupplier(), defaultUnmappingAsyncRuntimeSupplier()
-            );
-        }
-        return AHEAD_MAPPING_STRATEGY_DEFAULT_VALUE;
-    }
-
-    public static MappingConfig defaultMappingConfig() {
-        return MAPPING_CONFIG_DEFAULTS;
-    }
-
-    public static MappingStrategyConfig defaultMappingStrategyConfig() {
-        return MAPPING_STRATEGY_CONFIG_DEFAULTS;
     }
 
     private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {

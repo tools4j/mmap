@@ -34,8 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Objects.requireNonNull;
 
 
-public class DefaultAsyncRuntime implements AsyncRuntime {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAsyncRuntime.class);
+public class AsyncRuntimeImpl implements AsyncRuntime {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncRuntimeImpl.class);
     private static final Recurring[] EMPTY = {};
 
     private final String name;
@@ -49,14 +49,14 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     }
     private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
-    public DefaultAsyncRuntime(final String name,
-                               final IdleStrategy idleStrategy,
-                               final boolean autoStopOnLastDeregister) {
+    public AsyncRuntimeImpl(final String name,
+                            final IdleStrategy idleStrategy,
+                            final boolean autoStopOnLastDeregister) {
         this.name = requireNonNull(name);
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(idleStrategy);
         final Thread thread = new Thread(() -> {
-            LOGGER.info("Started async region mapping runtime with {} idle strategy", idleStrategy.alias());
+            LOGGER.info("Started async runtime {} with {} idle strategy", name, idleStrategy.alias());
             idleStrategy.reset();
             StopStatus stopSignal;
             int workCount = 0;
@@ -72,7 +72,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
                 idleStrategy.idle(workCount);
             }
             stop.set(StopStatus.STOPPED);
-            LOGGER.info("Stopped async region mapping runtime");
+            LOGGER.info("Stopped async runtime {}", name);
         });
         thread.setName(name);
         thread.setDaemon(true);
@@ -143,7 +143,7 @@ public class DefaultAsyncRuntime implements AsyncRuntime {
     @Override
     public String toString() {
         final StopStatus stopStatus = stop.get();
-        return "DefaultAsyncRuntime" +
+        return "AsyncRuntimeImpl" +
                 ":thread=" + name +
                 "|status=" + (stopStatus == null ? "running" : stopStatus == StopStatus.STOPPED ? "stopped" : "stopping");
     }

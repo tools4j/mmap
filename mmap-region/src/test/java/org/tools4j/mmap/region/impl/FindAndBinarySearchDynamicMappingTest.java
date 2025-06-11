@@ -21,32 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.config;
+package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.Mappings;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
-import java.util.Optional;
-
-public interface MappingStrategy {
-    int regionSize();
-    int cacheSize();
-    Optional<AsyncOptions> asyncOptions();
-
-    interface AsyncOptions {
-        int regionsToMapAhead();
-        AsyncRuntime mappingRuntime();
-        AsyncRuntime unmappingRuntime();
-    }
-
-    static MappingStrategy defaultSyncMappingStrategy() {
-        return MappingConfigurations.defaultSyncMappingStrategy();
-    }
-
-    static MappingStrategy defaultAheadMappingStrategy() {
-        return MappingConfigurations.defaultAheadMappingStrategy();
-    }
-
-    static MappingStrategy create(final MappingStrategyConfig config) {
-        return config.regionsToMapAhead() <= 0 ? new SyncMappingStrategy(config) : new AheadMappingStrategy(config);
+/**
+ * {@link FindAndBinarySearchTest} for {@link ElasticMapping} and {@link ElasticMappingImpl}.
+ */
+class FindAndBinarySearchDynamicMappingTest extends FindAndBinarySearchTest {
+    @Override
+    DynamicMapping createMapping(final RegionMapper regionMapper, final int positionGranularity) {
+        return Mappings.dynamicMapping(regionMapper, true);
     }
 }

@@ -25,7 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfigurator;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
@@ -37,7 +37,7 @@ import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER
 
 public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     private final IndexReaderConfig defaults;
-    private MappingStrategy headerMappingStrategy;
+    private MappingStrategyConfig headerMappingStrategy;
     private Boolean closeHeaderFiles;
 
     public IndexReaderConfiguratorImpl() {
@@ -56,7 +56,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     }
 
     @Override
-    public MappingStrategy headerMappingStrategy() {
+    public MappingStrategyConfig headerMappingStrategy() {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaults.headerMappingStrategy();
         }
@@ -68,13 +68,13 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     @Override
     public IndexReaderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
-        this.headerMappingStrategy = requireNonNull(strategy);
-        return this;
+        return headerMappingStrategy(strategy.mappingStrategyConfig());
     }
 
     @Override
     public IndexReaderConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
-        return headerMappingStrategy(MappingStrategy.create(config));
+        this.headerMappingStrategy = requireNonNull(config);
+        return this;
     }
 
     @Override

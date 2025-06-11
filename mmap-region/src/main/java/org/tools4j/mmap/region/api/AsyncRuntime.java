@@ -24,7 +24,7 @@
 package org.tools4j.mmap.region.api;
 
 import org.agrona.concurrent.IdleStrategy;
-import org.tools4j.mmap.region.impl.DefaultAsyncRuntime;
+import org.tools4j.mmap.region.impl.AsyncRuntimeImpl;
 
 /**
  * Async runtime to perform recurring operations in the background, such as async mapping and unmapping operations.
@@ -67,7 +67,7 @@ public interface AsyncRuntime extends AutoCloseable {
     static AsyncRuntime create(final String name,
                                final IdleStrategy idleStrategy,
                                final boolean autoStopOnLastDeregister) {
-        return new DefaultAsyncRuntime(name, idleStrategy, autoStopOnLastDeregister);
+        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister);
     }
 
     /**

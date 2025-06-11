@@ -25,7 +25,13 @@ package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.Mapping;
+import org.tools4j.mmap.region.api.RegionAware;
 import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.impl.Closeable;
+
+import static org.tools4j.mmap.region.impl.Constraints.validateAddress;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 
 /**
  * Low level API to map regions with implementation dependant optimisations such as unmapping, caching and pre-mapping
@@ -46,21 +52,8 @@ import org.tools4j.mmap.region.api.Unsafe;
  * </ul>
  */
 @Unsafe
-public interface RegionMapper extends AutoCloseable {
-    /**
-     * @return the file access mode used by this region mapper
-     */
-    default AccessMode accessMode() {
-        return fileMapper().accessMode();
-    }
-
-    FileMapper fileMapper();
-
-    /**
-     * Returns the size of a mapped region.
-     * @return region size in bytes
-     */
-    int regionSize();
+public interface RegionMapper extends RegionAware, Closeable {
+    AccessMode accessMode();
 
     /**
      * Attempts to map the buffer at the specified position and returns the address at which the region was mapped.
@@ -71,14 +64,40 @@ public interface RegionMapper extends AutoCloseable {
      * @throws IllegalArgumentException if position is negative or not a multiple of region size
      * @see #regionSize()
      */
-    long map(long position);
+    default long map(final long position) {
+        final int regionSize = regionSize();
+        validateRegionPosition(position, regionSize);
+        validateNotClosed(this);
+        return mapInternal(position, regionSize);
+    }
 
+    long mapInternal(long position, int regionSize);
 
-    /** @return true if this mapper is closed*/
+    /**
+     * Unmaps previously mapped address of the region starting at absolute position with length.
+     *
+     * @param position absolute position
+     * @param address  previously mapped address
+     */
+    default void unmap(final long position, final long address) {
+        final int regionSize = regionSize();
+        validateRegionPosition(position, regionSize);
+        validateAddress(address);
+        validateNotClosed(this);
+        unmapInternal(position, address, regionSize);
+    }
+
+    void unmapInternal(long position, long address, int regionSize);
+
+    boolean isMappedInCache(long position);
+
+    /** @return true if this mapper is closed */
+    @Override
     boolean isClosed();
 
     /**
      * Closes this region mapper and issued mapping.
      */
+    @Override
     void close();
 }

@@ -24,15 +24,13 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 
-public class IndexReaderConfigImpl implements IndexReaderConfig {
-    private final MappingStrategy headerMappingStrategy;
-    private final boolean closeHeaderFiles;
-
+public record IndexReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
+                                    boolean closeHeaderFiles) implements IndexReaderConfig {
     public IndexReaderConfigImpl() {
         this(INDEX_READER_CONFIG_DEFAULTS);
     }
@@ -41,19 +39,9 @@ public class IndexReaderConfigImpl implements IndexReaderConfig {
         this(config.headerMappingStrategy(), config.closeHeaderFiles());
     }
 
-    public IndexReaderConfigImpl(final MappingStrategy headerMappingStrategy, final boolean closeHeaderFiles) {
+    public IndexReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy, final boolean closeHeaderFiles) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.closeHeaderFiles = closeHeaderFiles;
-    }
-
-    @Override
-    public MappingStrategy headerMappingStrategy() {
-        return headerMappingStrategy;
-    }
-
-    @Override
-    public boolean closeHeaderFiles() {
-        return closeHeaderFiles;
     }
 
     @Override
@@ -63,7 +51,7 @@ public class IndexReaderConfigImpl implements IndexReaderConfig {
 
     @Override
     public String toString() {
-        return "IndexReaderConfiguratorImpl" +
+        return "IndexReaderConfigImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
                 "|closeHeaderFiles=" + closeHeaderFiles;
     }

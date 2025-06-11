@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
-import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
@@ -38,8 +38,8 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
 
 public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private final ReaderConfig defaults;
-    private MappingStrategy headerMappingStrategy;
-    private MappingStrategy payloadMappingStrategy;
+    private MappingStrategyConfig headerMappingStrategy;
+    private MappingStrategyConfig payloadMappingStrategy;
     private Boolean closeHeaderFiles;
     private Boolean closePayloadFiles;
 
@@ -90,7 +90,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
-    public MappingStrategy headerMappingStrategy() {
+    public MappingStrategyConfig headerMappingStrategy() {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaults.headerMappingStrategy();
         }
@@ -99,13 +99,13 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
-        this.headerMappingStrategy = requireNonNull(strategy);
-        return this;
+        return headerMappingStrategy(strategy.mappingStrategyConfig());
     }
 
     @Override
     public ReaderConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
-        return headerMappingStrategy(MappingStrategy.create(config));
+        this.headerMappingStrategy = requireNonNull(config);
+        return this;
     }
 
     @Override
@@ -116,7 +116,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
-    public MappingStrategy payloadMappingStrategy() {
+    public MappingStrategyConfig payloadMappingStrategy() {
         if (payloadMappingStrategy == null) {
             payloadMappingStrategy = defaults.payloadMappingStrategy();
         }
@@ -125,13 +125,13 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
-        this.payloadMappingStrategy = requireNonNull(strategy);
-        return this;
+        return payloadMappingStrategy(strategy.mappingStrategyConfig());
     }
 
     @Override
     public ReaderConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
-        return payloadMappingStrategy(MappingStrategy.create(config));
+        this.payloadMappingStrategy = requireNonNull(config);
+        return this;
     }
 
     @Override

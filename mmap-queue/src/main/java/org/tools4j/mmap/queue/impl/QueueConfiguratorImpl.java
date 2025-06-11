@@ -27,12 +27,12 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.AppenderConfigurator;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfigurator;
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
@@ -261,18 +261,18 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator mappingStrategy(final MappingStrategy mappingStrategy) {
-        requireNonNull(mappingStrategy);
-        appenderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
-        pollerConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
-        entryReaderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
-        entryIteratorConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy).payloadMappingStrategy(mappingStrategy));
-        indexReaderConfig(cfg -> cfg.headerMappingStrategy(mappingStrategy));
-        return this;
+        return mappingStrategy(mappingStrategy.mappingStrategyConfig());
     }
 
     @Override
     public QueueConfigurator mappingStrategy(final MappingStrategyConfig config) {
-        return mappingStrategy(MappingStrategy.create(config));
+        requireNonNull(config);
+        appenderConfig(cfg -> cfg.headerMappingStrategy(config).payloadMappingStrategy(config));
+        pollerConfig(cfg -> cfg.headerMappingStrategy(config).payloadMappingStrategy(config));
+        entryReaderConfig(cfg -> cfg.headerMappingStrategy(config).payloadMappingStrategy(config));
+        entryIteratorConfig(cfg -> cfg.headerMappingStrategy(config).payloadMappingStrategy(config));
+        indexReaderConfig(cfg -> cfg.headerMappingStrategy(config));
+        return this;
     }
 
     @Override
@@ -284,18 +284,18 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator headerMappingStrategy(final MappingStrategy mappingStrategy) {
-        requireNonNull(mappingStrategy);
-        appenderConfig(config -> config.headerMappingStrategy(mappingStrategy));
-        pollerConfig(config -> config.headerMappingStrategy(mappingStrategy));
-        entryReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
-        entryIteratorConfig(config -> config.headerMappingStrategy(mappingStrategy));
-        indexReaderConfig(config -> config.headerMappingStrategy(mappingStrategy));
-        return this;
+        return headerMappingStrategy(mappingStrategy.mappingStrategyConfig());
     }
 
     @Override
     public QueueConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
-        return headerMappingStrategy(MappingStrategy.create(config));
+        requireNonNull(config);
+        appenderConfig(cfg -> cfg.headerMappingStrategy(config));
+        pollerConfig(cfg -> cfg.headerMappingStrategy(config));
+        entryReaderConfig(cfg -> cfg.headerMappingStrategy(config));
+        entryIteratorConfig(cfg -> cfg.headerMappingStrategy(config));
+        indexReaderConfig(cfg -> cfg.headerMappingStrategy(config));
+        return this;
     }
 
     @Override
@@ -307,17 +307,17 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator payloadMappingStrategy(final MappingStrategy mappingStrategy) {
-        requireNonNull(mappingStrategy);
-        appenderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
-        pollerConfig(config -> config.payloadMappingStrategy(mappingStrategy));
-        entryReaderConfig(config -> config.payloadMappingStrategy(mappingStrategy));
-        entryIteratorConfig(config -> config.payloadMappingStrategy(mappingStrategy));
-        return this;
+        return payloadMappingStrategy(mappingStrategy.mappingStrategyConfig());
     }
 
     @Override
     public QueueConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
-        return payloadMappingStrategy(MappingStrategy.create(config));
+        requireNonNull(config);
+        appenderConfig(cfg -> cfg.payloadMappingStrategy(config));
+        pollerConfig(cfg -> cfg.payloadMappingStrategy(config));
+        entryReaderConfig(cfg -> cfg.payloadMappingStrategy(config));
+        entryIteratorConfig(cfg -> cfg.payloadMappingStrategy(config));
+        return this;
     }
 
     @Override

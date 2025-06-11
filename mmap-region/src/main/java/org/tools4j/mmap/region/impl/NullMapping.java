@@ -44,6 +44,11 @@ public enum NullMapping implements Mapping {
     }
 
     @Override
+    public long limit() {
+        return NULL_POSITION;
+    }
+
+    @Override
     public long address() {
         return NULL_ADDRESS;
     }

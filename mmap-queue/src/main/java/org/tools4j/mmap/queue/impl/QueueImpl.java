@@ -37,7 +37,7 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.impl.IdPool;
 import org.tools4j.mmap.region.impl.IdPool256;
 import org.tools4j.mmap.region.impl.IdPool64;
@@ -122,10 +122,10 @@ public final class QueueImpl implements Queue {
     }
 
     private static boolean enableCopyFromPreviousRegion(final AppenderConfig appenderConfig) {
-        final MappingStrategy mappingStrategy = appenderConfig.payloadMappingStrategy();
+        final MappingStrategyConfig mappingStrategy = appenderConfig.payloadMappingStrategy();
         final int cacheSie = mappingStrategy.cacheSize();
-        final int mapAhead = mappingStrategy.asyncOptions().isPresent() ?
-                mappingStrategy.asyncOptions().get().regionsToMapAhead() : 0;
+        final int mapAhead = mappingStrategy.asyncMapping().isPresent() ?
+                mappingStrategy.asyncMapping().get().regionsToMapAhead() : 0;
         return cacheSie > Math.max(1, mapAhead + 1);
     }
 

@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorPayloadFiles;
@@ -42,12 +42,12 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPay
 public enum ReaderConfigDefaults implements ReaderConfig {
     POLLER_CONFIG_DEFAULTS {
         @Override
-        public MappingStrategy headerMappingStrategy() {
+        public MappingStrategyConfig headerMappingStrategy() {
             return defaultPollerHeaderMappingStrategy();
         }
 
         @Override
-        public MappingStrategy payloadMappingStrategy() {
+        public MappingStrategyConfig payloadMappingStrategy() {
             return defaultPollerPayloadMappingStrategy();
         }
 
@@ -63,12 +63,12 @@ public enum ReaderConfigDefaults implements ReaderConfig {
     },
     ENTRY_READER_CONFIG_DEFAULTS {
         @Override
-        public MappingStrategy headerMappingStrategy() {
+        public MappingStrategyConfig headerMappingStrategy() {
             return defaultEntryReaderHeaderMappingStrategy();
         }
 
         @Override
-        public MappingStrategy payloadMappingStrategy() {
+        public MappingStrategyConfig payloadMappingStrategy() {
             return defaultEntryReaderPayloadMappingStrategy();
         }
 
@@ -84,12 +84,12 @@ public enum ReaderConfigDefaults implements ReaderConfig {
     },
     ENTRY_ITERATOR_CONFIG_DEFAULTS {
         @Override
-        public MappingStrategy headerMappingStrategy() {
+        public MappingStrategyConfig headerMappingStrategy() {
             return defaultEntryIteratorHeaderMappingStrategy();
         }
 
         @Override
-        public MappingStrategy payloadMappingStrategy() {
+        public MappingStrategyConfig payloadMappingStrategy() {
             return defaultEntryIteratorPayloadMappingStrategy();
         }
 

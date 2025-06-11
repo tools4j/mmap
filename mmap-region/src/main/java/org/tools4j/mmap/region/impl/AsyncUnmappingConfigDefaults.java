@@ -21,22 +21,40 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.config;
+package org.tools4j.mmap.region.impl;
 
-public enum AsyncThreadingPolicy {
-    /**
-     * Each element of a queue with this policy uses its own thread to perform mappings; the unmapping thread is shared
-     * between all queues.
-     */
-    INDIVIDUAL,
-    /**
-     * All mappings for a queue with this policy are performed in one queue specific mapping thread; the unmapping
-     * thread is shared between all queues.
-     */
-    QUEUE,
-    /**
-     * All mappings for all queues with this policy are performed in a shared mapping thread; the separate unmapping
-     * thread is also shared between all queues.
-     */
-    SHARED
+import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.AsyncUnmappingConfig;
+import org.tools4j.mmap.region.config.MappingConfigurations;
+
+import java.util.function.Supplier;
+
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingCacheSize;
+
+/**
+ * Configuration taking values from {@link MappingConfigurations}.
+ */
+public enum AsyncUnmappingConfigDefaults implements AsyncUnmappingConfig {
+    ASYNC_UNMAPPING_CONFIG_DEFAULTS;
+
+    @Override
+    public AsyncUnmappingConfig toImmutableAsyncUnmappingConfig() {
+        return new AsyncUnmappingConfigImpl(this);
+    }
+
+    @Override
+    public int unmappingCacheSize() {
+        return defaultUnmappingCacheSize();
+    }
+
+    @Override
+    public Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier() {
+        return defaultUnmappingAsyncRuntimeSupplier();
+    }
+
+    @Override
+    public String toString() {
+        return AsyncUnmappingConfigImpl.toString("AsyncUnmappingConfigDefaults", this);
+    }
 }

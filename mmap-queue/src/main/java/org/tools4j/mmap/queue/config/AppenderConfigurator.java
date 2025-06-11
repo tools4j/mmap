@@ -24,7 +24,6 @@
 package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.AppenderConfiguratorImpl;
-import org.tools4j.mmap.region.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 

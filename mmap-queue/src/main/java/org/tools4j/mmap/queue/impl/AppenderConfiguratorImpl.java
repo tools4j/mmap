@@ -25,7 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.AppenderConfigurator;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 
@@ -38,8 +38,8 @@ import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG
 
 public class AppenderConfiguratorImpl implements AppenderConfigurator {
     private final AppenderConfig defaults;
-    private MappingStrategy headerMappingStrategy;
-    private MappingStrategy payloadMappingStrategy;
+    private MappingStrategyConfig headerMappingStrategy;
+    private MappingStrategyConfig payloadMappingStrategy;
 
     public AppenderConfiguratorImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
@@ -72,7 +72,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
-    public MappingStrategy headerMappingStrategy() {
+    public MappingStrategyConfig headerMappingStrategy() {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaults.headerMappingStrategy();
         }
@@ -84,13 +84,13 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator headerMappingStrategy(final MappingStrategy strategy) {
-        this.headerMappingStrategy = requireNonNull(strategy);
-        return this;
+        return headerMappingStrategy(strategy.mappingStrategyConfig());
     }
 
     @Override
     public AppenderConfigurator headerMappingStrategy(final MappingStrategyConfig config) {
-        return headerMappingStrategy(MappingStrategy.create(config));
+        this.headerMappingStrategy = requireNonNull(config);
+        return this;
     }
 
     @Override
@@ -102,7 +102,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
-    public MappingStrategy payloadMappingStrategy() {
+    public MappingStrategyConfig payloadMappingStrategy() {
         if (payloadMappingStrategy == null) {
             payloadMappingStrategy = defaults.payloadMappingStrategy();
         }
@@ -114,13 +114,13 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator payloadMappingStrategy(final MappingStrategy strategy) {
-        this.payloadMappingStrategy = requireNonNull(strategy);
-        return this;
+        return payloadMappingStrategy(strategy.mappingStrategyConfig());
     }
 
     @Override
     public AppenderConfigurator payloadMappingStrategy(final MappingStrategyConfig config) {
-        return payloadMappingStrategy(MappingStrategy.create(config));
+        this.payloadMappingStrategy = requireNonNull(config);
+        return this;
     }
 
     @Override

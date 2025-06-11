@@ -89,7 +89,7 @@ public class FixedMapping implements Mapping {
                               final int regionSize) {
         if (mappedAddress != NULL_ADDRESS) {
             assert mappedPosition != NULL_POSITION;
-            fileMapper.unmap(mappedAddress, mappedPosition, regionSize);
+            fileMapper.unmap(mappedPosition, mappedAddress, regionSize);
         } else {
             assert mappedPosition == NULL_POSITION;
         }

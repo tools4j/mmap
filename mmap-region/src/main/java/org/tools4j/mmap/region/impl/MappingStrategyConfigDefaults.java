@@ -23,23 +23,33 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.config.AsyncMappingConfig;
+import org.tools4j.mmap.region.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
-import java.util.function.Supplier;
+import java.util.Optional;
 
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultAsyncMapping;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultAsyncUnmapping;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultDeferUnmapping;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRegionCacheSize;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRegionLruCacheSize;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRegionSize;
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRegionsToMapAhead;
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultUnmappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.region.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.region.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 
 /**
  * Configuration taking values from {@link MappingConfigurations}.
  */
 public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
-    MAPPING_STRATEGY_CONFIG_DEFAULTS;
+    MAPPING_STRATEGY_CONFIG_DEFAULTS,
+    MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS,
+    MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS,
+    MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS;
+
+    private final Optional<AsyncMappingConfig> asyncMappingConfig = Optional.of(ASYNC_MAPPING_CONFIG_DEFAULTS);
+    private final Optional<AsyncUnmappingConfig> asyncUnmappingConfig = Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS);
 
     @Override
     public MappingStrategyConfig toImmutableMappingStrategyConfig() {
@@ -57,25 +67,36 @@ public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
     }
 
     @Override
-    public int regionsToMapAhead() {
-        return defaultRegionsToMapAhead();
+    public int lruCacheSize() {
+        return defaultRegionLruCacheSize();
     }
 
     @Override
-    public Supplier<? extends AsyncRuntime> mappingAsyncRuntimeSupplier() {
-        return defaultMappingAsyncRuntimeSupplier();
+    public boolean deferUnmapping() {
+        return defaultDeferUnmapping();
+    }
+
+    public boolean useAsyncMapping() {
+        return this == MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS || defaultAsyncMapping();
+    }
+
+    public boolean useAsyncUnmapping() {
+        return this == MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS ||
+                this == MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS || defaultAsyncUnmapping();
     }
 
     @Override
-    public Supplier<? extends AsyncRuntime> unmappingAsyncRuntimeSupplier() {
-        return defaultUnmappingAsyncRuntimeSupplier();
+    public Optional<AsyncMappingConfig> asyncMapping() {
+        return useAsyncMapping() ? asyncMappingConfig : Optional.empty();
+    }
+
+    @Override
+    public Optional<AsyncUnmappingConfig> asyncUnmapping() {
+        return useAsyncUnmapping() ? asyncUnmappingConfig : Optional.empty();
     }
 
     @Override
     public String toString() {
-        return "MappingStrategyDefaults" +
-                ":regionSize=" + regionSize() +
-                "|cacheSize=" + cacheSize() +
-                "|regionsToMapAhead=" + regionsToMapAhead();
+        return MappingStrategyConfigImpl.toString("MappingStrategyDefaults", this);
     }
 }

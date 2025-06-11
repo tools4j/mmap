@@ -26,12 +26,16 @@ package org.tools4j.mmap.region.impl;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingConfigurator;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 public class MappingConfiguratorImpl implements MappingConfigurator {
     private final MappingConfig defaults;
@@ -40,7 +44,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     private Boolean rollFiles;
     private Boolean closeFiles;
     private int filesToCreateAhead;
-    private MappingStrategy mappingStrategy;
+    private MappingStrategyConfig mappingStrategy;
 
     public MappingConfiguratorImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
@@ -113,12 +117,12 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
-    public MappingStrategy mappingStrategy() {
+    public MappingStrategyConfig mappingStrategy() {
         if (mappingStrategy == null) {
             mappingStrategy = defaults.mappingStrategy();
         }
         if (mappingStrategy == null) {
-            mappingStrategy = MappingConfigurations.defaultMappingStrategy();
+            mappingStrategy = MAPPING_STRATEGY_CONFIG_DEFAULTS;
         }
         return mappingStrategy;
     }
@@ -156,9 +160,17 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
-    public MappingConfigurator mappingStrategy(final MappingStrategy mappingStrategy) {
+    public MappingConfigurator mappingStrategy(final MappingStrategyConfig mappingStrategy) {
         this.mappingStrategy = requireNonNull(mappingStrategy);
         return this;
+    }
+
+    @Override
+    public MappingConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
+        final MappingStrategyConfigurator config = mappingStrategy != null
+                ? MappingStrategyConfigurator.configure(mappingStrategy) : MappingStrategyConfigurator.configure();
+        configurator.accept(config);
+        return mappingStrategy(config);
     }
 
     @Override

@@ -37,6 +37,7 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
+import org.tools4j.mmap.region.config.SharingPolicy;
 import org.tools4j.mmap.region.impl.Constants;
 
 import java.io.File;
@@ -47,6 +48,76 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Best results with
+ * <pre>
+ *      cacheSize = 256,
+ *      regionsToMapAhead = 128,
+ *      regionSize=REGION_SIZE_GRANULARITY * 64
+ *      maxHeaderFileSize(1024 * 1024 * 1024)
+ *      maxPayloadFileSize(1024 * 1024 * 1024)
+ *
+        receiver-0: Percentiles (micros)
+            min    : 0.0
+            50%    : 0.125
+            90%    : 0.375
+            99%    : 0.792
+            99.9%  : 5.959
+            99.99% : 28.927
+            99.999%: 182.911
+            max    : 252.543
+            count  : 10000000
+
+        receiver-1: Percentiles (micros)
+            min    : 0.0
+            50%    : 0.125
+            90%    : 0.375
+            99%    : 0.875
+            99.9%  : 6.167
+            99.99% : 28.095
+            99.999%: 169.599
+            max    : 248.191
+            count  : 10000000
+ *
+ *          AsyncRunAheadRegionMapper:...statistics=(async=1091|sync=1|busy=138684).
+ * </pre>
+ *
+ *
+ * with smaller reginon size:
+ * <pre>
+ *      mapper thread per queue element
+ *
+ *      cacheSize = 256,
+ *      regionsToMapAhead = 128,
+ *      aheadMappingCacheSize = 256,
+ *      regionSize=REGION_SIZE_GRANULARITY * 16
+ *      maxHeaderFileSize(1024 * 1024 * 1024)
+ *      maxPayloadFileSize(1024 * 1024 * 1024)
+
+        receiver-0: Percentiles (micros)
+            min    : 0.041
+            50%    : 0.333
+            90%    : 0.416
+            99%    : 1.291
+            99.9%  : 6.667
+            99.99% : 43.263
+            99.999%: 300.287
+            max    : 373.247
+            count  : 10000000
+
+        receiver-1: Percentiles (micros)
+            min    : 0.041
+            50%    : 0.333
+            90%    : 0.416
+            99%    : 1.458
+            99.9%  : 8.671
+            99.99% : 50.751
+            99.999%: 379.135
+            max    : 402.431
+
+        AsyncRunAheadRegionMapper:...statistics=(async=4365|sync=1|busy=554482).
+ * </pre>
+ */
 public class QueuePerf {
     private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(300);
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);
@@ -56,38 +127,95 @@ public class QueuePerf {
         tempDir.toFile().deleteOnExit();
 
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 32);
+        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 16);
 //        final int cacheSize = 4;
 //        final int regionsToMapAhead = 2;
-        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
+//        final int cacheSize = 64;
+//        final int regionsToMapAhead = 32;
+//        final int cacheSize = 128;
+//        final int regionsToMapAhead = 64;
+//        final int cacheSize = 32;
+//        final int regionsToMapAhead = 16;
+//        final int cacheSize = 64;
+//        final int regionsToMapAhead = 32;
+//        final int aheadMappingCacheSize = 64;
         final int cacheSize = 256;
-        final int regionsToMapAhead = 128;
+        final int regionsToMapAhead = 64;
+        final int aheadMappingCacheSize = 256;
+//        final int regionsToMapAhead = 0;
         final QueueConfig config = QueueConfig.configure()
                 .appenderConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
                                 .regionSize(regionSize)
                                 .cacheSize(cacheSize)
-                                .regionsToMapAhead(regionsToMapAhead)
+                                .deferUnmapping(false)
+                                .asyncMapping(async -> async
+                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .regionsToMapAhead(regionsToMapAhead)
+                                        .aheadMappingCacheSize(aheadMappingCacheSize)
+                                )
                         )
                 )
                 .pollerConfig(conf -> conf
-                        .mappingStrategy(cfg -> cfg
+                        .headerMappingStrategy(cfg -> cfg
                                 .regionSize(regionSize)
                                 .cacheSize(cacheSize)
-                                .regionsToMapAhead(regionsToMapAhead)
+                                .deferUnmapping(false)
+                                .asyncMapping(async -> async
+                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .regionsToMapAhead(regionsToMapAhead)
+                                        .aheadMappingCacheSize(aheadMappingCacheSize)
+                                )
                         )
+                        .payloadMappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .deferUnmapping(false)
+                                .asyncMapping(async -> async
+                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .regionsToMapAhead(regionsToMapAhead)
+                                        .aheadMappingCacheSize(aheadMappingCacheSize)
+                                )
+                        )
+//                        .mappingStrategy(cfg -> cfg
+//                                .regionSize(regionSize)
+//                                .cacheSize(cacheSize)
+//                                .deferUnmapping(false)
+//                                .asyncMapping(async -> async
+//                                        .mappingRuntime(newMappingRuntimeInstance())
+//                                        .regionsToMapAhead(regionsToMapAhead)
+//                                        .aheadMappingCacheSize(aheadMappingCacheSize))
+//                                .asyncUnmapping(true)
+//                               //.asyncMapping(false)
+//                        )
                 )
                 .entryReaderConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
                                 .regionSize(regionSize)
                                 .cacheSize(cacheSize)
-                                .regionsToMapAhead(0)
+                                .deferUnmapping(true)
+                                .asyncMapping(false)
+                                .asyncUnmapping(true)
                         )
                 )
                 .indexReaderConfig(conf -> conf
                         .headerMappingStrategy(cfg -> cfg
                                 .regionSize(regionSize)
                                 .cacheSize(cacheSize)
-                                .regionsToMapAhead(0)
+                                .deferUnmapping(true)
+                                .asyncMapping(false)
+                                .asyncUnmapping(true)
+                        )
+                )
+                .entryIteratorConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .deferUnmapping(false)
+                                .asyncMapping(true)
+                                .asyncUnmapping(true)
                         )
                 )
                 .expandHeaderFile(false)
@@ -127,10 +255,12 @@ public class QueuePerf {
             receiver0.printHistogram();
             receiver1.printHistogram();
 
+            LOGGER.info("Queue written: {}", queue);
             readIndices(queue, messages, warmup);
             readByIndex(queue, messages, warmup, messageLength);
             readByIterate(queue, messages, warmup, messageLength, true);
             readByIterate(queue, messages, warmup, messageLength, false);
+            LOGGER.info("Queue closing: {}", queue);
         }
         FileUtil.deleteRecursively(tempDir.toFile());
     }

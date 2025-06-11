@@ -26,6 +26,8 @@ package org.tools4j.mmap.region.config;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.api.RegionMapping;
 
+import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
+
 /**
  * Configuration used to create {@link RegionMapping region mappings} from files through {@link Mappings}.
  */
@@ -37,7 +39,7 @@ public interface MappingConfig {
     /** @return in {@link #rollFiles()} mode, close files after unmapping the last region of a file */
     boolean closeFiles();
     int filesToCreateAhead();
-    MappingStrategy mappingStrategy();
+    MappingStrategyConfig mappingStrategy();
 
     MappingConfig toImmutableMappingConfig();
 
@@ -50,6 +52,6 @@ public interface MappingConfig {
     }
 
     static MappingConfig getDefault() {
-        return MappingConfigurations.defaultMappingConfig();
+        return MAPPING_CONFIG_DEFAULTS;
     }
 }

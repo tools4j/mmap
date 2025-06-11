@@ -29,7 +29,7 @@ import org.agrona.BitUtil;
  * A bijective function that generates sequences of values that are regular incremental steps apart. For a given step
  * size, two consecutive indices map to values that are always at least the given step size apart.
  * <p>
- * Besides the step size parameter, a power-of-two block length determines how many values to fully enumerated (with
+ * Besides the step size parameter, a power-of-two block length determines how many values to fully enumerate (with
  * wrap-around) before moving forward to enumerate the next block.
  * <p>
  * An example with block length 8 and step size 3 yields the following mapped value sequence:

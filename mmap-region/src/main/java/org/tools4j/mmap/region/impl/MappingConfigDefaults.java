@@ -25,14 +25,14 @@ package org.tools4j.mmap.region.impl;
 
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.config.MappingConfigurations;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultCloseFiles;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultExpandFile;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultFilesToCreateAhead;
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingStrategy;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMaxFileSize;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRollFiles;
+import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 /**
  * Configuration taking values from {@link MappingConfigurations}.
@@ -71,10 +71,9 @@ public enum MappingConfigDefaults implements MappingConfig {
     }
 
     @Override
-    public MappingStrategy mappingStrategy() {
-        return defaultMappingStrategy();
+    public MappingStrategyConfig mappingStrategy() {
+        return MAPPING_STRATEGY_CONFIG_DEFAULTS;
     }
-
 
     @Override
     public String toString() {

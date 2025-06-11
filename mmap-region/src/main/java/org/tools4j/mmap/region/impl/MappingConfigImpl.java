@@ -24,82 +24,34 @@
 package org.tools4j.mmap.region.impl;
 
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.config.MappingStrategy;
+import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
-public class MappingConfigImpl implements MappingConfig {
-    private final long maxFileSize;
-    private final boolean expandFile;
-    private final boolean rollFiles;
-    private final boolean closeFiles;
-    private final int filesToCreateAhead;
-    private final MappingStrategy mappingStrategy;
-
+public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean rollFiles, boolean closeFiles,
+                                int filesToCreateAhead, MappingStrategyConfig mappingStrategy) implements MappingConfig {
     public MappingConfigImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
     }
 
     public MappingConfigImpl(final MappingConfig toCopy) {
         this(toCopy.maxFileSize(), toCopy.expandFile(), toCopy.rollFiles(), toCopy.closeFiles(),
-                toCopy.filesToCreateAhead(), toCopy.mappingStrategy());
+                toCopy.filesToCreateAhead(), toCopy.mappingStrategy().toImmutableMappingStrategyConfig());
     }
 
-    public MappingConfigImpl(final long maxFileSize,
-                             final boolean expandFile,
-                             final boolean rollFiles,
-                             final boolean closeFiles,
-                             final int filesToCreateAhead,
-                             final MappingStrategy mappingStrategy) {
+    public MappingConfigImpl {
         validateMaxFileSize(maxFileSize);
         validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(mappingStrategy);
-        this.maxFileSize = maxFileSize;
-        this.expandFile = expandFile;
-        this.rollFiles = rollFiles;
-        this.closeFiles = closeFiles;
-        this.filesToCreateAhead = filesToCreateAhead;
-        this.mappingStrategy = mappingStrategy;
     }
 
     @Override
     public MappingConfig toImmutableMappingConfig() {
         return this;
     }
-
-    @Override
-    public long maxFileSize() {
-        return maxFileSize;
-    }
-
-    @Override
-    public boolean expandFile() {
-        return expandFile;
-    }
-
-    @Override
-    public boolean rollFiles() {
-        return rollFiles;
-    }
-
-    @Override
-    public boolean closeFiles() {
-        return closeFiles;
-    }
-
-    @Override
-    public int filesToCreateAhead() {
-        return filesToCreateAhead;
-    }
-
-    @Override
-    public MappingStrategy mappingStrategy() {
-        return mappingStrategy;
-    }
-
 
     @Override
     public String toString() {

@@ -25,14 +25,14 @@ package org.tools4j.mmap.region.api;
 
 
 /**
- * The region metrics are defined by the region size, and values such as region start position, offset and index can be
- * derived from an arbitrary byte position value.
+ * Region metrics define operations for file positions related to the region size. It provides methods to calculate
+ * region start position, offset from the region start and logical region index.
  */
-public interface RegionMetrics {
-    /**
-     * @return the size of a mappable memory region in bytes
-     */
-    int regionSize();
+public interface RegionMetrics extends RegionAware {
+    @Override
+    default RegionMetrics regionMetrics() {
+        return this;
+    }
 
     /**
      * Returns the region byte offset given the absolute byte position.

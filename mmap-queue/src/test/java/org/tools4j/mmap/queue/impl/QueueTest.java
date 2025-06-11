@@ -39,9 +39,9 @@ import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
-import org.tools4j.mmap.region.config.MappingStrategy;
 
 import java.io.File;
 import java.io.IOException;
@@ -74,32 +74,32 @@ class QueueTest {
 
     @Test
     void appendAndPool_Sync() {
-        appendAndPoll(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultSyncMappingStrategy()));
+        appendAndPoll(QueueConfig.configure().mappingStrategy(MappingStrategy.SyncMappingStrategy));
     }
 
     @Test
     void appendAndPoll_Async() {
-        appendAndPoll(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultAheadMappingStrategy()));
+        appendAndPoll(QueueConfig.configure().mappingStrategy(MappingStrategy.AsyncMapAheadStrategy));
     }
 
     @Test
     void appendAndRead_Sync() {
-        appendAndRead(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultSyncMappingStrategy()));
+        appendAndRead(QueueConfig.configure().mappingStrategy(MappingStrategy.SyncMappingStrategy));
     }
 
     @Test
     void appendAndRead_Async() {
-        appendAndRead(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultAheadMappingStrategy()));
+        appendAndRead(QueueConfig.configure().mappingStrategy(MappingStrategy.AsyncMapAheadStrategy));
     }
 
     @Test
     void appendAndIterate_Sync() {
-        appendAndIterate(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultSyncMappingStrategy()));
+        appendAndIterate(QueueConfig.configure().mappingStrategy(MappingStrategy.SyncMappingStrategy));
     }
 
     @Test
     void appendAndIterate_Async() {
-        appendAndIterate(QueueConfig.configure().mappingStrategy(MappingStrategy.defaultAheadMappingStrategy()));
+        appendAndIterate(QueueConfig.configure().mappingStrategy(MappingStrategy.AsyncMapAheadStrategy));
     }
 
     private void appendAndPoll(final QueueConfig config) {
