@@ -24,10 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.OffsetMapping;
-import org.tools4j.mmap.region.impl.BlockMapping;
+import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.impl.IdPool256;
-import org.tools4j.mmap.region.impl.IndexMapping;
 
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
 
@@ -75,11 +73,11 @@ enum Headers {
     private static final int ADJUSTED_POSITION_SHIFT = APPENDER_ID_BITS - PAYLOAD_GRANULARITY_BITS;
     private static final long ADJUSTED_POSITION_HEADER_MASK = ~APPENDER_ID_HEADER_MASK;
     private static final long ADJUSTED_POSITION_MASK = ADJUSTED_POSITION_HEADER_MASK >>> ADJUSTED_POSITION_SHIFT;
+    private static final long ADJUSTED_POSITION_MASK16 = ADJUSTED_POSITION_HEADER_MASK >>> (8+ADJUSTED_POSITION_SHIFT);
 
     private static final long PAYLOAD_POSITION_ADJUSTMENT = PAYLOAD_GRANULARITY;
     /**
      * Max payload position is 576,460,752,303,423,472, which is > 500,000 terabytes.
-     * 144115188075855871
      */
     public static final long MAX_PAYLOAD_POSITION = ADJUSTED_POSITION_MASK - PAYLOAD_POSITION_ADJUSTMENT;
 
@@ -90,19 +88,23 @@ enum Headers {
 
     /**
      * Mapping of entry index to position to minimize updating of the same cache line when writing sequential entries.
-     * <p><br>
      * <p>
-     * NOTE: <pre>
-     * we want:
-     *    w=CACHE_LINE_LENGTH,
-     *    h=(REGION_SIZE_GRANULARITY / CACHE_LINE_LENGTH)
-     * but we also want the word to be machine independent, and because often we have
-     *    REGION_SIZE_GRANULARITY = 4M = 64 * 64 = CACHE_LINE_LENGTH * CACHE_LINE_LENGTH
-     * we set
-     *    w=CACHE_LINE_LENGTH, h=CACHE_LINE_LENGTH</pre></li>
+     * NOTES: <pre>
+     *    - StepBijection algorithm is used, inlined here to allow for compiler optimizations
+     *    - block size is 4096 bytes which is typically the size of a memory page
+     *    - step size is 31 because
+     *        (i) the compiler can multiply efficiently
+     *        (ii) 31*HEADER_LENGTH is large enough to be false-sharing safe (i.e. at least 3*CACHE_LINE_LENGTH)
      * </pre>
      */
-    private static final IndexMapping headerIndexMapping = new BlockMapping(CACHE_LINE_LENGTH, CACHE_LINE_LENGTH);
+    static final int BIJECTION_STEP_FW = 31;
+    static final int BIJECTION_STEP_BW = 479;
+    //static final int BIJECTION_BLOCK_MASK = CACHE_LINE_LENGTH*CACHE_LINE_LENGTH/HEADER_LENGTH - 1;
+    static final int BIJECTION_BLOCK_SIZE = CACHE_LINE_LENGTH*CACHE_LINE_LENGTH/HEADER_LENGTH;
+    private static final long BIJECTION_BLOCK_MASK_LO = BIJECTION_BLOCK_SIZE - 1;
+    private static final long BIJECTION_BLOCK_MASK_HI = ~BIJECTION_BLOCK_MASK_LO;
+    //private static final IndexBijection headerIndexBijection = new StepBijection(BIJECTION_BLOCK_MASK, BIJECTION_STEP_FW);
+    //private static final IndexBijection headerIndexBijection = new BlockBijection(CACHE_LINE_LENGTH, CACHE_LINE_LENGTH);
     public static final long NULL_HEADER = 0;
 
 
@@ -172,26 +174,33 @@ enum Headers {
         return (appenderId & APPENDER_ID_HEADER_MASK) | ((adjustedPosition << ADJUSTED_POSITION_SHIFT) & ADJUSTED_POSITION_HEADER_MASK);
     }
 
-    public static long moveAndGetHeader(final OffsetMapping header, final long index) {
+    public static long moveAndGetHeader(final DynamicMapping header, final long index) {
         return moveToHeaderIndex(header, index) ? header.buffer().getLongVolatile(0) : NULL_HEADER;
     }
 
-    public static boolean moveToHeaderIndex(final OffsetMapping header, final long index) {
+    public static boolean moveToHeaderIndex(final DynamicMapping header, final long index) {
         final long position = headerPositionForIndex(index);
         return header.moveTo(position);
     }
 
     public static long headerPositionForIndex(final long index) {
         assert validIndex(index) : "index is invalid";
-        return headerIndexMapping.indexToPosition(index) << HEADER_SHIFT;
+//        return headerIndexBijection.indexToPosition(index) << HEADER_SHIFT;
+        return bijectionStep(index, BIJECTION_STEP_FW) << HEADER_SHIFT;
     }
 
     public static long indexForHeaderPosition(final long position) {
         assert validHeaderPosition(position) : "header position is invalid";
-        return headerIndexMapping.positionToIndex(position >>> HEADER_SHIFT);
+//        return headerIndexBijection.positionToIndex(position >>> HEADER_SHIFT);
+        return bijectionStep(position >>> HEADER_SHIFT, BIJECTION_STEP_BW);
     }
 
-    public static boolean hasNonEmptyHeaderAt(final OffsetMapping header, final long index) {
+    private static long bijectionStep(final long index, final int increment) {
+        final long product = index * increment;
+        return (index & BIJECTION_BLOCK_MASK_HI) | (product & BIJECTION_BLOCK_MASK_LO);
+    }
+
+    public static boolean hasNonEmptyHeaderAt(final DynamicMapping header, final long index) {
         return index >= Index.FIRST && index <= Index.MAX && moveAndGetHeader(header, index) != NULL_HEADER;
     }
 
@@ -199,12 +208,12 @@ enum Headers {
         return (a >>> 1) + (b >>> 1) + (a & b & 0x1L);
     }
 
-    public static long binarySearchAndGetLastHeader(final OffsetMapping header, final long startIndex) {
+    public static long binarySearchAndGetLastHeader(final DynamicMapping header, final long startIndex) {
         final long lastIndex = binarySearchLastIndex(header, startIndex);
         return lastIndex != Index.NULL ? moveAndGetHeader(header, lastIndex) : NULL_HEADER;
     }
 
-    public static long binarySearchLastIndex(final OffsetMapping header, final long startIndex) {
+    public static long binarySearchLastIndex(final DynamicMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }

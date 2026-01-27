@@ -23,7 +23,20 @@
  */
 package org.tools4j.mmap.region.impl;
 
-public interface IndexMapping {
+/**
+ * A long-to-long bijective function that maps an index to a position and back.
+ */
+public interface IndexBijection {
+    /**
+     * Forward mapping of position to index
+     * @param position the position
+     * @return the index
+     */
     long positionToIndex(long position);
+    /**
+     * Backward mapping of index to position
+     * @param index the index
+     * @return the position
+     */
     long indexToPosition(long index);
 }

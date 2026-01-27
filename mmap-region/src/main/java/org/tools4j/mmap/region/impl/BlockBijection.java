@@ -43,7 +43,7 @@ import org.agrona.BitUtil;
     The mapping is (row by row): [0]=0, [1]=2, [2]=4, [3]=6, [4]=1, [5]=3, [6]=5, [7]=7, [8]=8, [9]=10, ...
  * </pre>
  */
-public class BlockMapping implements IndexMapping {
+public class BlockBijection implements IndexBijection {
 
     private final long blockMaskInverted;
     private final long widthMask;
@@ -56,7 +56,7 @@ public class BlockMapping implements IndexMapping {
      * @param size the block size, a power of two
      * @throws IllegalArgumentException if size is not a power of two
      */
-    public BlockMapping(final int size) {
+    public BlockBijection(final int size) {
         this(size, size);
     }
 
@@ -66,7 +66,7 @@ public class BlockMapping implements IndexMapping {
      * @param height the block height, a power of two
      * @throws IllegalArgumentException if width or height is not a power of two
      */
-    public BlockMapping(final int width, final int height) {
+    public BlockBijection(final int width, final int height) {
         if (!BitUtil.isPowerOfTwo(width)) {
             throw new IllegalArgumentException("Block width must be a power of 2: " + width);
         }

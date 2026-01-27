@@ -33,9 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * Unit test for {@link BlockMapping}
+ * Unit test for {@link BlockBijection}
  */
-public class BlockMappingTest {
+public class BlockBijectionTest {
 
     @CsvSource(delimiter = '|', value = {
             "8  |    0  |     0 ",
@@ -61,7 +61,7 @@ public class BlockMappingTest {
     })
     @ParameterizedTest(name = "[{index}]: size={0}, index={1}, position={2}")
     public void square(final int size, final long index, final long position) {
-        final BlockMapping mapping = new BlockMapping(size);
+        final BlockBijection mapping = new BlockBijection(size);
         assertEquals(position, mapping.indexToPosition(index));
         assertEquals(index, mapping.positionToIndex(position));
     }
@@ -110,7 +110,7 @@ public class BlockMappingTest {
     })
     @ParameterizedTest(name = "[{index}]: width={0}, height={1}, index={2}, position={3}")
     public void rectangular(final int width, final int height, final long index, final long position) {
-        final BlockMapping mapping = new BlockMapping(width, height);
+        final BlockBijection mapping = new BlockBijection(width, height);
         assertEquals(position, mapping.indexToPosition(index));
         assertEquals(index, mapping.positionToIndex(position));
     }
@@ -119,7 +119,7 @@ public class BlockMappingTest {
     @ParameterizedTest(name = "[{index}]: size={0}")
     public void iterate(final int size) {
         //given
-        final BlockMapping mapping = new BlockMapping(size);
+        final BlockBijection mapping = new BlockBijection(size);
         final int count = size * size;
         final BitSet bitSet = new BitSet(count);
 

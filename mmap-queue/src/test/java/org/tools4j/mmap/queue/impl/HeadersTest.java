@@ -23,11 +23,16 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.tools4j.mmap.region.impl.StepBijection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_BLOCK_SIZE;
+import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_STEP_BW;
+import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_STEP_FW;
 
 /**
  * Unit test for {@link Headers}.
@@ -95,37 +100,87 @@ public class HeadersTest {
         }
     }
 
+//    @CsvSource(delimiter = '|', value = {
+//            "0               | 0    ",
+//            "1               | 248  ",
+//            "2               | 496 ",
+//            "3               | 744 ",
+//            "4               | 992 ",
+//            "62              | 3088",
+//            "63              | 3336",
+//            "64              | 3584",
+//            "65              | 3832",
+//            "126             | 2576",
+//            "127             | 2824",
+//            "128             | 3072",
+//            "129             | 3320",
+//            "4095            | 32520",
+//            "4096            | 32768",
+//            "4097            | 33016",
+//            "4098            | 33264",
+//            "4158            | 35856",
+//            "4159            | 36104",
+//            "4160            | 36352",
+//            "4161            | 36600",
+//            "4222            | 35344",
+//            "4223            | 35592",
+//            "4224            | 35840",
+//            "4225            | 36088",
+//    })
     @CsvSource(delimiter = '|', value = {
             "0               | 0    ",
-            "1               | 512  ",
-            "2               | 1024 ",
-            "3               | 1536 ",
-            "4               | 2048 ",
-            "62              | 31744",
-            "63              | 32256",
-            "64              | 8    ",
-            "65              | 520  ",
-            "126             | 31752",
-            "127             | 32264",
-            "128             | 16   ",
-            "129             | 528  ",
-            "4095            | 32760",
+            "1               | 248  ",
+            "2               | 496 ",
+            "3               | 744 ",
+            "4               | 992 ",
+            "62              | 3088",
+            "63              | 3336",
+            "64              | 3584",
+            "65              | 3832",
+            "66              | 4080",
+            "67              | 232",
+            "68              | 480",
+            "126             | 2576",
+            "127             | 2824",
+            "128             | 3072",
+            "129             | 3320",
+            "130             | 3568",
+            "131             | 3816",
+            "132             | 4064",
+            "133             | 216",
+            "134             | 464",
+            "4095            | 32520",
             "4096            | 32768",
-            "4097            | 33280",
-            "4098            | 33792",
-            "4158            | 64512",
-            "4159            | 65024",
-            "4160            | 32776",
-            "4161            | 33288",
-            "4222            | 64520",
-            "4223            | 65032",
-            "4224            | 32784",
-            "4225            | 33296",
+            "4097            | 33016",
+            "4098            | 33264",
+            "4158            | 35856",
+            "4159            | 36104",
+            "4160            | 36352",
+            "4161            | 36600",
+            "4222            | 35344",
+            "4223            | 35592",
+            "4224            | 35840",
+            "4225            | 36088",
+            "4226            | 36336",
+            "4227            | 36584",
+            "4228            | 36832",
+            "4229            | 32984",
+            "4230            | 33232",
+            "4231            | 33480",
     })
     @ParameterizedTest(name = "[{index}]: index={0}, position={1}")
     public void headerPositionAndIndex(final long index, final long position) {
         assertEquals(position, Headers.headerPositionForIndex(index));
         assertEquals(index, Headers.indexForHeaderPosition(position));
+    }
+
+    @Test
+    public void headerStepBijectionParameters() {
+        final StepBijection bijection = new StepBijection(BIJECTION_BLOCK_SIZE, BIJECTION_STEP_FW);
+
+        assertEquals(BIJECTION_STEP_FW, bijection.step());
+        assertEquals(BIJECTION_STEP_BW, bijection.back());
+        assertEquals(BIJECTION_BLOCK_SIZE, bijection.block());
     }
 
 }
