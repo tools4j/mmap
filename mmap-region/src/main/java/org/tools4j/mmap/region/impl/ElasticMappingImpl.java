@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2026 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,19 +42,28 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 
 public final class ElasticMappingImpl implements ElasticMapping {
     private final RegionMapper regionMapper;
-    private final boolean closeFileMapperOnClose;
+    private final boolean closeRegionMapperOnClose;
     private final RegionMetrics regionMetrics;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
-    private long mappedPosition;
+    private long mappedRegionPosition;
+    private long mappedRegionAddress;
     private int offset;
+    private boolean closed;
 
     @Unsafe
-    public ElasticMappingImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
+    public ElasticMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
-        this.closeFileMapperOnClose = closeFileMapperOnClose;
+        this.closeRegionMapperOnClose = closeRegionMapperOnClose;
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
-        this.mappedPosition = NULL_POSITION;
+        this.mappedRegionPosition = NULL_POSITION;
+        this.mappedRegionAddress = NULL_ADDRESS;
         this.offset = 0;
+        this.closed = false;
+    }
+
+    @Override
+    public int positionGranularity() {
+        return 1;
     }
 
     @Override
@@ -79,7 +88,7 @@ public final class ElasticMappingImpl implements ElasticMapping {
 
     @Override
     public long regionStartPosition() {
-        return mappedPosition - offset;//works also for NULL_POSITION
+        return mappedRegionPosition;
     }
 
     @Override
@@ -89,22 +98,22 @@ public final class ElasticMappingImpl implements ElasticMapping {
 
     @Override
     public long position() {
-        return mappedPosition;
+        return mappedRegionPosition + offset;//works also for NULL_POSITION
     }
 
     @Override
     public long address() {
-        return buffer.addressOffset();
+        return mappedRegionAddress + offset;//works also for NULL_ADDRESS
     }
 
     @Override
     public boolean isMapped() {
-        return mappedPosition != NULL_POSITION;
+        return mappedRegionPosition != NULL_POSITION;
     }
 
     @Override
     public boolean isClosed() {
-        return regionMapper.isClosed();
+        return closed;
     }
 
     @Override
@@ -113,38 +122,52 @@ public final class ElasticMappingImpl implements ElasticMapping {
         validatePosition(position);
         final int newLength = validateLength(position, length, metrics);
         final int newOffset = metrics.regionOffset(position);
-        final int oldOffset = offset;
         final long newRegionPosition = metrics.regionPosition(position);
-        final long oldRegionPosition = mappedPosition - oldOffset;
-        final long address;
+        final long oldRegionPosition = mappedRegionPosition;
         if (newRegionPosition == oldRegionPosition) {
-            if (newOffset == oldOffset && newLength == length()) {
+            if (newOffset == offset && newLength == length()) {
                 return true;
             }
-            address = address() - oldOffset;
-        } else {
-            address = regionMapper.map(newRegionPosition);
-            if (address == NULL_ADDRESS) {
-                clearMapping();
-                return false;
-            }
+            initBufferAndOffset(mappedRegionAddress, newOffset, newLength);
+            return true;
         }
-        initMapping(address, position, newOffset, newLength);
-        return true;
+        final long oldRegionAddress = mappedRegionAddress;
+        final long newRegionAddress = map(newRegionPosition);
+        if (newRegionAddress != NULL_ADDRESS) {
+            initBufferAndOffset(newRegionAddress, newOffset, newLength);
+            unmap(oldRegionPosition, oldRegionAddress, false);
+            return true;
+        }
+        return false;
     }
 
-    private void initMapping(final long address, final long position, final int newOffset, final int newLength) {
-        assert position >= NULL_POSITION : "invalid position";
-        assert address >= NULL_ADDRESS : "invalid address";
-        mappedPosition = position;
-        offset = newOffset;
-        buffer.wrap(address + newOffset, newLength);
+    private void initBufferAndOffset(final long regionAddress, final int offset, final int length) {
+        this.buffer.wrap(regionAddress + offset, length);
+        this.offset = offset;
     }
 
-    private void clearMapping() {
-        mappedPosition = NULL_POSITION;
-        offset = 0;
-        buffer.wrap(0, 0);
+    private long map(final long regionPosition) {
+        final long addr = regionMapper.map(regionPosition);
+        if (addr > NULL_ADDRESS) {
+            mappedRegionPosition = regionPosition;
+            mappedRegionAddress = addr;
+        }
+        return addr;
+    }
+
+    private void unmap(final long mappedPos, final long mappedAddr, final boolean clearState) {
+        if (mappedPos == NULL_POSITION) {
+            assert mappedAddr == NULL_ADDRESS : "address cannot be mapped";
+            return;
+        }
+        assert mappedAddr != NULL_ADDRESS : "address cannot be unmapped";
+        if (clearState) {
+            buffer.wrap(0, 0);
+            mappedRegionPosition = NULL_POSITION;
+            mappedRegionAddress = NULL_ADDRESS;
+            offset = 0;
+        }
+        regionMapper.unmap(mappedPos, mappedAddr);
     }
 
     @Override
@@ -163,11 +186,13 @@ public final class ElasticMappingImpl implements ElasticMapping {
 
     @Override
     public void close() {
-        if (!regionMapper.isClosed()) {
-            clearMapping();
-            if (closeFileMapperOnClose) {
-                regionMapper.close();
-            }
+        if (closed) {
+            return;
+        }
+        unmap(mappedRegionPosition, mappedRegionAddress, true);
+        closed = true;
+        if (closeRegionMapperOnClose) {
+            regionMapper.close();
         }
     }
 

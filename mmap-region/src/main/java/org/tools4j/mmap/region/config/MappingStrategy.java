@@ -34,6 +34,12 @@ public interface MappingStrategy {
 
     interface AsyncOptions {
         int regionsToMapAhead();
+        default int unmapCacheSize() {//TODO refactor/make configurable
+            return 32;
+        }
+        default boolean deferUnmap() {
+            return true;
+        }
         AsyncRuntime mappingRuntime();
         AsyncRuntime unmappingRuntime();
     }

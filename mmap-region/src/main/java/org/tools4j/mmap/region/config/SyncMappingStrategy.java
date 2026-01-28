@@ -23,9 +23,6 @@
  */
 package org.tools4j.mmap.region.config;
 
-import org.tools4j.mmap.region.unsafe.SyncRegionMapper;
-import org.tools4j.mmap.region.unsafe.SyncRingRegionMapper;
-
 import java.util.Optional;
 
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
@@ -33,8 +30,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 /**
- * Synchronous mapping strategy that uses no async background mapping or unmapping.  The mapper implementations for sync
- * strategies are {@link SyncRegionMapper} and {@link SyncRingRegionMapper}.
+ * Synchronous mapping strategy that uses no async background mapping or unmapping.
  */
 public class SyncMappingStrategy implements MappingStrategy {
     public static final String NAME = "SyncMappingStrategy";

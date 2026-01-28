@@ -26,6 +26,7 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.BitUtil;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
+import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
 
 public enum Constraints {
@@ -55,6 +56,12 @@ public enum Constraints {
 
     public static void validateRegionPosition(final long position, final RegionMetrics regionMetrics) {
         validateRegionPosition(position, regionMetrics.regionSize());
+    }
+
+    public static void validateAddress(final long address) {
+        if (address <= NULL_ADDRESS) {
+            throw new IllegalArgumentException("Invalid address " + address);
+        }
     }
 
     public static void validateRegionPosition(final long position, final int regionSize) {
@@ -148,6 +155,12 @@ public enum Constraints {
     public static void validatePowerOfTwo(final String name, final int value) {
         if (!BitUtil.isPowerOfTwo(value)) {
             throw new IllegalArgumentException(name + " must be a power of two but was " + value);
+        }
+    }
+
+    public static void validateNotClosed(final Closeable closeable) {
+        if (closeable.isClosed()) {
+            throw new IllegalStateException("Already closed: " + closeable);
         }
     }
 

@@ -25,33 +25,24 @@ package org.tools4j.mmap.region.unsafe;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.region.api.Unsafe;
+import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
-import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
-import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
-@Unsafe
-public final class SyncRegionMapper implements RegionMapper {
-
+class SyncRegionMapper implements DirectRegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapper.class);
     private final FileMapper fileMapper;
-    private final int regionSize;
-    private long mappedAddress = NULL_ADDRESS;
-    private long mappedPosition = NULL_POSITION;
-    private boolean closed;
+    private final RegionMetrics regionMetrics;
 
     public SyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
-        validateRegionSize(regionSize);
-        this.fileMapper = requireNonNull(fileMapper);
-        this.regionSize = regionSize;
+        this(fileMapper, new PowerOfTwoRegionMetrics(regionSize));
     }
 
-    @Override
-    public int regionSize() {
-        return regionSize;
+    public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
+        this.fileMapper = requireNonNull(fileMapper);
+        this.regionMetrics = requireNonNull(regionMetrics);
     }
 
     @Override
@@ -60,61 +51,43 @@ public final class SyncRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long map(final long position) {
-        validateRegionPosition(position, regionSize);
-        if (position == mappedPosition) {
-            return mappedAddress;
-        }
-        if (isClosed()) {
-            return NULL_ADDRESS;
-        }
+    public RegionMetrics regionMetrics() {
+        return regionMetrics;
+    }
+
+    @Override
+    public long mapInternal(final long position, final int regionSize) {
         try {
-            unmapIfNecessary();
             final long addr = fileMapper.map(position, regionSize);
-            if (addr > 0) {
-                mappedAddress = addr;
-                mappedPosition = position;
-                return addr;
-            } else {
-                return NULL_ADDRESS;
-            }
+            return addr > 0 ? addr : NULL_ADDRESS;
         } catch (final Exception exception) {
             return NULL_ADDRESS;
         }
     }
 
-    private void unmapIfNecessary() {
-        final long addr = mappedAddress;
-        final long pos = mappedPosition;
-        if (addr != NULL_ADDRESS) {
-            mappedAddress = NULL_ADDRESS;
-            mappedPosition = NULL_POSITION;
-            assert pos != NULL_POSITION;
-            fileMapper.unmap(addr, pos, regionSize);
-        } else {
-            assert pos == NULL_POSITION;
-        }
+    @Override
+    public void unmapInternal(final long position, final long address, final int regionSize) {
+        fileMapper.unmap(position, address, regionSize);
+    }
+
+    @Override
+    public boolean isClosed() {
+        return fileMapper.isClosed();
     }
 
     @Override
     public void close() {
-        if (!closed) {
-            try {
-                unmapIfNecessary();
-            } finally {
-                closed = true;
-            }
+        if (!isClosed()) {
+            fileMapper.close();
             LOGGER.info("Closed {}.", this);
         }
     }
 
     @Override
-    public boolean isClosed() {
-        return closed;
-    }
-
-    @Override
     public String toString() {
-        return "SyncRegionMapper:regionSize=" + regionSize;
+        return "SyncRegionMapper" +
+                ":fileMapper=" + fileMapper +
+                "|regionSize=" + regionSize() +
+                "|closed=" + isClosed();
     }
 }

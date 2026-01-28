@@ -23,7 +23,17 @@
  */
 package org.tools4j.mmap.region.impl;
 
-public interface IndexBijection {
-    long positionToIndex(long position);
-    long indexToPosition(long index);
+import org.tools4j.mmap.region.api.AdaptiveMapping;
+import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.Mappings;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
+
+/**
+ * {@link FindAndBinarySearchTest} for {@link AdaptiveMapping} and {@link AdaptiveMappingImpl}.
+ */
+class FindAndBinarySearchAdaptiveMappingTest extends FindAndBinarySearchTest {
+    @Override
+    DynamicMapping createMapping(final RegionMapper regionMapper) {
+        return Mappings.adaptiveMapping(regionMapper, true);
+    }
 }

@@ -23,7 +23,10 @@
  */
 package org.tools4j.mmap.region.impl;
 
-public interface IndexBijection {
-    long positionToIndex(long position);
-    long indexToPosition(long index);
+public interface Closeable extends AutoCloseable {
+
+    boolean isClosed();
+
+    @Override
+    void close();
 }

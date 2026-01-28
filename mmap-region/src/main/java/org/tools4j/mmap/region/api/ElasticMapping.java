@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2026 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,10 +35,11 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
 /**
- * An elastic mapping is a {@link AdaptiveMapping} that starts at an {@linkplain #offset() offset} from the region's
+ * An elastic mapping is a {@link DynamicMapping} that starts at an {@linkplain #offset() offset} from the region's
  * {@linkplain #regionStartPosition() start position} and has a restricted {@linkplain #length() length}. Note that an
  * elastic mapping can map an arbitrary slice of the region (or of the underlying file, as long as the slice does not
- * cross region boundaries). A pure {@link AdaptiveMapping} always spans all bytes until the ends of the region.
+ * cross region boundaries). An {@link AdaptiveMapping} on the other hand always spans all bytes until the ends of the
+ * region.
  * <p>
  * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
  * through a {@link RegionMapper}.

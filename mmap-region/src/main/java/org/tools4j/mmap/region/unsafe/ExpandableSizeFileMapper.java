@@ -132,7 +132,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public void unmap(final long address, final long position, final int length) {
+    public void unmap(final long position, final long address, final int length) {
         checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;

@@ -40,17 +40,26 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 
 public final class DynamicMappingImpl implements DynamicMapping {
     private final RegionMapper regionMapper;
-    private final boolean closeFileMapperOnClose;
     private final RegionMetrics regionMetrics;
+    private final boolean closeRegionMapperOnClose;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
     private long mappedPosition;
+    private long mappedAddress;
+    private boolean closed;
 
     @Unsafe
-    public DynamicMappingImpl(final RegionMapper regionMapper, final boolean closeFileMapperOnClose) {
+    public DynamicMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
-        this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
+        this.closeRegionMapperOnClose = closeRegionMapperOnClose;
         this.mappedPosition = NULL_POSITION;
+        this.mappedAddress = NULL_ADDRESS;
+        this.closed = false;
+    }
+
+    @Override
+    public int positionGranularity() {
+        return regionSize();
     }
 
     @Override
@@ -85,7 +94,7 @@ public final class DynamicMappingImpl implements DynamicMapping {
 
     @Override
     public long address() {
-        return buffer.addressOffset();
+        return mappedAddress;
     }
 
     @Override
@@ -100,35 +109,59 @@ public final class DynamicMappingImpl implements DynamicMapping {
 
     @Override
     public boolean isClosed() {
-        return regionMapper.isClosed();
+        return closed;
     }
 
     @Override
     public boolean moveTo(final long position) {
-        if (position == mappedPosition && position > NULL_POSITION) {
+        final long mappedPos = mappedPosition;
+        if (position == mappedPos && position > NULL_POSITION) {
             return true;
         }
         final int regionSize = regionSize();
         validateRegionPosition(position, regionSize);
+        final long mappedAddr = mappedAddress;
+        if (map(position, regionSize)) {
+            unmap(mappedPos, mappedAddr, false);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean map(final long position, final int regionSize) {
         final long addr = regionMapper.map(position);
         if (addr > NULL_ADDRESS) {
             mappedPosition = position;
+            mappedAddress = addr;
             buffer.wrap(addr, regionSize);
             return true;
         }
-        mappedPosition = NULL_POSITION;
-        buffer.wrap(0, 0);
         return false;
+    }
+
+    private void unmap(final long mappedPos, final long mappedAddr, final boolean clearState) {
+        if (mappedPos == NULL_POSITION) {
+            assert mappedAddr == NULL_ADDRESS : "address cannot be mapped";
+            return;
+        }
+        assert mappedAddr != NULL_ADDRESS : "address cannot be unmapped";
+        if (clearState) {
+            buffer.wrap(0, 0);
+            mappedPosition = NULL_POSITION;
+            mappedAddress = NULL_ADDRESS;
+        }
+        regionMapper.unmap(mappedPos, mappedAddr);
     }
 
     @Override
     public void close() {
-        if (!regionMapper.isClosed()) {
-            mappedPosition = NULL_POSITION;
-            buffer.wrap(0, 0);
-            if (closeFileMapperOnClose) {
-                regionMapper.close();
-            }
+        if (closed) {
+            return;
+        }
+        unmap(mappedPosition, mappedAddress, true);
+        closed = true;
+        if (closeRegionMapperOnClose) {
+            regionMapper.close();
         }
     }
 
@@ -148,7 +181,8 @@ public final class DynamicMappingImpl implements DynamicMapping {
             lastPosition = position;
         }
         if (lastPosition != NULL_POSITION) {
-            mapping.moveTo(lastPosition);
+            final boolean success = mapping.moveTo(lastPosition);
+            assert success : "moveTo failed unexpectedly";
             return true;
         }
         return false;
@@ -202,7 +236,8 @@ public final class DynamicMappingImpl implements DynamicMapping {
                 }
             }
         }
-        mapping.moveTo(lowPosition);
+        final boolean success = mapping.moveTo(lowPosition);
+        assert success : "moveTo failed unexpectedly";
         return true;
     }
 

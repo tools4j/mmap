@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2025 tools4j.org (Marco Terzer, Anton Anufriev)
+ * Copyright (c) 2016-2026 tools4j.org (Marco Terzer, Anton Anufriev)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,8 @@ package org.tools4j.mmap.region.api;
 
 /**
  * A pool of mappings of the same region size, where the pool may optimize and reuse the same underlying memory mapped
- * region if mappings are overlapping or reused.
+ * region if mappings are overlapping or reused.  All mappings of a pool share the same {@linkplain  #accessMode()
+ * access mode}.
  * <p>
  * A mapping is acquired from the pool and is released back to the pool if it is closed. The poll may choose to recycle
  * and reuse closed mappings, hence they should no longer be used after closing. Closing the pool closes all mappings
@@ -37,25 +38,11 @@ package org.tools4j.mmap.region.api;
  * <p>
  * Use one of the static factory methods in {@link Mappings} to create mapping pool instances.
  */
-public interface MappingPool extends AutoCloseable {
+public interface MappingPool extends RegionAware, AutoCloseable {
     /**
      * @return the file access mode used for all mapping from this repository
      */
     AccessMode accessMode();
-
-    /**
-     * Returns the size of a region, which is also the maximum size of a mapping from this repository.
-     * @return the size of a mappable memory region in bytes
-     * @see #regionMetrics()
-     */
-    default int regionSize() {
-        return regionMetrics().regionSize();
-    }
-
-    /**
-     * @return the region metrics determined by the {@linkplain #regionSize() region size}
-     */
-    RegionMetrics regionMetrics();
 
     DynamicMapping acquireDynamicMapping();
     AdaptiveMapping acquireAdaptiveMapping();

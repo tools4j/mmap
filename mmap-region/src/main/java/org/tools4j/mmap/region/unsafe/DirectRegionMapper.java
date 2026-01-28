@@ -21,9 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.unsafe;
 
-public interface IndexBijection {
-    long positionToIndex(long position);
-    long indexToPosition(long index);
+import org.tools4j.mmap.region.api.AccessMode;
+
+interface DirectRegionMapper extends RegionMapper {
+    @Override
+    default AccessMode accessMode() {
+        return fileMapper().accessMode();
+    }
+
+    FileMapper fileMapper();
+
+    @Override
+    default boolean isMappedInCache(final long position) {
+        return false;
+    }
 }

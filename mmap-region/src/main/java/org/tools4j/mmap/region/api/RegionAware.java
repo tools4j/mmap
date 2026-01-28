@@ -21,9 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.api;
 
-public interface IndexBijection {
-    long positionToIndex(long position);
-    long indexToPosition(long index);
+
+/**
+ * An object with operations performed in {@link #regionSize() region size} multiples.
+ */
+@FunctionalInterface
+public interface RegionAware {
+    /**
+     * @return the size of a mappable memory region in bytes
+     * @see #regionMetrics()
+     */
+    default int regionSize() {
+        return regionMetrics().regionSize();
+    }
+
+    /**
+     * @return the region metrics determined by the {@linkplain #regionSize() region size}
+     */
+    RegionMetrics regionMetrics();
 }

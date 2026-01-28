@@ -87,7 +87,7 @@ public class ReadOnlyFileMapper implements FileMapper {
     }
 
     @Override
-    public void unmap(long address, long position, int length) {
+    public void unmap(long position, long address, int length) {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
         FileChannels.unmap(fileChannel, address, length);

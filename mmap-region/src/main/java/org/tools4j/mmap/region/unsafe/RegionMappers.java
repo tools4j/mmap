@@ -37,37 +37,42 @@ public enum RegionMappers {
     public static RegionMapper create(final FileMapper fileMapper, final MappingStrategy strategy) {
         final AsyncOptions asyncOptions = strategy.asyncOptions().orElse(null);
         if (asyncOptions == null) {
-            return createSyncRegionmapper(fileMapper, strategy.regionSize(), strategy.cacheSize());
+            return createSyncRegionMapper(fileMapper, strategy.regionSize(), strategy.cacheSize());
         }
-        return createAsyncRingRegionMapper(asyncOptions.mappingRuntime(), asyncOptions.unmappingRuntime(), fileMapper,
-                strategy.regionSize(), strategy.cacheSize(), asyncOptions.regionsToMapAhead());
+        return createAsyncRunAheadRegionMapper(asyncOptions.mappingRuntime(), asyncOptions.unmappingRuntime(),
+                fileMapper, strategy.regionSize(), strategy.cacheSize(), asyncOptions.regionsToMapAhead(),
+                asyncOptions.unmapCacheSize(), asyncOptions.deferUnmap());
     }
 
-    public static RegionMapper createSyncRegionmapper(final FileMapper fileMapper,
-                                                      final int regionSize,
-                                                      final int cacheSize) {
-        return cacheSize <= 1 ?
-                createSyncRegionMapper(fileMapper, regionSize) :
-                createSyncRingRegionMapper(fileMapper, regionSize, cacheSize);
-    }
-
-    public static SyncRegionMapper createSyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
+    public static RegionMapper createSyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
         return new SyncRegionMapper(fileMapper, regionSize);
     }
 
-    public static SyncRingRegionMapper createSyncRingRegionMapper(final FileMapper fileMapper,
-                                                                  final int regionSize,
-                                                                  final int cacheSize) {
-        return new SyncRingRegionMapper(fileMapper, regionSize, cacheSize);
+    public static RegionMapper createSyncRegionMapper(final FileMapper fileMapper,
+                                                      final int regionSize,
+                                                      final int cacheSize) {
+        final RegionMapper regionMapper = createSyncRegionMapper(fileMapper, regionSize);
+        return cacheSize <= 1 ? regionMapper : new RingCacheRegionMapper(regionMapper, cacheSize, true);
     }
 
-    public static AsyncRingRegionMapper createAsyncRingRegionMapper(final AsyncRuntime mappingRuntime,
-                                                                    final AsyncRuntime unmappingRuntime,
-                                                                    final FileMapper fileMapper,
-                                                                    final int regionSize,
-                                                                    final int cacheSize,
-                                                                    final int regionsToMapAhead) {
-        return new AsyncRingRegionMapper(mappingRuntime, unmappingRuntime, fileMapper, regionSize, cacheSize,
-                regionsToMapAhead);
+    public static RegionMapper createSyncRegionMapper(final FileMapper fileMapper,
+                                                      final int regionSize,
+                                                      final int cacheSize,
+                                                      final AsyncRuntime unmappingRuntime,
+                                                      final int unmapCacheSize) {
+        final RegionMapper regionMapper = new AsyncUnmappingRegionMapper(unmappingRuntime, fileMapper, regionSize, unmapCacheSize);
+        return cacheSize <= 1 ? regionMapper : new RingCacheRegionMapper(regionMapper, cacheSize, true);
+    }
+
+    public static RegionMapper createAsyncRunAheadRegionMapper(final AsyncRuntime mappingRuntime,
+                                                               final AsyncRuntime unmappingRuntime,
+                                                               final FileMapper fileMapper,
+                                                               final int regionSize,
+                                                               final int cacheSize,
+                                                               final int regionsToMapAhead,
+                                                               final int unmapCacheSize,
+                                                               final boolean deferUnmap) {
+        final DirectRegionMapper baseMapper = new AsyncUnmappingRegionMapper(unmappingRuntime, fileMapper, regionSize, unmapCacheSize);
+        return new AsyncRunAheadRegionMapper(mappingRuntime, baseMapper, cacheSize, regionsToMapAhead, deferUnmap);
     }
 }

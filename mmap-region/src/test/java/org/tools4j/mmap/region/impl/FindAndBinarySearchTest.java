@@ -25,6 +25,7 @@ package org.tools4j.mmap.region.impl;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -33,9 +34,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
-import org.tools4j.mmap.region.api.AdaptiveMapping;
 import org.tools4j.mmap.region.api.DynamicMapping;
-import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.nio.ByteBuffer;
@@ -52,34 +51,36 @@ import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 
 /**
- * Unit test for {@link AdaptiveMapping} and {@link AdaptiveMappingImpl}
+ * Base test class implemented for different concrete mappings to test
+ * {@link DynamicMapping#findLast(long, long, Predicate) findLast(..)} and
+ * {@link DynamicMapping#binarySearchLast(long, long, Predicate) binarySearchLast(..)}.
  */
-class AdaptiveMappingTest {
+abstract class FindAndBinarySearchTest {
 
     private static final int nOfRegions = 4;
 
     @Mock
     private RegionMapper regionMapper;
 
-    private AdaptiveMapping mapping;
-
     @BeforeEach
     void init() {
         MockitoAnnotations.openMocks(this);
     }
 
+    abstract DynamicMapping createMapping(final RegionMapper regionMapper);
+
     @ParameterizedTest(name = "regionSize={0}, bytes={2}, startPosition={1}, expectedPosition={3}")
     @CsvSource(delimiter = '|', value = {
-            "4096 |    1  |         0     |         -1",
-            "4096 |    1  |         0     |       8195",
-            "4096 |    2  |         0     |       8196",
-            "4096 |    4  |         0     |       8192",
-            "4096 |    8  |         0     |       8160",
-            "4096 |    1  |       100     |         -1",
-            "4096 |    1  |       100     |       8195",
-            "4096 |    2  |       100     |       8196",
-            "4096 |    4  |       100     |       8192",
-            "4096 |    8  |       120     |       8160",
+            "4096 |  1  |   0 |   -1",
+            "4096 |  1  |   0 | 8195",
+            "4096 |  2  |   0 | 8196",
+            "4096 |  4  |   0 | 8192",
+            "4096 |  8  |   0 | 8160",
+            "4096 |  1  | 100 |   -1",
+            "4096 |  1  | 100 | 8195",
+            "4096 |  2  | 100 | 8196",
+            "4096 |  4  | 100 | 8192",
+            "4096 |  8  | 120 | 8160"
     })
     void findAndSearchLast4K(final int regionSize, final int bytes, final long startPosition, final long expectedPosition) {
         //given
@@ -134,7 +135,9 @@ class AdaptiveMappingTest {
         final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        mapping = Mappings.adaptiveMapping(regionMapper, true);
+        final DynamicMapping mapping = createMapping(regionMapper);
+        Assumptions.assumeTrue(bytes % mapping.positionGranularity() == 0, bytes +
+                " position increments not supported by " + mapping.getClass().getSimpleName());
 
         //when
         if (counter != null) counter.set(0);

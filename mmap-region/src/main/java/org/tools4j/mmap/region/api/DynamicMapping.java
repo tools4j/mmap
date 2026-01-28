@@ -43,10 +43,19 @@ import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
  */
 public interface DynamicMapping extends RegionMapping {
     /**
+     * The granularity (or minimum increment) of position passed to {@link #moveTo(long)} method.
+     * It is one for {@link AdaptiveMapping} or {@link ElasticMapping}, and equal to {@link #regionSize()} otherwise
+     * when only region start positions are valid positions.
+     *
+     * @return the position granularity, typically one or region size
+     */
+    int positionGranularity();
+
+    /**
      * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
      *
      * @param position  the position to move to, must be a multiple of {@linkplain #regionSize() region size} unless
-     *                  this is an {@link AdaptiveMapping}
+     *                  this is an {@link AdaptiveMapping} or an {@link ElasticMapping}
      * @return true if the region is ready for data access, and false otherwise
      * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping
      */
