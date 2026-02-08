@@ -33,9 +33,11 @@ import org.tools4j.mmap.queue.api.IndexReader;
 import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.ReadingContext;
+import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
+import org.tools4j.mmap.region.impl.Constants;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -53,53 +55,63 @@ public class QueuePerf {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());
         tempDir.toFile().deleteOnExit();
 
-//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);
-//        final int cacheSize = 4;
-//        final int regionsToMapAhead = 2;
-//        final QueueConfig config = QueueConfig.configure()
-//                .appenderConfig(conf -> conf
-//                        .mappingStrategy(cfg -> cfg
-//                                .regionSize(regionSize)
-//                                .cacheSize(cacheSize)
-//                                .regionsToMapAhead(regionsToMapAhead)
-//                        )
-//                )
-//                .pollerConfig(conf -> conf
-//                        .mappingStrategy(cfg -> cfg
-//                                .regionSize(regionSize)
-//                                .cacheSize(cacheSize)
-//                                .regionsToMapAhead(regionsToMapAhead)
-//                        )
-//                )
-//                .entryReaderConfig(conf -> conf
-//                        .mappingStrategy(cfg -> cfg
-//                                .regionSize(regionSize)
-//                                .cacheSize(cacheSize)
-//                                .regionsToMapAhead(0)
-//                        )
-//                )
-//                .indexReaderConfig(conf -> conf
-//                        .headerMappingStrategy(cfg -> cfg
-//                                .regionSize(regionSize)
-//                                .cacheSize(cacheSize)
-//                                .regionsToMapAhead(0)
-//                        )
-//                )
-//                .expandHeaderFile(false)
-//                .expandPayloadFiles(false)
-//                .maxHeaderFileSize(64 * 1024 * 1024)
-//                .maxPayloadFileSize(64 * 1024 * 1024)
-//                .headerFilesToCreateAhead(0)
-//                .payloadFilesToCreateAhead(0)
-//                .toImmutableQueueConfig();
+        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);
+        final int cacheSize = 64;
+//        final int regionsToMapAhead = 32;
+        final int regionsToMapAhead = 0;
+        final QueueConfig config = QueueConfig.configure()
+                .appenderConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(regionsToMapAhead)
+                        )
+                )
+                .pollerConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(regionsToMapAhead)
+                        )
+                )
+                .entryReaderConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(0)
+                        )
+                )
+                .indexReaderConfig(conf -> conf
+                        .headerMappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(0)
+                        )
+                )
+                .entryIteratorConfig(conf -> conf
+                        .mappingStrategy(cfg -> cfg
+                                .regionSize(regionSize)
+                                .cacheSize(cacheSize)
+                                .regionsToMapAhead(regionsToMapAhead)
+                        )
+                )
+                .expandHeaderFile(false)
+                .expandPayloadFiles(false)
+                .maxHeaderFileSize(64 * 1024 * 1024)
+                .maxPayloadFileSize(64 * 1024 * 1024)
+                .maxHeaderFileSize(256L * regionSize)
+                .maxPayloadFileSize(256L * regionSize)
+                .headerFilesToCreateAhead(0)
+                .payloadFilesToCreateAhead(0)
+                .toImmutableQueueConfig();
 
         final long messagesPerSecond = 1_000_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
         final int messageLength = 100;
 
-//        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {
+        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
+//        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {
             LOGGER.info("Queue created: {}", queue);
 
             final Sender sender = new Sender((byte) 0, queue::createAppender, messagesPerSecond, messages, messageLength);

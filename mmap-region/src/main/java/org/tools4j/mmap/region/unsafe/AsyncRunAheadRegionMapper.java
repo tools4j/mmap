@@ -45,6 +45,13 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateGreaterThanZero;
 import static org.tools4j.mmap.region.impl.Constraints.validatePowerOfTwo;
 
+/**
+ * A region mapper that attempts to run ahead and pre-map regions that are likely going to be requested next.  Regions
+ * are pre-mapped if sequential forward or backward requests are detected, but not for random-access patterns.
+ * <p>
+ * The actual mapping and unmapping operations are delegated to another underlying region mapper (usually either a
+ * {@link SyncRegionMapper} or a {@link AsyncUnmappingRegionMapper}).  A cache is used to store mapped positions
+ */
 @Unsafe
 final class AsyncRunAheadRegionMapper implements RegionMapper {
 

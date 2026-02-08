@@ -31,6 +31,10 @@ import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 
+/**
+ * A direct region mapper that synchronously delegates mapping and unmapping requests to the underlying
+ * {@link FileMapper}.
+ */
 class SyncRegionMapper implements DirectRegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapper.class);
     private final FileMapper fileMapper;

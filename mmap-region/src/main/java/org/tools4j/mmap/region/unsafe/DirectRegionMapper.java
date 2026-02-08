@@ -25,6 +25,9 @@ package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AccessMode;
 
+/**
+ * A region mapper with direct access to a {@link FileMapper} to perform the mapping and unmapping operations.
+ */
 interface DirectRegionMapper extends RegionMapper {
     @Override
     default AccessMode accessMode() {

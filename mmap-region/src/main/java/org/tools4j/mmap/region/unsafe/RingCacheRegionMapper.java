@@ -38,8 +38,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 /**
- * A file mapper for single use that caches mapped pages in a ring buffer.
- * Cannot be shared between multiple mappings!
+ * A region mapper that caches mapped pages in a ring buffer.
  */
 @Unsafe
 final class RingCacheRegionMapper implements RegionMapper {
@@ -104,11 +103,15 @@ final class RingCacheRegionMapper implements RegionMapper {
         return addr;
     }
 
-    @Override
-    public boolean isMappedInCache(final long position) {
+    private boolean isInLocalCache(final long position) {
         final int cacheIndex = cacheIndex(position);
         final long curPosition = positions[cacheIndex];
         return (curPosition & POSITION_MASK) == position;
+    }
+
+    @Override
+    public boolean isMappedInCache(final long position) {
+        return isInLocalCache(position) || baseMapper.isMappedInCache(position);
     }
 
     @Override

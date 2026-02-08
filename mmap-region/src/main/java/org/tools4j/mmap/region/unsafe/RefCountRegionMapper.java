@@ -36,7 +36,8 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
 /**
- * File mapper that can be shared, uses ref counting before unmapping a region.
+ * Region mapper with an unbounded cache and reference counting for mapped regions.  A region is unmapped when the count
+ * reaches zero.
  */
 class RefCountRegionMapper implements RegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(RefCountRegionMapper.class);
@@ -77,9 +78,13 @@ class RefCountRegionMapper implements RegionMapper {
         return NULL_ADDRESS;
     }
 
+    private boolean isInLocalCache(final long position) {
+        return positionToAddress.get(position) != NULL_ADDRESS;
+    }
+
     @Override
     public boolean isMappedInCache(final long position) {
-        return positionToAddress.get(position) != NULL_ADDRESS;
+        return isInLocalCache(position) || baseMapper.isMappedInCache(position);
     }
 
     @Override

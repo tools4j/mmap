@@ -41,6 +41,10 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.impl.Constraints.validatePowerOfTwo;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
+/**
+ * A direct region mapper that delegates mapping operations synchronously to the underlying {@link FileMapper} and
+ * performs unmapping operations asynchronously in another thread.
+ */
 @Unsafe
 public final class AsyncUnmappingRegionMapper implements DirectRegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(AsyncUnmappingRegionMapper.class);
