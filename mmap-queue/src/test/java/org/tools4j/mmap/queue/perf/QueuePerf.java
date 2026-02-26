@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tools4j.mmap.queue.util.ConfigPrinter.printConfig;
 
 /**
  * Best results with
@@ -116,6 +117,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
             max    : 402.431
 
         AsyncRunAheadRegionMapper:...statistics=(async=4365|sync=1|busy=554482).
+
+
+
+         QueueConfig:
+             regionSize            : 64K
+             cacheSize             : 256
+             regionsToMapAhead     : 64
+             aheadMappingCacheSize : 256
+             maxHeaderFileSize     : 1G
+             maxPayloadFileSize    : 1G
+
+         receiver-0: Percentiles (micros)
+             min    : 0.041
+             50%    : 0.333
+             90%    : 0.416
+             99%    : 1.916
+             99.9%  : 6.875
+             99.99% : 107.519
+             99.999%: 236.927
+             max    : 273.407
+             count  : 10000000
+
+         receiver-1: Percentiles (micros)
+             min    : 0.041
+             50%    : 0.333
+             90%    : 0.416
+             99%    : 1.916
+             99.9%  : 7.543
+             99.99% : 47.263
+             99.999%: 194.175
+             max    : 230.399
+             count  : 10000000
+
+             statistics=(async=17457|sync=4|busy=1100040)
  * </pre>
  */
 public class QueuePerf {
@@ -130,6 +165,8 @@ public class QueuePerf {
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 32);
         final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 16);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 4);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 2);
 //        final int cacheSize = 4;
 //        final int regionsToMapAhead = 2;
 //        final int cacheSize = 64;
@@ -218,14 +255,20 @@ public class QueuePerf {
                                 .asyncUnmapping(true)
                         )
                 )
+                .rollHeaderFile(true)
+                .rollPayloadFiles(true)
                 .expandHeaderFile(false)
                 .expandPayloadFiles(false)
 //                .maxHeaderFileSize(64 * 1024 * 1024)
-//                .maxPayloadFileSize(64 * 1024 * 1024)
+//                .maxPayloadFileSize(256 * 1024 * 1024)
 //                .maxHeaderFileSize(256L * regionSize)
 //                .maxPayloadFileSize(256L * regionSize)
-                .maxHeaderFileSize(1024 * 1024 * 1024)
+//                .maxHeaderFileSize(1024 * 1024 * 1024)
+//                .maxPayloadFileSize(1024 * 1024 * 1024)
+                .maxHeaderFileSize(256 * 1024 * 1024)
                 .maxPayloadFileSize(1024 * 1024 * 1024)
+//                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
+//                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
                 .toImmutableQueueConfig();
@@ -252,6 +295,8 @@ public class QueuePerf {
             assertTrue(sender.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
             assertTrue(receiver0.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
             assertTrue(receiver1.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
+
+            printConfig(config);
             receiver0.printHistogram();
             receiver1.printHistogram();
 

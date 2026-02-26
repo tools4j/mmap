@@ -46,6 +46,7 @@ public class FileMappers {
             case READ_WRITE:
             case READ_WRITE_CLEAR:
                 if (config.rollFiles()) {
+                    //TODO support ROLLING + EXPANDING
                     return RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
                 if (config.expandFile()) {

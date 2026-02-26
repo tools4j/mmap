@@ -219,7 +219,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
                 rafFile = null;
                 closed = true;
                 preTouchHelper.reset();
-                LOGGER.info("Closed expandable-size file mapper: file={}", file);
+                LOGGER.info("Closed: {}", this);
             }
         }
     }
@@ -229,6 +229,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
         return "ExpandableSizeFileMapper" +
                 ":maxSize=" + maxSize +
                 "|file=" + file +
+                "|size=" + file.length() +
                 "|closed=" + isClosed();
     }
 }

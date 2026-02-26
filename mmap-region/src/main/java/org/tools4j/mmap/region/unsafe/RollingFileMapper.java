@@ -266,6 +266,16 @@ public class RollingFileMapper implements FileMapper {
         }
     }
 
+    //NOTE: not garbage free
+    public int openFiles() {
+        if (isClosed()) {
+            return 0;
+        }
+        final int[] count = {0};
+        fileMappers.forEach(fileMapper -> count[0] += fileMapper != null ? 1 : 0);
+        return count[0];
+    }
+
     @Override
     public boolean isClosed() {
         return closed;
@@ -274,12 +284,13 @@ public class RollingFileMapper implements FileMapper {
     @Override
     public void close() {
         if (!closed) {
+            int openFiles = openFiles();
             try {
                 fileMappers.forEach(fileMappersCloser);
                 files.remove();
             } finally {
                 closed = true;
-                LOGGER.info("Closed rolling file mapper: mapMode={}, file={}", accessMode, baseFile.getPath());
+                LOGGER.info("Closed: {} ({} files closed)", this, openFiles);
             }
         }
     }
@@ -293,6 +304,7 @@ public class RollingFileMapper implements FileMapper {
                 "|filesToCreateAhead=" + filesToCreateAhead +
                 "|closeFiles=" + closeFiles +
                 "|baseFile=" + baseFile +
+                "|openFiles=" + openFiles() +
                 "|closed=" + isClosed();
     }
 }

@@ -152,13 +152,13 @@ public class FixedSizeFileMapper implements FileMapper {
                 rafFile.close();
             }
         } catch (final IOException e) {
-            LOGGER.warn("Closing fixed-size file mapper caused unexpected exception: file={}", file, e);
+            LOGGER.warn("Closing caused unexpected exception: {}", this, e);
         } finally {
             fileChannel = null;
             rafFile = null;
             preTouchHelper.reset();
             if (log && closed) {
-                LOGGER.info("Closed fixed-size file mapper: file={}", file);
+                LOGGER.info("Closed: {}", this);
             }
         }
     }

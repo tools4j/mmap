@@ -327,7 +327,7 @@ public class AtomicArray<E> {
     }
 
     private static <E> LoopCondition<E, IntObjPredicate<? super E>> untilMatching() {
-        return (index, value, object) -> object.test(index, value);
+        return (index, value, predicate) -> predicate.test(index, value);
     }
 
     private static <E> LoopCondition<E, IntObjPredicate<? super E>> whileMatching() {

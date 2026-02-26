@@ -103,7 +103,7 @@ public class ReadOnlyFileMapper implements FileMapper {
             try {
                 raf = new RandomAccessFile(file, AccessMode.READ_ONLY.getRandomAccessMode());
             } catch (final FileNotFoundException e) {
-                LOGGER.error("Failed to create new random access file " + file, e);
+                LOGGER.error("Failed to create new random access file: {}", file, e);
                 return false;
             }
 
@@ -112,16 +112,16 @@ public class ReadOnlyFileMapper implements FileMapper {
             try {
                 fileInitialiser.init(file.getName(), fileChannel);
             } catch (final IOException e) {
-                LOGGER.error("Failed to initialise fileChannel for " + file, e);
+                LOGGER.error("Failed to initialise fileChannel for: {}", file, e);
                 try {
                     this.fileChannel.close();
                 } catch (IOException ex) {
-                    LOGGER.error("Failed to close fileChannel after initialisation failure: " + file, e);
+                    LOGGER.error("Failed to close fileChannel after initialisation failure: {}", file, e);
                 }
                 try {
                     this.rafFile.close();
                 } catch (IOException ex) {
-                    LOGGER.error("Failed to close RAF file after initialisation failure: " + file, e);
+                    LOGGER.error("Failed to close RAF file after initialisation failure: {}", file, e);
                 }
                 this.rafFile = null;
                 this.fileChannel = null;
@@ -147,12 +147,12 @@ public class ReadOnlyFileMapper implements FileMapper {
                     rafFile.close();
                 }
             } catch (final IOException e) {
-                LOGGER.warn("Closing read-only file mapper caused unexpected exception: file={}", file, e);
+                LOGGER.warn("Closing caused unexpected exception: {}", this, e);
             } finally {
                 fileChannel = null;
                 rafFile = null;
                 closed = true;
-                LOGGER.info("Closed read-only file mapper: file={}", file);
+                LOGGER.info("Closed: {}", this);
             }
         }
     }
