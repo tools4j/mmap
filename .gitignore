@@ -5,6 +5,7 @@
 .run
 /bin
 **/build
+**/out
 .idea
 *.iml
 classes
