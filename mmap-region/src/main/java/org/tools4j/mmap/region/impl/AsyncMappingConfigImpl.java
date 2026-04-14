@@ -51,7 +51,7 @@ public record AsyncMappingConfigImpl(int regionsToMapAhead,
     }
 
     @Override
-    public AsyncMappingConfig toImmutableAsyncMappingConfig() {
+    public AsyncMappingConfig toImmutableConfig() {
         return this;
     }
 

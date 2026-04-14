@@ -30,50 +30,29 @@ package org.tools4j.mmap.region.api;
  * through the {@link #buffer()}.
  * <p>
  * The mapping {@linkplain #position() position} may or may not be a multiple of the {@linkplain #regionSize() region
- * size} depending on the implementation.
+ * size} depending on the implementation (see {@link DynamicMapping#positionStepSize()}).
  * <p>
  * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-public interface RegionMapping extends Mapping, RegionAware {
-
+public interface RegionMapping extends DynamicMapping {
     /**
-     * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
-     * not {@link #isMapped() mapped}.
-     * <p>
-     * If mapped, the position is always equal to the
-     * {@linkplain #regionStartPosition() region start position} plus the {@linkplain #offset() offset}.
+     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, which is always
+     * zero for a <code>RegionPosition</code>.
      *
-     * @return the mapped position, or -1 if unavailable
+     * @return the offset from the region start position, always zero for a region position
      */
-    @Override
-    default long position() {
-        return regionStartPosition() + offset();
+    default int regionOffset() {
+        return 0;
     }
 
     /**
-     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, a value between
-     * zero and (regionSize - 1)
-     * @return {@code position - regionStartPosition}
-     */
-    int offset();
-
-    /**
-     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
-     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
-     * <p>
-     * If mapped, the region start position is always equal to the
-     * {@linkplain #position() position} minus the {@linkplain #offset() offset}.
+     * The step size (or minimum increment) of position values passed to the moveTo(long) method, which is the same as
+     * {@link #regionSize()} for a <code>RegionPosition</code>.
      *
-     * @return the region's start position, equal to the largest region size multiple that is less or equal to the
-     *         current position, or -1 if unavailable
-     */
-    default long regionStartPosition() {
-        return regionMetrics().regionPosition(position());
-    }
-
-    /**
-     * Closes this mapped region.
+     * @return the step size for position values, same as region size
      */
     @Override
-    void close();
+    default int positionStepSize() {
+        return regionSize();
+    }
 }

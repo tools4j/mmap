@@ -54,7 +54,10 @@ public enum MappingConfigurations {
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.region.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String REGION_SIZE_PROPERTY = "mmap.region.regionSize";
-    public static final int REGION_SIZE_DEFAULT = (int)(1024*REGION_SIZE_GRANULARITY);//typically ~4MB
+    public static final int REGION_SIZE_DEFAULT = (int)(4*REGION_SIZE_GRANULARITY);//typically ~4MB
+    public static final String INITIAL_MAPPING_POOL_SIZE_PROPERTY = "mmap.region.initialMappingPoolSize";
+    public static final int INITIAL_MAPPING_POOL_SIZE_DEFAULT = 64;
+
     public static final String REGION_CACHE_SIZE_PROPERTY = "mmap.region.regionCacheSize";
     public static final int REGION_CACHE_SIZE_DEFAULT = 4;
     public static final String REGION_LRU_CACHE_SIZE_PROPERTY = "mmap.region.regionLruCacheSize";
@@ -117,6 +120,10 @@ public enum MappingConfigurations {
 
     public static int defaultRegionSize() {
         return getIntProperty(REGION_SIZE_PROPERTY, Constraints::validateRegionSize, REGION_SIZE_DEFAULT);
+    }
+
+    public static int defaultInitialMappingPoolSize() {
+        return getIntProperty(INITIAL_MAPPING_POOL_SIZE_PROPERTY, Constraints::validateInitialPoolSize, INITIAL_MAPPING_POOL_SIZE_DEFAULT);
     }
 
     public static int defaultRegionCacheSize() {

@@ -33,7 +33,7 @@ public enum Constants {
      * Memory page size that is exposed from internal java implementation.
      * All memory region sizes are expected to be evenly divisible by this value
      * to ensure alignment of regions with memory pages and cache lines.
-     * Typical minimum region size is 4K bytes.
+     * Typical minimum region size in bytes is 4K (x86, ARM), 16K (Mac M1, ARM64) or 64K.
      */
     public static final long REGION_SIZE_GRANULARITY = regionSizeGranularity();
 
@@ -67,9 +67,7 @@ public enum Constants {
             return result;
         } catch (final NoSuchMethodException e) {
             return -1;
-        } catch (final InvocationTargetException e) {
-            throw new RuntimeException(e);
-        } catch (final IllegalAccessException e) {
+        } catch (final InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
@@ -81,14 +79,13 @@ public enum Constants {
             fileDispatcherField.setAccessible(true);
             final Object fileDispatcher = fileDispatcherField.get(null);//static field
             fileDispatcherField.setAccessible(false);
+            //noinspection JavaReflectionMemberAccess
             final Method method = FileDispatcherClass.getDeclaredMethod("allocationGranularity");
             method.setAccessible(true);
             final long result = (long) method.invoke(fileDispatcher);
             method.setAccessible(false);
             return result;
-        } catch (final NoSuchFieldException e) {
-            return -1;
-        } catch (final NoSuchMethodException e) {
+        } catch (final NoSuchFieldException | NoSuchMethodException e) {
             return -1;
         } catch (final Exception e) {
             throw new RuntimeException(e);

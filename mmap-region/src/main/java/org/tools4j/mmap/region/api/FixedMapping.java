@@ -21,19 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
-
-import org.tools4j.mmap.region.api.ElasticMapping;
-import org.tools4j.mmap.region.api.DynamicMapping;
-import org.tools4j.mmap.region.api.Mappings;
-import org.tools4j.mmap.region.unsafe.RegionMapper;
+package org.tools4j.mmap.region.api;
 
 /**
- * {@link FindAndBinarySearchTest} for {@link ElasticMapping} and {@link ElasticMappingImpl}.
+ * A {@link Mapping} that maps an arbitrary slice of the underlying file into memory as a whole. Start and end position
+ * of the mapping are fixed and do not change until the mapping is closed.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
+ *
+ * @see Mapping
+ * @see DynamicMapping
  */
-class FindAndBinarySearchDynamicMappingTest extends FindAndBinarySearchTest {
-    @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper, final int positionGranularity) {
-        return Mappings.dynamicMapping(regionMapper, true);
-    }
+public interface FixedMapping extends Mapping {
+    //nothing to add
 }

@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.ElasticMapping;
 import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
@@ -33,7 +33,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
  */
 class FindAndBinarySearchElasticMappingTest extends FindAndBinarySearchTest {
     @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper, final int positionGranularity) {
+    DynamicMapping createMapping(final RegionMapper regionMapper) {
         return Mappings.elasticMapping(regionMapper, true);
     }
 }

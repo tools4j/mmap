@@ -39,7 +39,7 @@ public enum AsyncUnmappingConfigDefaults implements AsyncUnmappingConfig {
     ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 
     @Override
-    public AsyncUnmappingConfig toImmutableAsyncUnmappingConfig() {
+    public AsyncUnmappingConfig toImmutableConfig() {
         return new AsyncUnmappingConfigImpl(this);
     }
 

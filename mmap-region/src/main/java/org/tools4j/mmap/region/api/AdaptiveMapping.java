@@ -33,15 +33,16 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 
 /**
- * An adaptive mapping is a {@link DynamicMapping} that represents an arbitrary slice of the underlying file. It starts
- * at an {@linkplain #offset() offset} from the region's {@linkplain #regionStartPosition() start position} and its end
- * is determined by the mapping {@linkplain #length() length}.
+ * An adaptive mapping is a {@link DynamicMapping} that represents an arbitrary slice of the underlying file that lies
+ * entirely within a region. It starts at an {@linkplain #regionOffset() offset} from the region's
+ * {@linkplain #regionStartPosition() start position} and its end is determined by the mapping
+ * {@linkplain #length() length}, a value from zero to no more than the remaining bytes of the region. In other words,
+ * an adaptive mapping can map any slice of the file (including zero length slices) as long as no region boundaries are
+ * crossed.
  * <p>
- * Adaptive mappings can span across region boundaries. This is achieved by mapping blocks into memory that are slightly
- * larger than the region size if necessary. The {@link #regionMappingSize() region-mapping-size} and the
- * {@link #positionGranularity() position-granularity} also determine the {@link #maxLength() max-length} value, the
- * ceiling for the number of bytes that can be mapped at any point time. In return adaptive mappings can be moved around
- * in arbitrary ways to any position in the file, while preserving or changing the mapping length at the same time.
+ * An adaptive mapping can be re-positioned to any arbitrary file position within the same region, or to any other
+ * position from the underlying file. Move operations preserve the existing mapping length if possible, unless a new
+ * length is specified at the same time.
  * <p>
  * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
  * through a {@link RegionMapper}.
@@ -50,21 +51,24 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
  */
 public interface AdaptiveMapping extends DynamicMapping {
     /**
-     * Moves the mapping to the specified position. The current mapping length is preserved.
+     * Moves the mapping to the specified position. The current mapping length is preserved if possible, or truncated at
+     * the end of the region if it exceeds the maximum bytes available. If this mapping is not currently mapped, this
+     * method will attempt to map the maximum bytes possible.
      * <p>
      * If the new position lies within the region that is already mapped, only the buffer will be adjusted without
      * triggering a region mapping operation. Otherwise, the requested region is mapped (and previous regions possibly
      * unmapped, so it is illegal to continue using buffers wrapped to the previous address).
-     * <p>
-     * This is equivalent to calling {@code moveTo(position, length())}.
      *
      * @param position the position to move to (absolute, not relative to current position or region start)
      * @return true if the mapping is ready for data access, and false otherwise
      * @throws IllegalArgumentException if position is negative
+     * @see #maxLength()
      */
     @Override
     default boolean moveTo(final long position) {
-        return moveTo(position, length());
+        final int maxLength = maxLengthAtPosition(position);
+        final int newLength = isMapped() ? Math.min(length(), maxLength) : maxLength;
+        return moveTo(position, newLength);
     }
 
     /**
@@ -73,25 +77,47 @@ public interface AdaptiveMapping extends DynamicMapping {
      * operation. Otherwise, the requested region is mapped.
      *
      * @param position the position to move to (absolute, not relative to current position or region start)
-     * @param length the number of bytes starting from {@code position}, no more than {@link #maxLength()}
+     * @param length the new byte length for this mapping, at least zero and no more than {@link #maxLength()}, or -1
+     *               to map all bytes to the end of the region
      * @return true if the mapping is ready for data access, and false otherwise
      * @throws IllegalStateException if this mapping has no current position
-     * @throws IllegalArgumentException if position or length is negative, or the length crosses region boundaries
+     * @throws IllegalArgumentException if position is negative, or length is less than -1 or exceeds the maximum bytes
+     *                                  available at the specified position
+     * @see #maxLengthAtPosition(long)
      */
     boolean moveTo(long position, int length);
 
     /**
-     * Returns the maximum length that can be used for this adaptive mapping
-     * @return the maximum allowed number of bytes that can be mapped
+     * Returns the maximum bytes that can be made available at the current position, or zero if this mapping is not
+     * currently mapped. The maximum length is the bytes from the current {@linkplain #regionOffset() region offset} to
+     * the end of the region.
+     *
+     * @return the maximum length that can be passed to {@link #length(int)}, a value between zero and region size
      */
     default int maxLength() {
-        return regionMappingSize() - regionSize() + positionGranularity();
+        return maxLengthAtPosition(position());
+    }
+
+    /**
+     * Returns the maximum bytes that can be made available at the specified position, or zero if position is negative.
+     * The maximum length is the bytes from the {@linkplain RegionMetrics#regionOffset(long) region offset} for the
+     * given to position to the end of the region.
+     *
+     * @param position the position for which the maximum length should be evaluated
+     * @return  the maximum length that can be passed to {@link #moveTo(long, int)} for the specified position, a value
+     *          between zero and region size
+     */
+    default int maxLengthAtPosition(final long position) {
+        final RegionMetrics metrics = regionMetrics();
+        return position >= 0 ? metrics.regionSize() - metrics.regionOffset(position) : 0;
     }
 
     /**
      * Returns the mapping length in bytes, the same as {@link #bytesAvailable()} and equal to the
-     * {@linkplain #buffer() buffer's} {@linkplain DirectBuffer#capacity() capacity}. The returned value is at least
-     * zero and never more than {@link #maxLength()}.
+     * {@linkplain #buffer() buffer's} {@linkplain DirectBuffer#capacity() capacity}.
+     * <p>
+     * The length value is at least zero and never more than {@link #regionSize()}. Length can be
+     * {@link #length(int) set} directly or can be specified when {@link #moveTo(long, int) moving} to a new position.
      *
      * @return the number of bytes mapped and available via buffer, zero if not {@linkplain #isMapped() mapped}
      */
@@ -101,30 +127,36 @@ public interface AdaptiveMapping extends DynamicMapping {
 
     /**
      * Sets the new length of this mapping, extending or limiting the bytes currently available through the
-     * {@link #buffer() buffer}. If {@code length == -1}, the length is extended to the end of the region.
-     * If the new length exceeds beyond the region limit, an exception is thrown.
+     * {@link #buffer() buffer}. If length is -1, the length will be set to span all bytes available to the end of the
+     * region currently mapped. If length is less than -1 or exceeds {@link #maxLength()}, an exception is thrown.
      *
-     * @param length the new byte length for this mapping, a value in {@code [0..(regionSize - offset)]}, or
-     *               -1 to extend the length to the end of the region
-     * @throws IllegalArgumentException if {@code length <= -2} or if it exceeds the mapping beyond the region boundaries
+     * @param length the new byte length for this mapping, at least zero and no more than {@link #maxLength()}, or -1
+     *               to map all bytes available to the end of the region currently mapped
+     * @throws IllegalArgumentException if length less than -1 or exceeds max-length
      */
     default void length(final int length) {
-        final DirectBuffer buffer = buffer();
-        if (length != buffer.capacity()) {
+        final int newLength;
+        if (length == -1) {
+            newLength = maxLength();
+        } else {
             validateLength(length, maxLength());
-            buffer.wrap(buffer.addressOffset(), length);
+            newLength = length;
+        }
+        final DirectBuffer buffer = buffer();
+        if (newLength != buffer.capacity()) {
+            buffer.wrap(buffer.addressOffset(), newLength);
         }
     }
 
     /**
      * Sets the new limit of this mapping, the position <i>after</i> the last byte that
-     * is accessible through this mapping. The new limit must not exceed the mapping beyond the region limit, otherwise
-     * an exception is thrown.
+     * is accessible through this mapping. The new limit must not exceed {@code position + max-length)}.
      *
-     * @param limit the new position limit (exclusive), at least {@code regionStartPosition} and no more than
-     *              {@code (regionStartPosition + regionSize)}
-     * @throws IllegalArgumentException if the limit is outside the
-     *                                  {@code [regionStartPosition..(regionStartPosition + regionSize)]} range
+     * @param limit the new position limit (exclusive)
+     * @throws IllegalArgumentException if the limit is less than position or if {@code (limit-position)} exceeds
+     *                                  {@link #maxLength()}
+     * @see #position()
+     * @see #maxLength()
      */
     default void limit(final long limit) {
         final long position = position();
@@ -136,10 +168,11 @@ public interface AdaptiveMapping extends DynamicMapping {
     }
 
     /**
-     * Moves the mapping forward or backward by the specified delta in bytes. The current mapping length is preserved if
-     * possible, or truncated if it would cross into the next region. Delegates to {@link #moveTo(long, int)} if
-     * current and resulting position are valid. An exception is thrown if no position is currently mapped or if the
-     * resulting position is negative.
+     * Moves the mapping forward or backward by the specified delta in bytes. The current mapping length is preserved
+     * if possible, or truncated at the end of the (currently or newly) mapped region.
+     * <p>
+     * Delegates to {@link #moveTo(long)} if current and resulting position are valid. An exception is thrown if no
+     * position is currently mapped or if the resulting position is negative.
      * <p>
      * This is equivalent to calling {@code moveTo(position() + delta)}.
      *
@@ -148,11 +181,13 @@ public interface AdaptiveMapping extends DynamicMapping {
      * @throws IllegalStateException if this mapping has no current position
      * @throws IllegalArgumentException if the provided delta value results in a negative position
      */
+    @Override
     default boolean moveBy(final long delta) {
         final long position = position();
         validatePositionState(position);
-        validatePositionDelta(position, delta, positionGranularity());
-        return moveTo(position + delta);
+        validatePositionDelta(position, delta, positionStepSize());
+        final long newPosition = position + delta;
+        return moveTo(newPosition, Math.min(length(), maxLengthAtPosition(newPosition)));
     }
 
     /**
@@ -164,17 +199,17 @@ public interface AdaptiveMapping extends DynamicMapping {
      * This is equivalent to calling {@code moveTo(position() + delta, length)}.
      *
      * @param delta the position delta relative to the current position
-     * @param length the number of bytes starting from {@code (position + delta)}, or -1 to span all bytes available
-     *      *        from the new position to the end of the region
+     * @param length the new byte length for this mapping, at least zero and no more than {@link #maxLength()}, or -1
+     *               to map all bytes to the end of the region
      * @return true if the mapping is ready for data access, and false otherwise
      * @throws IllegalStateException if this mapping has no current position
      * @throws IllegalArgumentException if the provided delta value results in a negative position, or the length is
-     *                                  negative or crosses region boundaries
+     *                                  negative or exceeds max-length
      */
     default boolean moveBy(final long delta, final int length) {
         final long position = position();
         validatePositionState(position);
-        validatePositionDelta(position, delta, positionGranularity());
+        validatePositionDelta(position, delta, positionStepSize());
         return moveTo(position + delta, length);
     }
 
@@ -188,7 +223,7 @@ public interface AdaptiveMapping extends DynamicMapping {
      */
     @Override
     default boolean moveToFirstRegion() {
-        return moveTo(0L);
+        return DynamicMapping.super.moveToFirstRegion();
     }
 
     /**
@@ -199,10 +234,7 @@ public interface AdaptiveMapping extends DynamicMapping {
      */
     @Override
     default boolean moveToNextRegion() {
-        final RegionMetrics metrics = regionMetrics();
-        final long regionStartPosition = metrics.regionPosition(position());
-        final long nextStartPosition = regionStartPosition >= 0 ? regionStartPosition + metrics.regionSize() : 0L;
-        return moveTo(nextStartPosition);
+        return DynamicMapping.super.moveToNextRegion();
     }
 
     /**
@@ -215,11 +247,6 @@ public interface AdaptiveMapping extends DynamicMapping {
      */
     @Override
     default boolean moveToPreviousRegion() {
-        final long startPosition = regionStartPosition();
-        final int regionSize = regionSize();
-        if (startPosition < regionSize) {
-            throw new IllegalStateException("There is no previous region before position " + position());
-        }
-        return moveTo(startPosition - regionSize);
+        return DynamicMapping.super.moveToPreviousRegion();
     }
 }

@@ -84,7 +84,7 @@ import static org.tools4j.mmap.queue.util.ConfigPrinter.printConfig;
  * </pre>
  *
  *
- * with smaller reginon size:
+ * with smaller region size:
  * <pre>
  *      mapper thread per queue element
  *
@@ -164,8 +164,8 @@ public class QueuePerf {
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1024);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 64);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 32);
-        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 16);
-//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 4);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 16);
+        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 4);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 2);
 //        final int cacheSize = 4;
 //        final int regionsToMapAhead = 2;
@@ -175,12 +175,13 @@ public class QueuePerf {
 //        final int regionsToMapAhead = 64;
 //        final int cacheSize = 32;
 //        final int regionsToMapAhead = 16;
-//        final int cacheSize = 64;
-//        final int regionsToMapAhead = 32;
-//        final int aheadMappingCacheSize = 64;
-        final int cacheSize = 256;
-        final int regionsToMapAhead = 64;
-        final int aheadMappingCacheSize = 256;
+//        final int aheadMappingCacheSize = 32;
+        final int cacheSize = 64;
+        final int regionsToMapAhead = 32;
+        final int aheadMappingCacheSize = 64;
+//        final int cacheSize = 256;
+//        final int regionsToMapAhead = 64;
+//        final int aheadMappingCacheSize = 256;
 //        final int regionsToMapAhead = 0;
         final QueueConfig config = QueueConfig.configure()
                 .appenderConfig(conf -> conf
@@ -265,8 +266,10 @@ public class QueuePerf {
 //                .maxPayloadFileSize(256L * regionSize)
 //                .maxHeaderFileSize(1024 * 1024 * 1024)
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
+//                .maxHeaderFileSize(256 * 1024 * 1024)
+//                .maxPayloadFileSize(1024 * 1024 * 1024)
                 .maxHeaderFileSize(256 * 1024 * 1024)
-                .maxPayloadFileSize(1024 * 1024 * 1024)
+                .maxPayloadFileSize(8L * 1024 * 1024 * 1024)
 //                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
 //                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
                 .headerFilesToCreateAhead(0)

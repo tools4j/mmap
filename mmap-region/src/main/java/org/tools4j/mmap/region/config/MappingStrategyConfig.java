@@ -39,7 +39,7 @@ public interface MappingStrategyConfig {
     Optional<AsyncMappingConfig> asyncMapping();
     Optional<AsyncUnmappingConfig> asyncUnmapping();
 
-    MappingStrategyConfig toImmutableMappingStrategyConfig();
+    MappingStrategyConfig toImmutableConfig();
 
     static MappingStrategyConfigurator configure() {
         return MappingStrategyConfigurator.configure();

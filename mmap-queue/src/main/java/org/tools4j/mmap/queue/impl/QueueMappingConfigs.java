@@ -85,7 +85,7 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public MappingConfig toImmutableMappingConfig() {
+            public MappingConfig toImmutableConfig() {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
                 return queueConfig == immutableConfig ? this
                         : headerMappingConfig(immutableConfig, mappingStrategy, closeHeaderFiles);
@@ -142,7 +142,7 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public MappingConfig toImmutableMappingConfig() {
+            public MappingConfig toImmutableConfig() {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
                 return queueConfig == immutableConfig ? this
                         : headerMappingConfig(immutableConfig, mappingStrategy, closePayloadFiles);

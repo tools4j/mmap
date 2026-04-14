@@ -148,7 +148,7 @@ public class AsyncRingRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(regionStartPosition, regionSize);
-        assertEquals(offsetInRegion, mapping.offset());
+        assertEquals(offsetInRegion, mapping.regionOffset());
         assertEquals(regionSize - offsetInRegion, mapping.bytesAvailable());
 
         //when: move again within the same region
@@ -157,7 +157,7 @@ public class AsyncRingRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(offset, mapping.offset());
+        assertEquals(offset, mapping.regionOffset());
         assertEquals(regionSize - offset, mapping.bytesAvailable());
 
         //when - wrap again at region start
@@ -165,7 +165,7 @@ public class AsyncRingRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(0, mapping.offset());
+        assertEquals(0, mapping.regionOffset());
         assertEquals(regionSize, mapping.bytesAvailable());
 
         //when: close

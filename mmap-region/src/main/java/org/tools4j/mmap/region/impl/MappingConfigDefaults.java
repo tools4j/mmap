@@ -41,7 +41,7 @@ public enum MappingConfigDefaults implements MappingConfig {
     MAPPING_CONFIG_DEFAULTS;
 
     @Override
-    public MappingConfig toImmutableMappingConfig() {
+    public MappingConfig toImmutableConfig() {
         return new MappingConfigImpl(this);
     }
 
@@ -77,12 +77,6 @@ public enum MappingConfigDefaults implements MappingConfig {
 
     @Override
     public String toString() {
-        return "MappingConfigDefaults" +
-                ":maxFileSize=" + maxFileSize() +
-                "|expandFile=" + expandFile() +
-                "|rollFiles=" + rollFiles() +
-                "|closeFiles=" + closeFiles() +
-                "|filesToCreateAhead=" + filesToCreateAhead() +
-                "|mappingStrategy=" + mappingStrategy();
+        return MappingConfigImpl.toString("MappingConfigDefaults", this);
     }
 }

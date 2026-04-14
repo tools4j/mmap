@@ -32,17 +32,6 @@ package org.tools4j.mmap.region.api;
 @FunctionalInterface
 public interface RegionAware {
     /**
-     * Returns the actual region size mapped into memory. In most cases this is equal to {@link #regionSize()} but it
-     * can be different for instance for {@link AdaptiveMapping} operations to map blocks into  memory that are slightly
-     * larger than a region.
-     *
-     * @return the actual size mapped into memory when mapping a region
-     * @see #regionMetrics()
-     */
-    default int regionMappingSize() {
-        return regionSize();
-    }
-    /**
      * @return the size of a mappable memory region in bytes
      * @see #regionMetrics()
      */

@@ -68,7 +68,7 @@ abstract class FindAndBinarySearchTest {
         MockitoAnnotations.openMocks(this);
     }
 
-    abstract DynamicMapping createMapping(RegionMapper regionMapper, int positionGranularity);
+    abstract DynamicMapping createMapping(RegionMapper regionMapper);
 
 
     @ParameterizedTest(name = "regionSize={0}, bytes={2}, startPosition={1}, expectedPosition={3}")
@@ -139,8 +139,8 @@ abstract class FindAndBinarySearchTest {
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        final DynamicMapping mapping = createMapping(regionMapper, bytes);
-        Assumptions.assumeTrue(bytes % mapping.positionGranularity() == 0, bytes +
+        final DynamicMapping mapping = createMapping(regionMapper);
+        Assumptions.assumeTrue(bytes % mapping.positionStepSize() == 0, bytes +
                 " position increments not supported by " + mapping.getClass().getSimpleName());
 
         //when

@@ -34,7 +34,7 @@ public interface AsyncMappingConfig {
     int aheadMappingCacheSize();
     Supplier<? extends AsyncRuntime> mappingRuntimeSupplier();
 
-    AsyncMappingConfig toImmutableAsyncMappingConfig();
+    AsyncMappingConfig toImmutableConfig();
 
     static AsyncMappingConfigurator configure() {
         return AsyncMappingConfigurator.configure();

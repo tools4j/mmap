@@ -216,7 +216,7 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     }
 
     @Override
-    public MappingStrategyConfig toImmutableMappingStrategyConfig() {
+    public MappingStrategyConfig toImmutableConfig() {
         return new MappingStrategyConfigImpl(this);
     }
 

@@ -33,7 +33,7 @@ public enum Constraints {
     ;
     public static void validateNonNegative(final String name, final long value) {
         if (value < 0) {
-            throw new IllegalArgumentException(name + " value annot be negative, but was " + value);
+            throw new IllegalArgumentException(name + " value cannot be negative, but was " + value);
         }
     }
     public static void validateGreaterThanZero(final String name, final long value) {
@@ -60,11 +60,11 @@ public enum Constraints {
         }
     }
 
-    public static void validatePosition(final long position, final long positionGranularity) {
-        assert BitUtil.isPowerOfTwo(positionGranularity);
-        if (position < 0 || 0 != (position & (positionGranularity - 1))) {
+    public static void validatePosition(final long position, final long positionStepSize) {
+        assert BitUtil.isPowerOfTwo(positionStepSize);
+        if (position < 0 || 0 != (position & (positionStepSize - 1))) {
             throw new IllegalArgumentException("Invalid position " + position +
-                    " for mapping with position granularity " + positionGranularity);
+                    " for mapping with position step size " + positionStepSize);
         }
     }
 
@@ -96,13 +96,13 @@ public enum Constraints {
         }
     }
 
-    public static void validatePositionDelta(final long position, final long delta, final long positionGranularity) {
+    public static void validatePositionDelta(final long position, final long delta, final long positionStepSize) {
         assert position >= 0;
-        assert BitUtil.isPowerOfTwo(positionGranularity);
+        assert BitUtil.isPowerOfTwo(positionStepSize);
         final long pos = position + delta;
-        if (pos < 0 || 0 != (pos & (positionGranularity - 1))) {
+        if (pos < 0 || 0 != (pos & (positionStepSize - 1))) {
             throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position +
-                    " for mapping with position granularity " + positionGranularity);
+                    " for mapping with position step size " + positionStepSize);
         }
     }
 
@@ -127,12 +127,8 @@ public enum Constraints {
         }
     }
 
-    public static void validatePositionGranularity(final int positionGranularity, final int regionSize) {
-        assert BitUtil.isPowerOfTwo(regionSize);
-        if (!BitUtil.isPowerOfTwo(positionGranularity) || regionSize % positionGranularity != 0) {
-            throw new IllegalArgumentException("Position granularity must be a power of two and aligned with region size " +
-                    regionSize + " but was " + positionGranularity);
-        }
+    public static void validateInitialPoolSize(final int initialPoolSize) {
+        validateNonNegative("Initial pool size", initialPoolSize);
     }
 
     public static void validateMaxFileSize(final long maxFileSize) {

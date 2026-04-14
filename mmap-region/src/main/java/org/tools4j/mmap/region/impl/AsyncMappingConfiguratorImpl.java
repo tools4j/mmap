@@ -144,7 +144,7 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
     }
 
     @Override
-    public AsyncMappingConfig toImmutableAsyncMappingConfig() {
+    public AsyncMappingConfig toImmutableConfig() {
         return new AsyncMappingConfigImpl(this);
     }
 

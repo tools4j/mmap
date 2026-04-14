@@ -26,7 +26,7 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.api.Mapping;
+import org.tools4j.mmap.region.api.FixedMapping;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
 
@@ -35,25 +35,25 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
-public class FixedMapping implements Mapping {
+public class FixedMappingImpl implements FixedMapping {
     private final FileMapper fileMapper;
     private final boolean closeFileMapperOnClose;
     private final int size;
     private final UnsafeBuffer buffer;
     private long mappedPosition;
 
-    public FixedMapping(final FileMapper fileMapper, final int size) {
+    public FixedMappingImpl(final FileMapper fileMapper, final int size) {
         this(fileMapper, true, 0, size);
     }
 
-    public FixedMapping(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
+    public FixedMappingImpl(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
         this(fileMapper, closeFileMapperOnClose, 0, fileSize(fileMapper));
     }
 
-    public FixedMapping(final FileMapper fileMapper,
-                        final boolean closeFileMapperOnClose,
-                        final long offset,
-                        final int size) {
+    public FixedMappingImpl(final FileMapper fileMapper,
+                            final boolean closeFileMapperOnClose,
+                            final long offset,
+                            final int size) {
         requireNonNull(fileMapper);
         validateNonNegative("offset", offset);
         validateNonNegative("size", offset);

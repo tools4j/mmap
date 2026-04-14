@@ -31,9 +31,10 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
 /**
- * An elastic mapping is a {@link DynamicMapping} that starts at an {@linkplain #offset() offset} from the region's
- * {@linkplain #regionStartPosition() start position} and spans all bytes to the end of that region. It can be
- * re-positioned at any arbitrary file position within the same region, or at any other position in the underlying file.
+ * An elastic mapping is a {@link DynamicMapping} that starts at an {@linkplain #regionOffset() offset} from the
+ * region's {@linkplain #regionStartPosition() start position} and spans all bytes to the end of that region. It can be
+ * re-positioned to any arbitrary file position within the same region, or to any other position from the underlying
+ * file.
  * <p>
  * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
  * {@link RegionMapper}.

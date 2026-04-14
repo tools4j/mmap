@@ -105,7 +105,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
-        assertEquals(positionInRegion, region.offset());
+        assertEquals(positionInRegion, region.regionOffset());
         assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
         //when - wrap again within the same region
@@ -114,7 +114,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(offset, region.offset());
+        assertEquals(offset, region.regionOffset());
         assertEquals(regionSize - offset, region.bytesAvailable());
 
         //when - wrap again at region start
@@ -122,7 +122,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
-        assertEquals(0, region.offset());
+        assertEquals(0, region.regionOffset());
         assertEquals(regionSize, region.bytesAvailable());
 
         //when - close, causes unmap
@@ -208,7 +208,7 @@ public class SyncRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
 
         //when
-        unmapAddress = region.address() - region.offset();
+        unmapAddress = region.address() - region.regionOffset();
         region.moveToNextRegion(offset);
 
         //then
@@ -221,7 +221,7 @@ public class SyncRegionMapperTest {
         }
 
         //when - map previous region, causing current to unmap
-        unmapAddress = region.address() - region.offset();
+        unmapAddress = region.address() - region.regionOffset();
         final long prevRegionStartPosition = nextRegionStartPosition - regionSize;
         region.moveToPreviousRegion();
 

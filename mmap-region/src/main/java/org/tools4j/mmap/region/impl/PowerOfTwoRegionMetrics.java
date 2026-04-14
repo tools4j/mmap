@@ -29,25 +29,15 @@ import org.tools4j.mmap.region.api.RegionMetrics;
 public final class PowerOfTwoRegionMetrics implements RegionMetrics {
 
     private final int regionSize;
-    private final int regionMappingSize;
     private final int offsetMask;
     private final long regionMask;
     private final int regionShift;
 
     public PowerOfTwoRegionMetrics(final int regionSize) {
-        this(regionSize, regionSize);
-    }
-
-    public PowerOfTwoRegionMetrics(final int regionSize, final int regionMappingSize) {
         if (!BitUtil.isPowerOfTwo(regionSize)) {
             throw new IllegalArgumentException("Region size must be a positive power of 2: " + regionSize);
         }
-        if (regionMappingSize < regionSize) {
-            throw new IllegalArgumentException("Region mapping size " + regionMappingSize +
-                    " cannot be smaller than region size " + regionSize);
-        }
         this.regionSize = regionSize;
-        this.regionMappingSize = regionMappingSize;
         this.offsetMask = regionSize - 1;
         this.regionMask = -regionSize;
         this.regionShift = Integer.SIZE - Integer.numberOfLeadingZeros(regionSize - 1);
@@ -56,11 +46,6 @@ public final class PowerOfTwoRegionMetrics implements RegionMetrics {
     @Override
     public int regionSize() {
         return regionSize;
-    }
-
-    @Override
-    public int regionMappingSize() {
-        return regionMappingSize;
     }
 
     @Override
@@ -85,6 +70,6 @@ public final class PowerOfTwoRegionMetrics implements RegionMetrics {
 
     @Override
     public String toString() {
-        return "RegionMetrics:regionSize=" + regionSize + "|regionMappingSize=" + regionMappingSize;
+        return "RegionMetrics:regionSize=" + regionSize;
     }
 }

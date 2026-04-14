@@ -27,17 +27,16 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.ElasticMapping;
-import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
-
-import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
+import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
+import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 
 public final class ElasticMappingImpl implements ElasticMapping {
     private final RegionMapper regionMapper;
@@ -61,7 +60,7 @@ public final class ElasticMappingImpl implements ElasticMapping {
     }
 
     @Override
-    public int positionGranularity() {
+    public int positionStepSize() {
         return 1;
     }
 
@@ -91,7 +90,7 @@ public final class ElasticMappingImpl implements ElasticMapping {
     }
 
     @Override
-    public int offset() {
+    public int regionOffset() {
         return offset;
     }
 
@@ -118,6 +117,18 @@ public final class ElasticMappingImpl implements ElasticMapping {
     @Override
     public boolean moveTo(final long position) {
         validatePosition(position);
+        return moveToInternal(position);
+    }
+
+    @Override
+    public boolean moveBy(final long delta) {
+        final long position = position();
+        validatePositionState(position);
+        validatePositionDelta(position, delta);
+        return moveToInternal(position + delta);
+    }
+
+    private boolean moveToInternal(final long position) {
         final RegionMetrics metrics = regionMetrics;
         final long oldRegionPosition = mappedRegionPosition;
         final long newRegionPosition = metrics.regionPosition(position);
@@ -182,24 +193,10 @@ public final class ElasticMappingImpl implements ElasticMapping {
     }
 
     @Override
-    public boolean findLast(final long startPosition,
-                            final long positionIncrement,
-                            final Predicate<? super DynamicMapping> matcher) {
-        return DynamicMappingImpl.findLast(this, startPosition, positionIncrement, matcher);
-    }
-
-    @Override
-    public boolean binarySearchLast(final long startPosition,
-                                    final long positionIncrement,
-                                    final Predicate<? super DynamicMapping> matcher) {
-        return DynamicMappingImpl.binarySearchLast(this, startPosition, positionIncrement, matcher);
-    }
-
-    @Override
     public String toString() {
         return "ElasticMappingImpl:mapped=" + isMapped() +
                 "|regionStartPosition=" + regionStartPosition() +
-                "|offset=" + offset() +
+                "|offset=" + regionOffset() +
                 "|regionSize=" + regionSize() +
                 "|bytesAvailable=" + bytesAvailable() +
                 "|accessMode=" + accessMode() +

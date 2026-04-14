@@ -31,6 +31,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhea
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
+
 public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean rollFiles, boolean closeFiles,
                                 int filesToCreateAhead, MappingStrategyConfig mappingStrategy) implements MappingConfig {
     public MappingConfigImpl() {
@@ -39,7 +40,7 @@ public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean ro
 
     public MappingConfigImpl(final MappingConfig toCopy) {
         this(toCopy.maxFileSize(), toCopy.expandFile(), toCopy.rollFiles(), toCopy.closeFiles(),
-                toCopy.filesToCreateAhead(), toCopy.mappingStrategy().toImmutableMappingStrategyConfig());
+                toCopy.filesToCreateAhead(), toCopy.mappingStrategy().toImmutableConfig());
     }
 
     public MappingConfigImpl {
@@ -49,7 +50,7 @@ public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean ro
     }
 
     @Override
-    public MappingConfig toImmutableMappingConfig() {
+    public MappingConfig toImmutableConfig() {
         return this;
     }
 

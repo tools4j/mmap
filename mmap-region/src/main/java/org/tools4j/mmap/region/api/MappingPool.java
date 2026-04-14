@@ -25,7 +25,7 @@ package org.tools4j.mmap.region.api;
 
 /**
  * A pool of mappings of the same region size, where the pool may optimize and reuse the same underlying memory mapped
- * region if mappings are overlapping or reused.  All mappings of a pool share the same {@linkplain  #accessMode()
+ * region if mappings are overlapping or reused. All mappings of a pool share the same {@linkplain #accessMode()
  * access mode}.
  * <p>
  * A mapping is acquired from the pool and is released back to the pool if it is closed. The poll may choose to recycle
@@ -46,20 +46,7 @@ public interface MappingPool extends RegionAware, AutoCloseable {
 
     DynamicMapping acquireDynamicMapping();
     ElasticMapping acquireElasticMapping();
-    AdaptiveMapping acquireAdaptiveMapping(int positionGranularity);
-
-    /**
-     * Returns the {@link AdaptiveMapping#maxLength() max-length} of an {@link AdaptiveMapping} for the specified
-     * {@code positionGranularity}
-     *
-     * @param positionGranularity the granularity (or minimum increment) of positions passed to
-     *                            {@link AdaptiveMapping#moveTo(long)}
-     * @return maximum allowed number of bytes that can be mapped with the given position granularity
-     * @see #acquireAdaptiveMapping(int)
-     */
-    default int adaptiveMappingMaxLength(final int positionGranularity) {
-        return regionMappingSize() - regionSize() + positionGranularity;
-    }
+    AdaptiveMapping acquireAdaptiveMapping();
 
     /**
      * @return true if this mapping repository is closed

@@ -121,7 +121,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     }
 
     @Override
-    public AsyncUnmappingConfig toImmutableAsyncUnmappingConfig() {
+    public AsyncUnmappingConfig toImmutableConfig() {
         return new AsyncUnmappingConfigImpl(this);
     }
 

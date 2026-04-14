@@ -26,7 +26,7 @@ package org.tools4j.mmap.region.api;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
-import org.tools4j.mmap.region.impl.FixedMapping;
+import org.tools4j.mmap.region.impl.Closeable;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
@@ -35,27 +35,28 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
  * <p>
  * The different mapping subtypes are:
  * <ul>
- *     <li>{@link FixedMapping}:  A mapping that has arbitrary start and end position, but both are fixed for the
- *                                lifetime of the mapping.</li>
- *     <li>{@link RegionMapping}: A mapping of a predefined region size (typically powers of two), or a slice of such a
- *                                region. Most region mappings are also a <code>DynamicMapping</code>:<ul>
- *       <li>{@link DynamicMapping}: A region mapping that can be moved to map different positions from the underlying
- *                                   file. A pure dynamic mapping can only move to region start positions; the following
- *                                   subtypes allow moving to arbitrary positions:<ul>
- *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an arbitrary offset from the region start
+ *     <li>{@link FixedMapping}:   A mapping that has arbitrary start and end position, but both are fixed for the
+ *                                 lifetime of the mapping.</li>
+ *     <li>{@link DynamicMapping}: A mapping that can be moved to map different slices from the underlying file. The
+ *                                 mapping operation always maps a whole region into memory of a predefined <i>region
+ *                                 size</i> (typically powers of two). The dynamic mapping provides access to the mapped
+ *                                 region or a slice of it, depending on the subtype:<ul>
+ *         <li>{@link RegionMapping}:   A dynamic mapping that always maps the whole region. As a consequence, move
+ *                                      operations are only permitted to positions that are multiples the region size.
+ *                                      </li>
+ *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an offset from the region start
  *                                      position and spans all bytes until the end of that region.</li>
- *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the file. Adaptive mappings can span
- *                                      across region boundaries. This is achieved by mapping blocks into memory that
- *                                      are slightly larger than the region size if necessary. Adaptive mappings can be
- *                                      moved around to any position in the file, with or without changing the mapping
- *                                      length.</li>
- *       </ul></li>
+ *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the region. Adaptive mappings start
+ *                                      at an offset of the region and span a slice that is no longer than the remaining
+ *                                      bytes from that region. In other words, the mapped slice can map any slice of
+ *                                      the file (including zero length slices) as long as it does not cross region
+ *                                      boundaries.</li>
  *     </ul></li>
  * </ul>
  * <p>
- * Use one of the static factory methods in {@link Mappings} to create mapping instances.
+ * Use one of the static factory methods in {@link Mappings} or {@link MappingPool} to create mapping instances.
  */
-public interface Mapping extends AutoCloseable {
+public interface Mapping extends Closeable {
     /**
      * @return the file access mode used for this mapping
      */

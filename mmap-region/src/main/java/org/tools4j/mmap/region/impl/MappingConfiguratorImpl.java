@@ -38,13 +38,13 @@ import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_
 import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 public class MappingConfiguratorImpl implements MappingConfigurator {
-    private final MappingConfig defaults;
-    private long maxFileSize;
-    private Boolean expandFile;
-    private Boolean rollFiles;
-    private Boolean closeFiles;
-    private int filesToCreateAhead;
-    private MappingStrategyConfig mappingStrategy;
+    protected final MappingConfig defaults;
+    protected long maxFileSize;
+    protected Boolean expandFile;
+    protected Boolean rollFiles;
+    protected Boolean closeFiles;
+    protected int filesToCreateAhead;
+    protected MappingStrategyConfig mappingStrategy;
 
     public MappingConfiguratorImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
@@ -66,7 +66,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
-    public MappingConfig toImmutableMappingConfig() {
+    public MappingConfig toImmutableConfig() {
         return new MappingConfigImpl(this);
     }
 

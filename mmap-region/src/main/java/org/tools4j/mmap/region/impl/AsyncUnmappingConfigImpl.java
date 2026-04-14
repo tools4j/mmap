@@ -48,7 +48,7 @@ public record AsyncUnmappingConfigImpl(int unmappingCacheSize,
     }
 
     @Override
-    public AsyncUnmappingConfig toImmutableAsyncUnmappingConfig() {
+    public AsyncUnmappingConfig toImmutableConfig() {
         return this;
     }
 

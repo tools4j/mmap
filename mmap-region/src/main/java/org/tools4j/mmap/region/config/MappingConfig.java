@@ -41,7 +41,7 @@ public interface MappingConfig {
     int filesToCreateAhead();
     MappingStrategyConfig mappingStrategy();
 
-    MappingConfig toImmutableMappingConfig();
+    MappingConfig toImmutableConfig();
 
     static MappingConfigurator configure() {
         return MappingConfigurator.configure();

@@ -23,17 +23,13 @@
  */
 package org.tools4j.mmap.region.impl;
 
-import org.agrona.BitUtil;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.region.api.AccessMode;
 import org.tools4j.mmap.region.api.AdaptiveMapping;
-import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
-
-import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
@@ -41,13 +37,11 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateLength;
 import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
-import static org.tools4j.mmap.region.impl.Constraints.validatePositionGranularity;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 
 public final class AdaptiveMappingImpl implements AdaptiveMapping {
     private final RegionMapper regionMapper;
     private final boolean closeRegionMapperOnClose;
-    private final int positionGranularity;
     private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
     private long mappedRegionPosition;
     private long mappedRegionAddress;
@@ -55,21 +49,9 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     private boolean closed;
 
     @Unsafe
-    public AdaptiveMappingImpl(final RegionMapper regionMapper,
-                               final int positionGranularity,
-                               final boolean closeRegionMapperOnClose) {
-        validatePositionGranularity(positionGranularity, regionMapper.regionSize());
-        if (!BitUtil.isPowerOfTwo(positionGranularity)) {
-            throw new IllegalArgumentException("Position granularity must be a positive power of 2: " + positionGranularity);
-        }
-        if (positionGranularity > regionMapper.regionSize()) {
-            throw new IllegalArgumentException("Position granularity " + positionGranularity +
-                    " cannot be larger than region size " + regionMapper.regionSize());
-        }
-
+    public AdaptiveMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
         this.regionMapper = requireNonNull(regionMapper);
         this.closeRegionMapperOnClose = closeRegionMapperOnClose;
-        this.positionGranularity = positionGranularity;
         this.mappedRegionPosition = NULL_POSITION;
         this.mappedRegionAddress = NULL_ADDRESS;
         this.offset = 0;
@@ -77,8 +59,8 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     }
 
     @Override
-    public int positionGranularity() {
-        return positionGranularity;
+    public int positionStepSize() {
+        return 1;
     }
 
     @Override
@@ -102,7 +84,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     }
 
     @Override
-    public int offset() {
+    public int regionOffset() {
         return offset;
     }
 
@@ -126,20 +108,18 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
         return closed;
     }
 
-    private int lengthOrMaxLength() {
-        return isMapped() ? length() : maxLength();
-    }
-
     @Override
     public boolean moveTo(final long position) {
-        validatePosition(position, positionGranularity());
-        return moveToInternal(position, lengthOrMaxLength());
+        validatePosition(position);
+        final int maxLength = maxLengthAtPosition(position);
+        final int newLength = isMapped() ? Math.min(length(), maxLength) : maxLength;
+        return moveToInternal(position, newLength);
     }
 
     @Override
     public boolean moveTo(final long position, final int length) {
-        validatePosition(position, positionGranularity());
-        validateLength(length, maxLength());
+        validatePosition(position);
+        validateLength(length, maxLengthAtPosition(position));
         return moveToInternal(position, length);
     }
 
@@ -163,24 +143,26 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
             return true;
         }
         return false;
-
     }
 
     @Override
     public boolean moveBy(final long delta) {
         final long position = position();
         validatePositionState(position);
-        validatePositionDelta(position, delta, positionGranularity());
-        return moveToInternal(position + delta, lengthOrMaxLength());
+        validatePositionDelta(position, delta);
+        final long newPosition = position + delta;
+        final int newLength = Math.min(length(), maxLengthAtPosition(newPosition));
+        return moveToInternal(newPosition, newLength);
     }
 
     @Override
     public boolean moveBy(final long delta, final int length) {
         final long position = position();
         validatePositionState(position);
-        validatePositionDelta(position, delta, positionGranularity());
-        validateLength(length, maxLength());
-        return moveToInternal(position + delta, length);
+        validatePositionDelta(position, delta);
+        final long newPosition = position + delta;
+        validateLength(length, maxLengthAtPosition(newPosition));
+        return moveToInternal(newPosition, length);
     }
 
     private void initBufferAndOffset(final long regionAddress, final int offset, final int length) {
@@ -213,20 +195,6 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     }
 
     @Override
-    public boolean findLast(final long startPosition,
-                            final long positionIncrement,
-                            final Predicate<? super DynamicMapping> matcher) {
-        return DynamicMappingImpl.findLast(this, startPosition, positionIncrement, matcher);
-    }
-
-    @Override
-    public boolean binarySearchLast(final long startPosition,
-                                    final long positionIncrement,
-                                    final Predicate<? super DynamicMapping> matcher) {
-        return DynamicMappingImpl.binarySearchLast(this, startPosition, positionIncrement, matcher);
-    }
-
-    @Override
     public void close() {
         if (closed) {
             return;
@@ -242,11 +210,10 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     public String toString() {
         return "AdaptiveMappingImpl:mapped=" + isMapped() +
                 "|regionStartPosition=" + regionStartPosition() +
-                "|offset=" + offset() +
+                "|offset=" + regionOffset() +
                 "|length=" + length() +
                 "|maxLength=" + maxLength() +
                 "|regionSize=" + regionSize() +
-                "|positionGranularity=" + positionGranularity +
                 "|accessMode=" + accessMode() +
                 "|closed=" + isClosed();
     }

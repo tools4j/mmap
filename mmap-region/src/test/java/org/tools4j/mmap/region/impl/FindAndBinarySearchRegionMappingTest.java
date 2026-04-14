@@ -21,29 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.config;
+package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.region.api.AsyncRuntime;
+import org.tools4j.mmap.region.api.DynamicMapping;
+import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.region.api.Mappings;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
-import java.util.function.Supplier;
-
-import static org.tools4j.mmap.region.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
-
-public interface AsyncUnmappingConfig {
-    int unmappingCacheSize();
-    Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier();
-
-    AsyncUnmappingConfig toImmutableConfig();
-
-    static AsyncUnmappingConfigurator configure() {
-        return AsyncUnmappingConfigurator.configure();
-    }
-
-    static AsyncUnmappingConfigurator configure(final AsyncUnmappingConfig defaults) {
-        return AsyncUnmappingConfigurator.configure(defaults);
-    }
-
-    static AsyncUnmappingConfig getDefault() {
-        return ASYNC_UNMAPPING_CONFIG_DEFAULTS;
+/**
+ * {@link FindAndBinarySearchTest} for {@link ElasticMapping} and {@link ElasticMappingImpl}.
+ */
+class FindAndBinarySearchRegionMappingTest extends FindAndBinarySearchTest {
+    @Override
+    DynamicMapping createMapping(final RegionMapper regionMapper) {
+        return Mappings.regionMapping(regionMapper, true);
     }
 }

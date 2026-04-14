@@ -33,7 +33,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
  */
 class FindAndBinarySearchAdaptiveMappingTest extends FindAndBinarySearchTest {
     @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper, final int positionGranularity) {
-        return Mappings.adaptiveMapping(regionMapper, positionGranularity, true);
+    DynamicMapping createMapping(final RegionMapper regionMapper) {
+        return Mappings.adaptiveMapping(regionMapper, true);
     }
 }

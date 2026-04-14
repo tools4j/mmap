@@ -33,8 +33,8 @@ import org.tools4j.mmap.region.api.MappingPool;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.AdaptiveMappingImpl;
-import org.tools4j.mmap.region.impl.DynamicMappingImpl;
 import org.tools4j.mmap.region.impl.ElasticMappingImpl;
+import org.tools4j.mmap.region.impl.RegionMappingImpl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,17 +71,22 @@ public final class MappingPoolImpl implements MappingPool {
 
     @Override
     public DynamicMapping acquireDynamicMapping() {
-        return new DynamicMappingImpl(regionMapper, false);
+        return register(new RegionMappingImpl(regionMapper, false));
     }
 
     @Override
     public ElasticMapping acquireElasticMapping() {
-        return new ElasticMappingImpl(regionMapper, false);
+        return register(new ElasticMappingImpl(regionMapper, false));
     }
 
     @Override
-    public AdaptiveMapping acquireAdaptiveMapping(final int positionGranularity) {
-        return new AdaptiveMappingImpl(regionMapper, positionGranularity, false);
+    public AdaptiveMapping acquireAdaptiveMapping() {
+        return register(new AdaptiveMappingImpl(regionMapper, false));
+    }
+
+    private <T extends DynamicMapping> T register(final T mapping) {
+        mappings.add(mapping);
+        return mapping;
     }
 
     @Override
@@ -109,7 +114,6 @@ public final class MappingPoolImpl implements MappingPool {
         return "MappingPoolImpl" +
                 ":mappings=" + mappings.size() +
                 "|accessMode=" + accessMode() +
-                "|regionMappingSize=" + regionMappingSize() +
                 "|regionSize=" + regionSize() +
                 "|closed=" + isClosed();
     }

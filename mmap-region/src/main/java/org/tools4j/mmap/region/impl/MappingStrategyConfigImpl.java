@@ -45,8 +45,8 @@ public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCa
 
     public MappingStrategyConfigImpl(final MappingStrategyConfig toCopy) {
         this(toCopy.regionSize(), toCopy.cacheSize(), toCopy.lruCacheSize(), toCopy.deferUnmapping(),
-                toCopy.asyncMapping().map(AsyncMappingConfig::toImmutableAsyncMappingConfig),
-                toCopy.asyncUnmapping().map(AsyncUnmappingConfig::toImmutableAsyncUnmappingConfig));
+                toCopy.asyncMapping().map(AsyncMappingConfig::toImmutableConfig),
+                toCopy.asyncUnmapping().map(AsyncUnmappingConfig::toImmutableConfig));
     }
 
     public MappingStrategyConfigImpl {
@@ -58,7 +58,7 @@ public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCa
     }
 
     @Override
-    public MappingStrategyConfig toImmutableMappingStrategyConfig() {
+    public MappingStrategyConfig toImmutableConfig() {
         return this;
     }
 

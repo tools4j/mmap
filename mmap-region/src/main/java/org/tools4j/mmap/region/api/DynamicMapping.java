@@ -24,32 +24,56 @@
 package org.tools4j.mmap.region.api;
 
 
+import org.tools4j.mmap.region.impl.DynamicMappings;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.util.function.Predicate;
 
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
+import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 
 /**
- * A dynamic mapping is a {@link RegionMapping} whose {@linkplain #position() position} can be changed by
+ * A dynamic mapping is a {@link Mapping} whose {@linkplain #position() position} can be changed by
  * {@link #moveTo(long) moving} to another position in the file. The position is a multiple of the
- * {@link #regionSize() region size} unless this dynamic mapping is also a {@link ElasticMapping} or
- * {@link AdaptiveMapping}.
+ * {@link #positionStepSize() position step size} which is defined by the subclass of by the parameters provided when
+ * constructing the mapping.
  * <p>
  * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
  * through a {@link RegionMapper}.
  * <p>
  * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-public interface DynamicMapping extends RegionMapping {
+public interface DynamicMapping extends Mapping, RegionAware {
     /**
-     * The granularity (or minimum increment) of position passed to {@link #moveTo(long)} method.
-     * It is one for {@link ElasticMapping}, between one and max-length for {@link AdaptiveMapping}, and equal to
-     * {@link #regionSize()} otherwise when only region start positions are valid positions.
-     *
-     * @return the position granularity, typically one or region size
+     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, a value between
+     * zero and (regionSize - 1)
+     * @return the offset from the region start position: {@code position - regionStartPosition}
      */
-    int positionGranularity();
+    int regionOffset();
+
+    /**
+     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
+     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
+     * <p>
+     * If mapped, the region start position is always equal to the
+     * {@linkplain #position() position} minus the {@linkplain #regionOffset() offset}.
+     *
+     * @return the region's start position, equal to the largest region size multiple that is less or equal to the
+     *         current position, or -1 if unavailable
+     */
+    default long regionStartPosition() {
+        return regionMetrics().regionPosition(position());
+    }
+
+    /**
+     * The step size (or minimum increment) of position values passed to the {@link #moveTo(long)} method. For most
+     * dynamic mapping types step size is equal to 1, except for {@link RegionMapping} where it is equal to the region
+     * size.
+     *
+     * @return the step size for position values, typically one unless this is a region mapping
+     */
+    int positionStepSize();
 
     /**
      * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
@@ -60,6 +84,26 @@ public interface DynamicMapping extends RegionMapping {
      * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping
      */
     boolean moveTo(long position);
+
+    /**
+     * Moves the mapping forward or backward by the specified delta in bytes. Delegates to {@link #moveTo(long)} if
+     * current and resulting position are valid. An exception is thrown if no position is currently mapped or if the
+     * resulting position is negative.
+     * <p>
+     * This is equivalent to calling {@code moveTo(position() + delta)}.
+     *
+     * @param delta the position delta relative to the current position
+     * @return true if the mapping is ready for data access, and false otherwise
+     * @throws IllegalStateException if this mapping has no current position
+     * @throws IllegalArgumentException if the provided delta value results in a negative position
+     */
+    default boolean moveBy(final long delta) {
+        final long position = position();
+        validatePositionState(position);
+        validatePositionDelta(position, delta, positionStepSize());
+        return moveTo(position + delta);
+    }
+
 
     /**
      * Moves to the start of the region specified by index, mapping (and possibly unmapping) file region blocks if
@@ -121,11 +165,15 @@ public interface DynamicMapping extends RegionMapping {
      * returned and the mapping is left at the position last tried.
      *
      * @param startPosition     the first position to test
-     * @param positionIncrement the increment to add to position at every step
+     * @param positionIncrement the increment added to position at every step, a multiple of {@link #positionStepSize()}
      * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
      * @return true if a match is found, and false otherwise
      */
-    boolean findLast(long startPosition, long positionIncrement, Predicate<? super DynamicMapping> matcher);
+    default boolean findLast(final long startPosition,
+                             final long positionIncrement,
+                             final Predicate<? super DynamicMapping> matcher) {
+        return DynamicMappings.findLast(this, startPosition, positionIncrement, matcher);
+    }
 
     /**
      * Performs a logarithmic binary search for the last position that still results in a match given the specified
@@ -133,9 +181,13 @@ public interface DynamicMapping extends RegionMapping {
      * false is returned and the mapping is left at the position last tried.
      *
      * @param startPosition     the first position to test
-     * @param positionIncrement the increment to add to position at every step
+     * @param positionIncrement the increment added to position at every step, a multiple of {@link #positionStepSize()}
      * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
      * @return true if a match is found, and false otherwise
      */
-    boolean binarySearchLast(long startPosition, long positionIncrement, Predicate<? super DynamicMapping> matcher);
+    default boolean binarySearchLast(final long startPosition,
+                                     final long positionIncrement,
+                                     final Predicate<? super DynamicMapping> matcher) {
+        return DynamicMappings.binarySearchLast(this, startPosition, positionIncrement, matcher);
+    }
 }

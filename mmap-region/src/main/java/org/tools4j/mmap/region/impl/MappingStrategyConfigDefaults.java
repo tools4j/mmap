@@ -52,7 +52,7 @@ public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
     private final Optional<AsyncUnmappingConfig> asyncUnmappingConfig = Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS);
 
     @Override
-    public MappingStrategyConfig toImmutableMappingStrategyConfig() {
+    public MappingStrategyConfig toImmutableConfig() {
         return new MappingStrategyConfigImpl(this);
     }
 

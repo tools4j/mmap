@@ -40,7 +40,7 @@ public enum AsyncMappingConfigDefaults implements AsyncMappingConfig {
     ASYNC_MAPPING_CONFIG_DEFAULTS;
 
     @Override
-    public AsyncMappingConfig toImmutableAsyncMappingConfig() {
+    public AsyncMappingConfig toImmutableConfig() {
         return new AsyncMappingConfigImpl(this);
     }
 
