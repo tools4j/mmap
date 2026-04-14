@@ -33,7 +33,6 @@ import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 
-import java.util.Arrays;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -95,7 +94,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.baseMapper = requireNonNull(baseMapper);
         this.cachingMapper = cacheFactory.apply(new AheadMapper());
-        this.sharedState = new SharedState(cacheSize);
+        this.sharedState = new SharedState(cacheSize, baseMapper.regionSize());
         this.asyncMapper = startAsyncMapper(baseMapper);
         this.mapAhead = mapAhead;
         this.lastPositionMapped = NULL_POSITION;
@@ -292,26 +291,31 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         static final int OWNERSHIP_ENTRY_LENGTH = 4 * CACHE_LINE_LENGTH;//3* is enough, but better a power of 2
         static final int OWNED_BY_REQUESTER = 0;
         static final int OWNED_BY_MAPPER = 1;
+        static final int REQ_SEQUENCE_OFFSET = 0;
+        static final int REQ_POSITION_OFFSET = 1;
+        static final int MAP_POSITION_OFFSET = 2;
+        static final int MAP_ADDRESS_OFFSET = 3;
+        static final int VALUES_PER_RECORD = 4;
+        static final int SHIFT_PER_RECORD = 2;
         final AtomicBuffer ownershipPadded;
-        final long[] requestSequences;
-        final long[] requestedPositions;
-        final long[] mappedPositions;
-        final long[] mappedAddresses;
+        final long[] recordValues;
         final int indexMask;
+        final int regionSizeShift;
         long requestSequence;
 
-        SharedState(final int aheadCache) {
+        SharedState(final int aheadCache, final int regionSize) {
             validatePowerOfTwo("Ahead cache size", aheadCache);
+            validatePowerOfTwo("Region size", regionSize);
             ownershipPadded = new UnsafeBuffer(allocateDirectAligned(aheadCache * OWNERSHIP_ENTRY_LENGTH, CACHE_LINE_LENGTH));
-            requestSequences = new long[aheadCache];
-            requestedPositions = new long[aheadCache];
-            mappedPositions = new long[aheadCache];
-            mappedAddresses = new long[aheadCache];
+            recordValues = new long[aheadCache * VALUES_PER_RECORD];
             indexMask = aheadCache - 1;
-            Arrays.fill(requestSequences, NULL_SEQUENCE);
-            Arrays.fill(requestedPositions, NULL_POSITION);
-            Arrays.fill(mappedPositions, NULL_POSITION);
-            Arrays.fill(mappedAddresses, NULL_ADDRESS);
+            regionSizeShift = Integer.SIZE - Integer.numberOfLeadingZeros(regionSize - 1);
+            for (int i = 0; i < aheadCache; i++) {
+                recordValues[recordValueIndex(i, REQ_SEQUENCE_OFFSET)] = NULL_SEQUENCE;
+                recordValues[recordValueIndex(i, REQ_POSITION_OFFSET)] = NULL_POSITION;
+                recordValues[recordValueIndex(i, MAP_POSITION_OFFSET)] = NULL_POSITION;
+                recordValues[recordValueIndex(i, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
+            }
         }
 
         int ownershipValueOffset(final int index) {
@@ -331,50 +335,59 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         }
 
         boolean isOwnedByRequester(final int index) {
-            if (requestSequences[index] == 0) {
+            if (recordValues[recordValueIndex(index, REQ_SEQUENCE_OFFSET)] == NULL_SEQUENCE) {
                 return true;
             }
             if (isOwnedByMapper(index)) {
                 return false;
             }
-            requestSequences[index] = 0;
-            requestedPositions[index] = NULL_POSITION;
+            recordValues[recordValueIndex(index, REQ_SEQUENCE_OFFSET)] = NULL_SEQUENCE;
+            recordValues[recordValueIndex(index, REQ_POSITION_OFFSET)] = NULL_POSITION;
             return true;
         }
 
         boolean isMapped(final int index, final long position) {
-            return mappedPositions[index] == position && isOwnedByRequester(index) && mappedPositions[index] == position;
+            final int mappedPosIx = recordValueIndex(index, MAP_POSITION_OFFSET);
+            return recordValues[mappedPosIx] == position && isOwnedByRequester(index) && recordValues[mappedPosIx] == position;
+        }
+
+        private int indexForPosition(final long position) {
+            return (int)(indexMask & (position >>> regionSizeShift));
+        }
+
+        private static int recordValueIndex(final int index, final int offset) {
+            return (index << SHIFT_PER_RECORD) + offset;
         }
 
         long consumeAddressIfMapped(final long position) {
-            final int index = (int)(position & indexMask);
+            final int index = indexForPosition(position);
             if (isMapped(index, position)) {
-                final long addr = mappedAddresses[index];
-                mappedPositions[index] = NULL_POSITION;
-                mappedAddresses[index] = NULL_ADDRESS;
+                final long addr = recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)];
+                recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = NULL_POSITION;
+                recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
                 return addr;
             }
             return ADDRESS_UNAVAILABLE;
         }
 
         boolean requestMapping(final long position) {
-            final int index = (int)(position & indexMask);
-            if (requestedPositions[index] == position) {
+            final int index = indexForPosition(position);
+            if (recordValues[recordValueIndex(index, REQ_POSITION_OFFSET)] == position) {
                 return true;
             }
             if (isOwnedByMapper(index)) {
                 return false;
             }
-            if (mappedPositions[index] == position) {
-                if (mappedAddresses[index] != NULL_ADDRESS) {
+            if (recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] == position) {
+                if (recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] != NULL_ADDRESS) {
                     //already mapped
                     return true;
                 }
                 //map attempted but NULL_ADDRESS returned, try again
-                mappedPositions[index] = NULL_POSITION;
+                recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = NULL_POSITION;
             }
-            requestedPositions[index] = position;
-            requestSequences[index] = ++requestSequence;
+            recordValues[recordValueIndex(index, REQ_POSITION_OFFSET)] = position;
+            recordValues[recordValueIndex(index, REQ_SEQUENCE_OFFSET)] = ++requestSequence;
             assignToMapper(index);
             return true;
         }
@@ -389,12 +402,12 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         }
 
         private int indexOfMinRequestSequence() {
-            final int len = requestSequences.length;
+            final int len = recordValues.length >>> SHIFT_PER_RECORD;
             long minSequence = Long.MAX_VALUE;
             int index = -1;
             for (int i = 0; i < len; i++) {
                 long seq;
-                if (isOwnedByMapper(i) && (seq = requestSequences[i]) < minSequence) {
+                if (isOwnedByMapper(i) && (seq = recordValues[recordValueIndex(i, REQ_SEQUENCE_OFFSET)]) < minSequence) {
                     minSequence = seq;
                     index = i;
                 }
@@ -403,35 +416,36 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         }
 
         private void map(final FileMapper fileMapper, final int regionSize, final int index) {
-            final long req = requestedPositions[index];
-            final long pos = mappedPositions[index];
+            final long req = recordValues[recordValueIndex(index, REQ_POSITION_OFFSET)];
+            final long pos = recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)];
             if (pos != req) {
-                final long addr = mappedAddresses[index];
+                final long addr = recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)];
                 if (addr != NULL_ADDRESS) {
                     assert pos != NULL_POSITION;
                     fileMapper.unmap(pos, addr, regionSize);
-                    mappedPositions[index] = NULL_POSITION;
-                    mappedAddresses[index] = NULL_ADDRESS;
+                    recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = NULL_POSITION;
+                    recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
                 } else {
                     assert pos == NULL_POSITION;
                 }
                 if (req != NULL_POSITION) {
                     final long mappedAddr = fileMapper.map(req, regionSize);
-                    mappedAddresses[index] = Math.max(mappedAddr, NULL_ADDRESS);
-                    mappedPositions[index] = req;
+                    recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] = Math.max(mappedAddr, NULL_ADDRESS);
+                    recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = req;
                 }
             }
             assignToRequester(index);
         }
 
         void unmapAll(final FileMapper fileMapper, final int regionSize) {
-            for (int i = 0; i < requestSequences.length; i++) {
-                final long pos = mappedPositions[i];
-                final long addr = mappedAddresses[i];
-                requestSequences[i] = NULL_SEQUENCE;
-                requestedPositions[i] = NULL_POSITION;
-                mappedPositions[i] = NULL_POSITION;
-                mappedAddresses[i] = NULL_ADDRESS;
+            final int len = recordValues.length >>> SHIFT_PER_RECORD;
+            for (int i = 0; i < len; i++) {
+                final long pos = recordValues[recordValueIndex(i, MAP_POSITION_OFFSET)];
+                final long addr = recordValues[recordValueIndex(i, MAP_ADDRESS_OFFSET)];
+                recordValues[recordValueIndex(i, REQ_SEQUENCE_OFFSET)] = NULL_SEQUENCE;
+                recordValues[recordValueIndex(i, REQ_POSITION_OFFSET)] = NULL_POSITION;
+                recordValues[recordValueIndex(i, MAP_POSITION_OFFSET)] = NULL_POSITION;
+                recordValues[recordValueIndex(i, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
                 if (pos != NULL_POSITION && addr != NULL_ADDRESS) {
                     fileMapper.unmap(pos, addr, regionSize);
                 }

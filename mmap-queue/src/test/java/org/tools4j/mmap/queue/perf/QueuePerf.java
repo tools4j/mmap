@@ -169,20 +169,28 @@ public class QueuePerf {
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 2);
 //        final int cacheSize = 4;
 //        final int regionsToMapAhead = 2;
-//        final int cacheSize = 64;
-//        final int regionsToMapAhead = 32;
-//        final int cacheSize = 128;
-//        final int regionsToMapAhead = 64;
+//        final int aheadMappingCacheSize = 4;
+        final int cacheSize = 8;
+        final int regionsToMapAhead = 4;
+        final int aheadMappingCacheSize = 8;
+//        final int cacheSize = 16;
+//        final int regionsToMapAhead = 8;
+//        final int aheadMappingCacheSize = 16;
 //        final int cacheSize = 32;
 //        final int regionsToMapAhead = 16;
 //        final int aheadMappingCacheSize = 32;
-        final int cacheSize = 64;
-        final int regionsToMapAhead = 32;
-        final int aheadMappingCacheSize = 64;
+//        final int cacheSize = 64;
+//        final int regionsToMapAhead = 32;
+//        final int aheadMappingCacheSize = 64;
+//        final int cacheSize = 256;
+//        final int regionsToMapAhead = 128;
+//        final int aheadMappingCacheSize = 256;
 //        final int cacheSize = 256;
 //        final int regionsToMapAhead = 64;
 //        final int aheadMappingCacheSize = 256;
 //        final int regionsToMapAhead = 0;
+        //final SharingPolicy sharingPolicy = SharingPolicy.PER_THREAD;
+        final SharingPolicy sharingPolicy = SharingPolicy.SHARED;
         final QueueConfig config = QueueConfig.configure()
                 .appenderConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
@@ -190,7 +198,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .mappingRuntimeShared(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )
@@ -202,7 +210,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .mappingRuntimeShared(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )
@@ -212,7 +220,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(SharingPolicy.PER_THREAD)
+                                        .mappingRuntimeShared(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )
@@ -269,16 +277,20 @@ public class QueuePerf {
 //                .maxHeaderFileSize(256 * 1024 * 1024)
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
                 .maxHeaderFileSize(256 * 1024 * 1024)
-                .maxPayloadFileSize(8L * 1024 * 1024 * 1024)
+                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
 //                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
 //                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
                 .toImmutableQueueConfig();
 
+//        final long messagesPerSecond = 3_000_000;
         final long messagesPerSecond = 1_000_000;
+//        final long messagesPerSecond = 500_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
+//        final int messages = 110_000_000;
+//        final int warmup = 10_000_000;
         final int messageLength = 100;
 
         try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
@@ -300,6 +312,7 @@ public class QueuePerf {
             assertTrue(receiver1.join(System.nanoTime() + maxWaitNanos - startTime, TimeUnit.NANOSECONDS));
 
             printConfig(config);
+            sender.printResult();
             receiver0.printHistogram();
             receiver1.printHistogram();
 

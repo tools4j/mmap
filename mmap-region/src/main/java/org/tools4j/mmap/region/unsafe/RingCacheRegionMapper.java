@@ -85,7 +85,7 @@ final class RingCacheRegionMapper implements RegionMapper {
     }
 
     private int cacheIndex(final long position) {
-        return (int) (cacheSizeMask & (position >> regionSizeBits));
+        return (int) (cacheSizeMask & (position >>> regionSizeBits));
     }
 
     @Override

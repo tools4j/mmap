@@ -47,8 +47,11 @@ public class ConfigPrinter {
     }
 
     private static String fileMapperType(final QueueConfig config, final boolean header) {
-        if (header && config.rollHeaderFile() || !header && config.rollPayloadFiles()) return "rolling";
-        if (header && config.expandHeaderFile() || !header && config.expandHeaderFile()) return "expanding";
+        if (header && config.rollHeaderFile() || !header && config.rollPayloadFiles()) {
+            if (header && config.expandHeaderFile() || !header && config.expandPayloadFiles()) return "expanding+rolling";
+            return "rolling";
+        }
+        if (header && config.expandHeaderFile() || !header && config.expandPayloadFiles()) return "expanding";
         return "fixed";
     }
 

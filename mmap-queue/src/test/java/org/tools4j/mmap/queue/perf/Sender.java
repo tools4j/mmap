@@ -39,7 +39,7 @@ public class Sender {
     private static final Logger LOGGER = LoggerFactory.getLogger(Sender.class);
 
     private final Thread thread;
-    private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
+    private final AtomicReference<Object> result = new AtomicReference<>();
 
     public Sender(final byte publisherId,
                   final Supplier<Appender> appenderFactory,
@@ -86,10 +86,11 @@ public class Sender {
             LOGGER.info("{} messages appended in {}s, which is {} messages/s",
                     messages, (float)seconds, (float)(messages/seconds));
             LOGGER.info("completed: {}", Thread.currentThread());
+            result.compareAndSet(null, (float)(messages/seconds));
         });
         thread.setName("sender");
         thread.setDaemon(true);
-        thread.setUncaughtExceptionHandler((t, e) -> uncaughtException.set(e));
+        thread.setUncaughtExceptionHandler((t, e) -> result.set(e));
     }
 
     public void start() {
@@ -98,9 +99,21 @@ public class Sender {
 
     public boolean join(final long maxWaitTime, final TimeUnit timeUnit) throws Throwable {
         thread.join(timeUnit.toMillis(maxWaitTime));
-        if (uncaughtException.get() != null) {
-            throw uncaughtException.get();
+        final Object res = result.get();
+        if (res instanceof Throwable) {
+            throw (Throwable)res;
         }
         return !thread.isAlive();
+    }
+
+    public void printResult() {
+        final Object res = result.get();
+        System.out.println(thread.getName() + ":");
+        if (res instanceof Throwable) {
+            System.out.println("\terror : " + res);
+        } else {
+            System.out.println("\tmsg/s : " + res);
+        }
+        System.out.println();
     }
 }
