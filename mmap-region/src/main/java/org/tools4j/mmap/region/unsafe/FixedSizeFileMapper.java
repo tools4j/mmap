@@ -105,10 +105,10 @@ public class FixedSizeFileMapper implements FileMapper {
 
     private void init() {
         if (rafFile == null) {
-            String action = "open";
+            String action = "check";
             try {
-                action = "create";
-                if (!file.exists()) {
+                if (accessMode != AccessMode.READ_ONLY && !file.exists()) {
+                    action = "create";
                     if (!file.createNewFile()) {
                         if (!file.exists()) {
                             throw new IOException("Could not create new file " + file);
@@ -120,7 +120,7 @@ public class FixedSizeFileMapper implements FileMapper {
                 action = "open";
                 rafFile = new RandomAccessFile(file, accessMode.getRandomAccessMode());
                 fileChannel = rafFile.getChannel();
-                action = "initialize";
+                action = "init";
                 rafFile.setLength(fileSize);
                 fileInitialiser.init(file.getName(), fileChannel);
             } catch (final IOException e) {

@@ -34,6 +34,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionPosition;
 
 public final class RegionMappingImpl implements RegionMapping {
@@ -47,8 +48,9 @@ public final class RegionMappingImpl implements RegionMapping {
 
     @Unsafe
     public RegionMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
+        validateNotClosed(regionMapper);
         this.regionMapper = requireNonNull(regionMapper);
-        this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
+        this.regionMetrics = new RegionMetricsImpl(regionMapper.regionSize());
         this.closeRegionMapperOnClose = closeRegionMapperOnClose;
         this.mappedPosition = NULL_POSITION;
         this.mappedAddress = NULL_ADDRESS;
@@ -78,11 +80,6 @@ public final class RegionMappingImpl implements RegionMapping {
     @Override
     public boolean isMapped() {
         return mappedPosition != NULL_POSITION;
-    }
-
-    @Override
-    public int regionOffset() {
-        return 0;
     }
 
     @Override

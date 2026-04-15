@@ -26,7 +26,7 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.RegionMetrics;
-import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
+import org.tools4j.mmap.region.impl.RegionMetricsImpl;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
@@ -41,7 +41,7 @@ class SyncRegionMapper implements DirectRegionMapper {
     private final RegionMetrics regionMetrics;
 
     public SyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
-        this(fileMapper, new PowerOfTwoRegionMetrics(regionSize));
+        this(fileMapper, new RegionMetricsImpl(regionSize));
     }
 
     public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {

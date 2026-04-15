@@ -30,6 +30,7 @@ import org.tools4j.mmap.region.api.AdaptiveMapping;
 import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.api.ElasticMapping;
 import org.tools4j.mmap.region.api.MappingPool;
+import org.tools4j.mmap.region.api.RegionMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.AdaptiveMappingImpl;
@@ -39,6 +40,8 @@ import org.tools4j.mmap.region.impl.RegionMappingImpl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
 public final class MappingPoolImpl implements MappingPool {
 
@@ -70,17 +73,20 @@ public final class MappingPoolImpl implements MappingPool {
     }
 
     @Override
-    public DynamicMapping acquireDynamicMapping() {
+    public RegionMapping acquireRegionMapping() {
+        validateNotClosed(this);
         return register(new RegionMappingImpl(regionMapper, false));
     }
 
     @Override
     public ElasticMapping acquireElasticMapping() {
+        validateNotClosed(this);
         return register(new ElasticMappingImpl(regionMapper, false));
     }
 
     @Override
     public AdaptiveMapping acquireAdaptiveMapping() {
+        validateNotClosed(this);
         return register(new AdaptiveMappingImpl(regionMapper, false));
     }
 

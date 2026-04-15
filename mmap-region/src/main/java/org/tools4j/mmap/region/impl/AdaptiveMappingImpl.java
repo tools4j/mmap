@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateLength;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
@@ -50,6 +51,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
 
     @Unsafe
     public AdaptiveMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
+        validateNotClosed(regionMapper);
         this.regionMapper = requireNonNull(regionMapper);
         this.closeRegionMapperOnClose = closeRegionMapperOnClose;
         this.mappedRegionPosition = NULL_POSITION;

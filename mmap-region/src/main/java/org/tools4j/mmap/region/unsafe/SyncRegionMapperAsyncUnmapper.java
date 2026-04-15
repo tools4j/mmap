@@ -31,7 +31,7 @@ import org.tools4j.mmap.region.api.AsyncRuntime;
 import org.tools4j.mmap.region.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.PowerOfTwoRegionMetrics;
+import org.tools4j.mmap.region.impl.RegionMetricsImpl;
 
 import java.nio.ByteBuffer;
 
@@ -58,7 +58,7 @@ public final class SyncRegionMapperAsyncUnmapper implements DirectRegionMapper {
                                          final FileMapper fileMapper,
                                          final int regionSize,
                                          final int unmapCacheSize) {
-        this(asyncRuntime, fileMapper, new PowerOfTwoRegionMetrics(regionSize), unmapCacheSize);
+        this(asyncRuntime, fileMapper, new RegionMetricsImpl(regionSize), unmapCacheSize);
     }
 
     public SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,

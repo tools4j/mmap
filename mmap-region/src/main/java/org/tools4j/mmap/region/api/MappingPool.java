@@ -23,14 +23,15 @@
  */
 package org.tools4j.mmap.region.api;
 
+import org.tools4j.mmap.region.impl.Closeable;
+
 /**
- * A pool of mappings of the same region size, where the pool may optimize and reuse the same underlying memory mapped
- * region if mappings are overlapping or reused. All mappings of a pool share the same {@linkplain #accessMode()
- * access mode}.
+ * A pool of mappings that share the same file, {@linkplain #accessMode() access mode} and mapping parameters such as
+ * region size and mapping strategy. The pool optimizes and shares underlying mapped regions and uses reference counting
+ * to release mapped regions only when the last mapping releases it.
  * <p>
- * A mapping is acquired from the pool and is released back to the pool if it is closed. The poll may choose to recycle
- * and reuse closed mappings, hence they should no longer be used after closing. Closing the pool closes all mappings
- * acquired from this pool.
+ * A mapping is acquired from the pool and is released back to the pool when it is closed. Closing the pool also closes
+ * all mappings acquired from this pool.
  * <p>
  * <b>Note:</b> The mapping pool and its mappings are <b>not thread safe</b> and all mappings from a single pool can
  * only be used from a single thread. To access the same data from multiple threads, each thread has to create its own
@@ -38,18 +39,32 @@ package org.tools4j.mmap.region.api;
  * <p>
  * Use one of the static factory methods in {@link Mappings} to create mapping pool instances.
  */
-public interface MappingPool extends RegionAware, AutoCloseable {
+public interface MappingPool extends RegionAware, Closeable {
     /**
      * @return the file access mode used for all mapping from this repository
      */
     AccessMode accessMode();
 
-    DynamicMapping acquireDynamicMapping();
+    /**
+     * Acquires and returns a new {@link RegionMapping}.
+     * @return a new region mapping instance
+     */
+    RegionMapping acquireRegionMapping();
+
+    /**
+     * Acquires and returns a new {@link ElasticMapping}.
+     * @return a new elastic mapping instance
+     */
     ElasticMapping acquireElasticMapping();
+
+    /**
+     * Acquires and returns a new {@link AdaptiveMapping}.
+     * @return a new adaptive mapping instance
+     */
     AdaptiveMapping acquireAdaptiveMapping();
 
     /**
-     * @return true if this mapping repository is closed
+     * @return true if this mapping pool is closed
      */
     boolean isClosed();
 

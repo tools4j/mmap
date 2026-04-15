@@ -130,7 +130,7 @@ abstract class FindAndBinarySearchTest {
                          final long expectedPosition,
                          final boolean count) {
         //given
-        final RegionMetrics regionMetrics = new PowerOfTwoRegionMetrics(regionSize);
+        final RegionMetrics regionMetrics = new RegionMetricsImpl(regionSize);
         final AtomicInteger counter = count ? new AtomicInteger() : null;
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));

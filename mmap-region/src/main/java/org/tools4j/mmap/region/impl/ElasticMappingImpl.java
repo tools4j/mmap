@@ -34,6 +34,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
@@ -50,9 +51,10 @@ public final class ElasticMappingImpl implements ElasticMapping {
 
     @Unsafe
     public ElasticMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
+        validateNotClosed(regionMapper);
         this.regionMapper = requireNonNull(regionMapper);
         this.closeRegionMapperOnClose = closeRegionMapperOnClose;
-        this.regionMetrics = new PowerOfTwoRegionMetrics(regionMapper.regionSize());
+        this.regionMetrics = new RegionMetricsImpl(regionMapper.regionSize());
         this.mappedRegionPosition = NULL_POSITION;
         this.mappedRegionAddress = NULL_ADDRESS;
         this.offset = 0;
