@@ -75,6 +75,10 @@ public class FixedSizeFileMapper implements FileMapper {
         }
     }
 
+    public File file() {
+        return file;
+    }
+
     public long fileSize() {
         return fileSize;
     }
@@ -105,7 +109,7 @@ public class FixedSizeFileMapper implements FileMapper {
 
     private void init() {
         if (rafFile == null) {
-            String action = "check";
+            String action = "access";
             try {
                 if (accessMode != AccessMode.READ_ONLY && !file.exists()) {
                     action = "create";
@@ -120,8 +124,11 @@ public class FixedSizeFileMapper implements FileMapper {
                 action = "open";
                 rafFile = new RandomAccessFile(file, accessMode.getRandomAccessMode());
                 fileChannel = rafFile.getChannel();
-                action = "init";
-                rafFile.setLength(fileSize);
+                if (accessMode != AccessMode.READ_ONLY) {
+                    action = "set length of";
+                    rafFile.setLength(fileSize);
+                }
+                action = "initialize";
                 fileInitialiser.init(file.getName(), fileChannel);
             } catch (final IOException e) {
                 LOGGER.error("Failed to {} file: {}", action, file, e);

@@ -27,7 +27,7 @@ package org.tools4j.mmap.region.api;
 import org.agrona.DirectBuffer;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
-import static org.tools4j.mmap.region.impl.Constraints.validateLength;
+import static org.tools4j.mmap.region.impl.Constraints.validateAdaptiveMappingLength;
 import static org.tools4j.mmap.region.impl.Constraints.validateLimit;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
@@ -139,7 +139,7 @@ public interface AdaptiveMapping extends DynamicMapping {
         if (length == -1) {
             newLength = maxLength();
         } else {
-            validateLength(length, maxLength());
+            validateAdaptiveMappingLength(length, maxLength());
             newLength = length;
         }
         final DirectBuffer buffer = buffer();

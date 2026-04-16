@@ -34,7 +34,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.region.impl.Constraints.validateLength;
+import static org.tools4j.mmap.region.impl.Constraints.validateAdaptiveMappingLength;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validatePosition;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
@@ -121,7 +121,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     @Override
     public boolean moveTo(final long position, final int length) {
         validatePosition(position);
-        validateLength(length, maxLengthAtPosition(position));
+        validateAdaptiveMappingLength(length, maxLengthAtPosition(position));
         return moveToInternal(position, length);
     }
 
@@ -163,7 +163,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
         validatePositionState(position);
         validatePositionDelta(position, delta);
         final long newPosition = position + delta;
-        validateLength(length, maxLengthAtPosition(newPosition));
+        validateAdaptiveMappingLength(length, maxLengthAtPosition(newPosition));
         return moveToInternal(newPosition, length);
     }
 

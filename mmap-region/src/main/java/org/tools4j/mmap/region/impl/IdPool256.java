@@ -49,7 +49,7 @@ public class IdPool256 implements IdPool {
     private final Mapping mapping;
 
     public IdPool256(final File file) {
-        this(file.getPath(), Mappings.fixedSizeMapping(file, FILE_SIZE, AccessMode.READ_WRITE));
+        this(file.getPath(), Mappings.fixedSizeMapping(file, AccessMode.READ_WRITE, 0L, FILE_SIZE));
     }
 
     public IdPool256(final String name, final Mapping mapping) {

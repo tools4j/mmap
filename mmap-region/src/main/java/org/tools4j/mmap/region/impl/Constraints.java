@@ -113,7 +113,13 @@ public enum Constraints {
         }
     }
 
-    public static void validateLength(final int length, final int maxLength) {
+    public static void validateFixedMappingLength(final long offset, final long fileSize) {
+        if (fileSize - offset > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Mapping length exceeds integer limit for offset " + offset +
+                    " and file size " + fileSize);
+        }
+    }
+    public static void validateAdaptiveMappingLength(final int length, final int maxLength) {
         if (length < 0 || length >= maxLength) {
             throw new IllegalArgumentException("Invalid length " + length + " for adaptive mapping with max-length " +
                     maxLength);

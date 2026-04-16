@@ -45,24 +45,31 @@ public interface FileInitialiser {
      */
     void init(String fileName, FileChannel fileChannel) throws IOException;
 
-    static FileInitialiser zeroBytes(final AccessMode mode, final int length) {
+    static FileInitialiser zeroBytes(final AccessMode mode, final long length) {
+        return zeroBytes(mode, 0L, length);
+    }
+
+    static FileInitialiser zeroBytes(final AccessMode mode, final long start, final long end) {
+        assert start >= 0;
+        assert end >= 0;
         switch (mode) {
             case READ_ONLY:
                 return (fileName, fileChannel) -> {
-                    if (fileChannel.size() < length) {
-                        throw new IllegalArgumentException("Invalid file, expected length " + length + " but found " +
-                                fileChannel.size() + ": " + fileName);
+                    final long size;
+                    if (end > 0 && (size = fileChannel.size()) < end) {
+                        throw new IllegalArgumentException("Invalid file, expected file of size at least " + end +
+                                " but found only " + size + ": " + fileName);
                     }
                 };
             case READ_WRITE:
                 return (fileName, fileChannel) -> {
-                    if (fileChannel.size() < length) {
+                    if (end > 0 && fileChannel.size() < end) {
                         final FileLock lock = FileLocks.acquireLock(fileChannel);
-                        final long offset = fileChannel.size();
-                        final long count = length - offset;
                         try {
-                            if (count > 0) { //allow file init once-only
-                                fileChannel.transferFrom(InitialBytes.ZERO, offset, count);
+                            final long position = fileChannel.size();
+                            final long count = end - position;
+                            if (count > 0) {
+                                fileChannel.transferFrom(InitialBytes.ZERO, position, count);
                                 fileChannel.force(true);
                             }
                         } finally {
@@ -72,16 +79,21 @@ public interface FileInitialiser {
                 };
             case READ_WRITE_CLEAR:
                 return (fileName, fileChannel) -> {
-                    final FileLock lock = FileLocks.acquireLock(fileChannel);
-                    try {
-                        fileChannel.transferFrom(InitialBytes.ZERO, 0L, length);
-                        fileChannel.force(true);
-                    } finally {
-                        lock.release();
+                    if (end > 0) {
+                        final FileLock lock = FileLocks.acquireLock(fileChannel);
+                        try {
+                            final long size = fileChannel.size();
+                            final long position = Math.min(start, size);
+                            final long count = end - position;
+                            fileChannel.transferFrom(InitialBytes.ZERO, position, count);
+                            fileChannel.force(true);
+                        } finally {
+                            lock.release();
+                        }
                     }
                 };
             default:
-                throw new IllegalArgumentException("Map mode not supported: " + mode);
+                throw new IllegalArgumentException("Access mode not supported: " + mode);
         }
     }
 }

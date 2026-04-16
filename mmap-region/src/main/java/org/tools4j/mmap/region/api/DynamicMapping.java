@@ -36,8 +36,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 /**
  * A dynamic mapping is a {@link Mapping} whose {@linkplain #position() position} can be changed by
  * {@link #moveTo(long) moving} to another position in the file. The position is a multiple of the
- * {@link #positionStepSize() position step size} which is defined by the subclass of by the parameters provided when
- * constructing the mapping.
+ * {@link #positionStepSize() position step size} which is defined by the dynamic mapping subclass.
  * <p>
  * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
  * through a {@link RegionMapper}.

@@ -33,65 +33,65 @@ import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateFixedMappingLength;
 import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 public class FixedMappingImpl implements FixedMapping {
     private final FileMapper fileMapper;
     private final boolean closeFileMapperOnClose;
-    private final int size;
+    private final int fileSize;
     private final UnsafeBuffer buffer;
     private long mappedPosition;
 
-    public FixedMappingImpl(final FileMapper fileMapper, final int size) {
-        this(fileMapper, true, 0, size);
+    public FixedMappingImpl(final FixedSizeFileMapper fileMapper) {
+        this(fileMapper, 0L);
     }
 
-    public FixedMappingImpl(final FixedSizeFileMapper fileMapper, final boolean closeFileMapperOnClose) {
-        this(fileMapper, closeFileMapperOnClose, 0, fileSize(fileMapper));
+    public FixedMappingImpl(final FixedSizeFileMapper fileMapper, final long offset) {
+        this(fileMapper, offset, mappingLength(offset, fileMapper.fileSize()), true);
+    }
+
+    public FixedMappingImpl(final FileMapper fileMapper, final int length) {
+        this(fileMapper, 0L, length, true);
     }
 
     public FixedMappingImpl(final FileMapper fileMapper,
-                            final boolean closeFileMapperOnClose,
                             final long offset,
-                            final int size) {
+                            final int length,
+                            final boolean closeFileMapperOnClose) {
         requireNonNull(fileMapper);
         validateNonNegative("offset", offset);
-        validateNonNegative("size", offset);
+        validateNonNegative("length", offset);
         this.fileMapper = fileMapper;
         this.closeFileMapperOnClose = closeFileMapperOnClose;
-        this.size = size;
-        this.buffer = new UnsafeBuffer(map(fileMapper, offset, size), size);
+        this.fileSize = length;
+        this.buffer = new UnsafeBuffer(map(fileMapper, offset, length), length);
         this.mappedPosition = offset;
     }
 
-    private static int fileSize(final FixedSizeFileMapper fileMapper) {
-        final long fileSize = fileMapper.fileSize();
-        final int size = (int)fileSize;
-        if (size == fileSize) {
-            return size;
-        }
-        throw new IllegalArgumentException("File size exceeds max allowed mapping size: " +
-                fileSize + " > " + Integer.MAX_VALUE);
+    private static int mappingLength(final long offset, final long fileSize) {
+        validateFixedMappingLength(offset, fileSize);
+        return (int)(fileSize - offset);
     }
 
-    private static long map(final FileMapper fileMapper, final long startPosition, final int regionSize) {
-        final long address = fileMapper.map(startPosition, regionSize);
+    private static long map(final FileMapper fileMapper, final long position, final int length) {
+        final long address = fileMapper.map(position, length);
         if (address != NULL_ADDRESS) {
             return address;
         }
-        throw new IllegalArgumentException("Mapping region failed: fileMapper=" + fileMapper +
-                ", regionSize=" + regionSize);
+        throw new IllegalArgumentException("Fixed-size mapping failed: fileMapper=" + fileMapper +
+                ", length=" + length);
     }
 
     private static void unmap(final FileMapper fileMapper,
-                              final long mappedAddress,
-                              final long mappedPosition,
-                              final int regionSize) {
-        if (mappedAddress != NULL_ADDRESS) {
-            assert mappedPosition != NULL_POSITION;
-            fileMapper.unmap(mappedPosition, mappedAddress, regionSize);
+                              final long position,
+                              final long address,
+                              final int length) {
+        if (address != NULL_ADDRESS) {
+            assert position != NULL_POSITION;
+            fileMapper.unmap(position, address, length);
         } else {
-            assert mappedPosition == NULL_POSITION;
+            assert position == NULL_POSITION;
         }
     }
 
@@ -132,7 +132,7 @@ public class FixedMappingImpl implements FixedMapping {
             mappedPosition = NULL_POSITION;
             final long address = address();
             buffer.wrap(0, 0);
-            unmap(fileMapper, address, position, size);
+            unmap(fileMapper, position, address, fileSize);
             if (closeFileMapperOnClose) {
                 fileMapper.close();
             }
@@ -141,9 +141,9 @@ public class FixedMappingImpl implements FixedMapping {
 
     @Override
     public String toString() {
-        return "FixedRegion:" +
-                "position=" + mappedPosition +
-                "|size=" + size +
+        return "FixedMappingImpl" +
+                ":position=" + mappedPosition +
+                "|size=" + fileSize +
                 "|accessMode=" + accessMode() +
                 "|closed=" + isClosed();
     }

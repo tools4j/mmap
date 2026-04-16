@@ -40,7 +40,11 @@ import org.tools4j.mmap.region.unsafe.RegionMappers;
 import java.io.File;
 
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultInitialMappingPoolSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateFixedMappingLength;
 
+/**
+ * A facade class with static methods to create mappings and mapping pools.
+ */
 public enum Mappings {
     ;
 
@@ -52,15 +56,40 @@ public enum Mappings {
         return NullMapping.INSTANCE;
     }
 
-    public static FixedMapping fixedSizeMapping(final File file, final int size, final AccessMode accessMode) {
-        final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, size);
-        return fixedSizeMapping(new FixedSizeFileMapper(file, size, accessMode, initialiser), true);
+    public static FixedMapping fixedSizeMapping(final File file, final AccessMode accessMode) {
+        return fixedSizeMapping(file, accessMode, 0L);
+    }
+
+    public static FixedMapping fixedSizeMapping(final File file,
+                                                final AccessMode accessMode,
+                                                final long offset) {
+        return fixedSizeMapping(file, accessMode, offset, -1);
+    }
+
+    public static FixedMapping fixedSizeMapping(final File file,
+                                                final AccessMode accessMode,
+                                                final long offset,
+                                                final int length) {
+        final long fileSize = length >= 0 ? offset + length : file.length();
+        validateFixedMappingLength(offset, fileSize);
+        final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, offset, fileSize);
+        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, accessMode, initialiser);
+        return fixedSizeMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
     @Unsafe
-    public static FixedMapping fixedSizeMapping(final FixedSizeFileMapper fileMapper,
+    public static FixedMapping fixedSizeMapping(final FileMapper fileMapper,
+                                                final long offset,
+                                                final int length) {
+        return fixedSizeMapping(fileMapper, offset, length, true);
+    }
+
+    @Unsafe
+    public static FixedMapping fixedSizeMapping(final FileMapper fileMapper,
+                                                final long offset,
+                                                final int length,
                                                 final boolean closeFileMapperOnClose) {
-        return new FixedMappingImpl(fileMapper, closeFileMapperOnClose);
+        return new FixedMappingImpl(fileMapper, offset, length, closeFileMapperOnClose);
     }
 
     public static RegionMapping regionMapping(final File file, final AccessMode accessMode) {

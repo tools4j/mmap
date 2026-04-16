@@ -26,12 +26,12 @@ package org.tools4j.mmap.region.api;
 import org.tools4j.mmap.region.impl.Closeable;
 
 /**
- * A pool of mappings that share the same file, {@linkplain #accessMode() access mode} and mapping parameters such as
- * region size and mapping strategy. The pool optimizes and shares underlying mapped regions and uses reference counting
- * to release mapped regions only when the last mapping releases it.
+ * A mapping pool provides mappings that share the same file, {@linkplain #accessMode() access mode} and mapping
+ * parameters such as region size and mapping strategy. The pool optimizes and shares underlying mapped regions and uses
+ * reference counting to release mapped regions only when the last mapping releases it.
  * <p>
- * A mapping is acquired from the pool and is released back to the pool when it is closed. Closing the pool also closes
- * all mappings acquired from this pool.
+ * A mapping is acquired from the pool via one of the acquire methods, and it is released back to the pool when it is
+ * closed. Closing the pool also closes all mappings acquired from this pool.
  * <p>
  * <b>Note:</b> The mapping pool and its mappings are <b>not thread safe</b> and all mappings from a single pool can
  * only be used from a single thread. To access the same data from multiple threads, each thread has to create its own
