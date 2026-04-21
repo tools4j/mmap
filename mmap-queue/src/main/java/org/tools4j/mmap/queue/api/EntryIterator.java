@@ -23,10 +23,12 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.region.impl.Closeable;
+
 /**
  * API for sequential read access of entries from a {@link Queue}.
  */
-public interface EntryIterator extends AutoCloseable {
+public interface EntryIterator extends Closeable {
     /**
      * Returns the reading context to iterate over the entries of the queue starting from the specified entry index.
      * <p>

@@ -23,10 +23,12 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.region.impl.Closeable;
+
 /**
  * Flyweight return by {@link EntryReader} with access to entry data and index.
  */
-public interface ReadingContext extends Entry, AutoCloseable {
+public interface ReadingContext extends Entry, Closeable {
     /**
      * @return non-negative index if entry is available, and {@link Index#NULL} otherwise
      */

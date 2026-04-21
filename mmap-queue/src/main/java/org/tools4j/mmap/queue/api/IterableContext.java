@@ -23,12 +23,14 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.region.impl.Closeable;
+
 import java.util.Iterator;
 
 /**
  * Flyweight returned by {@link EntryIterator} to iterate over queue entries.
  */
-public interface IterableContext extends Iterable<Entry>, AutoCloseable {
+public interface IterableContext extends Iterable<Entry>, Closeable {
     /**
      * @return the index of the first entry returned by iterators, or {@link Index#NULL} if unavailable.
      */

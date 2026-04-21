@@ -24,9 +24,14 @@
 package org.tools4j.mmap.region.api;
 
 
+import org.tools4j.mmap.region.unsafe.RegionMapper;
+
 /**
  * A region mapping is a {@link DynamicMapping} that always maps a whole region. As a consequence, move operations are
  * only permitted to positions that are multiples the {@linkplain #regionSize() region size}.
+ * <p>
+ * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
+ * {@link RegionMapper}.
  * <p>
  * The {@link Mapping} documentation provides an overview of the different mapping types.
  */

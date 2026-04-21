@@ -120,37 +120,40 @@ import static org.tools4j.mmap.queue.util.ConfigPrinter.printConfig;
 
 
 
-         QueueConfig:
-             regionSize            : 64K
-             cacheSize             : 256
-             regionsToMapAhead     : 64
-             aheadMappingCacheSize : 256
-             maxHeaderFileSize     : 1G
-             maxPayloadFileSize    : 1G
+        QueueConfig:
+            regionSize            : 64K
+            cacheSize             : 16
+            regionsToMapAhead     : 8
+            aheadMappingCacheSize : 16
+            maxHeaderFileSize     : 256M rolling
+            maxPayloadFileSize    : 2G rolling
 
-         receiver-0: Percentiles (micros)
-             min    : 0.041
-             50%    : 0.333
-             90%    : 0.416
-             99%    : 1.916
-             99.9%  : 6.875
-             99.99% : 107.519
-             99.999%: 236.927
-             max    : 273.407
-             count  : 10000000
+        sender:
+            msg/s : 999996.1
 
-         receiver-1: Percentiles (micros)
-             min    : 0.041
-             50%    : 0.333
-             90%    : 0.416
-             99%    : 1.916
-             99.9%  : 7.543
-             99.99% : 47.263
-             99.999%: 194.175
-             max    : 230.399
-             count  : 10000000
+        receiver-0: Percentiles (micros)
+            min    : 0.0
+            50%    : 0.208
+            90%    : 0.375
+            99%    : 1.791
+            99.9%  : 8.423
+            99.99% : 32.095
+            99.999%: 156.671
+            max    : 225.791
+            count  : 10000000
 
-             statistics=(async=17457|sync=4|busy=1100040)
+        receiver-1: Percentiles (micros)
+            min    : 0.0
+            50%    : 0.166
+            90%    : 0.375
+            99%    : 1.75
+            99.9%  : 8.423
+            99.99% : 35.679
+            99.999%: 149.759
+            max    : 227.967
+            count  : 10000000
+
+        statistics=(async=1342|sync=15|busy=0)
  * </pre>
  */
 public class QueuePerf {
@@ -166,16 +169,20 @@ public class QueuePerf {
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 32);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 16);
         final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 4);
+//        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 1);
 //        final int regionSize = (int) (Constants.REGION_SIZE_GRANULARITY * 2);
+//        final int cacheSize = 1;
+//        final int regionsToMapAhead = 1;
+//        final int aheadMappingCacheSize = 1;
 //        final int cacheSize = 4;
 //        final int regionsToMapAhead = 2;
 //        final int aheadMappingCacheSize = 4;
-        final int cacheSize = 8;
-        final int regionsToMapAhead = 4;
-        final int aheadMappingCacheSize = 8;
-//        final int cacheSize = 16;
-//        final int regionsToMapAhead = 8;
-//        final int aheadMappingCacheSize = 16;
+//        final int cacheSize = 8;
+//        final int regionsToMapAhead = 4;
+//        final int aheadMappingCacheSize = 8;
+        final int cacheSize = 16;
+        final int regionsToMapAhead = 8;
+        final int aheadMappingCacheSize = 16;
 //        final int cacheSize = 32;
 //        final int regionsToMapAhead = 16;
 //        final int aheadMappingCacheSize = 32;
@@ -267,7 +274,7 @@ public class QueuePerf {
                 .rollHeaderFile(true)
                 .rollPayloadFiles(true)
                 .expandHeaderFile(false)
-                .expandPayloadFiles(false)
+                .expandPayloadFiles(true)
 //                .maxHeaderFileSize(64 * 1024 * 1024)
 //                .maxPayloadFileSize(256 * 1024 * 1024)
 //                .maxHeaderFileSize(256L * regionSize)
@@ -278,15 +285,21 @@ public class QueuePerf {
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
                 .maxHeaderFileSize(256 * 1024 * 1024)
                 .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
+//                .maxHeaderFileSize(regionSize)
+//                .maxPayloadFileSize(regionSize)
 //                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
 //                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
+
+//                .reset()
                 .toImmutableQueueConfig();
 
 //        final long messagesPerSecond = 3_000_000;
         final long messagesPerSecond = 1_000_000;
 //        final long messagesPerSecond = 500_000;
+//        final int messages = 1_100_000;
+//        final int warmup = 100_000;
         final int messages = 11_000_000;
         final int warmup = 1_000_000;
 //        final int messages = 110_000_000;

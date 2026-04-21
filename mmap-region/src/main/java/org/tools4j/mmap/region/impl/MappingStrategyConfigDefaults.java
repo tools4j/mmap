@@ -42,6 +42,7 @@ import static org.tools4j.mmap.region.impl.AsyncUnmappingConfigDefaults.ASYNC_UN
 /**
  * Configuration taking values from {@link MappingConfigurations}.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
     MAPPING_STRATEGY_CONFIG_DEFAULTS,
     MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS,

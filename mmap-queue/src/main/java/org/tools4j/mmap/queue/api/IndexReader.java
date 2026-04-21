@@ -23,10 +23,12 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.region.impl.Closeable;
+
 /**
  * API for reading and checking entry indices of a {@link Queue}.
  */
-public interface IndexReader extends AutoCloseable {
+public interface IndexReader extends Closeable {
 
     /**
      * Returns the index of the first entry in the queue, or {@link Index#NULL} if the queue is empty.  Note that

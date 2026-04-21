@@ -25,11 +25,12 @@ package org.tools4j.mmap.region.api;
 
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.region.impl.AsyncRuntimeImpl;
+import org.tools4j.mmap.region.impl.Closeable;
 
 /**
  * Async runtime to perform recurring operations in the background, such as async mapping and unmapping operations.
  */
-public interface AsyncRuntime extends AutoCloseable {
+public interface AsyncRuntime extends Closeable {
     /**
      * A recurring executable invoked repeatedly until it is removed from the runtime.
      */
@@ -89,5 +90,14 @@ public interface AsyncRuntime extends AutoCloseable {
     @Override
     default void close() {
         stop(true);
+    }
+
+    /**
+     * Returns true if this runtime is not running.
+     * @return false if running and true otherwise
+     * @see #isRunning()
+     */
+    default boolean isClosed() {
+        return !isRunning();
     }
 }

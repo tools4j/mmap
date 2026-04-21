@@ -30,30 +30,25 @@ import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
 @Unsafe
 public class ReadOnlyFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
 
     private final File file;
-    private final FileInitialiser fileInitialiser;
-
-    private RandomAccessFile rafFile = null;
-    private FileChannel fileChannel = null;
-    private long fileSize;
-    private boolean closed;
+    private final FileChannelProvider fileChannelProvider;
+    private long fileSizeCache;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
-        this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
+        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser);
     }
 
     public ReadOnlyFileMapper(final String fileName, final FileInitialiser fileInitialiser) {
@@ -67,19 +62,19 @@ public class ReadOnlyFileMapper implements FileMapper {
 
     @Override
     public long map(long position, int length) {
-        if (!init()) {
+        assert position >= 0;
+        assert length >= 0;
+        validateNotClosed(this);
+        final FileChannel channel = fileChannelProvider.get();
+        if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
         }
-        if (fileChannel == null || !fileChannel.isOpen()) {
-            return NULL_ADDRESS;
-        }
-
         try {
             final long end = position + length;
-            if (end > fileSize && end > (fileSize = fileChannel.size())) {
+            if (end > fileSizeCache && end > (fileSizeCache = channel.size())) {
                 return NULL_ADDRESS;
             }
-            return FileChannels.map(fileChannel, AccessMode.READ_ONLY.getMapMode(), position, length);
+            return FileChannels.map(channel, AccessMode.READ_ONLY.getMapMode(), position, length);
         } catch (final IOException e) {
             LOGGER.error("Failed to map file {}", file, e);
         }
@@ -88,72 +83,24 @@ public class ReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void unmap(long position, long address, int length) {
+        validateNotClosed(this);
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        FileChannels.unmap(fileChannel, address, length);
-    }
-
-    private boolean init() {
-        if (rafFile == null) {
-            if (file.length() == 0) {
-                return false;
-            }
-
-            final RandomAccessFile raf;
-            try {
-                raf = new RandomAccessFile(file, AccessMode.READ_ONLY.getRandomAccessMode());
-            } catch (final FileNotFoundException e) {
-                LOGGER.error("Failed to create new random access file: {}", file, e);
-                return false;
-            }
-
-            rafFile = Objects.requireNonNull(raf);
-            fileChannel = raf.getChannel();
-            try {
-                fileInitialiser.init(file.getName(), fileChannel);
-            } catch (final IOException e) {
-                LOGGER.error("Failed to initialise fileChannel for: {}", file, e);
-                try {
-                    this.fileChannel.close();
-                } catch (IOException ex) {
-                    LOGGER.error("Failed to close fileChannel after initialisation failure: {}", file, e);
-                }
-                try {
-                    this.rafFile.close();
-                } catch (IOException ex) {
-                    LOGGER.error("Failed to close RAF file after initialisation failure: {}", file, e);
-                }
-                this.rafFile = null;
-                this.fileChannel = null;
-                return false;
-            }
+        final FileChannel channel = fileChannelProvider.getOrNull();
+        if (channel != null) {
+            FileChannels.unmap(channel, address, length);
         }
-        return true;
     }
 
     @Override
     public boolean isClosed() {
-        return closed;
+        return fileChannelProvider.isClosed();
     }
 
     @Override
     public void close() {
-        if (!closed) {
-            try {
-                if (fileChannel != null) {
-                    fileChannel.close();
-                }
-                if (rafFile != null) {
-                    rafFile.close();
-                }
-            } catch (final IOException e) {
-                LOGGER.warn("Closing caused unexpected exception: {}", this, e);
-            } finally {
-                fileChannel = null;
-                rafFile = null;
-                closed = true;
-                LOGGER.info("Closed: {}", this);
-            }
+        if (fileChannelProvider.closeIfNeeded()) {
+            LOGGER.info("Closed: {}", this);
         }
     }
 

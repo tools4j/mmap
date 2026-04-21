@@ -347,5 +347,4 @@ public class AtomicArray<E> {
             return false;
         };
     }
-
 }

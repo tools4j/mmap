@@ -24,6 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.agrona.DirectBuffer;
+import org.tools4j.mmap.region.impl.Closeable;
 
 import java.nio.ByteBuffer;
 
@@ -32,7 +33,7 @@ import java.nio.ByteBuffer;
  * {@link #append(DirectBuffer, int, int)}. Alternatively a new entry can be coded directly into the
  * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending(int)}.
  */
-public interface Appender extends AutoCloseable {
+public interface Appender extends Closeable {
     /**
      * Appends an entry copying the data provided in the given array.
      *

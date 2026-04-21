@@ -28,13 +28,14 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
+import org.tools4j.mmap.region.impl.Closeable;
 
 import java.io.File;
 
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
-public interface Queue extends AutoCloseable {
+public interface Queue extends Closeable {
     /**
      * Creates an appender.
      *

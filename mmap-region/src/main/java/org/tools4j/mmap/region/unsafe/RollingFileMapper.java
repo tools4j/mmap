@@ -228,7 +228,7 @@ public class RollingFileMapper implements FileMapper {
         final int fileIndex = positionToFileIndex(position);
         final long positionWithinFile = position & positionInFileMask;
         final FileMapper mapperForIndex = fileMappers.get(fileIndex);
-        if (mapperForIndex != null) {
+        if (mapperForIndex != null && !mapperForIndex.isClosed()) {
             mapperForIndex.unmap(positionWithinFile, address, length);
 
             //If closeFile == true, we should close the file when

@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.region.unsafe;
 
-import org.agrona.LangUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
@@ -31,8 +30,6 @@ import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 
 import static java.util.Objects.requireNonNull;
@@ -45,10 +42,8 @@ public class FixedSizeFileMapper implements FileMapper {
     private final File file;
     private final long fileSize;
     private final AccessMode accessMode;
-    private final FileInitialiser fileInitialiser;
+    private final FileChannelProvider fileChannelProvider;
     private final PreTouchHelper preTouchHelper;
-    private RandomAccessFile rafFile;
-    private FileChannel fileChannel;
 
     public FixedSizeFileMapper(final File file, 
                                final long fileSize, 
@@ -58,7 +53,7 @@ public class FixedSizeFileMapper implements FileMapper {
         this.fileSize = fileSize;
         this.accessMode = requireNonNull(accessMode);
         this.preTouchHelper = new PreTouchHelper(accessMode);
-        this.fileInitialiser = requireNonNull(fileInitialiser);
+        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser, fileSize);
         init();
     }
 
@@ -90,11 +85,13 @@ public class FixedSizeFileMapper implements FileMapper {
 
     @Override
     public long map(final long position, final int length) {
+        assert position >= 0;
+        assert length >= 0;
         checkNotClosed();
-        if (position < 0 || length < 0 || position + length > fileSize) {
+        if (position + length > fileSize) {
             return NULL_ADDRESS;
         }
-        final long address = FileChannels.map(fileChannel, accessMode.getMapMode(), position, length);
+        final long address = FileChannels.map(fileChannelProvider.get(), accessMode.getMapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
     }
@@ -104,69 +101,27 @@ public class FixedSizeFileMapper implements FileMapper {
         checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        FileChannels.unmap(fileChannel, address, length);
+        final FileChannel channel = fileChannelProvider.getOrNull();
+        if (channel != null) {
+            FileChannels.unmap(channel, address, length);
+        }
     }
 
     private void init() {
-        if (rafFile == null) {
-            String action = "access";
-            try {
-                if (accessMode != AccessMode.READ_ONLY && !file.exists()) {
-                    action = "create";
-                    if (!file.createNewFile()) {
-                        if (!file.exists()) {
-                            throw new IOException("Could not create new file " + file);
-                        }
-                    } else {
-                        LOGGER.info("Created new file: {}", file);
-                    }
-                }
-                action = "open";
-                rafFile = new RandomAccessFile(file, accessMode.getRandomAccessMode());
-                fileChannel = rafFile.getChannel();
-                if (accessMode != AccessMode.READ_ONLY) {
-                    action = "set length of";
-                    rafFile.setLength(fileSize);
-                }
-                action = "initialize";
-                fileInitialiser.init(file.getName(), fileChannel);
-            } catch (final IOException e) {
-                LOGGER.error("Failed to {} file: {}", action, file, e);
-                close(false);
-                LangUtil.rethrowUnchecked(e);
-            }
+        final FileChannel channel = fileChannelProvider.get();
+        if (channel == null) {
+            LOGGER.error("Failed to open file channel for file {}", file);
         }
     }
 
     public boolean isClosed() {
-        return fileChannel == null;
+        return fileChannelProvider.isClosed();
     }
 
     @Override
     public void close() {
-        close(true);
-    }
-
-    private void close(final boolean log) {
-        boolean closed = false;
-        try {
-            if (fileChannel != null) {
-                closed = true;
-                fileChannel.close();
-            }
-            if (rafFile != null) {
-                closed = true;
-                rafFile.close();
-            }
-        } catch (final IOException e) {
-            LOGGER.warn("Closing caused unexpected exception: {}", this, e);
-        } finally {
-            fileChannel = null;
-            rafFile = null;
-            preTouchHelper.reset();
-            if (log && closed) {
-                LOGGER.info("Closed: {}", this);
-            }
+        if (fileChannelProvider.closeIfNeeded()) {
+            LOGGER.info("Closed: {}", this);
         }
     }
 

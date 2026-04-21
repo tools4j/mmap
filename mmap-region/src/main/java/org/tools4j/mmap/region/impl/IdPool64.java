@@ -33,6 +33,7 @@ import org.tools4j.mmap.region.api.Mappings;
 import java.io.File;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
 /**
  * A pool of 64 IDs based on a memory-mapped file.
@@ -64,7 +65,7 @@ public class IdPool64 implements IdPool {
 
     @Override
     public int acquire() {
-        ensureNotClosed();
+        validateNotClosed(this);
         final AtomicBuffer buf = mapping.buffer();
 
         long idBitSet;
@@ -83,7 +84,7 @@ public class IdPool64 implements IdPool {
 
     @Override
     public boolean release(final int id) {
-        ensureNotClosed();
+        validateNotClosed(this);
         if (id < 0 || id >= MAX_IDS) {
             throw new IllegalArgumentException("Invalid ID: " + id);
         }
@@ -109,12 +110,6 @@ public class IdPool64 implements IdPool {
             return 0;
         }
         return Long.bitCount(mapping.buffer().getLongVolatile(0));
-    }
-
-    private void ensureNotClosed() {
-        if (isClosed()) {
-            throw new IllegalStateException("ID pool is closed: " + name);
-        }
     }
 
     @Override

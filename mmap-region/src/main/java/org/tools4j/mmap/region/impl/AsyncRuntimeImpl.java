@@ -83,6 +83,9 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
     @Override
     public void register(final Recurring recurring) {
         requireNonNull(recurring);
+        if (stop.get() != null) {
+            throw new IllegalArgumentException("Async runtime has already been stopped or is in the process of stopping");
+        }
         Recurring[] current, modified;
         do {
             current = executables.get();

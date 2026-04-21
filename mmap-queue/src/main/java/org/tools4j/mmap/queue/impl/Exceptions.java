@@ -23,18 +23,25 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static org.tools4j.mmap.queue.impl.Headers.MAX_PAYLOAD_POSITION;
 
 enum Exceptions {
     ;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Exceptions.class);
 
     static IllegalArgumentException invalidIndexException(final String name, final long index) {
         return new IllegalArgumentException("Invalid index for " + name + ": " + index);
     }
 
     static IllegalStateException payloadPositionExceedsMaxException(final AppenderImpl appender, final long position) {
-        throw new IllegalStateException("Moving " + appender.appenderName() + ".payload to position " + position +
-                " exceeds max allowed position " + MAX_PAYLOAD_POSITION);
+        final String msg = "Moving " + appender.appenderName() + ".payload to position " + position +
+                " exceeds max allowed position " + MAX_PAYLOAD_POSITION;
+        LOGGER.error(msg);
+        throw new IllegalStateException(msg);
     }
 
     static IllegalStateException headerMoveException(final AppenderImpl appender, final long position) {
@@ -58,6 +65,8 @@ enum Exceptions {
     }
 
     private static IllegalStateException mappingMoveException(final String name, final long position) {
-        throw new IllegalStateException("Moving " + name + " mapping to position " + position + " failed");
+        final String msg = "Moving " + name + " mapping to position " + position + " failed";
+        LOGGER.error(msg);
+        throw new IllegalStateException(msg);
     }
 }

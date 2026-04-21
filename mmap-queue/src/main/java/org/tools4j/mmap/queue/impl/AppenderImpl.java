@@ -170,6 +170,7 @@ final class AppenderImpl implements Appender {
                 throw headerMoveException(this, Headers.headerPositionForIndex(index));
             }
         }
+
         lastOwnHeader = headerValue;
         lastOwnPayloadLength = payloadLength;
         return index;

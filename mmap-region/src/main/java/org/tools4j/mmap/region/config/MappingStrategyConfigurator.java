@@ -23,11 +23,27 @@
  */
 package org.tools4j.mmap.region.config;
 
+import org.tools4j.mmap.region.api.DynamicMapping;
 import org.tools4j.mmap.region.impl.MappingStrategyConfiguratorImpl;
 
 import java.util.function.Consumer;
 
+/**
+ * Configurator to build a {@link MappingStrategyConfig} used to parameterize the mapping operations for
+ * {@link DynamicMapping dynamic mappings}.
+ */
 public interface MappingStrategyConfigurator extends MappingStrategyConfig {
+    /** @return the size of the region mapped into memory when an actual mapping operation occurs */
+    /**
+     * Sets the size of the region mapped into memory when an actual mapping operation occurs. Region sizes must be a
+     * power of two and a multiple of the OS dependant
+     * {@linkplain org.tools4j.mmap.region.impl.Constants#REGION_SIZE_GRANULARITY page size}.
+     * Typical OS page sizes are 4K (x86, ARM), 16K (Mac M1, ARM64) or 64K, and typical region sizes are between 4K
+     * and 4M.
+     *
+     * @param regionSize the region size in bytes
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator regionSize(int regionSize);
     MappingStrategyConfigurator cacheSize(int cacheSize);
     MappingStrategyConfigurator lruCacheSize(int cacheSize);

@@ -30,9 +30,7 @@ import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,18 +44,15 @@ public class ExpandableSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
     private final File file;
     private final long maxSize;
-    private final FileInitialiser fileInitialiser;
+    private final FileChannelProvider fileChannelProvider;
     private final PreTouchHelper preTouchHelper;
     private final AtomicLong fileLengthCache = new AtomicLong();
     private final AtomicBoolean fileSizeExtensionLatch = new AtomicBoolean();
-    private RandomAccessFile rafFile = null;
-    private FileChannel fileChannel = null;
-    private boolean closed;
 
     public ExpandableSizeFileMapper(final File file, final long maxSize, final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
         this.maxSize = maxSize;
-        this.fileInitialiser = Objects.requireNonNull(fileInitialiser);
+        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser);
         this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
     }
 
@@ -67,68 +62,21 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     @Override
-    public long map(long position, int length) {
+    public long map(final long position, final int length) {
+        assert position >= 0;
+        assert length >= 0;
         checkNotClosed();
-        if (!init() || position < 0 || length < 0 || position + length > maxSize) {
+        if (position + length > maxSize) {
             return NULL_ADDRESS;
         }
-        ensureFileLength(position + length);
-        final long address = FileChannels.map(fileChannel, AccessMode.READ_WRITE.getMapMode(), position, length);
+        final FileChannel channel = fileChannelProvider.get();
+        if (channel == null || !channel.isOpen()) {
+            return NULL_ADDRESS;
+        }
+        ensureFileLength(channel, position + length);
+        final long address = FileChannels.map(channel, AccessMode.READ_WRITE.getMapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
-    }
-
-    /**
-     * Initialisation is expected to be performed in region-mapper thread.
-     * @return true if already initialised or the initialisation is succeeded
-     */
-    boolean init() {
-        if (rafFile == null) {
-            if (!file.exists()) {
-                try {
-                    if (!file.createNewFile()) {
-                        if (!file.exists()) {
-                            LOGGER.error("Could not create new file {}", file);
-                            return false;
-                        }
-                    } else {
-                        LOGGER.info("Created new file {}", file);
-                    }
-                } catch (IOException e) {
-                    LOGGER.error("Failed to create new file " + file, e);
-                    return false;
-                }
-            }
-            final RandomAccessFile raf;
-            try {
-                raf = new RandomAccessFile(file, AccessMode.READ_WRITE.getRandomAccessMode());
-            } catch (FileNotFoundException e) {
-                LOGGER.error("Failed to create new random access file " + file, e);
-                return false;
-            }
-
-            rafFile = Objects.requireNonNull(raf);
-            fileChannel = raf.getChannel();
-            try {
-                fileInitialiser.init(file.getName(), fileChannel);
-            } catch (IOException e) {
-                LOGGER.error("Failed to initialise fileChannel for " + file, e);
-                try {
-                    this.fileChannel.close();
-                } catch (IOException ex) {
-                    LOGGER.error("Failed to close fileChannel after initialisation failure: " + file, e);
-                }
-                try {
-                    this.rafFile.close();
-                } catch (IOException ex) {
-                    LOGGER.error("Failed to close RAF file after initialisation failure: " + file, e);
-                }
-                this.rafFile = null;
-                this.fileChannel = null;
-                return false;
-            }
-        }
-        return true;
     }
 
     @Override
@@ -136,10 +84,13 @@ public class ExpandableSizeFileMapper implements FileMapper {
         checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        FileChannels.unmap(fileChannel, address, length);
+        final FileChannel channel = fileChannelProvider.getOrNull();
+        if (channel != null) {
+            FileChannels.unmap(channel, address, length);
+        }
     }
 
-    void ensureFileLength(final long minLength) {
+    void ensureFileLength(final FileChannel channel, final long minLength) {
         long cachedFileLength = fileLengthCache.get();
         if (minLength <= cachedFileLength) {
             return;
@@ -148,12 +99,12 @@ public class ExpandableSizeFileMapper implements FileMapper {
             throw new IllegalStateException("Exceeded max file size " + maxSize + " for file " + file);
         }
         do {
-            final long fileLength = fileLength();
+            final long fileLength = fileLength(channel);
             if (fileLength > cachedFileLength) {
                 cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
             }
             if (cachedFileLength < minLength) {
-                final long extendedLength = tryExtendFile(fileLength, minLength);
+                final long extendedLength = tryExtendFile(channel, fileLength, minLength);
                 if (extendedLength > cachedFileLength) {
                     cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
                 }
@@ -161,15 +112,18 @@ public class ExpandableSizeFileMapper implements FileMapper {
         } while (cachedFileLength < minLength);
     }
 
-    private long tryExtendFile(final long fileLength, final long minLength) {
+    private long tryExtendFile(final FileChannel channel, final long fileLength, final long minLength) {
         if (!fileSizeExtensionLatch.compareAndSet(false, true)) {
             return fileLength;
         }
+        final FileChannel fileChannel = fileChannelProvider.getOrNull();
+        if (fileChannel == null) {
+            return fileLength;
+        }
         try {
-            final long newestFileLength = rafFile.length();
+            final long newestFileLength = channel.size();
             if (newestFileLength < minLength) {
-                rafFile.setLength(minLength);
-                return minLength;
+                return fileChannelProvider.setSize(minLength) ? minLength : channel.size();
             } else {
                 return newestFileLength;
             }
@@ -181,11 +135,11 @@ public class ExpandableSizeFileMapper implements FileMapper {
         }
     }
 
-    private long fileLength() {
+    private long fileLength(final FileChannel channel) {
         try {
-            return rafFile.length();
+            return channel.size();
         } catch (final IOException e) {
-            throw new IllegalStateException("Reading the length of file " + fileChannel + " failed, e=" + e, e);
+            throw new IllegalStateException("Reading the length of file " + file + " failed, e=" + e, e);
         }
     }
 
@@ -197,30 +151,14 @@ public class ExpandableSizeFileMapper implements FileMapper {
 
     @Override
     public boolean isClosed() {
-        return closed;
+        return fileChannelProvider.isClosed();
     }
 
     @Override
     public void close() {
-        if (!closed) {
-            try {
-                if (fileChannel != null) {
-                    closed = true;
-                    fileChannel.close();
-                }
-                if (rafFile != null) {
-                    closed = true;
-                    rafFile.close();
-                }
-            } catch (final IOException e) {
-                LOGGER.warn("Closing expandable-size file mapper caused unexpected exception: file={}", file, e);
-            } finally {
-                fileChannel = null;
-                rafFile = null;
-                closed = true;
-                preTouchHelper.reset();
-                LOGGER.info("Closed: {}", this);
-            }
+        if (fileChannelProvider.closeIfNeeded()) {
+            preTouchHelper.reset();
+            LOGGER.info("Closed: {}", this);
         }
     }
 

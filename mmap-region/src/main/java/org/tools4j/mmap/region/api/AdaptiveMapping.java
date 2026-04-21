@@ -44,7 +44,7 @@ import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
  * position from the underlying file. Move operations preserve the existing mapping length if possible, unless a new
  * length is specified at the same time.
  * <p>
- * Moving the region to a new position triggers mapping and unmapping operations if necessary which are performed
+ * Moving the mapping to a new position triggers mapping and unmapping operations if necessary which are performed
  * through a {@link RegionMapper}.
  * <p>
  * The {@link Mapping} documentation provides an overview of the different mapping types.

@@ -98,11 +98,11 @@ enum QueueMappingConfigs {
         };
     }
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
-        return headerMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(), true);
+        return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(), true);
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {
-        return headerMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.closePayloadFiles());
+        return payloadMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.closePayloadFiles());
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig,

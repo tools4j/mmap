@@ -26,7 +26,7 @@ package org.tools4j.mmap.region.impl;
 /**
  * A pool of IDs that can be acquired and released atomically.
  */
-public interface IdPool extends AutoCloseable {
+public interface IdPool extends Closeable {
     /**
      * Acquire a new ID
      * @return the acquired ID

@@ -48,7 +48,7 @@ public interface MappingConfig {
     /** @return the mapping strategy to use */
     MappingStrategyConfig mappingStrategy();
 
-    /** @return an immutable version of this mapping config, for instance if this is a {@link MappingConfigurator}*/
+    /** @return an immutable version of this mapping config, for instance useful if this is a {@link MappingConfigurator}*/
     MappingConfig toImmutableConfig();
 
     /**

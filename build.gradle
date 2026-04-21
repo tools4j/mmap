@@ -18,11 +18,12 @@ defaultTasks 'clean', 'build'
 def projGroup = 'org.tools4j'
 def projVersion = file('version.txt').text.trim()
 
-def agronaVersion = '2.0.1'
-def slf4jVersion = '2.0.16'
-def junitVersion = '5.11.4'
-def mockitoVersion = '5.15.2'
-def assertjVersion = '3.27.3'
+def agronaVersion = '2.4.0'
+def slf4jVersion = '2.0.17'
+//def junitVersion = '5.14.3'
+def junitVersion = '6.0.3'
+def mockitoVersion = '5.23.0'
+def assertjVersion = '3.27.7'
 def hdrHistogramVersion = '2.2.2'
 def chronicleVersion = '5.21.98'//fastest now??
 //def chronicleVersion = '5.23.37'
