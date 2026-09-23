@@ -144,7 +144,7 @@ public class RollingFileMapper implements FileMapper {
         requireNonNull(accessMode);
         requireNonNull(fileInitialiser);
         final Function<File, FileMapper> fileMapperFactory = expandFile ?
-                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, fileInitialiser) :
+                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser) :
                 file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser);
         return new RollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
                 maxOpenFiles, accessMode);

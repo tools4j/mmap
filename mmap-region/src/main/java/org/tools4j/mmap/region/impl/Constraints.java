@@ -139,7 +139,7 @@ public enum Constraints {
 
     public static void validateMinFileSize(final long minFileSize) {
         if (minFileSize != 0 && (!BitUtil.isPowerOfTwo(minFileSize) || minFileSize % REGION_SIZE_GRANULARITY != 0)) {
-            throw new IllegalArgumentException("Min file size must be a zero of a power of two and a multiple of " +
+            throw new IllegalArgumentException("Min file size must be zero or a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + minFileSize);
         }
     }
@@ -148,6 +148,13 @@ public enum Constraints {
         if (!BitUtil.isPowerOfTwo(maxFileSize) || maxFileSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Max file size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + maxFileSize);
+        }
+    }
+
+    public static void validateFileSizeIncrement(final long fileSizeIncrement) {
+        if (!BitUtil.isPowerOfTwo(fileSizeIncrement) || fileSizeIncrement % REGION_SIZE_GRANULARITY != 0) {
+            throw new IllegalArgumentException("File size increment must be a power of two and a multiple of " +
+                    REGION_SIZE_GRANULARITY + " but was " + fileSizeIncrement);
         }
     }
 

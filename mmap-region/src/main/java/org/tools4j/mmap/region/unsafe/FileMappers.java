@@ -56,7 +56,7 @@ public class FileMappers {
                 }
                 if (config.expandFile()) {
                     return new ExpandableSizeFileMapper(file, config.minFileSize(), config.maxFileSize(),
-                            fileInitialiser);
+                            config.mappingStrategy().regionSize(), fileInitialiser);
                 }
                 return new FixedSizeFileMapper(file, config.maxFileSize(), accessMode, fileInitialiser);
             default:

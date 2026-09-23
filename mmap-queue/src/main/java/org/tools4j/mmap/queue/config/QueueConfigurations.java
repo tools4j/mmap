@@ -31,6 +31,7 @@ import org.tools4j.mmap.region.impl.IdPool64;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import static org.tools4j.mmap.queue.config.MappingStrategy.AsyncMapAheadStrategy;
@@ -51,14 +52,18 @@ public enum QueueConfigurations {
     public static final int MAX_APPENDERS_DEFAULT = IdPool64.MAX_IDS;
     public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
     public static final AccessMode ACCESS_MODE_DEFAULT = AccessMode.READ_WRITE;
+    public static final String MIN_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.minHeaderFileSize";
+    public static final long MIN_HEADER_FILE_SIZE_DEFAULT = 16*1024*1024L;
+    public static final String MIN_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.minPayloadFileSize";
+    public static final long MIN_PAYLOAD_FILE_SIZE_DEFAULT = 64*1024*1024L;
     public static final String MAX_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.maxHeaderFileSize";
-    public static final int MAX_HEADER_FILE_SIZE_DEFAULT = 64*1024*1024;
+    public static final long MAX_HEADER_FILE_SIZE_DEFAULT = 64*1024*1024L;
     public static final String MAX_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.maxPayloadFileSize";
-    public static final int MAX_PAYLOAD_FILE_SIZE_DEFAULT = 64*1024*1024;
+    public static final long MAX_PAYLOAD_FILE_SIZE_DEFAULT = 2*1024*1024*1024L;
     public static final String EXPAND_HEADER_FILE_PROPERTY = "mmap.queue.expandHeaderFile";
     public static final boolean EXPAND_HEADER_FILE_DEFAULT = false;
     public static final String EXPAND_PAYLOAD_FILES_PROPERTY = "mmap.queue.expandPayloadFiles";
-    public static final boolean EXPAND_PAYLOAD_FILES_DEFAULT = false;
+    public static final boolean EXPAND_PAYLOAD_FILES_DEFAULT = true;
     public static final String ROLL_HEADER_FILE_PROPERTY = "mmap.queue.rollHeaderFile";
     public static final boolean ROLL_HEADER_FILE_DEFAULT = true;
     public static final String ROLL_PAYLOAD_FILES_PROPERTY = "mmap.queue.rollPayloadFiles";
@@ -156,12 +161,20 @@ public enum QueueConfigurations {
         return getEnumProperty(ACCESS_MODE_PROPERTY, AccessMode.class, ACCESS_MODE_DEFAULT);
     }
 
-    public static int defaultMaxHeaderFileSize() {
-        return getIntProperty(MAX_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_HEADER_FILE_SIZE_DEFAULT);
+    public static long defaultMinHeaderFileSize() {
+        return getLongProperty(MIN_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_HEADER_FILE_SIZE_DEFAULT);
     }
 
-    public static int defaultMaxPayloadFileSize() {
-        return getIntProperty(MAX_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_PAYLOAD_FILE_SIZE_DEFAULT);
+    public static long defaultMinPayloadFileSize() {
+        return getLongProperty(MIN_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_PAYLOAD_FILE_SIZE_DEFAULT);
+    }
+
+    public static long defaultMaxHeaderFileSize() {
+        return getLongProperty(MAX_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_HEADER_FILE_SIZE_DEFAULT);
+    }
+
+    public static long defaultMaxPayloadFileSize() {
+        return getLongProperty(MAX_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_PAYLOAD_FILE_SIZE_DEFAULT);
     }
 
     public static boolean defaultExpandHeaderFile() {
@@ -560,6 +573,20 @@ public enum QueueConfigurations {
             final int intValue = Integer.parseInt(propVal);
             validator.accept(intValue);
             return intValue;
+        } catch (final Exception e) {
+            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
+        }
+    }
+
+    private static long getLongProperty(final String propertyName, final LongConsumer validator, final long defaultValue) {
+        final String propVal = System.getProperty(propertyName, null);
+        if (propVal == null) {
+            return defaultValue;
+        }
+        try {
+            final long longValue = Long.parseLong(propVal);
+            validator.accept(longValue);
+            return longValue;
         } catch (final Exception e) {
             throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
         }

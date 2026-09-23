@@ -33,7 +33,9 @@ import java.util.function.Consumer;
 public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator accessMode(AccessMode accessMode);
     QueueConfigurator maxAppenders(int maxAppenders);
+    QueueConfigurator minHeaderFileSize(long minHeaderFileSize);
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);
+    QueueConfigurator minPayloadFileSize(long minPayloadFileSize);
     QueueConfigurator maxPayloadFileSize(long maxPayloadFileSize);
     QueueConfigurator expandHeaderFile(boolean expandHeaderFile);
     QueueConfigurator expandPayloadFiles(boolean expandPayloadFiles);

@@ -305,10 +305,10 @@ public class QueuePerf {
                                 .asyncUnmapping(true)
                         )
                 )
-                .rollHeaderFile(true)
-                .rollPayloadFiles(true)
-                .expandHeaderFile(false)
-                .expandPayloadFiles(true)
+//                .rollHeaderFile(true)
+//                .rollPayloadFiles(true)
+//                .expandHeaderFile(false)
+//                .expandPayloadFiles(true)
 //                .maxHeaderFileSize(64 * 1024 * 1024)
 //                .maxPayloadFileSize(256 * 1024 * 1024)
 //                .maxHeaderFileSize(256L * regionSize)
@@ -317,12 +317,21 @@ public class QueuePerf {
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
 //                .maxHeaderFileSize(256 * 1024 * 1024)
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
-                .maxHeaderFileSize(256 * 1024 * 1024)
-                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
+//                .maxHeaderFileSize(256 * 1024 * 1024)
+//                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
+
+//                .expandHeaderFile(false)
+//                .expandPayloadFiles(false)
+//                .maxHeaderFileSize(64 * 1024 * 1024)
+//                .maxPayloadFileSize(256 * 1024 * 1024)
+//                .maxOpenHeaderFiles(4)
+//                .maxOpenPayloadFiles(4)
 
                 //for stress test with lots of file rolls
 //                .maxHeaderFileSize(regionSize)
 //                .maxPayloadFileSize(regionSize)
+//                .maxOpenHeaderFiles(4)
+//                .maxOpenPayloadFiles(4)
 
                 //for expanding
 //                .maxHeaderFileSize(64L * 1024 * 1024 * 1024)
@@ -337,10 +346,12 @@ public class QueuePerf {
 //        final long messagesPerSecond = 3_000_000;
         final long messagesPerSecond = 1_000_000;
 //        final long messagesPerSecond = 500_000;
-        final int messages = 1_100_000;
-        final int warmup = 100_000;
-//        final int messages = 11_000_000;
-//        final int warmup = 1_000_000;
+//        final int messages = 1_100_000;
+//        final int warmup = 100_000;
+        final int messages = 11_000_000;
+        final int warmup = 1_000_000;
+//        final int messages = 22_000_000;
+//        final int warmup = 2_000_000;
 //        final int messages = 110_000_000;
 //        final int warmup = 10_000_000;
         final int messageLength = 100;

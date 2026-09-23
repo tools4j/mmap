@@ -35,8 +35,6 @@ import static java.util.Objects.requireNonNull;
 
 enum QueueMappingConfigs {
     ;
-    static final int MAX_OPEN_FILES = 4096;//FIXME
-
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
         return headerMappingConfig(queueConfig, appenderConfig.headerMappingStrategy(),
                 appenderConfig.maxOpenHeaderFiles(), appenderConfig.headerFilesToCreateAhead());
@@ -59,7 +57,7 @@ enum QueueMappingConfigs {
         return new MappingConfig() {
             @Override
             public long minFileSize() {
-                return 0;//FIXME
+                return queueConfig.minHeaderFileSize();
             }
 
             @Override
@@ -124,7 +122,7 @@ enum QueueMappingConfigs {
         return new MappingConfig() {
             @Override
             public long minFileSize() {
-                return 0;//FIXME
+                return queueConfig.minPayloadFileSize();
             }
 
             @Override

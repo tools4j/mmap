@@ -28,7 +28,9 @@ import org.tools4j.mmap.region.api.AccessMode;
 public interface QueueConfig {
     AccessMode accessMode();
     int maxAppenders();
+    long minHeaderFileSize();
     long maxHeaderFileSize();
+    long minPayloadFileSize();
     long maxPayloadFileSize();
     boolean expandHeaderFile();
     boolean expandPayloadFiles();

@@ -35,7 +35,9 @@ import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAU
 public class QueueConfigImpl implements QueueConfig {
     private final AccessMode accessMode;
     private final int maxAppenders;
+    private final long minHeaderFileSize;
     private final long maxHeaderFileSize;
+    private final long minPayloadFileSize;
     private final long maxPayloadFileSize;
     private final boolean expandHeaderFile;
     private final boolean expandPayloadFiles;
@@ -54,7 +56,9 @@ public class QueueConfigImpl implements QueueConfig {
     public QueueConfigImpl(final QueueConfig queueConfig) {
         this(queueConfig.accessMode(),
                 queueConfig.maxAppenders(),
+                queueConfig.minHeaderFileSize(),
                 queueConfig.maxHeaderFileSize(),
+                queueConfig.minPayloadFileSize(),
                 queueConfig.maxPayloadFileSize(),
                 queueConfig.expandHeaderFile(),
                 queueConfig.expandPayloadFiles(),
@@ -69,7 +73,9 @@ public class QueueConfigImpl implements QueueConfig {
 
     public QueueConfigImpl(final AccessMode accessMode,
                            final int maxAppenders,
+                           final long minHeaderFileSize,
                            final long maxHeaderFileSize,
+                           final long minPayloadFileSize,
                            final long maxPayloadFileSize,
                            final boolean expandHeaderFile,
                            final boolean expandPayloadFiles,
@@ -82,7 +88,9 @@ public class QueueConfigImpl implements QueueConfig {
                            final IndexReaderConfig indexReaderConfig) {
         this.accessMode = requireNonNull(accessMode);
         this.maxAppenders = maxAppenders;
+        this.minHeaderFileSize = minHeaderFileSize;
         this.maxHeaderFileSize = maxHeaderFileSize;
+        this.minPayloadFileSize = minPayloadFileSize;
         this.maxPayloadFileSize = maxPayloadFileSize;
         this.expandHeaderFile = expandHeaderFile;
         this.expandPayloadFiles = expandPayloadFiles;
@@ -106,8 +114,18 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     @Override
+    public long minHeaderFileSize() {
+        return minHeaderFileSize;
+    }
+
+    @Override
     public long maxHeaderFileSize() {
         return maxHeaderFileSize;
+    }
+
+    @Override
+    public long minPayloadFileSize() {
+        return minPayloadFileSize;
     }
 
     @Override
@@ -170,7 +188,9 @@ public class QueueConfigImpl implements QueueConfig {
         return "QueueConfigImpl" +
                 ":accessMode=" + accessMode +
                 "|maxAppenders=" + maxAppenders +
+                "|minHeaderFileSize=" + minHeaderFileSize +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
+                "|minPayloadFileSize=" + minPayloadFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +

@@ -43,15 +43,19 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMod
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
     private AccessMode accessMode;
     private int maxAppenders;
+    private long minHeaderFileSize;
     private long maxHeaderFileSize;
+    private long minPayloadFileSize;
     private long maxPayloadFileSize;
     private Boolean expandHeaderFile;
     private Boolean expandPayloadFiles;
@@ -75,7 +79,9 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator reset() {
         accessMode = null;
         maxAppenders = 0;
+        minHeaderFileSize = -1;
         maxHeaderFileSize = 0;
+        minPayloadFileSize = -1;
         maxPayloadFileSize = 0;
         expandHeaderFile = null;
         expandPayloadFiles = null;
@@ -125,6 +131,24 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
+    public long minHeaderFileSize() {
+        if (minHeaderFileSize < 0) {
+            minHeaderFileSize = defaults.minHeaderFileSize();
+        }
+        if (minHeaderFileSize < 0) {
+            minHeaderFileSize = defaultMaxHeaderFileSize();
+        }
+        return minHeaderFileSize;
+    }
+
+    @Override
+    public QueueConfigurator minHeaderFileSize(final long minHeaderFileSize) {
+        validateMinFileSize(minHeaderFileSize);
+        this.minHeaderFileSize = minHeaderFileSize;
+        return this;
+    }
+
+    @Override
     public long maxHeaderFileSize() {
         if (maxHeaderFileSize <= 0) {
             maxHeaderFileSize = defaults.maxHeaderFileSize();
@@ -139,6 +163,24 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator maxHeaderFileSize(final long maxHeaderFileSize) {
         validateMaxFileSize(maxHeaderFileSize);
         this.maxHeaderFileSize = maxHeaderFileSize;
+        return this;
+    }
+
+    @Override
+    public long minPayloadFileSize() {
+        if (minPayloadFileSize < 0) {
+            minPayloadFileSize = defaults.minPayloadFileSize();
+        }
+        if (minPayloadFileSize < 0) {
+            minPayloadFileSize = defaultMinPayloadFileSize();
+        }
+        return minPayloadFileSize;
+    }
+
+    @Override
+    public QueueConfigurator minPayloadFileSize(final long minPayloadFileSize) {
+        validateMinFileSize(minPayloadFileSize);
+        this.minPayloadFileSize = minPayloadFileSize;
         return this;
     }
 
@@ -440,7 +482,9 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         return "QueueConfiguratorImpl" +
                 ":accessMode=" + accessMode +
                 "|maxAppenders=" + maxAppenders +
+                "|minHeaderFileSize=" + minHeaderFileSize +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
+                "|minPayloadFileSize=" + minPayloadFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +

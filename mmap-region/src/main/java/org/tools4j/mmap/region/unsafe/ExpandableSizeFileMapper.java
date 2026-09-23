@@ -38,6 +38,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 @Unsafe
 public class ExpandableSizeFileMapper implements FileMapper {
@@ -53,10 +56,31 @@ public class ExpandableSizeFileMapper implements FileMapper {
     public ExpandableSizeFileMapper(final File file,
                                     final long minFileSize,
                                     final long maxFileSize,
+                                    final int regionSize,
                                     final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
-        this.minFileSize = minFileSize;
-        this.maxFileSize = maxFileSize;
+        validateRegionSize(regionSize);
+        validateMinFileSize(minFileSize);
+        validateMaxFileSize(maxFileSize);
+        if (minFileSize == 0) {
+            if (maxFileSize % regionSize != 0) {
+                throw new IllegalArgumentException("Max file size must be a multiple of region size " + regionSize +
+                        " but was " + maxFileSize);
+            }
+            this.minFileSize = regionSize;
+            this.maxFileSize = maxFileSize;
+        } else {
+            if (minFileSize % regionSize != 0) {
+                throw new IllegalArgumentException("Min file size must be a multiple of region size " + regionSize +
+                        " but was " + minFileSize);
+            }
+            if (maxFileSize % minFileSize != 0) {
+                throw new IllegalArgumentException("Max file size must be a multiple of min file size " + minFileSize +
+                        " but was " + maxFileSize);
+            }
+            this.minFileSize = minFileSize;
+            this.maxFileSize = maxFileSize;
+        }
         this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser, minFileSize);
         this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
     }
@@ -144,8 +168,9 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     private long newFileLength(final long minLength) {
-        final long minInc = Math.max(minFileSize, 1);
-        return Math.min(maxFileSize, minInc * (1 + (minLength - 1 ) / minInc));
+        final long newFileLength = minFileSize + minFileSize * ((minLength - 1) / minFileSize);
+        assert newFileLength <= maxFileSize : "newFileLen exceeds maxFileSize";
+        return newFileLength;
     }
 
     private long fileLength(final FileChannel channel) {
