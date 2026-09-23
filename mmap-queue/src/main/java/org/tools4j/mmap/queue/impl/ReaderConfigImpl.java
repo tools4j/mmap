@@ -29,21 +29,22 @@ import org.tools4j.mmap.region.config.MappingStrategyConfig;
 import static java.util.Objects.requireNonNull;
 
 public record ReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
-                               MappingStrategyConfig payloadMappingStrategy, boolean closeHeaderFiles,
-                               boolean closePayloadFiles) implements ReaderConfig {
+                               MappingStrategyConfig payloadMappingStrategy,
+                               int maxOpenHeaderFiles,
+                               int maxOpenPayloadFiles) implements ReaderConfig {
     public ReaderConfigImpl(final ReaderConfig config) {
         this(config.headerMappingStrategy(), config.payloadMappingStrategy(),
-                config.closeHeaderFiles(), config.closePayloadFiles());
+                config.maxOpenHeaderFiles(), config.maxOpenPayloadFiles());
     }
 
     public ReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
                             final MappingStrategyConfig payloadMappingStrategy,
-                            final boolean closeHeaderFiles,
-                            final boolean closePayloadFiles) {
+                            final int maxOpenHeaderFiles,
+                            final int maxOpenPayloadFiles) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
-        this.closeHeaderFiles = closeHeaderFiles;
-        this.closePayloadFiles = closePayloadFiles;
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
+        this.maxOpenPayloadFiles = maxOpenPayloadFiles;
     }
 
     @Override
@@ -56,7 +57,7 @@ public record ReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
         return "ReaderConfigImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
                 "|payloadMappingStrategy=" + payloadMappingStrategy +
-                "|closeHeaderFiles=" + closeHeaderFiles +
-                "|closePayloadFiles=" + closePayloadFiles;
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles;
     }
 }

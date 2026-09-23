@@ -21,26 +21,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.config;
+package org.tools4j.mmap.region.impl;
 
-import org.tools4j.mmap.queue.impl.IndexReaderConfiguratorImpl;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+import java.util.Arrays;
 
-import java.util.function.Consumer;
+public class ConcurrentIntDeque {
 
-public interface IndexReaderConfigurator extends IndexReaderConfig {
-    IndexReaderConfigurator headerMappingStrategy(MappingStrategy strategy);
-    IndexReaderConfigurator headerMappingStrategy(MappingStrategyConfig config);
-    IndexReaderConfigurator headerMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
-    IndexReaderConfigurator maxOpenHeaderFiles(int maxOpenHeaderFiles);
-    IndexReaderConfigurator reset();
+    private transient volatile int tail;
+    private transient volatile int head;
+    private final int[] prev;
+    private final int[] next;
+    private final int[] item;
 
-    static IndexReaderConfigurator configure() {
-        return new IndexReaderConfiguratorImpl();
-    }
-
-    static IndexReaderConfigurator configure(final IndexReaderConfig defaults) {
-        return new IndexReaderConfiguratorImpl(defaults);
+    public ConcurrentIntDeque(final int capacity) {
+        this.prev = new int[capacity];
+        this.next = new int[capacity];
+        this.item = new int[capacity];
+        Arrays.fill(prev, -1);
+        Arrays.fill(next, -1);
     }
 }

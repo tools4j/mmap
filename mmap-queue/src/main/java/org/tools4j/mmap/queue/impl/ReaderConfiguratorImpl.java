@@ -40,8 +40,8 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private final ReaderConfig defaults;
     private MappingStrategyConfig headerMappingStrategy;
     private MappingStrategyConfig payloadMappingStrategy;
-    private Boolean closeHeaderFiles;
-    private Boolean closePayloadFiles;
+    private int maxOpenHeaderFiles;
+    private int maxOpenPayloadFiles;
 
     private ReaderConfiguratorImpl(final ReaderConfig defaults) {
         this.defaults = requireNonNull(defaults);
@@ -67,8 +67,8 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     public ReaderConfigurator reset() {
         headerMappingStrategy = null;
         payloadMappingStrategy = null;
-        closeHeaderFiles = null;
-        closePayloadFiles = null;
+        maxOpenHeaderFiles = 0;
+        maxOpenPayloadFiles = 0;
         return this;
     }
 
@@ -142,32 +142,33 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     }
 
     @Override
-    public boolean closeHeaderFiles() {
-        if (closeHeaderFiles == null) {
-            closeHeaderFiles = defaults.closeHeaderFiles();
+    public int maxOpenHeaderFiles() {
+        if (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaults.maxOpenHeaderFiles();
         }
-        return closeHeaderFiles;
+        return maxOpenHeaderFiles;
     }
 
     @Override
-    public ReaderConfigurator closeHeaderFiles(final boolean closeHeaderFiles) {
-        this.closeHeaderFiles = closeHeaderFiles;
+    public ReaderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }
 
     @Override
-    public boolean closePayloadFiles() {
-        if (closePayloadFiles == null) {
-            closePayloadFiles = defaults.closePayloadFiles();
+    public int maxOpenPayloadFiles() {
+        if (maxOpenPayloadFiles <= 0) {
+            maxOpenPayloadFiles = defaults.maxOpenPayloadFiles();
         }
-        return closePayloadFiles;
+        return maxOpenPayloadFiles;
     }
 
     @Override
-    public ReaderConfigurator closePayloadFiles(final boolean closePayloadFiles) {
-        this.closePayloadFiles = closePayloadFiles;
+    public ReaderConfigurator maxOpenPayloadFiles(final int maxOpenPayloadFiles) {
+        this.maxOpenPayloadFiles = maxOpenPayloadFiles;
         return this;
     }
+
 
     @Override
     public ReaderConfig toImmutableReaderConfig() {
@@ -180,7 +181,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
                 ":defaults=" + defaults.getClass().getSimpleName() +
                 "|headerMappingStrategy=" + headerMappingStrategy +
                 "|payloadMappingStrategy=" + payloadMappingStrategy +
-                "|closeHeaderFiles=" + closeHeaderFiles +
-                "|closePayloadFiles=" + closePayloadFiles;
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles;
     }
 }

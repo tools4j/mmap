@@ -32,15 +32,20 @@ import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_
  * Configuration used to create {@link DynamicMapping dynamic mappings} from files through {@link Mappings}.
  */
 public interface MappingConfig {
-    /** @return the maximum size of the mapped file */
+    /** @return the minimum size (and size increment) of file when {@link #expandFile() expand-file} mode is in use */
+    long minFileSize();
+
+    /** @return the maximum size of a file newly created when mapped */
     long maxFileSize();
-    /** @return true if files should be expanded as needed, and false to create the full-size file on initiation */
+
+    /** @return true if files should be expanded as needed, and false to create the max-size file on initiation */
     boolean expandFile();
+
     /** @return true if files should be rolled (with indexation) when the {@linkplain #maxFileSize() maximum file size} is reached */
     boolean rollFiles();
 
-    /** @return if true and {@linkplain #rollFiles() file rolling} is used, files are closed after unmapping the last region of the file */
-    boolean closeFiles();
+    /** @return the maximum files kept open if {@linkplain #rollFiles() file rolling} is used */
+    int maxOpenFiles();
 
     /** @return the number of files to create ahead, that is, before they are actually used for mappings */
     int filesToCreateAhead();

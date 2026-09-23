@@ -26,16 +26,16 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorHeaderFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryIteratorPayloadFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryReaderHeaderFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseEntryReaderPayloadFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultClosePollerHeaderFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultClosePollerPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryIteratorHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryIteratorPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenPollerHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenPollerPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPayloadMappingStrategy;
 
@@ -52,13 +52,13 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         }
 
         @Override
-        public boolean closeHeaderFiles() {
-            return defaultClosePollerHeaderFiles();
+        public int maxOpenHeaderFiles() {
+            return defaultMaxOpenPollerHeaderFiles();
         }
 
         @Override
-        public boolean closePayloadFiles() {
-            return defaultClosePollerPayloadFiles();
+        public int maxOpenPayloadFiles() {
+            return defaultMaxOpenPollerPayloadFiles();
         }
     },
     ENTRY_READER_CONFIG_DEFAULTS {
@@ -73,13 +73,13 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         }
 
         @Override
-        public boolean closeHeaderFiles() {
-            return defaultCloseEntryReaderHeaderFiles();
+        public int maxOpenHeaderFiles() {
+            return defaultMaxOpenEntryReaderHeaderFiles();
         }
 
         @Override
-        public boolean closePayloadFiles() {
-            return defaultCloseEntryReaderPayloadFiles();
+        public int maxOpenPayloadFiles() {
+            return defaultMaxOpenEntryReaderPayloadFiles();
         }
     },
     ENTRY_ITERATOR_CONFIG_DEFAULTS {
@@ -94,13 +94,13 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         }
 
         @Override
-        public boolean closeHeaderFiles() {
-            return defaultCloseEntryIteratorHeaderFiles();
+        public int maxOpenHeaderFiles() {
+            return defaultMaxOpenEntryIteratorHeaderFiles();
         }
 
         @Override
-        public boolean closePayloadFiles() {
-            return defaultCloseEntryIteratorPayloadFiles();
+        public int maxOpenPayloadFiles() {
+            return defaultMaxOpenEntryIteratorPayloadFiles();
         }
     };
 
@@ -115,7 +115,7 @@ public enum ReaderConfigDefaults implements ReaderConfig {
                 ":name=" + name() +
                 "|headerMappingStrategy=" + headerMappingStrategy() +
                 "|payloadMappingStrategy=" + payloadMappingStrategy() +
-                "|closeHeaderFiles=" + closeHeaderFiles() +
-                "|closePayloadFiles=" + closePayloadFiles();
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles() +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles();
     }
 }

@@ -41,8 +41,6 @@ public class QueueConfigImpl implements QueueConfig {
     private final boolean expandPayloadFiles;
     private final boolean rollHeaderFile;
     private final boolean rollPayloadFiles;
-    private final int headerFilesToCreateAhead;
-    private final int payloadFilesToCreateAhead;
     private final AppenderConfig appenderConfig;
     private final ReaderConfig pollerConfig;
     private final ReaderConfig entryReaderConfig;
@@ -62,8 +60,6 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.expandPayloadFiles(),
                 queueConfig.rollHeaderFile(),
                 queueConfig.rollPayloadFiles(),
-                queueConfig.headerFilesToCreateAhead(),
-                queueConfig.payloadFilesToCreateAhead(),
                 queueConfig.appenderConfig(),
                 queueConfig.pollerConfig(),
                 queueConfig.entryReaderConfig(),
@@ -79,8 +75,6 @@ public class QueueConfigImpl implements QueueConfig {
                            final boolean expandPayloadFiles,
                            final boolean rollHeaderFile,
                            final boolean rollPayloadFiles,
-                           final int headerFilesToCreateAhead,
-                           final int payloadFilesToCreateAhead,
                            final AppenderConfig appenderConfig,
                            final ReaderConfig pollerConfig,
                            final ReaderConfig entryReaderConfig,
@@ -94,8 +88,6 @@ public class QueueConfigImpl implements QueueConfig {
         this.expandPayloadFiles = expandPayloadFiles;
         this.rollHeaderFile = rollHeaderFile;
         this.rollPayloadFiles = rollPayloadFiles;
-        this.headerFilesToCreateAhead = headerFilesToCreateAhead;
-        this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
         this.appenderConfig = appenderConfig.toImmutableAppenderConfig();
         this.pollerConfig = pollerConfig.toImmutableReaderConfig();
         this.entryReaderConfig = entryReaderConfig.toImmutableReaderConfig();
@@ -144,16 +136,6 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     @Override
-    public int headerFilesToCreateAhead() {
-        return headerFilesToCreateAhead;
-    }
-
-    @Override
-    public int payloadFilesToCreateAhead() {
-        return payloadFilesToCreateAhead;
-    }
-
-    @Override
     public AppenderConfig appenderConfig() {
         return appenderConfig;
     }
@@ -194,8 +176,6 @@ public class QueueConfigImpl implements QueueConfig {
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +
                 "|rollPayloadFiles=" + rollPayloadFiles +
-                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
                 "|appenderConfig={" + appenderConfig + "}" +
                 "|pollerConfig={" + pollerConfig + "}" +
                 "|entryReaderConfig={" + entryReaderConfig + "}" +

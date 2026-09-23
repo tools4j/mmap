@@ -26,11 +26,14 @@ package org.tools4j.mmap.region.impl;
 import org.agrona.BitUtil;
 import org.agrona.collections.IntObjConsumer;
 import org.agrona.collections.IntObjPredicate;
+import org.agrona.collections.IntObjectToObjectFunction;
 
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
 
 /**
  * A lock free thread safe utility with array-like API similar to {@link AtomicReferenceArray} but its length can grow
@@ -123,6 +126,10 @@ public class AtomicArray<E> {
         return block <= 1 ? firstBlockLength : length(block - 1);
     }
 
+    public boolean isAllocated(final int index) {
+        return blocks.get(blockIndex(index)) != null;
+    }
+
     public E get(final int index) {
         final int block = blockIndex(index);
         final AtomicReferenceArray<E> blockData = blocks.get(block);
@@ -131,6 +138,16 @@ public class AtomicArray<E> {
         }
         final int offset = blockOffset(index, block);
         return blockData.get(offset);
+    }
+
+    public E getAcquire(final int index) {
+        final int block = blockIndex(index);
+        final AtomicReferenceArray<E> blockData = blocks.getAcquire(block);
+        if (blockData == null) {
+            return null;
+        }
+        final int offset = blockOffset(index, block);
+        return blockData.getAcquire(offset);
     }
 
     public E setIfAbsent(final int index, final E defaultValue) {
@@ -152,6 +169,20 @@ public class AtomicArray<E> {
         return setIfAbsent(blockData, offset, valueFactory.apply(index));
     }
 
+    public boolean setIfPresent(final int index, final E newValue) {
+        final int block = blockIndex(index);
+        final int offset = blockOffset(index, block);
+        final AtomicReferenceArray<E> blockData = blocks.get(block);
+        return blockData != null && setIfPresent(blockData, offset, newValue);
+    }
+
+    public E computeIfPresent(final int index, final IntObjectToObjectFunction<? super E, ? extends E> valueAccumulator) {
+        final int block = blockIndex(index);
+        final int offset = blockOffset(index, block);
+        final AtomicReferenceArray<E> blockData = blocks.get(block);
+        return blockData == null ? null : computeIfPresent(blockData, offset, valueAccumulator);
+    }
+
     private static <E> E setIfAbsent(final AtomicReferenceArray<E> block, final int offset, final E defaultValue) {
         E value;
         do {
@@ -165,6 +196,23 @@ public class AtomicArray<E> {
         //      yet another thread sets the value back to null, which is highly unlikely
         //      BUT: we want to guarantee that non-null value is returned
         return value;
+    }
+
+    private static <E> boolean setIfPresent(final AtomicReferenceArray<E> block, final int offset, final E newValue) {
+        return block.getAndAccumulate(offset, newValue, (vOld, vNew) -> vOld == null ? null : vNew) != null;
+    }
+
+    private static <E> E computeIfPresent(final AtomicReferenceArray<E> block, final int offset, final IntObjectToObjectFunction<? super E, ? extends E> valueAccumulator) {
+        E vOld = block.getAcquire(offset);
+        while (vOld != null) {
+            final E vNew = valueAccumulator.apply(offset, vOld);
+            final E witness = block.compareAndExchange(offset, vOld, vNew);
+            if (witness == vOld) {
+                return vNew;
+            }
+            vOld = witness;
+        }
+        return null;
     }
 
     public void set(final int index, final E element) {
@@ -186,6 +234,13 @@ public class AtomicArray<E> {
         final int offset = blockOffset(index, block);
         final AtomicReferenceArray<E> blockData = expected == null ? getOrCreateBlock(block) : blocks.get(block);
         return blockData != null && blockData.compareAndSet(offset, expected, update);
+    }
+
+    public E compareAndExchange(final int index, final E expected, final E update) {
+        final int block = blockIndex(index);
+        final int offset = blockOffset(index, block);
+        final AtomicReferenceArray<E> blockData = expected == null ? getOrCreateBlock(block) : blocks.get(block);
+        return blockData != null ? blockData.compareAndExchange(offset, expected, update) : null;
     }
 
     private AtomicReferenceArray<E> getOrCreateBlock(final int block) {
@@ -233,6 +288,43 @@ public class AtomicArray<E> {
 
     public int lastIndexOf(final IntObjPredicate<? super E> matcher) {
         return matchIndex(loopBackward(untilMatching(), matcher));
+    }
+
+    public int indexOfMin(final Comparator<? super E> comparator) {
+        return indexOfComparison(comparator, cmp -> cmp < 0);
+    }
+
+    public int lastIndexOfMin(final Comparator<? super E> comparator) {
+        return indexOfComparison(comparator, cmp -> cmp <= 0);
+    }
+
+    public int indexOfMax(final Comparator<? super E> comparator) {
+        return indexOfComparison(comparator, cmp -> cmp > 0);
+    }
+
+    public int lastIndexOfMax(final Comparator<? super E> comparator) {
+        return indexOfComparison(comparator, cmp -> cmp >= 0);
+    }
+
+    private int indexOfComparison(final Comparator<? super E> comparator, final IntPredicate matcher) {
+        final int nBlocks = blocks.length();
+        int index = -1;
+        E bestValue = null;
+        int block = 0;
+        AtomicReferenceArray<E> data = blocks.get(block);
+        while (data != null) {
+            final int n = data.length();
+            for (int i = 0; i < n; i++) {
+                final E value = data.get(i);
+                if (index < 0 || matcher.test(comparator.compare(value, bestValue))) {
+                    index = i;
+                    bestValue = value;
+                }
+            }
+            block++;
+            data = block < nBlocks ? blocks.get(block) : null;
+        }
+        return index;
     }
 
     public int forEachWhile(final IntObjPredicate<? super E> predicate) {

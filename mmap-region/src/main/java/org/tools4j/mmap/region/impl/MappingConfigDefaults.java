@@ -27,10 +27,11 @@ import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.config.MappingConfigurations;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
-import static org.tools4j.mmap.region.config.MappingConfigurations.defaultCloseFiles;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultExpandFile;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultFilesToCreateAhead;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMaxFileSize;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMaxOpenFiles;
+import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMinFileSize;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRollFiles;
 import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
@@ -43,6 +44,11 @@ public enum MappingConfigDefaults implements MappingConfig {
     @Override
     public MappingConfig toImmutableConfig() {
         return new MappingConfigImpl(this);
+    }
+
+    @Override
+    public long minFileSize() {
+        return defaultMinFileSize();
     }
 
     @Override
@@ -61,8 +67,8 @@ public enum MappingConfigDefaults implements MappingConfig {
     }
 
     @Override
-    public boolean closeFiles() {
-        return defaultCloseFiles();
+    public int maxOpenFiles() {
+        return defaultMaxOpenFiles();
     }
 
     @Override

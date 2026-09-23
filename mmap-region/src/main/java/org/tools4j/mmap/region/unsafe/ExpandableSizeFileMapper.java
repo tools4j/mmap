@@ -43,16 +43,21 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 public class ExpandableSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
     private final File file;
-    private final long maxSize;
+    private final long minFileSize;
+    private final long maxFileSize;
     private final FileChannelProvider fileChannelProvider;
     private final PreTouchHelper preTouchHelper;
     private final AtomicLong fileLengthCache = new AtomicLong();
     private final AtomicBoolean fileSizeExtensionLatch = new AtomicBoolean();
 
-    public ExpandableSizeFileMapper(final File file, final long maxSize, final FileInitialiser fileInitialiser) {
+    public ExpandableSizeFileMapper(final File file,
+                                    final long minFileSize,
+                                    final long maxFileSize,
+                                    final FileInitialiser fileInitialiser) {
         this.file = Objects.requireNonNull(file);
-        this.maxSize = maxSize;
-        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser);
+        this.minFileSize = minFileSize;
+        this.maxFileSize = maxFileSize;
+        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser, minFileSize);
         this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
     }
 
@@ -66,8 +71,10 @@ public class ExpandableSizeFileMapper implements FileMapper {
         assert position >= 0;
         assert length >= 0;
         checkNotClosed();
-        if (position + length > maxSize) {
-            return NULL_ADDRESS;
+        if (position + length > maxFileSize) {
+            throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
+                    "exceeds max file size " + maxFileSize + " for file " + file);
+//            return NULL_ADDRESS;
         }
         final FileChannel channel = fileChannelProvider.get();
         if (channel == null || !channel.isOpen()) {
@@ -81,10 +88,10 @@ public class ExpandableSizeFileMapper implements FileMapper {
 
     @Override
     public void unmap(final long position, final long address, final int length) {
-        checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        final FileChannel channel = fileChannelProvider.getOrNull();
+        checkNotClosed();
+        final FileChannel channel = fileChannelProvider.getIfOpen();
         if (channel != null) {
             FileChannels.unmap(channel, address, length);
         }
@@ -95,8 +102,8 @@ public class ExpandableSizeFileMapper implements FileMapper {
         if (minLength <= cachedFileLength) {
             return;
         }
-        if (minLength > maxSize) {
-            throw new IllegalStateException("Exceeded max file size " + maxSize + " for file " + file);
+        if (minLength > maxFileSize) {
+            throw new IllegalStateException("Exceeded max file size " + maxFileSize + " for file " + file);
         }
         do {
             final long fileLength = fileLength(channel);
@@ -113,17 +120,18 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     private long tryExtendFile(final FileChannel channel, final long fileLength, final long minLength) {
-        if (!fileSizeExtensionLatch.compareAndSet(false, true)) {
+        final FileChannel fileChannel = fileChannelProvider.getIfOpen();
+        if (fileChannel == null) {
             return fileLength;
         }
-        final FileChannel fileChannel = fileChannelProvider.getOrNull();
-        if (fileChannel == null) {
+        if (!fileSizeExtensionLatch.compareAndSet(false, true)) {
             return fileLength;
         }
         try {
             final long newestFileLength = channel.size();
             if (newestFileLength < minLength) {
-                return fileChannelProvider.setSize(minLength) ? minLength : channel.size();
+                final long newLength = newFileLength(minLength);
+                return fileChannelProvider.setSize(newLength) ? newLength : channel.size();
             } else {
                 return newestFileLength;
             }
@@ -133,6 +141,11 @@ public class ExpandableSizeFileMapper implements FileMapper {
         } finally {
             fileSizeExtensionLatch.set(false);
         }
+    }
+
+    private long newFileLength(final long minLength) {
+        final long minInc = Math.max(minFileSize, 1);
+        return Math.min(maxFileSize, minInc * (1 + (minLength - 1 ) / minInc));
     }
 
     private long fileLength(final FileChannel channel) {
@@ -165,7 +178,8 @@ public class ExpandableSizeFileMapper implements FileMapper {
     @Override
     public String toString() {
         return "ExpandableSizeFileMapper" +
-                ":maxSize=" + maxSize +
+                ":minFileSize=" + minFileSize +
+                "|maxFileSize=" + maxFileSize +
                 "|file=" + file +
                 "|size=" + file.length() +
                 "|closed=" + isClosed();

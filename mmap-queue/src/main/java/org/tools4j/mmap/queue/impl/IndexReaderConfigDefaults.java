@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultCloseIndexReaderHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultIndexReaderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenIndexReaderHeaderFiles;
 
 public enum IndexReaderConfigDefaults implements IndexReaderConfig {
     INDEX_READER_CONFIG_DEFAULTS;
@@ -38,8 +38,8 @@ public enum IndexReaderConfigDefaults implements IndexReaderConfig {
     }
 
     @Override
-    public boolean closeHeaderFiles() {
-        return defaultCloseIndexReaderHeaderFiles();
+    public int maxOpenHeaderFiles() {
+        return defaultMaxOpenIndexReaderHeaderFiles();
     }
 
     @Override
@@ -51,6 +51,6 @@ public enum IndexReaderConfigDefaults implements IndexReaderConfig {
     public String toString() {
         return "IndexReaderConfigDefaults" +
                 ":headerMappingStrategy=" + headerMappingStrategy() +
-                "|closeHeaderFiles=" + closeHeaderFiles();
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles();
     }
 }

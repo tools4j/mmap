@@ -33,12 +33,13 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultIndexReaderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenIndexReaderHeaderFiles;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 
 public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     private final IndexReaderConfig defaults;
     private MappingStrategyConfig headerMappingStrategy;
-    private Boolean closeHeaderFiles;
+    private int maxOpenHeaderFiles;
 
     public IndexReaderConfiguratorImpl() {
         this(INDEX_READER_CONFIG_DEFAULTS);
@@ -51,7 +52,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     @Override
     public IndexReaderConfigurator reset() {
         headerMappingStrategy = null;
-        closeHeaderFiles = null;
+        maxOpenHeaderFiles = 0;
         return this;
     }
 
@@ -85,16 +86,19 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     }
 
     @Override
-    public boolean closeHeaderFiles() {
-        if (closeHeaderFiles == null) {
-            closeHeaderFiles = defaults.closeHeaderFiles();
+    public int maxOpenHeaderFiles() {
+        if (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaults.maxOpenHeaderFiles();
         }
-        return closeHeaderFiles;
+        if (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaultMaxOpenIndexReaderHeaderFiles();
+        }
+        return maxOpenHeaderFiles;
     }
 
     @Override
-    public IndexReaderConfigurator closeHeaderFiles(final boolean closeHeaderFiles) {
-        this.closeHeaderFiles = closeHeaderFiles;
+    public IndexReaderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }
 
@@ -107,6 +111,6 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     public String toString() {
         return "IndexReaderConfiguratorImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
-                "|closeHeaderFiles=" + closeHeaderFiles;
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles;
     }
 }

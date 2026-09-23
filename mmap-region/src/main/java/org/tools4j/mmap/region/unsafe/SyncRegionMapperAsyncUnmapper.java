@@ -46,13 +46,11 @@ import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
  * performs unmapping operations asynchronously in another thread.
  */
 @Unsafe
-public final class SyncRegionMapperAsyncUnmapper implements DirectRegionMapper {
+record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
+                                     FileMapper fileMapper,
+                                     RegionMetrics regionMetrics,
+                                     AsyncUnmapper asyncUnmapper) implements DirectRegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapperAsyncUnmapper.class);
-
-    private final AsyncRuntime asyncRuntime;
-    private final FileMapper fileMapper;
-    private final RegionMetrics regionMetrics;
-    private final AsyncUnmapper asyncUnmapper;
 
     public SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
                                          final FileMapper fileMapper,
@@ -65,16 +63,27 @@ public final class SyncRegionMapperAsyncUnmapper implements DirectRegionMapper {
                                          final FileMapper fileMapper,
                                          final RegionMetrics regionMetrics,
                                          final int unmapCacheSize) {
-        validateRegionSize(regionMetrics.regionSize());
-        validatePowerOfTwo("Unmap cache size", unmapCacheSize);
+        this(asyncRuntime, fileMapper, regionMetrics,
+                startAsyncUnmapper(asyncRuntime, fileMapper, regionMetrics.regionSize(), unmapCacheSize));
+    }
+
+    SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
+                                  final FileMapper fileMapper,
+                                  final RegionMetrics regionMetrics,
+                                  final AsyncUnmapper asyncUnmapper) {
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.fileMapper = requireNonNull(fileMapper);
         this.regionMetrics = requireNonNull(regionMetrics);
-        this.asyncUnmapper = startAsyncUnmapper(unmapCacheSize);
+        this.asyncUnmapper = requireNonNull(asyncUnmapper);
     }
 
-    private AsyncUnmapper startAsyncUnmapper(final int unmapCacheSize) {
-        final AsyncUnmapper unmapper = new AsyncUnmapper(fileMapper, regionSize(), unmapCacheSize);
+    private static AsyncUnmapper startAsyncUnmapper(final AsyncRuntime asyncRuntime,
+                                                    final FileMapper fileMapper,
+                                                    final int regionSize,
+                                                    final int unmapCacheSize) {
+        validateRegionSize(regionSize);
+        validatePowerOfTwo("Unmap cache size", unmapCacheSize);
+        final AsyncUnmapper unmapper = new AsyncUnmapper(fileMapper, regionSize, unmapCacheSize);
         asyncRuntime.register(unmapper);
         return unmapper;
     }

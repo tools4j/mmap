@@ -39,6 +39,10 @@ public interface AppenderConfigurator extends AppenderConfig {
     AppenderConfigurator payloadMappingStrategy(MappingStrategy strategy);
     AppenderConfigurator payloadMappingStrategy(MappingStrategyConfig config);
     AppenderConfigurator payloadMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
+    AppenderConfigurator maxOpenHeaderFiles(int maxOpenHeaderFiles);
+    AppenderConfigurator maxOpenPayloadFiles(int maxOpenPayloadFiles);
+    AppenderConfigurator headerFilesToCreateAhead(int headerFilesToCreateAhead);
+    AppenderConfigurator payloadFilesToCreateAhead(int payloadFilesToCreateAhead);
     AppenderConfigurator reset();
 
     static AppenderConfigurator configure() {

@@ -27,7 +27,7 @@ import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
 public interface IndexReaderConfig {
     MappingStrategyConfig headerMappingStrategy();
-    boolean closeHeaderFiles();
+    int maxOpenHeaderFiles();
     IndexReaderConfig toImmutableIndexReaderConfig();
 
     static IndexReaderConfigurator configure() {

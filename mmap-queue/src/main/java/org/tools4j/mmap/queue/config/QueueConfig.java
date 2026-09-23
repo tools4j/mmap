@@ -34,8 +34,6 @@ public interface QueueConfig {
     boolean expandPayloadFiles();
     boolean rollHeaderFile();
     boolean rollPayloadFiles();
-    int headerFilesToCreateAhead();
-    int payloadFilesToCreateAhead();
 
     AppenderConfig appenderConfig();
     ReaderConfig pollerConfig();

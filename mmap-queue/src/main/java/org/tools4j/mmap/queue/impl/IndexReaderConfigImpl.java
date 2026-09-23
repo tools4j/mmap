@@ -30,18 +30,18 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 
 public record IndexReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
-                                    boolean closeHeaderFiles) implements IndexReaderConfig {
+                                    int maxOpenHeaderFiles) implements IndexReaderConfig {
     public IndexReaderConfigImpl() {
         this(INDEX_READER_CONFIG_DEFAULTS);
     }
 
     public IndexReaderConfigImpl(final IndexReaderConfig config) {
-        this(config.headerMappingStrategy(), config.closeHeaderFiles());
+        this(config.headerMappingStrategy(), config.maxOpenHeaderFiles());
     }
 
-    public IndexReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy, final boolean closeHeaderFiles) {
+    public IndexReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy, final int maxOpenHeaderFiles) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
-        this.closeHeaderFiles = closeHeaderFiles;
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
     }
 
     @Override
@@ -53,6 +53,6 @@ public record IndexReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
     public String toString() {
         return "IndexReaderConfigImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
-                "|closeHeaderFiles=" + closeHeaderFiles;
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles;
     }
 }

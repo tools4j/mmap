@@ -39,6 +39,8 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator expandPayloadFiles(boolean expandPayloadFiles);
     QueueConfigurator rollHeaderFile(boolean rollHeaderFile);
     QueueConfigurator rollPayloadFiles(boolean rollPayloadFiles);
+    QueueConfigurator maxOpenHeaderFiles(int maxOpenHeaderFiles);
+    QueueConfigurator maxOpenPayloadFiles(int maxOpenPayloadFiles);
     QueueConfigurator headerFilesToCreateAhead(int headerFilesToCreateAhead);
     QueueConfigurator payloadFilesToCreateAhead(int payloadFilesToCreateAhead);
     QueueConfigurator mappingStrategy(MappingStrategy mappingStrategy);

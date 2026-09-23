@@ -32,14 +32,23 @@ import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderPayloadFiles;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 
 public class AppenderConfiguratorImpl implements AppenderConfigurator {
     private final AppenderConfig defaults;
     private MappingStrategyConfig headerMappingStrategy;
     private MappingStrategyConfig payloadMappingStrategy;
+    private int maxOpenHeaderFiles;
+    private int maxOpenPayloadFiles;
+    private int headerFilesToCreateAhead;
+    private int payloadFilesToCreateAhead;
 
     public AppenderConfiguratorImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
@@ -53,6 +62,10 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     public AppenderConfigurator reset() {
         headerMappingStrategy = null;
         payloadMappingStrategy = null;
+        maxOpenHeaderFiles = 0;
+        maxOpenPayloadFiles = 0;
+        headerFilesToCreateAhead = 0;
+        payloadFilesToCreateAhead = 0;
         return this;
     }
 
@@ -132,6 +145,76 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
+    public int maxOpenHeaderFiles() {
+        if (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaults.maxOpenHeaderFiles();
+        }
+        if  (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaultMaxOpenAppenderHeaderFiles();
+        }
+        return maxOpenHeaderFiles;
+    }
+
+    @Override
+    public AppenderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        this.maxOpenHeaderFiles = maxOpenPayloadFiles;
+        return this;
+    }
+
+    @Override
+    public int maxOpenPayloadFiles() {
+        if (maxOpenPayloadFiles <= 0) {
+            maxOpenPayloadFiles = defaults.maxOpenPayloadFiles();
+        }
+        if (maxOpenPayloadFiles <= 0) {
+            maxOpenPayloadFiles = defaultMaxOpenAppenderPayloadFiles();
+        }
+        return maxOpenPayloadFiles;
+    }
+
+    @Override
+    public AppenderConfigurator maxOpenPayloadFiles(final int maxOpenPayloadFiles) {
+        this.maxOpenPayloadFiles = maxOpenPayloadFiles;
+        return this;
+    }
+
+    @Override
+    public int headerFilesToCreateAhead() {
+        if (headerFilesToCreateAhead < 0) {
+            headerFilesToCreateAhead = defaults.headerFilesToCreateAhead();
+        }
+        if (headerFilesToCreateAhead < 0) {
+            headerFilesToCreateAhead = defaultAppenderHeaderFilesToCreateAhead();
+        }
+        return headerFilesToCreateAhead;
+    }
+
+    @Override
+    public AppenderConfigurator headerFilesToCreateAhead(final int headerFilesToCreateAhead) {
+        validateFilesToCreateAhead(headerFilesToCreateAhead);
+        this.headerFilesToCreateAhead = headerFilesToCreateAhead;
+        return this;
+    }
+
+    @Override
+    public int payloadFilesToCreateAhead() {
+        if (payloadFilesToCreateAhead < 0) {
+            payloadFilesToCreateAhead = defaults.payloadFilesToCreateAhead();
+        }
+        if (payloadFilesToCreateAhead < 0) {
+            payloadFilesToCreateAhead = defaultAppenderPayloadFilesToCreateAhead();
+        }
+        return payloadFilesToCreateAhead;
+    }
+
+    @Override
+    public AppenderConfigurator payloadFilesToCreateAhead(final int payloadFilesToCreateAhead) {
+        validateFilesToCreateAhead(payloadFilesToCreateAhead);
+        this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
+        return this;
+    }
+
+    @Override
     public AppenderConfig toImmutableAppenderConfig() {
         return new AppenderConfigImpl(this);
     }
@@ -140,6 +223,10 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     public String toString() {
         return "AppenderConfiguratorImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
-                "|payloadMappingStrategy=" + payloadMappingStrategy;
+                "|payloadMappingStrategy=" + payloadMappingStrategy +
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
+                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead;
     }
 }

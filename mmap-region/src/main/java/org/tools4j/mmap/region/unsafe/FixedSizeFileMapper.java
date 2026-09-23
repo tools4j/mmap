@@ -35,6 +35,7 @@ import java.nio.channels.FileChannel;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
 @Unsafe
 public class FixedSizeFileMapper implements FileMapper {
@@ -57,19 +58,6 @@ public class FixedSizeFileMapper implements FileMapper {
         init();
     }
 
-    public FixedSizeFileMapper(final String fileName,
-                               final long fileSize,
-                               final AccessMode accessMode,
-                               final FileInitialiser fileInitialiser) {
-        this(new File(fileName), fileSize, accessMode, fileInitialiser);
-    }
-
-    private void checkNotClosed() {
-        if (isClosed()) {
-            throw new IllegalStateException("Fixed-size file mapper is closed");
-        }
-    }
-
     public File file() {
         return file;
     }
@@ -87,7 +75,7 @@ public class FixedSizeFileMapper implements FileMapper {
     public long map(final long position, final int length) {
         assert position >= 0;
         assert length >= 0;
-        checkNotClosed();
+        validateNotClosed(this);
         if (position + length > fileSize) {
             return NULL_ADDRESS;
         }
@@ -98,10 +86,10 @@ public class FixedSizeFileMapper implements FileMapper {
 
     @Override
     public void unmap(final long position, final long address, final int length) {
-        checkNotClosed();
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        final FileChannel channel = fileChannelProvider.getOrNull();
+        validateNotClosed(this);
+        final FileChannel channel = fileChannelProvider.getIfOpen();
         if (channel != null) {
             FileChannels.unmap(channel, address, length);
         }

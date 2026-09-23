@@ -32,11 +32,9 @@ import org.tools4j.mmap.region.api.AccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandPayloadFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollHeaderFile;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollPayloadFiles;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
@@ -89,16 +87,6 @@ public enum QueueConfigDefaults implements QueueConfig {
     }
 
     @Override
-    public int headerFilesToCreateAhead() {
-        return defaultHeaderFilesToCreateAhead();
-    }
-
-    @Override
-    public int payloadFilesToCreateAhead() {
-        return defaultPayloadFilesToCreateAhead();
-    }
-
-    @Override
     public AppenderConfig appenderConfig() {
         return APPENDER_CONFIG_DEFAULTS;
     }
@@ -139,8 +127,6 @@ public enum QueueConfigDefaults implements QueueConfig {
                 "|expandPayloadFiles=" + expandPayloadFiles() +
                 "|rollHeaderFile=" + rollHeaderFile() +
                 "|rollPayloadFiles=" + rollPayloadFiles() +
-                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead() +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead() +
                 "|appenderConfig={" + appenderConfig() + "}" +
                 "|pollerConfig={" + pollerConfig() + "}" +
                 "|entryReaderConfig={" + entryReaderConfig() + "}" +

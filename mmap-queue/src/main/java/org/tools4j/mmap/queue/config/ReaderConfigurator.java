@@ -39,8 +39,8 @@ public interface ReaderConfigurator extends ReaderConfig {
     ReaderConfigurator payloadMappingStrategy(MappingStrategy strategy);
     ReaderConfigurator payloadMappingStrategy(MappingStrategyConfig config);
     ReaderConfigurator payloadMappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
-    ReaderConfigurator closeHeaderFiles(boolean closeHeaderFiles);
-    ReaderConfigurator closePayloadFiles(boolean closePayloadFiles);
+    ReaderConfigurator maxOpenHeaderFiles(int maxOpenHeaderFiles);
+    ReaderConfigurator maxOpenPayloadFiles(int maxOpenPayloadFiles);
     ReaderConfigurator reset();
 
     static ReaderConfigurator configurePoller() {

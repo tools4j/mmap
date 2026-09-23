@@ -32,8 +32,8 @@ import org.tools4j.mmap.region.impl.FileInitialiser;
 import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
@@ -47,7 +47,7 @@ public class ReadOnlyFileMapper implements FileMapper {
     private long fileSizeCache;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
-        this.file = Objects.requireNonNull(file);
+        this.file = requireNonNull(file);
         this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser);
     }
 
@@ -86,7 +86,7 @@ public class ReadOnlyFileMapper implements FileMapper {
         validateNotClosed(this);
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        final FileChannel channel = fileChannelProvider.getOrNull();
+        final FileChannel channel = fileChannelProvider.getIfOpen();
         if (channel != null) {
             FileChannels.unmap(channel, address, length);
         }

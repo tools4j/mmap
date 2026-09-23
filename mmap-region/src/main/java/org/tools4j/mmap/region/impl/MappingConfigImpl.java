@@ -32,14 +32,14 @@ import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
 
-public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean rollFiles, boolean closeFiles,
-                                int filesToCreateAhead, MappingStrategyConfig mappingStrategy) implements MappingConfig {
+public record MappingConfigImpl(long minFileSize, long maxFileSize, boolean expandFile, boolean rollFiles,
+                                int maxOpenFiles, int filesToCreateAhead, MappingStrategyConfig mappingStrategy) implements MappingConfig {
     public MappingConfigImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
     }
 
     public MappingConfigImpl(final MappingConfig toCopy) {
-        this(toCopy.maxFileSize(), toCopy.expandFile(), toCopy.rollFiles(), toCopy.closeFiles(),
+        this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.expandFile(), toCopy.rollFiles(), toCopy.maxOpenFiles(),
                 toCopy.filesToCreateAhead(), toCopy.mappingStrategy().toImmutableConfig());
     }
 
@@ -61,10 +61,11 @@ public record MappingConfigImpl(long maxFileSize, boolean expandFile, boolean ro
 
     public static String toString(final String name, final MappingConfig config) {
         return name +
-                ":maxFileSize=" + config.maxFileSize() +
+                ":minFileSize=" + config.minFileSize() +
+                "|maxFileSize=" + config.maxFileSize() +
                 "|expandFile=" + config.expandFile() +
                 "|rollFiles=" + config.rollFiles() +
-                "|closeFiles=" + config.closeFiles() +
+                "|maxOpenFiles=" + config.maxOpenFiles() +
                 "|filesToCreateAhead=" + config.filesToCreateAhead() +
                 "|mappingStrategy=" + config.mappingStrategy();
     }

@@ -44,14 +44,16 @@ import static org.tools4j.mmap.region.impl.Constants.REGION_SIZE_GRANULARITY;
  */
 public enum MappingConfigurations {
     ;
+    public static final String MIN_FILE_SIZE_PROPERTY = "mmap.region.minFileSize";
+    public static final long MIN_FILE_SIZE_DEFAULT = 0;
     public static final String MAX_FILE_SIZE_PROPERTY = "mmap.region.maxFileSize";
-    public static final long MAX_FILE_SIZE_DEFAULT = 256*1024*1024;
+    public static final long MAX_FILE_SIZE_DEFAULT = 2L*1024*1024*1024;
     public static final String EXPAND_FILE_PROPERTY = "mmap.region.expandFile";
     public static final boolean EXPAND_FILE_DEFAULT = false;
     public static final String ROLL_FILES_PROPERTY = "mmap.region.rollFiles";
     public static final boolean ROLL_FILES_DEFAULT = true;
-    public static final String CLOSE_FILES_PROPERTY = "mmap.region.closeFiles";
-    public static final boolean CLOSE_FILES_DEFAULT = true;
+    public static final String MAX_OPEN_FILES_PROPERTY = "mmap.region.maxOpenFiles";
+    public static final int MAX_OPEN_FILES_DEFAULT = 3;
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.region.filesToCreateAhead";
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String REGION_SIZE_PROPERTY = "mmap.region.regionSize";
@@ -99,6 +101,10 @@ public enum MappingConfigurations {
     public static final String UNMAPPING_ASYNC_RUNTIME_PROPERTY = "mmap.region.async.unmappingAsyncRuntime";
     private static Supplier<? extends AsyncRuntime> UNMAPPING_ASYNC_RUNTIME_DEFAULT_VALUE;
 
+    public static long defaultMinFileSize() {
+        return getLongProperty(MIN_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_FILE_SIZE_DEFAULT);
+    }
+
     public static long defaultMaxFileSize() {
         return getLongProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
     }
@@ -111,8 +117,8 @@ public enum MappingConfigurations {
         return getBooleanProperty(ROLL_FILES_PROPERTY, ROLL_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseFiles() {
-        return getBooleanProperty(CLOSE_FILES_PROPERTY, CLOSE_FILES_DEFAULT);
+    public static int defaultMaxOpenFiles() {
+        return getIntProperty(MAX_OPEN_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_FILES_DEFAULT);
     }
 
     public static int defaultFilesToCreateAhead() {

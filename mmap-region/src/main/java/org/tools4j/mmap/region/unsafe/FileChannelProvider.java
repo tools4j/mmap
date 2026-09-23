@@ -34,15 +34,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
 final class FileChannelProvider implements Closeable {
-    ;
-
     private static final Logger LOGGER = LoggerFactory.getLogger(FileChannelProvider.class);
 
     private final Logger infoLogger;
@@ -51,12 +48,14 @@ final class FileChannelProvider implements Closeable {
     private final AccessMode accessMode;
     private final long minFileLength;
     private final AtomicReference<ChannelWithFile> channelWithFile = new AtomicReference<>();
-    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private record ChannelWithFile(RandomAccessFile randomAccessFile, FileChannel channel) {
+        static final ChannelWithFile CLOSED = new ChannelWithFile(null, null);
         ChannelWithFile {
-            requireNonNull(randomAccessFile);
-            requireNonNull(channel);
+            if (CLOSED != null) {
+                requireNonNull(randomAccessFile);
+                requireNonNull(channel);
+            }
         }
     }
 
@@ -77,12 +76,16 @@ final class FileChannelProvider implements Closeable {
 
     @Override
     public boolean isClosed() {
-        return closed.get();
+        return channelWithFile.get() == ChannelWithFile.CLOSED;
     }
 
     public boolean closeIfNeeded() {
-        if (closed.compareAndSet(false, true)) {
-            close(channelWithFile.getAndSet(null));
+        ChannelWithFile witness = channelWithFile.compareAndExchange(null, ChannelWithFile.CLOSED);
+        if (witness == null || witness == ChannelWithFile.CLOSED) {
+            return false;
+        }
+        if (witness == channelWithFile.compareAndExchange(witness, ChannelWithFile.CLOSED)) {
+            close(witness);
             return true;
         }
         return false;
@@ -93,7 +96,7 @@ final class FileChannelProvider implements Closeable {
         closeIfNeeded();
     }
 
-    public FileChannel getOrNull() {
+    public FileChannel getIfOpen() {
         final ChannelWithFile cwf = channelWithFile.get();
         return cwf == null ? null : cwf.channel;
     }
@@ -135,7 +138,7 @@ final class FileChannelProvider implements Closeable {
         }
         final RandomAccessFile raf = initRandomAccessFile();
         final FileChannel channel = raf == null ? null : initChannel(raf);
-        return channel == null ? null : compareAndSetIfNotClosed(new ChannelWithFile(raf, channel));
+        return channel == null ? null : setOrGet(new ChannelWithFile(raf, channel));
     }
 
     private boolean createNewFile() {
@@ -191,18 +194,14 @@ final class FileChannelProvider implements Closeable {
         return channel;
     }
 
-    private ChannelWithFile compareAndSetIfNotClosed(final ChannelWithFile value) {
-        ChannelWithFile result = value;
+    private ChannelWithFile setOrGet(final ChannelWithFile value) {
         final ChannelWithFile witness = channelWithFile.compareAndExchange(null, value);
-        if (witness != null) {
-            close(value);
-            result = witness;
+        if (witness == null) {
+            infoLogger.info("Opened file {}", file);
+            return value;
         }
-        if (isClosed()) {
-            close(result);
-            return null;
-        }
-        return result;
+        close(value);
+        return witness;
     }
 
     private void close(final ChannelWithFile value) {
@@ -226,6 +225,6 @@ final class FileChannelProvider implements Closeable {
     public String toString() {
         return "FileChannelProvider"
                 + ":file=" + file
-                + "|closed=" + closed;
+                + "|closed=" + isClosed();
     }
 }

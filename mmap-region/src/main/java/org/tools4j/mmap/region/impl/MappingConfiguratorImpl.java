@@ -34,15 +34,18 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateMaxOpenFiles;
+import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
 import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 public class MappingConfiguratorImpl implements MappingConfigurator {
     protected final MappingConfig defaults;
+    protected long minFileSize;
     protected long maxFileSize;
     protected Boolean expandFile;
     protected Boolean rollFiles;
-    protected Boolean closeFiles;
+    protected int maxOpenFiles;
     protected int filesToCreateAhead;
     protected MappingStrategyConfig mappingStrategy;
 
@@ -56,10 +59,11 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
 
     @Override
     public MappingConfigurator reset() {
+        this.minFileSize = -1;
         this.maxFileSize = 0;
         this.expandFile = null;
         this.rollFiles = null;
-        this.closeFiles = null;
+        this.maxOpenFiles = -1;
         this.filesToCreateAhead = -1;
         this.mappingStrategy = null;
         return this;
@@ -68,6 +72,17 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     @Override
     public MappingConfig toImmutableConfig() {
         return new MappingConfigImpl(this);
+    }
+
+    @Override
+    public long minFileSize() {
+        if (minFileSize < 0) {
+            minFileSize = defaults.minFileSize();
+        }
+        if (minFileSize < 0) {
+            minFileSize = MappingConfigurations.defaultMinFileSize();
+        }
+        return minFileSize;
     }
 
     @Override
@@ -98,11 +113,14 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
-    public boolean closeFiles() {
-        if (closeFiles == null) {
-            closeFiles = defaults.closeFiles();
+    public int maxOpenFiles() {
+        if (maxOpenFiles < 0) {
+            maxOpenFiles = defaults.maxOpenFiles();
         }
-        return closeFiles;
+        if (maxOpenFiles < 0) {
+            maxOpenFiles = defaults.maxOpenFiles();
+        }
+        return maxOpenFiles;
     }
 
     @Override
@@ -128,6 +146,13 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public MappingConfigurator minFileSize(final long minFileSize) {
+        validateMinFileSize(minFileSize);
+        this.minFileSize = minFileSize;
+        return this;
+    }
+
+    @Override
     public MappingConfigurator maxFileSize(final long maxFileSize) {
         validateMaxFileSize(maxFileSize);
         this.maxFileSize = maxFileSize;
@@ -147,8 +172,9 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
-    public MappingConfigurator closeFiles(final boolean closeFiles) {
-        this.closeFiles = closeFiles;
+    public MappingConfigurator maxOpenFiles(final int maxOpenFiles) {
+        validateMaxOpenFiles(maxOpenFiles);
+        this.maxOpenFiles = maxOpenFiles;
         return this;
     }
 
@@ -176,10 +202,11 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     @Override
     public String toString() {
         return "MappingConfiguratorImpl" +
-                ":maxFileSize=" + maxFileSize +
+                ":minFileSize=" + minFileSize +
+                "|maxFileSize=" + maxFileSize +
                 "|expandFile=" + expandFile +
                 "|rollFiles=" + rollFiles +
-                "|closeFiles=" + closeFiles +
+                "|maxOpenFiles=" + maxOpenFiles +
                 "|filesToCreateAhead=" + filesToCreateAhead +
                 "|mappingStrategy=" + mappingStrategy +
                 "|defaults=" + defaults;

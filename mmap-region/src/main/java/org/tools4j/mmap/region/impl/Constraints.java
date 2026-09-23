@@ -137,10 +137,23 @@ public enum Constraints {
         validateNonNegative("Initial pool size", initialPoolSize);
     }
 
+    public static void validateMinFileSize(final long minFileSize) {
+        if (minFileSize != 0 && (!BitUtil.isPowerOfTwo(minFileSize) || minFileSize % REGION_SIZE_GRANULARITY != 0)) {
+            throw new IllegalArgumentException("Min file size must be a zero of a power of two and a multiple of " +
+                    REGION_SIZE_GRANULARITY + " but was " + minFileSize);
+        }
+    }
+
     public static void validateMaxFileSize(final long maxFileSize) {
         if (!BitUtil.isPowerOfTwo(maxFileSize) || maxFileSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Max file size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + maxFileSize);
+        }
+    }
+
+    public static void validateMaxOpenFiles(final int maxOpenFiles) {
+        if (maxOpenFiles <= 0) {
+            throw new IllegalArgumentException("Max open files must be be at least one but was " +  maxOpenFiles);
         }
     }
 
@@ -185,8 +198,11 @@ public enum Constraints {
 
     public static void validateNotClosed(final Closeable closeable) {
         if (closeable.isClosed()) {
-            throw new IllegalStateException("Already closed: " + closeable);
+            throw alreadyClosedException(closeable);
         }
+    }
+    public static IllegalStateException alreadyClosedException(final Closeable closeable) {
+        return new IllegalStateException("Already closed: " + closeable);
     }
 
 }

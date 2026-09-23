@@ -36,36 +36,62 @@ import java.util.function.Consumer;
  */
 public interface MappingConfigurator extends MappingConfig {
     /**
-     * Sets the maximum size of a mapped file. The maximum file size should be a multiple of the mapping strategy's
-     * {@linkplain MappingStrategyConfigurator#regionSize() region size}.
+     * Sets the minimum size (and incremental size) of the file, applicable only if
+     * {@linkplain #expandFile() expand-file} mode is in use. The minimum file size must be a multiple of the mapping
+     * strategy's {@linkplain MappingStrategyConfigurator#regionSize() region size}, or zero in which case the file is
+     * expanded in region-size increments.
+     *
+     * @param minFileSize the minimum file size in bytes, also used as minimum file size increments; minimum size zero
+     *                    implies region-sized increments
+     * @return this configurator for method chaining
+     * @see #expandFile(boolean) 
+     * @see #maxFileSize(long)
+     */
+    MappingConfigurator minFileSize(long minFileSize);
+
+    /**
+     * Sets the maximum size of a file newly created when mapped. The maximum file size must be a multiple of the
+     * mapping strategy's {@linkplain MappingStrategyConfigurator#regionSize() region size}. If
+     * {@linkplain #expandFile() expand-file} mode is in use, the maximum file size must also be a multiple of
+     * {@link #minFileSize() minimum file size} unless that is set to zero (which implies region-sized increments).
      *
      * @param maxFileSize the maximum file size in bytes
      * @return this configurator for method chaining
+     * @see #minFileSize(long) 
+     * @see #expandFile(boolean)  
      */
     MappingConfigurator maxFileSize(long maxFileSize);
+
     /**
      * Sets the expand-file option, true if files should be expanded as needed, and false to create the full-size file
      * on initiation.
-     * @param expandFile true if files should be expanded as needed, and false to create the full-size file on initiation
+     * @param expandFile true if files should be expanded as needed, and false to create the max-size file on initiation
      * @return this configurator for method chaining
+     * @see #minFileSize(long)
+     * @see #maxFileSize(long)
      */
     MappingConfigurator expandFile(boolean expandFile);
+
     /**
      * Sets the roll-files option, true if files should be indexed and rolled when they reach the
      * {@linkplain #maxFileSize() maximum file size}.
      *
      * @param rollFiles true if files should be rolled when the maximum file size is reached
      * @return this configurator for method chaining
+     * @see #maxFileSize(long)
+     * @see #maxOpenFiles(int)
      */
     MappingConfigurator rollFiles(boolean rollFiles);
+
     /**
-     * Sets the close-files option, applicable only if {@linkplain #rollFiles() file rolling} is used. If set to true,
-     * files are closed after unmapping the last region of that file.
+     * Sets the maximum number of open files, applicable only if {@linkplain #rollFiles() file rolling} is used.
      *
-     * @param closeFiles if true and file rolling is used, files are closed after unmapping the last region of the file
+     * @param maxOpenFiles the maximum files to keep open in file rolling mode
      * @return this configurator for method chaining
+     * @see #rollFiles(boolean)
      */
-    MappingConfigurator closeFiles(boolean closeFiles);
+    MappingConfigurator maxOpenFiles(int maxOpenFiles);
+
     /**
      * Sets the number of files to create ahead, that is, before they are actually used for mappings.
      *

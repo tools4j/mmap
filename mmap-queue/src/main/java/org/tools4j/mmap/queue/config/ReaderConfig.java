@@ -28,8 +28,8 @@ import org.tools4j.mmap.region.config.MappingStrategyConfig;
 public interface ReaderConfig {
     MappingStrategyConfig headerMappingStrategy();
     MappingStrategyConfig payloadMappingStrategy();
-    boolean closeHeaderFiles();
-    boolean closePayloadFiles();
+    int maxOpenHeaderFiles();
+    int maxOpenPayloadFiles();
     ReaderConfig toImmutableReaderConfig();
 
     static ReaderConfigurator configurePoller() {

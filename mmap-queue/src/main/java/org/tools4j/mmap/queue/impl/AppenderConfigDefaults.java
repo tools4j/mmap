@@ -26,8 +26,12 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.region.config.MappingStrategyConfig;
 
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderPayloadFiles;
 
 public enum AppenderConfigDefaults implements AppenderConfig {
     APPENDER_CONFIG_DEFAULTS;
@@ -48,9 +52,33 @@ public enum AppenderConfigDefaults implements AppenderConfig {
     }
 
     @Override
+    public int maxOpenHeaderFiles() {
+        return defaultMaxOpenAppenderHeaderFiles();
+    }
+
+    @Override
+    public int maxOpenPayloadFiles() {
+        return defaultMaxOpenAppenderPayloadFiles();
+    }
+
+    @Override
+    public int headerFilesToCreateAhead() {
+        return defaultAppenderHeaderFilesToCreateAhead();
+    }
+
+    @Override
+    public int payloadFilesToCreateAhead() {
+        return defaultAppenderPayloadFilesToCreateAhead();
+    }
+
+    @Override
     public String toString() {
         return "AppenderConfigDefaults" +
                 ":headerMappingStrategy=" + headerMappingStrategy() +
-                "|payloadMappingStrategy=" + payloadMappingStrategy();
+                "|payloadMappingStrategy=" + payloadMappingStrategy() +
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles() +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles() +
+                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead() +
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead();
     }
 }

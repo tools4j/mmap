@@ -26,6 +26,7 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.RegionMetrics;
+import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.impl.RegionMetricsImpl;
 
 import static java.util.Objects.requireNonNull;
@@ -35,10 +36,9 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
  * A direct region mapper that synchronously delegates mapping and unmapping requests to the underlying
  * {@link FileMapper}.
  */
-class SyncRegionMapper implements DirectRegionMapper {
+@Unsafe
+record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) implements DirectRegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapper.class);
-    private final FileMapper fileMapper;
-    private final RegionMetrics regionMetrics;
 
     public SyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
         this(fileMapper, new RegionMetricsImpl(regionSize));
@@ -47,16 +47,6 @@ class SyncRegionMapper implements DirectRegionMapper {
     public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
         this.fileMapper = requireNonNull(fileMapper);
         this.regionMetrics = requireNonNull(regionMetrics);
-    }
-
-    @Override
-    public FileMapper fileMapper() {
-        return fileMapper;
-    }
-
-    @Override
-    public RegionMetrics regionMetrics() {
-        return regionMetrics;
     }
 
     @Override

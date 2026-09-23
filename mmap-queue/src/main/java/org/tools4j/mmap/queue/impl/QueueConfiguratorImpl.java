@@ -40,13 +40,10 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 
@@ -60,8 +57,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private Boolean expandPayloadFiles;
     private Boolean rollHeaderFile;
     private Boolean rollPayloadFiles;
-    private int headerFilesToCreateAhead;
-    private int payloadFilesToCreateAhead;
     private AppenderConfig appenderConfig;
     private ReaderConfig pollerConfig;
     private ReaderConfig entryReaderConfig;
@@ -86,8 +81,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         expandPayloadFiles = null;
         rollHeaderFile = null;
         rollPayloadFiles = null;
-        headerFilesToCreateAhead = -1;
-        payloadFilesToCreateAhead = -1;
         appenderConfig = null;
         pollerConfig = null;
         entryReaderConfig = null;
@@ -224,38 +217,33 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
-    public int headerFilesToCreateAhead() {
-        if (headerFilesToCreateAhead < 0) {
-            headerFilesToCreateAhead = defaults.headerFilesToCreateAhead();
-        }
-        if (headerFilesToCreateAhead < 0) {
-            headerFilesToCreateAhead = defaultHeaderFilesToCreateAhead();
-        }
-        return headerFilesToCreateAhead;
-    }
-
-    @Override
-    public QueueConfigurator headerFilesToCreateAhead(final int headerFilesToCreateAhead) {
-        validateFilesToCreateAhead(headerFilesToCreateAhead);
-        this.headerFilesToCreateAhead = headerFilesToCreateAhead;
+    public QueueConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        appenderConfig(cfg -> cfg.maxOpenHeaderFiles(maxOpenHeaderFiles));
+        pollerConfig(cfg -> cfg.maxOpenHeaderFiles(maxOpenHeaderFiles));
+        entryReaderConfig(cfg -> cfg.maxOpenHeaderFiles(maxOpenHeaderFiles));
+        entryIteratorConfig(cfg -> cfg.maxOpenHeaderFiles(maxOpenHeaderFiles));
+        indexReaderConfig(cfg -> cfg.maxOpenHeaderFiles(maxOpenHeaderFiles));
         return this;
     }
 
     @Override
-    public int payloadFilesToCreateAhead() {
-        if (payloadFilesToCreateAhead < 0) {
-            payloadFilesToCreateAhead = defaults.payloadFilesToCreateAhead();
-        }
-        if (payloadFilesToCreateAhead < 0) {
-            payloadFilesToCreateAhead = defaultPayloadFilesToCreateAhead();
-        }
-        return payloadFilesToCreateAhead;
+    public QueueConfigurator maxOpenPayloadFiles(final int maxOpenPayloadFiles) {
+        appenderConfig(cfg -> cfg.maxOpenPayloadFiles(maxOpenPayloadFiles));
+        pollerConfig(cfg -> cfg.maxOpenPayloadFiles(maxOpenPayloadFiles));
+        entryReaderConfig(cfg -> cfg.maxOpenPayloadFiles(maxOpenPayloadFiles));
+        entryIteratorConfig(cfg -> cfg.maxOpenPayloadFiles(maxOpenPayloadFiles));
+        return this;
+    }
+
+    @Override
+    public QueueConfigurator headerFilesToCreateAhead(final int headerFilesToCreateAhead) {
+        appenderConfig(cfg -> cfg.headerFilesToCreateAhead(headerFilesToCreateAhead));
+        return this;
     }
 
     @Override
     public QueueConfigurator payloadFilesToCreateAhead(final int payloadFilesToCreateAhead) {
-        validateFilesToCreateAhead(payloadFilesToCreateAhead);
-        this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
+        appenderConfig(cfg -> cfg.payloadFilesToCreateAhead(payloadFilesToCreateAhead));
         return this;
     }
 
@@ -458,8 +446,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +
                 "|rollPayloadFiles=" + rollPayloadFiles +
-                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
                 "|appenderConfig={" + appenderConfig + "}" +
                 "|pollerConfig={" + pollerConfig + "}" +
                 "|entryReaderConfig={" + entryReaderConfig + "}" +

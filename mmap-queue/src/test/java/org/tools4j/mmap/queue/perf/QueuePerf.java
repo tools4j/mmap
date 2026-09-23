@@ -81,6 +81,40 @@ import static org.tools4j.mmap.queue.util.ConfigPrinter.printConfig;
             count  : 10000000
  *
  *          AsyncRunAheadRegionMapper:...statistics=(async=1091|sync=1|busy=138684).
+ *
+ *
+ *          QueueConfig:
+ * 	regionSize            : 64K
+ * 	cacheSize             : 16
+ * 	regionsToMapAhead     : 8
+ * 	aheadMappingCacheSize : 16
+ * 	maxHeaderFileSize     : 256M rolling
+ * 	maxPayloadFileSize    : 2G expanding+rolling
+ *
+ * sender:
+ * 	msg/s : 999992.44
+ *
+ * receiver-0: Percentiles (micros)
+ * 	min    : 0.0
+ * 	50%    : 0.125
+ * 	90%    : 0.375
+ * 	99%    : 1.25
+ * 	99.9%  : 5.295
+ * 	99.99% : 36.191
+ * 	99.999%: 224.639
+ * 	max    : 254.719
+ * 	count  : 10000000
+ *
+ * receiver-1: Percentiles (micros)
+ * 	min    : 0.0
+ * 	50%    : 0.125
+ * 	90%    : 0.375
+ * 	99%    : 1.334
+ * 	99.9%  : 5.003
+ * 	99.99% : 31.631
+ * 	99.999%: 218.751
+ * 	max    : 252.671
+ * 	count  : 10000000
  * </pre>
  *
  *
@@ -283,10 +317,10 @@ public class QueuePerf {
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
 //                .maxHeaderFileSize(256 * 1024 * 1024)
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
-                .maxHeaderFileSize(256 * 1024 * 1024)
-                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
-//                .maxHeaderFileSize(regionSize)
-//                .maxPayloadFileSize(regionSize)
+//                .maxHeaderFileSize(256 * 1024 * 1024)
+//                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
+                .maxHeaderFileSize(regionSize)
+                .maxPayloadFileSize(regionSize)
 //                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
 //                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
                 .headerFilesToCreateAhead(0)
@@ -298,10 +332,10 @@ public class QueuePerf {
 //        final long messagesPerSecond = 3_000_000;
         final long messagesPerSecond = 1_000_000;
 //        final long messagesPerSecond = 500_000;
-//        final int messages = 1_100_000;
-//        final int warmup = 100_000;
-        final int messages = 11_000_000;
-        final int warmup = 1_000_000;
+        final int messages = 1_100_000;
+        final int warmup = 100_000;
+//        final int messages = 11_000_000;
+//        final int warmup = 1_000_000;
 //        final int messages = 110_000_000;
 //        final int warmup = 10_000_000;
         final int messageLength = 100;

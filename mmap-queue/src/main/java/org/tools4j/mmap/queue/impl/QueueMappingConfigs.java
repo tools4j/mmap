@@ -35,25 +35,33 @@ import static java.util.Objects.requireNonNull;
 
 enum QueueMappingConfigs {
     ;
+    static final int MAX_OPEN_FILES = 4096;//FIXME
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
-        return headerMappingConfig(queueConfig, appenderConfig.headerMappingStrategy(), true);
+        return headerMappingConfig(queueConfig, appenderConfig.headerMappingStrategy(),
+                appenderConfig.maxOpenHeaderFiles(), appenderConfig.headerFilesToCreateAhead());
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {
-        return headerMappingConfig(queueConfig, readerConfig.headerMappingStrategy(), readerConfig.closeHeaderFiles());
+        return headerMappingConfig(queueConfig, readerConfig.headerMappingStrategy(), readerConfig.maxOpenHeaderFiles(), 0);
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final IndexReaderConfig indexReaderConfig) {
-        return headerMappingConfig(queueConfig, indexReaderConfig.headerMappingStrategy(), indexReaderConfig.closeHeaderFiles());
+        return headerMappingConfig(queueConfig, indexReaderConfig.headerMappingStrategy(), indexReaderConfig.maxOpenHeaderFiles(), 0);
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig,
                                              final MappingStrategyConfig mappingStrategy,
-                                             final boolean closeHeaderFiles) {
+                                             final int maxOpenFiles,
+                                             final int filesToCreateAhead) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
+            @Override
+            public long minFileSize() {
+                return 0;//FIXME
+            }
+
             @Override
             public long maxFileSize() {
                 return queueConfig.maxHeaderFileSize();
@@ -70,13 +78,13 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public boolean closeFiles() {
-                return closeHeaderFiles;
+            public int maxOpenFiles() {
+                return maxOpenFiles;
             }
 
             @Override
             public int filesToCreateAhead() {
-                return queueConfig.headerFilesToCreateAhead();
+                return filesToCreateAhead;
             }
 
             @Override
@@ -87,8 +95,9 @@ enum QueueMappingConfigs {
             @Override
             public MappingConfig toImmutableConfig() {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
-                return queueConfig == immutableConfig ? this
-                        : headerMappingConfig(immutableConfig, mappingStrategy, closeHeaderFiles);
+                final MappingStrategyConfig immutableStrategy = mappingStrategy.toImmutableConfig();
+                return queueConfig == immutableConfig && mappingStrategy == immutableStrategy ? this
+                        : headerMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead);
             }
 
             @Override
@@ -98,19 +107,26 @@ enum QueueMappingConfigs {
         };
     }
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
-        return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(), true);
+        return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(),
+                appenderConfig.maxOpenHeaderFiles(), appenderConfig.payloadFilesToCreateAhead());
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {
-        return payloadMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.closePayloadFiles());
+        return payloadMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.maxOpenPayloadFiles(), 0);
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig,
                                               final MappingStrategyConfig mappingStrategy,
-                                              final boolean closePayloadFiles) {
+                                              final int maxOpenFiles,
+                                              final int filesToCreateAhead) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
+            @Override
+            public long minFileSize() {
+                return 0;//FIXME
+            }
+
             @Override
             public long maxFileSize() {
                 return queueConfig.maxPayloadFileSize();
@@ -127,13 +143,13 @@ enum QueueMappingConfigs {
             }
 
             @Override
-            public boolean closeFiles() {
-                return closePayloadFiles;
+            public int maxOpenFiles() {
+                return maxOpenFiles;
             }
 
             @Override
             public int filesToCreateAhead() {
-                return queueConfig.payloadFilesToCreateAhead();
+                return filesToCreateAhead;
             }
 
             @Override
@@ -144,8 +160,9 @@ enum QueueMappingConfigs {
             @Override
             public MappingConfig toImmutableConfig() {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
-                return queueConfig == immutableConfig ? this
-                        : headerMappingConfig(immutableConfig, mappingStrategy, closePayloadFiles);
+                final MappingStrategyConfig immutableStrategy = mappingStrategy.toImmutableConfig();
+                return queueConfig == immutableConfig && mappingStrategy == immutableStrategy ? this
+                        : payloadMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead);
             }
 
             @Override

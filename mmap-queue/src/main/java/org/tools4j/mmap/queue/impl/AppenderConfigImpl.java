@@ -30,19 +30,31 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
 
 public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
-                                 MappingStrategyConfig payloadMappingStrategy) implements AppenderConfig {
+                                 MappingStrategyConfig payloadMappingStrategy,
+                                 int maxOpenHeaderFiles,
+                                 int maxOpenPayloadFiles,
+                                 int headerFilesToCreateAhead,
+                                 int payloadFilesToCreateAhead) implements AppenderConfig {
     public AppenderConfigImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
     }
 
     public AppenderConfigImpl(final AppenderConfig config) {
-        this(config.headerMappingStrategy(), config.payloadMappingStrategy());
+        this(config.headerMappingStrategy(), config.payloadMappingStrategy(), config.maxOpenHeaderFiles(), config.maxOpenPayloadFiles(), config.headerFilesToCreateAhead(), config.payloadFilesToCreateAhead());
     }
 
     public AppenderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
-                              final MappingStrategyConfig payloadMappingStrategy) {
+                              final MappingStrategyConfig payloadMappingStrategy,
+                              final int maxOpenHeaderFiles,
+                              final int maxOpenPayloadFiles,
+                              final int headerFilesToCreateAhead,
+                              final int payloadFilesToCreateAhead) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
+        this.maxOpenPayloadFiles = maxOpenPayloadFiles;
+        this.headerFilesToCreateAhead = headerFilesToCreateAhead;
+        this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
     }
 
     @Override
@@ -54,6 +66,10 @@ public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
     public String toString() {
         return "AppenderConfigImpl" +
                 ":headerMappingStrategy=" + headerMappingStrategy +
-                "|payloadMappingStrategy=" + payloadMappingStrategy;
+                "|payloadMappingStrategy=" + payloadMappingStrategy +
+                "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
+                "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead;
     }
 }

@@ -63,24 +63,34 @@ public enum QueueConfigurations {
     public static final boolean ROLL_HEADER_FILE_DEFAULT = true;
     public static final String ROLL_PAYLOAD_FILES_PROPERTY = "mmap.queue.rollPayloadFiles";
     public static final boolean ROLL_PAYLOAD_FILES_DEFAULT = true;
-    public static final String HEADER_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.headerFilesToCreateAhead";
-    public static final int HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
-    public static final String PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.payloadFilesToCreateAhead";
-    public static final int PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
-    public static final String CLOSE_POLLER_HEADER_FILES_PROPERTY = "mmap.queue.closePollerHeaderFiles";
-    public static final String CLOSE_POLLER_PAYLOAD_FILES_PROPERTY = "mmap.queue.closePollerPayloadFiles";
-    public static final boolean CLOSE_POLLER_HEADER_FILES_DEFAULT = true;
-    public static final boolean CLOSE_POLLER_PAYLOAD_FILES_DEFAULT = true;
-    public static final String CLOSE_ENTRY_READER_HEADER_FILES_PROPERTY = "mmap.queue.closeEntryReaderHeaderFiles";
-    public static final String CLOSE_ENTRY_READER_PAYLOAD_FILES_PROPERTY = "mmap.queue.closeEntryReaderPayloadFiles";
-    public static final boolean CLOSE_ENTRY_READER_HEADER_FILES_DEFAULT = false;
-    public static final boolean CLOSE_ENTRY_READER_PAYLOAD_FILES_DEFAULT = false;
-    public static final String CLOSE_ENTRY_ITERATOR_HEADER_FILES_PROPERTY = "mmap.queue.closeEntryIteratorHeaderFiles";
-    public static final String CLOSE_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY = "mmap.queue.closeEntryIteratorPayloadFiles";
-    public static final boolean CLOSE_ENTRY_ITERATOR_HEADER_FILES_DEFAULT = true;
-    public static final boolean CLOSE_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = true;
-    public static final String CLOSE_INDEX_READER_HEADER_FILES_PROPERTY = "mmap.queue.closeIndexReaderHeaderFiles";
-    public static final boolean CLOSE_INDEX_READER_HEADER_FILES_DEFAULT = false;
+
+    public static final String MAX_OPEN_POLLER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenPollerHeaderFiles";
+    public static final int MAX_OPEN_POLLER_HEADER_FILES_DEFAULT = 2;
+    public static final String MAX_OPEN_POLLER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenPollerPayloadFiles";
+    public static final int MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT = 2;
+
+    public static final String MAX_OPEN_ENTRY_READER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenEntryReaderHeaderFiles";
+    public static final int MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT = 2;
+    public static final String MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenEntryReaderPayloadFiles";
+    public static final int MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT = 2;
+
+    public static final String MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenEntryIteratorHeaderFiles";
+    public static final int MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT = 2;
+    public static final String MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenEntryIteratorPayloadFiles";
+    public static final int MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = 2;
+
+    public static final String MAX_OPEN_INDEX_READER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenIndexReaderHeaderFiles";
+    public static final int MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT = 2;
+
+    public static final String MAX_OPEN_APPENDER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenAppenderHeaderFiles";
+    public static final int MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT = 2;
+    public static final String MAX_OPEN_APPENDER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenAppenderPayloadFiles";
+    public static final int MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT = 2;
+    public static final String APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.appenderHeaderFilesToCreateAhead";
+    public static final int APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
+    public static final String APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.appenderPayloadFilesToCreateAhead";
+    public static final int APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
+
     public static final String POLLER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.pollerHeaderRegionSize";
     public static final String POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.pollerHeaderRegionCacheSize";
     public static final String POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.pollerHeaderRegionsToMapAhead";
@@ -116,6 +126,7 @@ public enum QueueConfigurations {
     public static final String INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.indexReaderHeaderRegionsToMapAhead";
     public static final String INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY = "mmap.queue.indexReaderHeaderMappingStrategy";
     public static final MappingStrategy INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT = SyncMappingStrategyWithAsyncUnmapping;
+
     public static final String APPENDER_HEADER_REGION_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionSize";
     public static final String APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY = "mmap.queue.appenderHeaderRegionCacheSize";
     public static final String APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderHeaderRegionsToMapAhead";
@@ -126,6 +137,7 @@ public enum QueueConfigurations {
     public static final String APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderPayloadRegionsToMapAhead";
     public static final String APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.appenderPayloadMappingStrategy";
     public static final MappingStrategy APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT = AsyncMapAheadStrategy;
+
     private static MappingStrategyConfig POLLER_HEADER_MAPPING_STRATEGY;
     private static MappingStrategyConfig POLLER_PAYLOAD_MAPPING_STRATEGY;
     private static MappingStrategyConfig ENTRY_READER_HEADER_MAPPING_STRATEGY;
@@ -168,41 +180,59 @@ public enum QueueConfigurations {
         return getBooleanProperty(ROLL_PAYLOAD_FILES_PROPERTY, ROLL_PAYLOAD_FILES_DEFAULT);
     }
 
-    public static int defaultHeaderFilesToCreateAhead() {
-        return getIntProperty(HEADER_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, HEADER_FILES_TO_CREATE_AHEAD_DEFAULT);
+
+    // POLLER
+
+    public static int defaultMaxOpenPollerHeaderFiles() {
+        return getIntProperty(MAX_OPEN_POLLER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_HEADER_FILES_DEFAULT);
     }
 
-    public static int defaultPayloadFilesToCreateAhead() {
-        return getIntProperty(PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
+    public static int defaultMaxOpenPollerPayloadFiles() {
+        return getIntProperty(MAX_OPEN_POLLER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT);
     }
 
-    public static boolean defaultClosePollerHeaderFiles() {
-        return getBooleanProperty(CLOSE_POLLER_HEADER_FILES_PROPERTY, CLOSE_POLLER_HEADER_FILES_DEFAULT);
+    // ENTRY_READER
+
+    public static int defaultMaxOpenEntryReaderHeaderFiles() {
+        return getIntProperty(MAX_OPEN_ENTRY_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT);
     }
 
-    public static boolean defaultClosePollerPayloadFiles() {
-        return getBooleanProperty(CLOSE_POLLER_PAYLOAD_FILES_PROPERTY, CLOSE_POLLER_PAYLOAD_FILES_DEFAULT);
+    public static int defaultMaxOpenEntryReaderPayloadFiles() {
+        return getIntProperty(MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseEntryReaderHeaderFiles() {
-        return getBooleanProperty(CLOSE_ENTRY_READER_HEADER_FILES_PROPERTY, CLOSE_ENTRY_READER_HEADER_FILES_DEFAULT);
+    // ENTRY_ITERATOR
+
+    public static int defaultMaxOpenEntryIteratorHeaderFiles() {
+        return getIntProperty(MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseEntryReaderPayloadFiles() {
-        return getBooleanProperty(CLOSE_ENTRY_READER_PAYLOAD_FILES_PROPERTY, CLOSE_ENTRY_READER_PAYLOAD_FILES_DEFAULT);
+    public static int defaultMaxOpenEntryIteratorPayloadFiles() {
+        return getIntProperty(MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseEntryIteratorHeaderFiles() {
-        return getBooleanProperty(CLOSE_ENTRY_ITERATOR_HEADER_FILES_PROPERTY, CLOSE_ENTRY_ITERATOR_HEADER_FILES_DEFAULT);
+    // INDEX_READER
+    public static int defaultMaxOpenIndexReaderHeaderFiles() {
+        return getIntProperty(MAX_OPEN_INDEX_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseEntryIteratorPayloadFiles() {
-        return getBooleanProperty(CLOSE_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY, CLOSE_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT);
+    // APPENDER
+    public static int defaultMaxOpenAppenderHeaderFiles() {
+        return getIntProperty(MAX_OPEN_APPENDER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT);
     }
 
-    public static boolean defaultCloseIndexReaderHeaderFiles() {
-        return getBooleanProperty(CLOSE_INDEX_READER_HEADER_FILES_PROPERTY, CLOSE_INDEX_READER_HEADER_FILES_DEFAULT);
+    public static int defaultMaxOpenAppenderPayloadFiles() {
+        return getIntProperty(MAX_OPEN_APPENDER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT);
     }
+
+    public static int defaultAppenderHeaderFilesToCreateAhead() {
+        return getIntProperty(APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT);
+    }
+
+    public static int defaultAppenderPayloadFilesToCreateAhead() {
+        return getIntProperty(APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
+    }
+
 
     // POLLER_HEADER_MAPPING_STRATEGY
 

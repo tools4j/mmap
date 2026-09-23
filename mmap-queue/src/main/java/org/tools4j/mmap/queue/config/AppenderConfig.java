@@ -28,6 +28,10 @@ import org.tools4j.mmap.region.config.MappingStrategyConfig;
 public interface AppenderConfig {
     MappingStrategyConfig headerMappingStrategy();
     MappingStrategyConfig payloadMappingStrategy();
+    int maxOpenHeaderFiles();
+    int maxOpenPayloadFiles();
+    int headerFilesToCreateAhead();
+    int payloadFilesToCreateAhead();
     AppenderConfig toImmutableAppenderConfig();
 
     static AppenderConfigurator configure() {
