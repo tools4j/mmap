@@ -34,7 +34,7 @@ import java.util.function.IntFunction;
 
 import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 import static org.agrona.BitUtil.isPowerOfTwo;
-import static org.agrona.collections.Hashing.DEFAULT_LOAD_FACTOR;
+import static org.tools4j.mmap.region.impl.Constraints.validateNonNegative;
 
 /**
  * Fixed-capacity, lock-free, allocation-free-after-warmup LRU cache keyed by int index.
@@ -69,8 +69,8 @@ import static org.agrona.collections.Hashing.DEFAULT_LOAD_FACTOR;
  * "episodes" of the same index. Safe only because different V instances for
  * the same index are considered equivalent by callers.
  * <p>
- * NOTE ON HINT HEURISTIC: acquire()/release() speculatively assume the slot is
- * quiescent when using the cached per-thread hint. This is a bet, not a
+ * NOTE ON HINT HEURISTICS: acquire()/release() speculatively assume the slot is
+ * quiescent when using cached per-thread hints. This is a bet, not a
  * guarantee — if wrong, the CAS fails safely and falls back to a verified
  * path using the witness value from the failed attempt.
  * <p>
@@ -79,19 +79,16 @@ import static org.agrona.collections.Hashing.DEFAULT_LOAD_FACTOR;
  * `lastUsed`, `clock`) piggyback on the happens-before edge `meta` already
  * established, so they use weaker (plain/opaque) access modes deliberately.
  * <p>
- * NOTE ON TABLE SIZING / SCAN ORDER: the backing table is sized larger than
- * the requested capacity (capacity / 0.65, rounded up to a power of two) and
- * every linear scan starts at `index &amp; (cacheSize - 1)` and wraps around,
- * rather than always starting at slot 0. Scan termination semantics are
- * unchanged (still visits every slot if needed, still walks through EMPTY
- * slots) — only visitation order changes, for a shorter expected path to hits.
+ * NOTE ON TABLE SIZING / SCAN ORDER: the backing table is sized as a power
+ * of two for efficient modulo operations; every linear scan starts at
+ * `index &amp; (cacheSize - 1)` and wraps around, rather than always starting
+ * at slot 0, for a shorter expected path to hits.
  * <p>
  * NOTE ON CAPACITY ENFORCEMENT: liveCount is pre-incremented ("claim a growth
  * ticket") before searching for a slot, so the live entry count never
  * transiently exceeds `capacity`, even briefly, under concurrent inserts.
  */
 public final class AtomicLruCache<E> {
-    private static final int MAX_HINTS = 4;
     // --- Slot states ---
     private static final int EMPTY = 0;
     private static final int CLAIMED = 1;
@@ -125,6 +122,7 @@ public final class AtomicLruCache<E> {
     private final AtomicLongArray meta;
     private final AtomicLongArray lastUsed;
     private final AtomicReferenceArray<E> values;
+    private final ThreadLocal<Hint[]> hints;
     private final AtomicInteger liveCount = new AtomicInteger(0);
     private volatile long clock;
 
@@ -133,23 +131,17 @@ public final class AtomicLruCache<E> {
         int index = -1;
         int slot = -1;
     }
-    private final ThreadLocal<Hint[]> hints = ThreadLocal.withInitial(() -> {
-        final Hint[] hints = new Hint[MAX_HINTS];
-        for (int i = 0; i < MAX_HINTS; i++) {
-            hints[i] = new Hint();
-        }
-        return hints;
-    });
 
     public AtomicLruCache(final int capacity) {
-        this(capacity, findNextPositivePowerOfTwo((int)Math.ceil(capacity/DEFAULT_LOAD_FACTOR)));
+        this(capacity, findNextPositivePowerOfTwo(capacity));
     }
 
     public AtomicLruCache(final int capacity, final int cacheSize) {
-        if (cacheSize <= 0 || cacheSize < capacity || !isPowerOfTwo(cacheSize)) {
+        validateNonNegative("capacity", capacity);
+        if (cacheSize < capacity || !isPowerOfTwo(cacheSize)) {
             throw new IllegalArgumentException(
                     "Invalid cache size, must be a power of two and at least same as capacity " + capacity +
-                    ", but was " + cacheSize
+                            ", but was " + cacheSize
             );
         }
         this.capacity = capacity;
@@ -161,10 +153,17 @@ public final class AtomicLruCache<E> {
         for (int i = 0; i < cacheSize; i++) {
             meta.lazySet(i, pack(0, EMPTY, 0));
         }
+        this.hints = ThreadLocal.withInitial(() -> {
+            final Hint[] hints = new Hint[cacheSize];
+            for (int i = 0; i < cacheSize; i++) {
+                hints[i] = new Hint();
+            }
+            return hints;
+        });
     }
 
     private Hint hintForIndex(final int index) {
-        return hints.get()[index & (MAX_HINTS - 1)];
+        return hints.get()[index & cacheSizeMask];
     }
 
     private int slotForIndex(final int index) {

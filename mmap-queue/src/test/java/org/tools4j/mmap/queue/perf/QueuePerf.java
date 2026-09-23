@@ -317,12 +317,17 @@ public class QueuePerf {
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
 //                .maxHeaderFileSize(256 * 1024 * 1024)
 //                .maxPayloadFileSize(1024 * 1024 * 1024)
-//                .maxHeaderFileSize(256 * 1024 * 1024)
-//                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
-                .maxHeaderFileSize(regionSize)
-                .maxPayloadFileSize(regionSize)
-//                .maxHeaderFileSize(64L * 1024 * 1024 * 1024) //for expanding
-//                .maxPayloadFileSize(64L * 1024 * 1024 * 1024) //for expanding
+                .maxHeaderFileSize(256 * 1024 * 1024)
+                .maxPayloadFileSize(2L * 1024 * 1024 * 1024)
+
+                //for stress test with lots of file rolls
+//                .maxHeaderFileSize(regionSize)
+//                .maxPayloadFileSize(regionSize)
+
+                //for expanding
+//                .maxHeaderFileSize(64L * 1024 * 1024 * 1024)
+//                .maxPayloadFileSize(64L * 1024 * 1024 * 1024)
+
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
 

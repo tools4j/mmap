@@ -37,18 +37,22 @@ public class FileMappers {
                                     final AccessMode accessMode,
                                     final FileInitialiser fileInitialiser,
                                     final MappingConfig config) {
+        final boolean async = config.mappingStrategy().asyncMapping().isPresent()
+                || config.mappingStrategy().asyncUnmapping().isPresent();
         switch (accessMode) {
             case READ_ONLY:
                 if (config.rollFiles()) {
-                    return ConcurrentRollingFileMapper.forReadOnly(file, config, fileInitialiser);
-                    //return RollingFileMapper.forReadOnly(file, config, fileInitialiser);
+                    return async
+                            ? ConcurrentRollingFileMapper.forReadOnly(file, config, fileInitialiser)
+                            : RollingFileMapper.forReadOnly(file, config, fileInitialiser);
                 }
                 return new ReadOnlyFileMapper(file, fileInitialiser);
             case READ_WRITE:
             case READ_WRITE_CLEAR:
                 if (config.rollFiles()) {
-                    return ConcurrentRollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
-                    //return RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
+                    return async
+                            ? ConcurrentRollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser)
+                            : RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
                 if (config.expandFile()) {
                     return new ExpandableSizeFileMapper(file, config.minFileSize(), config.maxFileSize(),
