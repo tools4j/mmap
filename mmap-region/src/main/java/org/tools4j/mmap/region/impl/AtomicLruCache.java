@@ -261,9 +261,9 @@ public final class AtomicLruCache<E> {
         final int maxAttempts = Math.max(ACQUIRE_ATTEMPTS_MIN, cacheSize);
         int live = liveCount.incrementAndGet();
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            final boolean grow = live <= capacity;
+            final boolean full = live > capacity;
 
-            final int target = grow ? findEmptySlot(index + attempt) : findEvictableSlot(index + attempt);
+            final int target = full ? findEvictableSlot(index + attempt) : findEmptySlot(index + attempt);
             if (target == -1) {
                 live = liveCount.getAcquire();
                 continue;
@@ -322,10 +322,11 @@ public final class AtomicLruCache<E> {
     private String slots() {
         final StringBuilder builder = new StringBuilder(16).append('[');
         for (int slot = 0; slot < cacheSize; slot++) {
-            final int state = stateOf(meta.get(slot));
+            final long m = meta.get(slot);
+            final int state = stateOf(m);
             if (state != EMPTY) {
                 builder.append(builder.length() > 1 ? ", " : "");
-                builder.append(slot).append(':').append(stateName(state)).append(':').append(pinOf(state));
+                builder.append(slot).append(':').append(stateName(state)).append(':').append(pinOf(m));
             }
         }
         return builder.append(']').toString();
