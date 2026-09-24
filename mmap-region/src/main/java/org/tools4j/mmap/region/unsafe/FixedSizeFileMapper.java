@@ -37,6 +37,12 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
+/**
+ * A {@link FileMapper} for a file of fixed, pre-allocated size.
+ * <p>
+ * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
+ * multiple threads.
+ */
 @Unsafe
 public class FixedSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(FixedSizeFileMapper.class);

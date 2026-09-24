@@ -42,6 +42,12 @@ import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
+/**
+ * A {@link FileMapper} for a file that grows on demand between a minimum and maximum size.
+ * <p>
+ * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
+ * multiple threads.
+ */
 @Unsafe
 public class ExpandableSizeFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);

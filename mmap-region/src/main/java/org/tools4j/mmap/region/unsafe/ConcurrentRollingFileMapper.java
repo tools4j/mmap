@@ -44,9 +44,15 @@ import static org.tools4j.mmap.region.impl.Constraints.alreadyClosedException;
 import static org.tools4j.mmap.region.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxOpenFiles;
-import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
+/**
+ * A {@link FileMapper} that splits a logical stream across multiple physical files ("rolling"), creating a new file
+ * once the current one reaches its maximum size and keeping at most a configured number of files open at a time.
+ * <p>
+ * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
+ * multiple threads. See {@link RollingFileMapper} for a single-threaded alternative.
+ */
 @Unsafe
 public class ConcurrentRollingFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConcurrentRollingFileMapper.class);

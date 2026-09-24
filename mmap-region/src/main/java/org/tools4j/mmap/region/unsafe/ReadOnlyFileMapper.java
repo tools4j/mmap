@@ -38,13 +38,19 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 
+/**
+ * A {@link FileMapper} for read-only access to an existing file.
+ * <p>
+ * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
+ * multiple threads.
+ */
 @Unsafe
 public class ReadOnlyFileMapper implements FileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
 
     private final File file;
     private final FileChannelProvider fileChannelProvider;
-    private long fileSizeCache;
+    private volatile long fileSizeCache;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
         this.file = requireNonNull(file);
