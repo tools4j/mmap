@@ -120,7 +120,7 @@ public enum Constraints {
         }
     }
     public static void validateAdaptiveMappingLength(final int length, final int maxLength) {
-        if (length < 0 || length >= maxLength) {
+        if (length < 0 || length > maxLength) {
             throw new IllegalArgumentException("Invalid length " + length + " for adaptive mapping with max-length " +
                     maxLength);
         }

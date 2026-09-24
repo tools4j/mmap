@@ -137,7 +137,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
             if (cachedFileLength < minLength) {
                 final long extendedLength = tryExtendFile(channel, fileLength, minLength);
                 if (extendedLength > cachedFileLength) {
-                    cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
+                    cachedFileLength = fileLengthCache.accumulateAndGet(extendedLength, Math::max);
                 }
             }
         } while (cachedFileLength < minLength);

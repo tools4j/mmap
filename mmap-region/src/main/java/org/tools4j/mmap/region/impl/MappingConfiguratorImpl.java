@@ -55,6 +55,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
 
     public MappingConfiguratorImpl(final MappingConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override
@@ -118,7 +119,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
             maxOpenFiles = defaults.maxOpenFiles();
         }
         if (maxOpenFiles < 0) {
-            maxOpenFiles = defaults.maxOpenFiles();
+            maxOpenFiles = MappingConfigurations.defaultMaxOpenFiles();
         }
         return maxOpenFiles;
     }

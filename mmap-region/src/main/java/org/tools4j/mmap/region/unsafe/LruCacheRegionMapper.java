@@ -205,7 +205,7 @@ class LruCacheRegionMapper implements RegionMapper {
     private void unmapPositionIfNeeded(final int index) {
         final long posn = positions[index];
         final long addr = addresses[index];
-        if (addr != NULL_POSITION) {
+        if (addr != NULL_ADDRESS) {
             assert posn != NULL_POSITION;
             final long posUnmasked = posn & USED_MASK;
             baseMapper.unmapInternal(posUnmasked, addr, regionSize());

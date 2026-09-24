@@ -61,7 +61,7 @@ public class FixedMappingImpl implements FixedMapping {
                             final boolean closeFileMapperOnClose) {
         requireNonNull(fileMapper);
         validateNonNegative("offset", offset);
-        validateNonNegative("length", offset);
+        validateNonNegative("length", length);
         this.fileMapper = fileMapper;
         this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.fileSize = length;

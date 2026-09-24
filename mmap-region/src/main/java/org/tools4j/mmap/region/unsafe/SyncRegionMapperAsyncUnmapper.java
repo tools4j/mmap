@@ -104,6 +104,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
             final long addr = fileMapper.map(position, regionSize);
             return addr > 0 ? addr : NULL_ADDRESS;
         } catch (final Exception exception) {
+            LOGGER.error("Failed to map position {} with region size {}: {}", position, regionSize, exception, exception);
             return NULL_ADDRESS;
         }
     }

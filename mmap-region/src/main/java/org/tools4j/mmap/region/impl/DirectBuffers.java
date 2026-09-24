@@ -46,7 +46,7 @@ public enum DirectBuffers {
             idx += Integer.BYTES;
         }
         for (int i = idx; i < length; i++) {
-            if (buffer1.getByte(offset1 + idx) != buffer2.getByte(offset2 + idx)) {
+            if (buffer1.getByte(offset1 + i) != buffer2.getByte(offset2 + i)) {
                 return false;
             }
         }
