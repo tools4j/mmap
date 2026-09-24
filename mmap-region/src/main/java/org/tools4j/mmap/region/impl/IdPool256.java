@@ -72,7 +72,7 @@ public class IdPool256 implements IdPool {
             long idBitSet;
             long idBit;
             do {
-                idBitSet = buf.getLongVolatile(index);
+                idBitSet = buf.getLongAcquire(index);
                 idBit = Long.lowestOneBit(~idBitSet);
             } while (idBit != 0 && !buf.compareAndSetLong(index, idBitSet, idBitSet | idBit));
             if (idBit != 0) {
@@ -99,7 +99,7 @@ public class IdPool256 implements IdPool {
         long curBitSet;
         long newBitSet;
         do {
-            curBitSet = buf.getLongVolatile(index);
+            curBitSet = buf.getLongAcquire(index);
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(index, curBitSet, newBitSet));
         if (curBitSet != newBitSet) {
@@ -117,7 +117,7 @@ public class IdPool256 implements IdPool {
         final AtomicBuffer buffer = mapping.buffer();
         int count = 0;
         for (int index = 0; index < FILE_SIZE; index += Long.BYTES) {
-            count += Long.bitCount(buffer.getLongVolatile(index));
+            count += Long.bitCount(buffer.getLongAcquire(index));
         }
         return count;
     }

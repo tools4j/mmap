@@ -161,7 +161,7 @@ final class AppenderImpl implements Appender {
                 if (!Headers.moveToHeaderIndex(hdr, index)) {
                     throw headerMoveException(this, Headers.headerPositionForIndex(index));
                 }
-            } while (buf.getLongVolatile(0) != NULL_HEADER);
+            } while (buf.getLongAcquire(0) != NULL_HEADER);
         }
         final long nextIndex = index + 1;
         endIndex = nextIndex;//NOTE: may exceed MAX, but we check when appending (see above)

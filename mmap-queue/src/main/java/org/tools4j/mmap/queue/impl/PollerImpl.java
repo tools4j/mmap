@@ -152,7 +152,7 @@ final class PollerImpl implements Poller {
         if (error == PENDING_OPEN) {
             errorState = PENDING_NEXT;
         }
-        final long header = headerMapping.buffer().getLongVolatile(0);
+        final long header = headerMapping.buffer().getLongAcquire(0);
         if (header == NULL_HEADER) {
             final long next = nextIndex;
             if (next > Index.MAX && inc > 0) {

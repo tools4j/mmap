@@ -71,7 +71,7 @@ public class IdPool64 implements IdPool {
         long idBitSet;
         long idBit;
         do {
-            idBitSet = buf.getLongVolatile(0);
+            idBitSet = buf.getLongAcquire(0);
             idBit = Long.lowestOneBit(~idBitSet);
         } while (idBit != 0 && !buf.compareAndSetLong(0, idBitSet, idBitSet | idBit));
         if (idBit != 0) {
@@ -94,7 +94,7 @@ public class IdPool64 implements IdPool {
         long curBitSet;
         long newBitSet;
         do {
-            curBitSet = buf.getLongVolatile(0);
+            curBitSet = buf.getLongAcquire(0);
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(0, curBitSet, newBitSet));
         if (curBitSet != newBitSet) {
@@ -109,7 +109,7 @@ public class IdPool64 implements IdPool {
         if (mapping.isClosed()) {
             return 0;
         }
-        return Long.bitCount(mapping.buffer().getLongVolatile(0));
+        return Long.bitCount(mapping.buffer().getLongAcquire(0));
     }
 
     @Override

@@ -174,7 +174,7 @@ enum Headers {
     }
 
     public static long moveAndGetHeader(final ElasticMapping header, final long index) {
-        return moveToHeaderIndex(header, index) ? header.buffer().getLongVolatile(0) : NULL_HEADER;
+        return moveToHeaderIndex(header, index) ? header.buffer().getLongAcquire(0) : NULL_HEADER;
     }
 
     public static boolean moveToHeaderIndex(final ElasticMapping header, final long index) {

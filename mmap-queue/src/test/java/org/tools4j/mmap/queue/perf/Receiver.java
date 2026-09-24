@@ -35,6 +35,7 @@ import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -47,10 +48,14 @@ public class Receiver {
     private final AtomicReference<Histogram> atomicHistogram = new AtomicReference<>(null);
     private final AtomicReference<Throwable> uncaughtException = new AtomicReference<>();
 
-    public Receiver(final int id, final Supplier<Poller> pollerFactory, final long warmup, final int messageLength) {
+    public Receiver(final int id,
+                    final ThreadFactory threadFactory,
+                    final Supplier<Poller> pollerFactory,
+                    final long warmup,
+                    final int messageLength) {
         Objects.requireNonNull(pollerFactory);
         this.id = id;
-        this.thread = new Thread(() -> {
+        this.thread = threadFactory.newThread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
             final MutableBoolean finished = new MutableBoolean(false);
             final long maxValue = TimeUnit.SECONDS.toNanos(1);

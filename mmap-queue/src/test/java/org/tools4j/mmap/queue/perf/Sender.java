@@ -30,6 +30,7 @@ import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.util.MessageCodec;
 
 import java.util.Objects;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -42,13 +43,14 @@ public class Sender {
     private final AtomicReference<Object> result = new AtomicReference<>();
 
     public Sender(final byte publisherId,
+                  final ThreadFactory threadFactory,
                   final Supplier<Appender> appenderFactory,
                   final long messagesPerSecond,
                   final long messages,
                   final int messageLength) {
         Objects.requireNonNull(appenderFactory);
 
-        this.thread = new Thread(() -> {
+        this.thread = threadFactory.newThread(() -> {
             LOGGER.info("started: {}", Thread.currentThread());
             final double seconds;
             try (final Appender appender = appenderFactory.get()) {

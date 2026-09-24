@@ -331,7 +331,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         }
 
         boolean isOwnedByMapper(final int index) {
-            return ownershipPadded.getIntVolatile(ownershipValueOffset(index)) == OWNED_BY_MAPPER;
+            return ownershipPadded.getIntAcquire(ownershipValueOffset(index)) == OWNED_BY_MAPPER;
         }
 
         boolean isOwnedByRequester(final int index) {

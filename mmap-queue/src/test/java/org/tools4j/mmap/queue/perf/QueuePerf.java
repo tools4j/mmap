@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.queue.perf;
 
+import net.openhft.affinity.AffinityStrategies;
+import net.openhft.affinity.AffinityThreadFactory;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,7 @@ import org.tools4j.mmap.region.impl.Constants;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -330,12 +333,11 @@ public class QueuePerf {
                 //for stress test with lots of file rolls
 //                .maxHeaderFileSize(regionSize)
 //                .maxPayloadFileSize(regionSize)
+//                .maxOpenHeaderFiles(2)
+//                .maxOpenPayloadFiles(2)
+
 //                .maxOpenHeaderFiles(4)
 //                .maxOpenPayloadFiles(4)
-
-                //for expanding
-//                .maxHeaderFileSize(64L * 1024 * 1024 * 1024)
-//                .maxPayloadFileSize(64L * 1024 * 1024 * 1024)
 
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)
@@ -356,13 +358,16 @@ public class QueuePerf {
 //        final int warmup = 10_000_000;
         final int messageLength = 100;
 
+        final ThreadFactory threadFactory = Thread::new;
+//        final ThreadFactory threadFactory = new AffinityThreadFactory("affinity", AffinityStrategies.ANY);
+
         try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
 //        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {
             LOGGER.info("Queue created: {}", queue);
 
-            final Sender sender = new Sender((byte) 0, queue::createAppender, messagesPerSecond, messages, messageLength);
-            final Receiver receiver0 = new Receiver(0, queue::createPoller, warmup, messageLength);
-            final Receiver receiver1 = new Receiver(1, queue::createPoller, warmup, messageLength);
+            final Sender sender = new Sender((byte) 0, threadFactory, queue::createAppender, messagesPerSecond, messages, messageLength);
+            final Receiver receiver0 = new Receiver(0, threadFactory, queue::createPoller, warmup, messageLength);
+            final Receiver receiver1 = new Receiver(1, threadFactory, queue::createPoller, warmup, messageLength);
 
             sender.start();
             receiver0.start();

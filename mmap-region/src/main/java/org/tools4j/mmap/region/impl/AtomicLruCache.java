@@ -95,10 +95,15 @@ public final class AtomicLruCache<E> {
     private static final int VALID = 2;
     private static final int CLOSING = 3;
     private static final long CLOCK = UnsafeApi.objectFieldOffset(AtomicLruCache.class, "clock");
+    private static final int ACQUIRE_ATTEMPTS_MIN = 32;
 
     // --- Atomic long clock ---
     private long getClockAndTick() {
         return UnsafeApi.getAndAddLongRelease(this, CLOCK, 1L);
+    }
+
+    private static long lruTime(final int pin, final long time) {
+        return ((long)pin << 48) | (0x0000ffffffffffffL & time);
     }
 
     // --- Packed slot metadata: [ index:32 | state:16 | pin:16 ]
@@ -253,7 +258,7 @@ public final class AtomicLruCache<E> {
         if (existing != null) {
             return existing;
         }
-        final int maxAttempts = Math.max(1024, cacheSize);
+        final int maxAttempts = Math.max(ACQUIRE_ATTEMPTS_MIN, cacheSize);
         int live = liveCount.incrementAndGet();
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             final boolean grow = live <= capacity;
@@ -400,7 +405,10 @@ public final class AtomicLruCache<E> {
         return -1;
     }
 
-    /** Finds an LRU victim — scanning from index's home slot. */
+    /**
+     * Finds an LRU victim — scanning from index's home slot.
+     * Note that LRU time only acts as tie-breaker between slots with the same pin count.
+     */
     private int findEvictableSlot(final int index) {
         long oldest = Long.MAX_VALUE;
         int target = -1;
@@ -411,8 +419,9 @@ public final class AtomicLruCache<E> {
                 continue;
             }
             final long time = lastUsed.getOpaque(slot);
-            if (time < oldest) {
-                oldest = time;
+            final long lruTime = lruTime(pinOf(m), time);
+            if (lruTime < oldest) {
+                oldest = lruTime;
                 target = slot;
             }
         }

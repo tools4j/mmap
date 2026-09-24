@@ -191,7 +191,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
         }
 
         private int tryUnmapOne() {
-            final int ixProducer = buffer.getIntVolatile(PRODUCER_OFFSET);
+            final int ixProducer = buffer.getIntAcquire(PRODUCER_OFFSET);
             final int ixConsumer = buffer.getInt(CONSUMER_OFFSET);
             if (ixProducer == ixConsumer) {
                 return 0;
@@ -207,7 +207,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
         }
 
         boolean unmap(final long position, final long address) {
-            final int ixConsumer = buffer.getIntVolatile(CONSUMER_OFFSET);
+            final int ixConsumer = buffer.getIntAcquire(CONSUMER_OFFSET);
             final int ixProducer = buffer.getInt(PRODUCER_OFFSET);
             final int ixProducerNew = ringIndex(ixProducer + 1);
             if (ixProducerNew != ixConsumer) {
