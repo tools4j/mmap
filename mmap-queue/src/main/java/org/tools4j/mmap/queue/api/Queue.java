@@ -35,7 +35,8 @@ import java.io.File;
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
-public interface Queue extends Closeable {
+public interface
+Queue extends Closeable {
     /**
      * Creates an appender.
      *

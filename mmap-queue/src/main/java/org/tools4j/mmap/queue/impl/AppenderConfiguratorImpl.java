@@ -56,6 +56,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     public AppenderConfiguratorImpl(final AppenderConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override
@@ -157,7 +158,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
-        this.maxOpenHeaderFiles = maxOpenPayloadFiles;
+        this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }
 

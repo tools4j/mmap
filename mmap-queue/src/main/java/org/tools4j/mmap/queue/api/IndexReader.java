@@ -82,7 +82,7 @@ public interface IndexReader extends Closeable {
      * @throws IllegalStateException if queue or this index reader is closed
      */
     default boolean isEmpty() {
-        return hasEntry(Index.FIRST);
+        return !hasEntry(Index.FIRST);
     }
 
     /**

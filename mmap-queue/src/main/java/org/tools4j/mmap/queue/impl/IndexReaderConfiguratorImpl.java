@@ -47,6 +47,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     public IndexReaderConfiguratorImpl(final IndexReaderConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override

@@ -70,7 +70,7 @@ final class QueueFiles {
     }
 
     public File[] listFiles() {
-        return queueFile.listFiles((dir, name) -> name != null && name.equals(FILE_ENDING));
+        return queueFile.listFiles((dir, name) -> name != null && name.endsWith(FILE_ENDING));
     }
 
     @Override

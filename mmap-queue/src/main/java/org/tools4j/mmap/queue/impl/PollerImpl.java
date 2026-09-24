@@ -199,10 +199,12 @@ final class PollerImpl implements Poller {
 
     private static long nextIndex(final long currentIndex, final long move) {
         if (move > Index.MAX) {
-            return Math.max(move, Index.LAST);
+            //move is the Move.LAST/Move.END sentinel, which equals Index.LAST/Index.END exactly (not a delta) - pass through
+            return move;
         }
         if (move < -Index.MAX) {
-            return Index.NULL;
+            //move is the Move.FIRST sentinel; unlike LAST/END it doesn't numerically equal Index.FIRST, so translate explicitly
+            return Index.FIRST;
         }
         final long nextIndex = currentIndex + move;
         return nextIndex >= 0 ? nextIndex : (move > 0 ? Index.END : Index.NULL);

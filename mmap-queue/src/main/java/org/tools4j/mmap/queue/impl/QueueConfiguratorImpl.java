@@ -43,6 +43,7 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMod
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxAppenders;
@@ -73,6 +74,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     public QueueConfiguratorImpl(final QueueConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override
@@ -136,7 +138,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             minHeaderFileSize = defaults.minHeaderFileSize();
         }
         if (minHeaderFileSize < 0) {
-            minHeaderFileSize = defaultMaxHeaderFileSize();
+            minHeaderFileSize = defaultMinHeaderFileSize();
         }
         return minHeaderFileSize;
     }

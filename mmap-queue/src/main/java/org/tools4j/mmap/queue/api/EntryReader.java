@@ -43,10 +43,12 @@ public interface EntryReader extends IndexReader {
      *     }
      * }
      * </pre>
-     * Returns a context with unavailable entry if the queue is empty or index is negative or not a valid entry index.
+     * Returns a context with unavailable entry if the queue is empty or no entry currently exists at the given index.
      *
      * @param index zero-based index of entry to read
      * @return reading context to access entry data if available
+     * @throws IllegalArgumentException if index is negative (including {@link Index#NULL}) or exceeds
+     *                                  {@link Index#MAX} (other than the {@link Index#LAST} sentinel)
      */
     ReadingContext reading(long index);
 

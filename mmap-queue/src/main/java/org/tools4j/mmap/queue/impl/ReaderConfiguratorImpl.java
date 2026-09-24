@@ -32,6 +32,10 @@ import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
@@ -45,6 +49,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     private ReaderConfiguratorImpl(final ReaderConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     public static ReaderConfigurator createConfigurator(final ReaderConfig defaults) {
@@ -94,6 +99,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         if (headerMappingStrategy == null) {
             headerMappingStrategy = defaults.headerMappingStrategy();
         }
+        if (headerMappingStrategy == null) {
+            headerMappingStrategy = defaultEntryReaderHeaderMappingStrategy();
+        }
         return headerMappingStrategy;
     }
 
@@ -119,6 +127,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     public MappingStrategyConfig payloadMappingStrategy() {
         if (payloadMappingStrategy == null) {
             payloadMappingStrategy = defaults.payloadMappingStrategy();
+        }
+        if (payloadMappingStrategy == null) {
+            payloadMappingStrategy = defaultEntryReaderPayloadMappingStrategy();
         }
         return payloadMappingStrategy;
     }
@@ -146,6 +157,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         if (maxOpenHeaderFiles <= 0) {
             maxOpenHeaderFiles = defaults.maxOpenHeaderFiles();
         }
+        if (maxOpenHeaderFiles <= 0) {
+            maxOpenHeaderFiles = defaultMaxOpenEntryReaderHeaderFiles();
+        }
         return maxOpenHeaderFiles;
     }
 
@@ -159,6 +173,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     public int maxOpenPayloadFiles() {
         if (maxOpenPayloadFiles <= 0) {
             maxOpenPayloadFiles = defaults.maxOpenPayloadFiles();
+        }
+        if (maxOpenPayloadFiles <= 0) {
+            maxOpenPayloadFiles = defaultMaxOpenEntryReaderPayloadFiles();
         }
         return maxOpenPayloadFiles;
     }

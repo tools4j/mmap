@@ -106,7 +106,7 @@ enum QueueMappingConfigs {
     }
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
         return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(),
-                appenderConfig.maxOpenHeaderFiles(), appenderConfig.payloadFilesToCreateAhead());
+                appenderConfig.maxOpenPayloadFiles(), appenderConfig.payloadFilesToCreateAhead());
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {

@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.api;
 /**
  * Defines index constants used by Queue {@link Poller} and {@link Appender}
  */
-public interface Index {
+public interface    Index {
     /** Null index returned for non-existent entry. */
     long NULL = -1;
 

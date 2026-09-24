@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.region.api.AsyncRuntimeInstances.newMappingRuntimeInstance;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultAheadMappingCacheSize;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
 import static org.tools4j.mmap.region.config.MappingConfigurations.defaultRegionsToMapAhead;
@@ -56,6 +55,7 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
 
     public AsyncMappingConfiguratorImpl(final AsyncMappingConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override

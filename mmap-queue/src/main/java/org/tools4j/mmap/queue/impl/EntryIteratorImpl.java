@@ -75,7 +75,7 @@ final class EntryIteratorImpl implements EntryIterator {
 
     @Override
     public IterableContext readingFromEnd() {
-        return null;
+        return readingFrom(Index.END);
     }
 
     @Override

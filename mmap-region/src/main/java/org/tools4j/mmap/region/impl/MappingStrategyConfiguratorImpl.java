@@ -50,9 +50,9 @@ import static org.tools4j.mmap.region.impl.MappingStrategyConfigDefaults.MAPPING
 public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigurator {
 
     private final MappingStrategyConfig defaults;
-    private int regionSize = 0;
-    private int cacheSize = -1;
-    private int lruCacheSize = -1;
+    private int regionSize;
+    private int cacheSize;
+    private int lruCacheSize;
     private Boolean deferUnmapping;
     private Optional<AsyncMappingConfig> asyncMapping;
     private Optional<AsyncUnmappingConfig> asyncUnmapping;
@@ -63,6 +63,7 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
 
     public MappingStrategyConfiguratorImpl(final MappingStrategyConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override

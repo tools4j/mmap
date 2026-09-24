@@ -52,6 +52,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
 
     public AsyncUnmappingConfiguratorImpl(final AsyncUnmappingConfig defaults) {
         this.defaults = requireNonNull(defaults);
+        reset();
     }
 
     @Override

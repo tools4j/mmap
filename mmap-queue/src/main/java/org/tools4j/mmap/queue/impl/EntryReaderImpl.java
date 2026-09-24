@@ -123,12 +123,14 @@ final class EntryReaderImpl implements EntryReader {
                 close();
                 throw new IllegalStateException("Reading context has not been closed");
             }
-            if (index < 0 || index > Index.MAX) {
-                if (index != Index.LAST) {
-                    throw invalidIndexException(reader.readerName(), index);
-                }
+            final long actualIndex;
+            if (index >= Index.FIRST && index <= Index.LAST) {
+                actualIndex = initPayloadBuffer(index);
+            } else {
+                //Index.NULL and any other out-of-range value are rejected: NULL is an output-only sentinel
+                //("no such entry"), never a valid lookup input, so callers must check before chaining it in
+                throw invalidIndexException(reader.readerName(), index);
             }
-            final long actualIndex = initPayloadBuffer(index);
             this.index = actualIndex;
             this.closed = false;
             if (actualIndex > maxIndex) {

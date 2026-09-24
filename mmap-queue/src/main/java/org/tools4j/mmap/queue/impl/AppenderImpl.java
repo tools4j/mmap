@@ -164,12 +164,12 @@ final class AppenderImpl implements Appender {
             } while (buf.getLongAcquire(0) != NULL_HEADER);
         }
         final long nextIndex = index + 1;
-        endIndex = nextIndex;//NOTE: may exceed MAX, but we check when appending (see above)
-        if (nextIndex <= Index.MAX) {
-            if (!Headers.moveToHeaderIndex(hdr, nextIndex)) {
-                throw headerMoveException(this, Headers.headerPositionForIndex(index));
-            }
+        if (nextIndex <= Index.MAX && Headers.moveToHeaderIndex(hdr, nextIndex)) {
+            endIndex = nextIndex;
         }
+        //else: leave endIndex at `index` (already durably claimed) and hdr mapped there too - the next append's own
+        //retry loop will find the slot taken and correctly advance from there, without losing this append's result
+        //or skipping an index if the pre-position move fails
 
         lastOwnHeader = headerValue;
         lastOwnPayloadLength = payloadLength;
