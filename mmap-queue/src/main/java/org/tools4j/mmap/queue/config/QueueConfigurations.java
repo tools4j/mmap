@@ -48,6 +48,8 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
  */
 public enum QueueConfigurations {
     ;
+    public static final int MAX_OPEN_FILES_DEFAULT = 3;//up to 3 threads: requestor/async-mapper/async-unmapper
+
     public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
     public static final int MAX_APPENDERS_DEFAULT = IdPool64.MAX_IDS;
     public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
@@ -70,27 +72,27 @@ public enum QueueConfigurations {
     public static final boolean ROLL_PAYLOAD_FILES_DEFAULT = true;
 
     public static final String MAX_OPEN_POLLER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenPollerHeaderFiles";
-    public static final int MAX_OPEN_POLLER_HEADER_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_POLLER_HEADER_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
     public static final String MAX_OPEN_POLLER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenPollerPayloadFiles";
-    public static final int MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
 
     public static final String MAX_OPEN_ENTRY_READER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenEntryReaderHeaderFiles";
-    public static final int MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
     public static final String MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenEntryReaderPayloadFiles";
-    public static final int MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
 
     public static final String MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenEntryIteratorHeaderFiles";
-    public static final int MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
     public static final String MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenEntryIteratorPayloadFiles";
-    public static final int MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
 
     public static final String MAX_OPEN_INDEX_READER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenIndexReaderHeaderFiles";
-    public static final int MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
 
     public static final String MAX_OPEN_APPENDER_HEADER_FILES_PROPERTY =  "mmap.queue.maxOpenAppenderHeaderFiles";
-    public static final int MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
     public static final String MAX_OPEN_APPENDER_PAYLOAD_FILES_PROPERTY = "mmap.queue.maxOpenAppenderPayloadFiles";
-    public static final int MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT = 2;
+    public static final int MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
     public static final String APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.appenderHeaderFilesToCreateAhead";
     public static final int APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     public static final String APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.queue.appenderPayloadFilesToCreateAhead";

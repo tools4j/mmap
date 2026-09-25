@@ -164,6 +164,13 @@ public enum Constraints {
         }
     }
 
+    public static void validateMaxOpenFiles(final int maxOpenFiles, final int threadCount) {
+        if (maxOpenFiles <= 0 || maxOpenFiles < threadCount) {
+            throw new IllegalArgumentException("Max open files must be be at least one and no less than thread count " +
+                    threadCount + " but was " +  maxOpenFiles);
+        }
+    }
+
     public static void validateRegionCacheSize(final int cacheSize) {
         validatePowerOfTwo("Region cache size", cacheSize);
     }

@@ -79,7 +79,6 @@ public class RollingFileMapper implements FileMapper {
     private long clock;
     private int openFiles;
 
-
     private RollingFileMapper(final File baseFile,
                               final Function<? super File, ? extends FileMapper> fileMapperFactory,
                               final long maxFileSize,
@@ -264,9 +263,10 @@ public class RollingFileMapper implements FileMapper {
             mapperForIndex = createFileMapper(fileIndex, file);
             closeFilesIfNecessary();
 
-            //NOTE: pre-create next files
+            //NOTE: pre-create next files, furthest first, so the nearest (soonest-needed) one ends up
+            //      most-recently-touched, i.e. least likely to be closed under pressure
             FileMapper mapper = mapperForIndex;
-            for (int i = 1; i <= filesToCreateAhead && mapper != null; i++) {
+            for (int i = filesToCreateAhead; i >= 1 && mapper != null; i--) {
                 mapper = getOrCreateFileMapper(fileIndex + i);
                 if (openFiles > maxOpenFiles) {
                     touch(fileIndex);//prevent closing the one we actually want

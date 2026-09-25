@@ -331,13 +331,10 @@ public class QueuePerf {
 //                .maxOpenPayloadFiles(4)
 
                 //for stress test with lots of file rolls
+//                .minHeaderFileSize(regionSize)
 //                .maxHeaderFileSize(regionSize)
+//                .minPayloadFileSize(regionSize)
 //                .maxPayloadFileSize(regionSize)
-//                .maxOpenHeaderFiles(2)
-//                .maxOpenPayloadFiles(2)
-
-//                .maxOpenHeaderFiles(4)
-//                .maxOpenPayloadFiles(4)
 
                 .headerFilesToCreateAhead(0)
                 .payloadFilesToCreateAhead(0)

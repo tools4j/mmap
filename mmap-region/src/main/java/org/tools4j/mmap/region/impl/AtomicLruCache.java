@@ -95,7 +95,7 @@ public final class AtomicLruCache<E> {
     private static final int VALID = 2;
     private static final int CLOSING = 3;
     private static final long CLOCK = UnsafeApi.objectFieldOffset(AtomicLruCache.class, "clock");
-    private static final int ACQUIRE_ATTEMPTS_MIN = 32;
+    //private static final int ACQUIRE_ATTEMPTS_MIN = 3;
 
     // --- Atomic long clock ---
     private long getClockAndTick() {
@@ -258,9 +258,43 @@ public final class AtomicLruCache<E> {
         if (existing != null) {
             return existing;
         }
-        final int maxAttempts = Math.max(ACQUIRE_ATTEMPTS_MIN, cacheSize);
+        return createAndAcquire(index, factory, 2); // pin=1 baseline, +1 for the caller's active use
+    }
+
+    /**
+     * Ensures a value for the given index is cached, creating it via the factory if necessary, without pinning it
+     * for use. Cheaper than {@code acquire(index, factory)} immediately followed by {@code release(index)} when the
+     * caller has no use for the value beyond warming the cache — since nothing is pinned, there is nothing to
+     * release, and nothing is returned (using the value without a pin would be unsafe).
+     * <p>
+     * The created (or already-cached) entry may be evicted at any time after this method returns, even immediately.
+     *
+     * @param index   the index to ensure is cached
+     * @param factory factory to create a new value if none is currently cached for this index
+     */
+    public void createIfAbsent(final int index, final IntFunction<? extends E> factory) {
+        if (containsValid(index)) {
+            return;
+        }
+        createAndAcquire(index, factory, 1); // pin=1 baseline only - not pinned for use
+    }
+
+    private boolean containsValid(final int index) {
+        for (int i = 0; i < cacheSize; i++) {
+            final int slot = slotForIndex(index + i);
+            final long m = meta.get(slot);
+            if (stateOf(m) == VALID && indexOf(m) == index) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private E createAndAcquire(final int index, final IntFunction<? extends E> factory, final int initialPin) {
         int live = liveCount.incrementAndGet();
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        //NOTE: we do n=capacity retries here because we can have up to that many threads
+        //      each thread can win the CAS with the same target (n-1 would probably be enough)
+        for (int attempt = 0; attempt < capacity; attempt++) {
             final boolean full = live > capacity;
 
             final int target = full ? findEvictableSlot(index + attempt) : findEmptySlot(index + attempt);
@@ -306,7 +340,7 @@ public final class AtomicLruCache<E> {
             values.setPlain(target, created);      // ordering guaranteed by meta.set below
             lastUsed.setOpaque(target, getClockAndTick());
 
-            final long published = pack(index, VALID, 2); // pin=1 baseline, +1 for pin
+            final long published = pack(index, VALID, initialPin);
             meta.set(target, published); // full release — the real publish point
 
             final Hint hint = hintForIndex(index);

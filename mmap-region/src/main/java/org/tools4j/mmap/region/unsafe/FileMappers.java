@@ -30,6 +30,8 @@ import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 
+import static org.tools4j.mmap.region.impl.Constraints.validateMaxOpenFiles;
+
 @Unsafe
 public class FileMappers {
     ;
@@ -37,20 +39,22 @@ public class FileMappers {
                                     final AccessMode accessMode,
                                     final FileInitialiser fileInitialiser,
                                     final MappingConfig config) {
-        final boolean async = config.mappingStrategy().asyncMapping().isPresent()
-                || config.mappingStrategy().asyncUnmapping().isPresent();
         switch (accessMode) {
             case READ_ONLY:
                 if (config.rollFiles()) {
-                    return async
+                    final int maxThreadCount = maxThreadCountFor(config);
+                    validateMaxOpenFiles(config.maxOpenFiles(), maxThreadCount);
+                    return maxThreadCount > 1
                             ? ConcurrentRollingFileMapper.forReadOnly(file, config, fileInitialiser)
                             : RollingFileMapper.forReadOnly(file, config, fileInitialiser);
                 }
                 return new ReadOnlyFileMapper(file, fileInitialiser);
             case READ_WRITE:
             case READ_WRITE_CLEAR:
+                final int maxThreadCount = maxThreadCountFor(config);
                 if (config.rollFiles()) {
-                    return async
+                    validateMaxOpenFiles(config.maxOpenFiles(), maxThreadCount);
+                    return maxThreadCount > 1
                             ? ConcurrentRollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser)
                             : RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
@@ -62,5 +66,18 @@ public class FileMappers {
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }
+    }
+
+    private static int maxThreadCountFor(final MappingConfig config) {
+        int maxThreadCount = 1;
+        if (config.mappingStrategy().asyncMapping().isPresent()) {
+            maxThreadCount++;
+        }
+        if (config.mappingStrategy().asyncUnmapping().isPresent()) {
+            maxThreadCount++;
+        }
+        //NOTE: if mapper/unmapper share the same runtime, we only have 2 threads, but it is difficult to work this out
+        //      from here
+        return maxThreadCount;
     }
 }

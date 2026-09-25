@@ -203,6 +203,7 @@ public class ConcurrentRollingFileMapper implements FileMapper {
             throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
         }
         final int fileIndex = positionToFileIndex(position);
+        final long positionWithinFile = position & positionInFileMask;
         enter();
         FileMapper mapperForIndex = null;
         try {
@@ -217,15 +218,15 @@ public class ConcurrentRollingFileMapper implements FileMapper {
                 if (!file.exists()) {
                     return NULL_ADDRESS;
                 }
-                mapperForIndex = fileMappers.acquire(fileIndex, fileMapperByIndexFactory);
-
-                //NOTE: pre-create next files
-                for (int i = 1; i <= filesToCreateAhead; i++) {
-                    fileMappers.acquire(fileIndex + i, fileMapperByIndexFactory);
-                    fileMappers.release(fileIndex + i);
+                //NOTE: pre-create next files first, furthest first, before acquiring fileIndex itself: this way
+                //      fileIndex is never exposed to eviction while its own pre-create batch runs, and the nearest
+                //      (soonest-needed) pre-created file ends up most-recently-used, i.e. least likely to be
+                //      evicted under pressure
+                for (int i = filesToCreateAhead; i >= 1; i--) {
+                    fileMappers.createIfAbsent(fileIndex + i, fileMapperByIndexFactory);
                 }
+                mapperForIndex = fileMappers.acquire(fileIndex, fileMapperByIndexFactory);
             }
-            final long positionWithinFile = position & positionInFileMask;
             return mapperForIndex.map(positionWithinFile, length);
         } finally {
             if (mapperForIndex != null) {
