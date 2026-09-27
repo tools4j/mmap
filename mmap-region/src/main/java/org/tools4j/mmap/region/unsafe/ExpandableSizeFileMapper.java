@@ -40,6 +40,7 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionSize;
 
 /**
@@ -100,11 +101,10 @@ public class ExpandableSizeFileMapper implements FileMapper {
     public long map(final long position, final int length) {
         assert position >= 0;
         assert length >= 0;
-        checkNotClosed();
+        //NOTE: relying on fileChannelProvider's closed check
         if (position + length > maxFileSize) {
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
                     "exceeds max file size " + maxFileSize + " for file " + file);
-//            return NULL_ADDRESS;
         }
         final FileChannel channel = fileChannelProvider.get();
         if (channel == null || !channel.isOpen()) {
@@ -120,11 +120,8 @@ public class ExpandableSizeFileMapper implements FileMapper {
     public void unmap(final long position, final long address, final int length) {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        checkNotClosed();
-        final FileChannel channel = fileChannelProvider.getIfOpen();
-        if (channel != null) {
-            FileChannels.unmap(channel, address, length);
-        }
+        validateNotClosed(this);
+        FileChannels.unmap(address, length);
     }
 
     void ensureFileLength(final FileChannel channel, final long minLength) {
@@ -184,12 +181,6 @@ public class ExpandableSizeFileMapper implements FileMapper {
             return channel.size();
         } catch (final IOException e) {
             throw new IllegalStateException("Reading the length of file " + file + " failed, e=" + e, e);
-        }
-    }
-
-    private void checkNotClosed() {
-        if (isClosed()) {
-            throw new IllegalStateException("Expandable-size file mapper is closed");
         }
     }
 

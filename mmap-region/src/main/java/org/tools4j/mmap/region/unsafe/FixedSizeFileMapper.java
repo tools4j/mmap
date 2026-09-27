@@ -81,10 +81,11 @@ public class FixedSizeFileMapper implements FileMapper {
     public long map(final long position, final int length) {
         assert position >= 0;
         assert length >= 0;
-        validateNotClosed(this);
         if (position + length > fileSize) {
-            return NULL_ADDRESS;
+            throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
+                    "exceeds fixed file size " + fileSize + " for file " + file);
         }
+        //NOTE: relying on fileChannelProvider's closed check
         final long address = FileChannels.map(fileChannelProvider.get(), accessMode.getMapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
@@ -95,10 +96,7 @@ public class FixedSizeFileMapper implements FileMapper {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
         validateNotClosed(this);
-        final FileChannel channel = fileChannelProvider.getIfOpen();
-        if (channel != null) {
-            FileChannels.unmap(channel, address, length);
-        }
+        FileChannels.unmap(address, length);
     }
 
     private void init() {

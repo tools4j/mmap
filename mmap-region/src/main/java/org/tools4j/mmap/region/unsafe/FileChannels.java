@@ -75,11 +75,10 @@ public enum FileChannels {
     /**
      * Unmap a region of a file.
      *
-     * @param fileChannel which has been mapped.
      * @param address     at which the mapping begins.
      * @param length      of the mapped region.
      */
-    public static void unmap(final FileChannel fileChannel, final long address, final long length) {
+    public static void unmap(final long address, final long length) {
         try {
             if (null != MappingMethods.UNMAP_FILE_DISPATCHER) {
                 MappingMethods.UNMAP_FILE_DISPATCHER.invoke(MappingMethods.FILE_DISPATCHER, address, length);

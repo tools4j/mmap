@@ -70,7 +70,7 @@ public class ReadOnlyFileMapper implements FileMapper {
     public long map(long position, int length) {
         assert position >= 0;
         assert length >= 0;
-        validateNotClosed(this);
+        //NOTE: relying on fileChannelProvider's closed check
         final FileChannel channel = fileChannelProvider.get();
         if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
@@ -89,13 +89,10 @@ public class ReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void unmap(long position, long address, int length) {
-        validateNotClosed(this);
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
-        final FileChannel channel = fileChannelProvider.getIfOpen();
-        if (channel != null) {
-            FileChannels.unmap(channel, address, length);
-        }
+        validateNotClosed(this);
+        FileChannels.unmap(address, length);
     }
 
     @Override
