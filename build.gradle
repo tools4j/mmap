@@ -11,6 +11,7 @@ plugins {
     id 'java-library'
     id 'com.github.hierynomus.license' version "0.16.1" apply false
     id 'biz.aQute.bnd.builder' version '7.1.0' apply false
+    id 'com.vanniktech.maven.publish' version '0.34.0' apply false
 }
 
 defaultTasks 'clean', 'build'
@@ -40,26 +41,16 @@ static def getBuildJavaVersion() {
 int buildJavaVersion = getBuildJavaVersion()
 
 ext {
-    //gradle clean build publish -PossrhUsername=mterzer -PossrhPassword=xxx
+    //gradle clean build publishToMavenCentral -PmavenCentralUsername=xxx -PmavenCentralPassword=xxx
+    //(or set mavenCentralUsername/mavenCentralPassword, plus signing.* properties, in ~/.gradle/gradle.properties)
 
     isReleaseVersion = !projVersion.endsWith('-SNAPSHOT')
-    releasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
-    snapshotsRepoUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
 
     println name + " version=" + projVersion + " release=" + isReleaseVersion
-
-    if (!project.hasProperty('ossrhUsername')) {
-        ossrhUsername = ''
-    }
-
-    if (!project.hasProperty('ossrhPassword')) {
-        ossrhPassword = ''
-    }
 }
 
 def projectPom = {
     name = 'mmap'
-    packaging = 'pom'
     // optionally artifactId can be defined here
     description = 'Memory mapped files used to implement off-heap low latency utilities such as queues'
     url = 'https://github.com/tools4j/mmap'
@@ -105,9 +96,13 @@ allprojects {
 subprojects {
     apply plugin: 'java-library'
     apply plugin: 'com.github.hierynomus.license'
-    apply plugin: 'maven-publish'
+    apply plugin: 'com.vanniktech.maven.publish'
     apply plugin: 'signing'
     apply plugin: 'biz.aQute.bnd.builder'
+
+    signing {
+        useGpgCmd()
+    }
 
     dependencies {
         testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
@@ -119,12 +114,6 @@ subprojects {
 
     group = projGroup
     version = projVersion
-
-    tasks.withType(Sign) {
-        onlyIf {
-            isReleaseVersion && gradle.taskGraph.hasTask(tasks.publish)
-        }
-    }
 
     tasks.withType(Jar).configureEach {
         enabled = true
@@ -259,32 +248,10 @@ project(':mmap-region') {
         }
     }
 
-    java {
-        withSourcesJar()
-        withJavadocJar()
-    }
-
-    publishing {
-        publications {
-            mmapRegion(MavenPublication) {
-                from components.java
-                pom(projectPom)
-            }
-        }
-
-        repositories {
-            maven {
-                url = !isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl
-                credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
-                }
-            }
-        }
-    }
-
-    signing {
-        sign publishing.publications.mmapRegion
+    mavenPublishing {
+        publishToMavenCentral()
+        signAllPublications()
+        pom(projectPom)
     }
 }
 
@@ -318,32 +285,10 @@ project(':mmap-queue') {
         }
     }
 
-    java {
-        withSourcesJar()
-        withJavadocJar()
-    }
-
-    publishing {
-        publications {
-            mmapQueue(MavenPublication) {
-                from components.java
-                pom(projectPom)
-            }
-        }
-
-        repositories {
-            maven {
-                url = !isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl
-                credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
-                }
-            }
-        }
-    }
-
-    signing {
-        sign publishing.publications.mmapQueue
+    mavenPublishing {
+        publishToMavenCentral()
+        signAllPublications()
+        pom(projectPom)
     }
 }
 
