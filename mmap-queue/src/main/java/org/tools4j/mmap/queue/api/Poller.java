@@ -118,6 +118,8 @@ public interface Poller extends Closeable {
     void seekNext(long index);
 
     /**
+     * Returns whether this poller is closed.
+     *
      * @return true if this poller is closed
      */
     boolean isClosed();

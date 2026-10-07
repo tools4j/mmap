@@ -91,7 +91,11 @@ public interface RegionMapper extends RegionAware, Closeable {
 
     boolean isMappedInCache(long position);
 
-    /** @return true if this mapper is closed */
+    /**
+     * Returns whether this mapper is closed.
+     *
+     * @return true if this mapper is closed
+     */
     @Override
     boolean isClosed();
 

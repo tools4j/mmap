@@ -33,7 +33,6 @@ import java.util.function.Consumer;
  * {@link DynamicMapping dynamic mappings}.
  */
 public interface MappingStrategyConfigurator extends MappingStrategyConfig {
-    /** @return the size of the region mapped into memory when an actual mapping operation occurs */
     /**
      * Sets the size of the region mapped into memory when an actual mapping operation occurs. Region sizes must be a
      * power of two and a multiple of the OS dependant

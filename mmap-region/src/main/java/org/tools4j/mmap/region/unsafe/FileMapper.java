@@ -35,6 +35,8 @@ import org.tools4j.mmap.region.impl.Closeable;
 @Unsafe
 public interface FileMapper extends Closeable {
     /**
+     * Returns the file access mode used by this file mapper.
+     *
      * @return the file access mode used by this file mapper
      */
     AccessMode accessMode();
@@ -58,6 +60,8 @@ public interface FileMapper extends Closeable {
     void unmap(long position, long address, int length);
 
     /**
+     * Returns whether this file mapper is closed.
+     *
      * @return true if this file mapper is closed
      */
     boolean isClosed();

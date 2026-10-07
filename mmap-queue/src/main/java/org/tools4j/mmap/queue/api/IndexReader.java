@@ -86,6 +86,8 @@ public interface IndexReader extends Closeable {
     }
 
     /**
+     * Returns whether this reader is closed.
+     *
      * @return true if this reader is closed
      */
     boolean isClosed();

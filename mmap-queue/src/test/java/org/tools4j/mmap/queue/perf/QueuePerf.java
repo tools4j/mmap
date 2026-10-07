@@ -194,8 +194,12 @@ import static org.tools4j.mmap.queue.util.ConfigPrinter.printConfig;
  * </pre>
  */
 public class QueuePerf {
+    static {
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
+    }
     private static final long MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(300);
     private static final Logger LOGGER = LoggerFactory.getLogger(QueuePerf.class);
+
 
     public static void main(final String... args) throws Throwable {
         final Path tempDir = Files.createTempDirectory(QueuePerf.class.getSimpleName());

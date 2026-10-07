@@ -32,6 +32,8 @@ package org.tools4j.mmap.region.api;
 @FunctionalInterface
 public interface RegionAware {
     /**
+     * Returns the size of a mappable memory region in bytes.
+     *
      * @return the size of a mappable memory region in bytes
      * @see #regionMetrics()
      */
@@ -40,6 +42,8 @@ public interface RegionAware {
     }
 
     /**
+     * Returns the region metrics determined by the region size.
+     *
      * @return the region metrics determined by the {@linkplain #regionSize() region size}
      */
     RegionMetrics regionMetrics();

@@ -32,6 +32,8 @@ import java.util.Iterator;
  */
 public interface IterableContext extends Iterable<Entry>, Closeable {
     /**
+     * Returns the index of the first entry returned by iterators.
+     *
      * @return the index of the first entry returned by iterators, or {@link Index#NULL} if unavailable.
      */
     long startIndex();
@@ -56,6 +58,8 @@ public interface IterableContext extends Iterable<Entry>, Closeable {
     IterableContext reverse();
 
     /**
+     * Returns whether the context is closed.
+     *
      * @return true if the context is closed.
      */
     boolean isClosed();

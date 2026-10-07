@@ -41,6 +41,8 @@ import org.tools4j.mmap.region.impl.Closeable;
  */
 public interface MappingPool extends RegionAware, Closeable {
     /**
+     * Returns the file access mode used for all mapping from this repository.
+     *
      * @return the file access mode used for all mapping from this repository
      */
     AccessMode accessMode();
@@ -64,6 +66,8 @@ public interface MappingPool extends RegionAware, Closeable {
     AdaptiveMapping acquireAdaptiveMapping();
 
     /**
+     * Returns whether this mapping pool is closed.
+     *
      * @return true if this mapping pool is closed
      */
     boolean isClosed();

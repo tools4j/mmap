@@ -46,6 +46,16 @@ public final class RegionMappingImpl implements RegionMapping {
     private long mappedAddress;
     private boolean closed;
 
+    /**
+     * Constructor to create a region mapping backed by the given region mapper.
+     * <p>
+     * <b>NOTE:</b> Using this constructor directly is unsafe and could lead to a JVM crash in the worst case.
+     * Application code should not normally need to call it directly; create region mappings through
+     * {@link org.tools4j.mmap.region.api.Mappings} instead.
+     *
+     * @param regionMapper             the region mapper providing the underlying mapping operations
+     * @param closeRegionMapperOnClose if true the given region mapper is also closed when this mapping is closed
+     */
     @Unsafe
     public RegionMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
         validateNotClosed(regionMapper);

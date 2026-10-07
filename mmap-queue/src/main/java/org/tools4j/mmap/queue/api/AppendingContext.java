@@ -68,6 +68,8 @@ public interface AppendingContext extends Closeable {
     long commit(int length);
 
     /**
+     * Returns whether the context is closed.
+     *
      * @return true if the context is closed.
      */
     boolean isClosed();

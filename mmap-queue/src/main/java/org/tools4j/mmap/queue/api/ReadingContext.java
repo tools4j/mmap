@@ -30,17 +30,23 @@ import org.tools4j.mmap.region.impl.Closeable;
  */
 public interface ReadingContext extends Entry, Closeable {
     /**
+     * Returns the index of the available entry.
+     *
      * @return non-negative index if entry is available, and {@link Index#NULL} otherwise
      */
     @Override
     long index();
 
     /**
+     * Returns whether an entry is available.
+     *
      * @return true if entry is available, and false otherwise
      */
     boolean hasEntry();
 
     /**
+     * Returns whether the context is closed.
+     *
      * @return true if the context is closed.
      */
     boolean isClosed();

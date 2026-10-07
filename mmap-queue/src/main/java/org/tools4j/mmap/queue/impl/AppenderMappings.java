@@ -41,15 +41,21 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConf
  */
 interface AppenderMappings extends AutoCloseable {
     /**
+     * Returns the appender ID.
+     *
      * @return the appender ID
      */
     int appenderId();
     /**
+     * Returns the header region mapping.
+     *
      * @return header region
      */
     ElasticMapping header();
 
     /**
+     * Returns the payload region mapping.
+     *
      * @return payload region
      */
     ElasticMapping payload();

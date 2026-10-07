@@ -53,10 +53,20 @@ public enum AccessMode {
         this.mapMode = Objects.requireNonNull(mapMode);
     }
 
+    /**
+     * Returns the mode string used to open a {@link java.io.RandomAccessFile} for this access mode.
+     *
+     * @return the random access mode string, e.g. {@code "r"} or {@code "rw"}
+     */
     public String getRandomAccessMode() {
         return rasMode;
     }
 
+    /**
+     * Returns the {@link FileChannel.MapMode} used to map a region of the file for this access mode.
+     *
+     * @return the file channel map mode corresponding to this access mode
+     */
     public FileChannel.MapMode getMapMode() {
         return mapMode;
     }

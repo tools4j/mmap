@@ -58,6 +58,8 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
  */
 public interface Mapping extends Closeable {
     /**
+     * Returns the file access mode used for this mapping.
+     *
      * @return the file access mode used for this mapping
      */
     AccessMode accessMode();
@@ -122,6 +124,8 @@ public interface Mapping extends Closeable {
     AtomicBuffer buffer();
 
     /**
+     * Returns whether the mapping is mapped to a file block with data available through the buffer.
+     *
      * @return true if the mapping is mapped to a file block and data is available through the {@link #buffer()}
      */
     default boolean isMapped() {
@@ -129,6 +133,8 @@ public interface Mapping extends Closeable {
     }
 
     /**
+     * Returns whether this mapping is closed.
+     *
      * @return true if this mapping is closed
      */
     boolean isClosed();

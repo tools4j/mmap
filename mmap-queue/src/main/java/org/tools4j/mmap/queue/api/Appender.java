@@ -137,6 +137,8 @@ public interface Appender extends Closeable {
     AppendingContext appending(int capacity);
 
     /**
+     * Returns whether this appender is closed.
+     *
      * @return true if this appender is closed
      */
     boolean isClosed();

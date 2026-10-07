@@ -32,28 +32,60 @@ import static org.tools4j.mmap.region.impl.MappingConfigDefaults.MAPPING_CONFIG_
  * Configuration used to create {@link DynamicMapping dynamic mappings} from files through {@link Mappings}.
  */
 public interface MappingConfig {
-    /** @return the minimum size (and size increment) of file when {@link #expandFile() expand-file} mode is in use */
+    /**
+     * Returns the minimum size (and size increment) of a file when {@link #expandFile() expand-file} mode is in use.
+     *
+     * @return the minimum size (and size increment) of file when {@link #expandFile() expand-file} mode is in use
+     */
     long minFileSize();
 
-    /** @return the maximum size of a file newly created when mapped */
+    /**
+     * Returns the maximum size of a file newly created when mapped.
+     *
+     * @return the maximum size of a file newly created when mapped
+     */
     long maxFileSize();
 
-    /** @return true if files should be expanded as needed, and false to create the max-size file on initiation */
+    /**
+     * Returns whether files should be expanded as needed, or created at maximum size upfront.
+     *
+     * @return true if files should be expanded as needed, and false to create the max-size file on initiation
+     */
     boolean expandFile();
 
-    /** @return true if files should be rolled (with indexation) when the {@linkplain #maxFileSize() maximum file size} is reached */
+    /**
+     * Returns whether files should be rolled (with indexation) when the maximum file size is reached.
+     *
+     * @return true if files should be rolled (with indexation) when the {@linkplain #maxFileSize() maximum file size} is reached
+     */
     boolean rollFiles();
 
-    /** @return the maximum files kept open if {@linkplain #rollFiles() file rolling} is used */
+    /**
+     * Returns the maximum number of files kept open at once if file rolling is used.
+     *
+     * @return the maximum files kept open if {@linkplain #rollFiles() file rolling} is used
+     */
     int maxOpenFiles();
 
-    /** @return the number of files to create ahead, that is, before they are actually used for mappings */
+    /**
+     * Returns the number of files to create ahead, that is, before they are actually used for mappings.
+     *
+     * @return the number of files to create ahead, that is, before they are actually used for mappings
+     */
     int filesToCreateAhead();
 
-    /** @return the mapping strategy to use */
+    /**
+     * Returns the mapping strategy to use.
+     *
+     * @return the mapping strategy to use
+     */
     MappingStrategyConfig mappingStrategy();
 
-    /** @return an immutable version of this mapping config, for instance useful if this is a {@link MappingConfigurator}*/
+    /**
+     * Returns an immutable version of this mapping config.
+     *
+     * @return an immutable version of this mapping config, for instance useful if this is a {@link MappingConfigurator}
+     */
     MappingConfig toImmutableConfig();
 
     /**

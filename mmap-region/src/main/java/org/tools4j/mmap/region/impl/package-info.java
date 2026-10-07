@@ -21,27 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.api;
-
-import org.agrona.DirectBuffer;
-
 /**
- * Representation of a queue entry used by {@link EntryReader} and {@link EntryIterator}, with data accessible through
- * {@link #buffer()}.
+ * Internal implementations backing the {@code api} and {@code config} packages, including the concrete
+ * {@code Mapping} classes, lock-free data structures, and the configurator/config-defaults classes.
  */
-public interface Entry {
-    /**
-     * Returns the entry index.
-     *
-     * @return entry index, non-negative for existing entries
-     */
-    long index();
-
-    /**
-     * The buffer with entry data; valid bytes are in the range {@code [0..(n-1)]} where {@code n} is equal to the
-     * buffer's {@link DirectBuffer#capacity() capacity}.
-     *
-     * @return buffer with entry data, with zero capacity if entry has no data or no entry is available
-     */
-    DirectBuffer buffer();
-}
+package org.tools4j.mmap.region.impl;

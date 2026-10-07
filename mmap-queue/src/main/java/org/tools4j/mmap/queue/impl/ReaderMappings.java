@@ -43,11 +43,15 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConf
  */
 interface ReaderMappings extends AutoCloseable {
     /**
+     * Returns the header region mapping.
+     *
      * @return header region
      */
     ElasticMapping header();
 
     /**
+     * Returns the payload region mapping for the given appender.
+     *
      * @param appenderId appender id
      * @return payload region
      */
