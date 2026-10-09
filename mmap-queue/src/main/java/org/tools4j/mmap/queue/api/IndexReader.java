@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 /**
  * API for reading and checking entry indices of a {@link Queue}.
@@ -84,17 +84,4 @@ public interface IndexReader extends Closeable {
     default boolean isEmpty() {
         return !hasEntry(Index.FIRST);
     }
-
-    /**
-     * Returns whether this reader is closed.
-     *
-     * @return true if this reader is closed
-     */
-    boolean isClosed();
-
-    /**
-     * Closes this reader.
-     */
-    @Override
-    void close();
 }

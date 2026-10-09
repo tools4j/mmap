@@ -21,12 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.impl;
+package org.tools4j.mmap.region.api;
 
+/**
+ * An {@link AutoCloseable} resource whose {@link #close()} method does not throw checked exceptions, and whose closed
+ * state can be queried via {@link #isClosed()}.
+ */
 public interface Closeable extends AutoCloseable {
 
+    /**
+     * Returns whether this resource is closed.
+     *
+     * @return true if this resource is closed, and false otherwise
+     */
     boolean isClosed();
 
+    /**
+     * Closes this resource, releasing any resources associated with it. Has no effect if the resource is already
+     * closed.
+     */
     @Override
     void close();
 }

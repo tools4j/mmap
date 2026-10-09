@@ -24,6 +24,7 @@
 package org.tools4j.mmap.region.impl;
 
 import org.agrona.BitUtil;
+import org.tools4j.mmap.region.api.Closeable;
 import org.tools4j.mmap.region.api.RegionMetrics;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_ADDRESS;

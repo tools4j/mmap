@@ -278,7 +278,7 @@ public class QueuePerf {
 //                                .cacheSize(cacheSize)
 //                                .deferUnmapping(false)
 //                                .asyncMapping(async -> async
-//                                        .mappingRuntime(newMappingRuntimeInstance())
+//                                        .mappingRuntime(newMappingRuntime())
 //                                        .regionsToMapAhead(regionsToMapAhead)
 //                                        .aheadMappingCacheSize(aheadMappingCacheSize))
 //                                .asyncUnmapping(true)

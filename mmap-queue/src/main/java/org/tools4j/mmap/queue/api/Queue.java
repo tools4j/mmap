@@ -28,68 +28,130 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 import java.io.File;
 
 /**
  * A queue of entries accessible in sequence or by index, where each entry is just a block of bytes.
  */
-public interface
-Queue extends Closeable {
+public interface Queue extends Closeable {
     /**
-     * Creates an appender.
+     * Creates an appender using the queue's default {@link QueueConfig#appenderConfig() appender configuration}.
      *
      * @return new instance of an appender
      */
     Appender createAppender();
+
+    /**
+     * Creates an appender using the given configuration.
+     *
+     * @param config the appender configuration
+     * @return new instance of an appender
+     */
     Appender createAppender(AppenderConfig config);
 
     /**
-     * Creates a poller for sequential read access via callback starting with the first queue entry.
+     * Creates a poller for sequential read access via callback starting with the first queue entry, using the queue's
+     * default {@link QueueConfig#pollerConfig() poller configuration}.
      *
      * @return new instance of a poller
      */
     Poller createPoller();
+
+    /**
+     * Creates a poller for sequential read access via callback starting with the first queue entry, using the given
+     * configuration.
+     *
+     * @param config the poller configuration
+     * @return new instance of a poller
+     */
     Poller createPoller(ReaderConfig config);
 
     /**
-     * Creates an entry reader for accessing queue {@link Entry entries} via index.
+     * Creates an entry reader for accessing queue {@link Entry entries} via index, using the queue's default
+     * {@link QueueConfig#entryReaderConfig() entry reader configuration}.
      *
-     * @return new instance of an entry reader.
+     * @return new instance of an entry reader
      */
     EntryReader createEntryReader();
+
+    /**
+     * Creates an entry reader for accessing queue {@link Entry entries} via index, using the given configuration.
+     *
+     * @param config the entry reader configuration
+     * @return new instance of an entry reader
+     */
     EntryReader createEntryReader(ReaderConfig config);
 
     /**
-     * Creates an entry iterator for sequential access of queue {@link Entry entries}.
+     * Creates an entry iterator for sequential access of queue {@link Entry entries}, using the queue's default
+     * {@link QueueConfig#entryIteratorConfig() entry iterator configuration}.
      *
-     * @return new instance of an entry iterator.
+     * @return new instance of an entry iterator
      */
     EntryIterator createEntryIterator();
+
+    /**
+     * Creates an entry iterator for sequential access of queue {@link Entry entries}, using the given configuration.
+     *
+     * @param config the entry iterator configuration
+     * @return new instance of an entry iterator
+     */
     EntryIterator createEntryIterator(ReaderConfig config);
 
     /**
-     * Creates an index reader for querying queue entry indices.
+     * Creates an index reader for querying queue entry indices, using the queue's default
+     * {@link QueueConfig#indexReaderConfig() index reader configuration}.
      *
-     * @return new instance of an index reader.
+     * @return new instance of an index reader
      */
     IndexReader createIndexReader();
-    IndexReader createIndexReader(IndexReaderConfig config);
-
-    boolean isClosed();
 
     /**
-     * Closes the queue and all appenders, pollers, readers and iterators created via this queue.
+     * Creates an index reader for querying queue entry indices, using the given configuration.
+     *
+     * @param config the index reader configuration
+     * @return new instance of an index reader
+     */
+    IndexReader createIndexReader(IndexReaderConfig config);
+
+    /**
+     * Closes this queue and all appenders, pollers, entry readers, entry iterators and index readers created through
+     * it. Exceptions thrown while closing those are ignored.
      */
     @Override
     void close();
 
-    static Queue create(final File file) {
-        return new QueueImpl(file);
+    /**
+     * Creates or opens the queue stored in the given directory, using the {@link QueueConfig#getDefault() default}
+     * queue configuration.
+     *
+     * @param directory the queue directory
+     * @return a new queue instance
+     * @throws IllegalArgumentException if the directory has to be created but its parent directory does not exist
+     * @see #create(File, QueueConfig)
+     */
+    static Queue create(final File directory) {
+        return new QueueImpl(directory);
     }
 
-    static Queue create(final File file, final QueueConfig config) {
-        return new QueueImpl(file, config);
+    /**
+     * Creates or opens the queue stored in the given directory, using the given queue configuration.
+     * <p>
+     * The queue files are created inside the directory and are named after it, e.g. {@code <dir>/<dir>_hdr.mmq}.
+     * Unless the configured {@link QueueConfig#accessMode() access mode} is
+     * {@link org.tools4j.mmap.region.api.AccessMode#READ_ONLY READ_ONLY}, the directory is created if it does not
+     * exist; its parent directory must exist. With
+     * {@link org.tools4j.mmap.region.api.AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}, existing queue files are
+     * deleted first.
+     *
+     * @param directory the queue directory
+     * @param config    the queue configuration
+     * @return a new queue instance
+     * @throws IllegalArgumentException if the directory has to be created but its parent directory does not exist
+     */
+    static Queue create(final File directory, final QueueConfig config) {
+        return new QueueImpl(directory, config);
     }
 }

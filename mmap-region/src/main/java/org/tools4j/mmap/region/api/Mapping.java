@@ -26,7 +26,6 @@ package org.tools4j.mmap.region.api;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
-import org.tools4j.mmap.region.impl.Closeable;
 
 import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
 
@@ -42,8 +41,8 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
  *                                 size</i> (typically powers of two). The dynamic mapping provides access to the mapped
  *                                 region or a slice of it, depending on the subtype:<ul>
  *         <li>{@link RegionMapping}:   A dynamic mapping that always maps the whole region. As a consequence, move
- *                                      operations are only permitted to positions that are multiples the region size.
- *                                      </li>
+ *                                      operations are only permitted to positions that are multiples of the region
+ *                                      size.</li>
  *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an offset from the region start
  *                                      position and spans all bytes until the end of that region.</li>
  *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the region. Adaptive mappings start
@@ -54,7 +53,8 @@ import static org.tools4j.mmap.region.api.NullValues.NULL_POSITION;
  *     </ul></li>
  * </ul>
  * <p>
- * Use one of the static factory methods in {@link Mappings} or {@link MappingPool} to create mapping instances.
+ * Use one of the static factory methods in {@link Mappings}, or the acquire methods of a {@link MappingPool}, to
+ * create mapping instances.
  */
 public interface Mapping extends Closeable {
     /**
@@ -68,7 +68,7 @@ public interface Mapping extends Closeable {
      * Returns the start position of the mapping, or {@link NullValues#NULL_POSITION NULL_POSITION} if this mapping is
      * not {@link #isMapped() mapped}.
      *
-     * @return the mapped position, or -1 if unavailable
+     * @return the mapped position, or {@link NullValues#NULL_POSITION NULL_POSITION} if unavailable
      */
     long position();
 
@@ -81,7 +81,7 @@ public interface Mapping extends Closeable {
      * this mapping is unmapped (e.g. because it is {@link #close() closed} or {@link DynamicMapping#moveTo(long) moved}
      * to a new position).
      *
-     * @return the mapped address, or zero if unavailable
+     * @return the mapped address, or {@link NullValues#NULL_ADDRESS NULL_ADDRESS} if unavailable
      */
     @Unsafe
     long address();
@@ -131,16 +131,4 @@ public interface Mapping extends Closeable {
     default boolean isMapped() {
         return position() > NULL_POSITION;
     }
-
-    /**
-     * Returns whether this mapping is closed.
-     *
-     * @return true if this mapping is closed
-     */
-    boolean isClosed();
-
-    /**
-     * Closes this mapping.
-     */
-    void close();
 }

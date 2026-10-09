@@ -26,7 +26,6 @@ package org.tools4j.mmap.region.api;
 
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 
-import static org.tools4j.mmap.region.impl.Constraints.validatePositionDelta;
 import static org.tools4j.mmap.region.impl.Constraints.validatePositionState;
 import static org.tools4j.mmap.region.impl.Constraints.validateRegionOffset;
 
@@ -53,23 +52,6 @@ public interface ElasticMapping extends DynamicMapping {
      */
     @Override
     boolean moveTo(long position);
-
-    /**
-     * Moves the mapping forward or backward by the specified delta in bytes. Delegates to {@link #moveTo(long)} if
-     * current and resulting position are valid. An exception is thrown if no position is currently mapped or if the
-     * resulting position is negative.
-     *
-     * @param delta the position delta relative to the current position
-     * @return true if the mapping is ready for data access, and false otherwise
-     * @throws IllegalStateException if this mapping has no current position
-     * @throws IllegalArgumentException if the provided delta value results in a negative position
-     */
-    default boolean moveBy(final long delta) {
-        final long position = position();
-        validatePositionState(position);
-        validatePositionDelta(position, delta);
-        return moveTo(position + delta);
-    }
 
     /**
      * Moves the mapping to the start of the current region.

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.region.unsafe;
+package org.tools4j.mmap.region.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,15 +33,14 @@ import org.tools4j.mmap.region.api.MappingPool;
 import org.tools4j.mmap.region.api.RegionMapping;
 import org.tools4j.mmap.region.api.RegionMetrics;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.AdaptiveMappingImpl;
-import org.tools4j.mmap.region.impl.ElasticMappingImpl;
-import org.tools4j.mmap.region.impl.RegionMappingImpl;
+import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;
+import static org.tools4j.mmap.region.unsafe.RegionMappers.createRefCountRegionMapper;
 
 public final class MappingPoolImpl implements MappingPool {
 
@@ -58,7 +57,7 @@ public final class MappingPoolImpl implements MappingPool {
     public MappingPoolImpl(final RegionMapper baseMapper,
                            final Function<? super RegionMapper, ? extends RegionMapper> cacheFactory,
                            final int initialPoolSize) {
-        this.regionMapper = cacheFactory.apply(new RefCountRegionMapper(baseMapper, initialPoolSize));
+        this.regionMapper = cacheFactory.apply(createRefCountRegionMapper(baseMapper, initialPoolSize));
         this.mappings = new ArrayList<>(initialPoolSize);
     }
 

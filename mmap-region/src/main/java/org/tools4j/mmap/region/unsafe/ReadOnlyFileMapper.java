@@ -26,8 +26,8 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.FileInitialiser;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +80,7 @@ public class ReadOnlyFileMapper implements FileMapper {
             if (end > fileSizeCache && end > (fileSizeCache = channel.size())) {
                 return NULL_ADDRESS;
             }
-            return FileChannels.map(channel, AccessMode.READ_ONLY.getMapMode(), position, length);
+            return FileChannels.map(channel, AccessMode.READ_ONLY.mapMode(), position, length);
         } catch (final IOException e) {
             LOGGER.error("Failed to map file {}", file, e);
         }

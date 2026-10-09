@@ -26,8 +26,8 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.FileInitialiser;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.io.IOException;
@@ -111,7 +111,7 @@ public class ExpandableSizeFileMapper implements FileMapper {
             return NULL_ADDRESS;
         }
         ensureFileLength(channel, position + length);
-        final long address = FileChannels.map(channel, AccessMode.READ_WRITE.getMapMode(), position, length);
+        final long address = FileChannels.map(channel, AccessMode.READ_WRITE.mapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
     }

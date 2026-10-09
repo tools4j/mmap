@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 import java.util.Iterator;
 
@@ -58,14 +58,9 @@ public interface IterableContext extends Iterable<Entry>, Closeable {
     IterableContext reverse();
 
     /**
-     * Returns whether the context is closed.
-     *
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Closes any iterator associated with this iterable and unwraps the current entry's buffer
+     * Closes this iterable context: iterators obtained from it return no further entries, and the current entry's
+     * buffer is unwrapped. The context must be closed before the next iterable context is requested from the same
+     * {@link EntryIterator}, otherwise an {@link IllegalStateException} is thrown at that point.
      */
     @Override
     void close();

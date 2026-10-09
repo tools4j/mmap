@@ -40,74 +40,74 @@ public enum AsyncRuntimeInstances {
     private static final AtomicInteger mapperCount = new AtomicInteger();
     private static final AtomicInteger unmapperCount = new AtomicInteger();
     private static final ThreadLocal<AsyncRuntime> threadLocalMapper
-            = ThreadLocal.withInitial(AsyncRuntimeInstances::newMappingRuntimeInstance);
+            = ThreadLocal.withInitial(AsyncRuntimeInstances::newMappingRuntime);
     private static final ThreadLocal<AsyncRuntime> threadLocalUnmapper
-            = ThreadLocal.withInitial(AsyncRuntimeInstances::newUnmappingRuntimeInstance);
+            = ThreadLocal.withInitial(AsyncRuntimeInstances::newUnmappingRuntime);
 
     /**
-     * Creates a new mapper runtime instance that automatically stops after the last task de-registration and uses the
+     * Creates a new mapping runtime instance that automatically stops after the last task de-registration and uses the
      * default idle strategy.
      *
      * @return a new mapping runtime instance
      * @see org.tools4j.mmap.region.config.MappingConfigurations#defaultMappingRuntimeIdleStrategySupplier()
      */
-    public static AsyncRuntime newMappingRuntimeInstance() {
-        return newMappingRuntimeInstance(defaultMappingRuntimeIdleStrategySupplier().get());
+    public static AsyncRuntime newMappingRuntime() {
+        return newMappingRuntime(defaultMappingRuntimeIdleStrategySupplier().get());
     }
 
     /**
-     * Creates a new mapper runtime instance that automatically stops after the last task de-registration and uses the
+     * Creates a new mapping runtime instance that automatically stops after the last task de-registration and uses the
      * specified idle strategy.
      *
      * @param idleStrategy the idle strategy used by the new runtime instance
      * @return a new mapping runtime instance
      */
-    public static AsyncRuntime newMappingRuntimeInstance(final IdleStrategy idleStrategy) {
-        return newMappingRuntimeInstance(idleStrategy, true);
+    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy) {
+        return newMappingRuntime(idleStrategy, true);
     }
 
     /**
-     * Creates a new mapper runtime instance with the specified idle strategy and auto-stop behavior.
+     * Creates a new mapping runtime instance with the specified idle strategy and auto-stop behavior.
      *
      * @param idleStrategy the idle strategy used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
      * @return a new mapping runtime instance
      */
-    public static AsyncRuntime newMappingRuntimeInstance(final IdleStrategy idleStrategy,
+    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
                                                          final boolean autoStopOnLastDeregister) {
         return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
     }
 
     /**
-     * Creates a new unmapper runtime instance that automatically stops after the last task de-registration and uses the
+     * Creates a new unmapping runtime instance that automatically stops after the last task de-registration and uses the
      * default idle strategy.
      *
      * @return a new unmapping runtime instance
      * @see org.tools4j.mmap.region.config.MappingConfigurations#defaultUnmappingRuntimeIdleStrategySupplier()
      */
-    public static AsyncRuntime newUnmappingRuntimeInstance() {
-        return newUnmappingRuntimeInstance(defaultUnmappingRuntimeIdleStrategySupplier().get());
+    public static AsyncRuntime newUnmappingRuntime() {
+        return newUnmappingRuntime(defaultUnmappingRuntimeIdleStrategySupplier().get());
     }
 
     /**
-     * Creates a new unmapper runtime instance that automatically stops after the last task de-registration and uses the
+     * Creates a new unmapping runtime instance that automatically stops after the last task de-registration and uses the
      * specified idle strategy.
      *
      * @param idleStrategy the idle strategy used by the new runtime instance
      * @return a new unmapping runtime instance
      */
-    public static AsyncRuntime newUnmappingRuntimeInstance(final IdleStrategy idleStrategy) {
-        return newUnmappingRuntimeInstance(idleStrategy, true);
+    public static AsyncRuntime newUnmappingRuntime(final IdleStrategy idleStrategy) {
+        return newUnmappingRuntime(idleStrategy, true);
     }
 
     /**
-     * Creates a new unmapper runtime instance with the specified idle strategy and auto-stop behavior.
+     * Creates a new unmapping runtime instance with the specified idle strategy and auto-stop behavior.
      *
      * @param idleStrategy the idle strategy used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
      * @return a new unmapping runtime instance
      */
-    public static AsyncRuntime newUnmappingRuntimeInstance(final IdleStrategy idleStrategy,
+    public static AsyncRuntime newUnmappingRuntime(final IdleStrategy idleStrategy,
                                                            final boolean autoStopOnLastDeregister) {
         return AsyncRuntime.create("unmapper-" + unmapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
     }
@@ -116,7 +116,7 @@ public enum AsyncRuntimeInstances {
      * Returns the shared mapping runtime instance, a singleton instance in the virtual machine.
      * @return the shared mapping runtime instance
      */
-    public static AsyncRuntime sharedMappingRuntimeInstance() {
+    public static AsyncRuntime sharedMappingRuntime() {
         return MappingInstance.SHARED;
     }
 
@@ -124,7 +124,7 @@ public enum AsyncRuntimeInstances {
      * Returns the shared unmapping runtime instance, a singleton instance in the virtual machine.
      * @return the shared unmapping runtime instance
      */
-    public static AsyncRuntime sharedUnmappingRuntimeInstance() {
+    public static AsyncRuntime sharedUnmappingRuntime() {
         return UnmappingInstance.SHARED;
     }
 
@@ -132,7 +132,7 @@ public enum AsyncRuntimeInstances {
      * Returns the thread-local mapping runtime instance for sharing within the calling thread
      * @return the per-thread mapping runtime instance for sharing within the calling thread
      */
-    public static AsyncRuntime threadLocalMappingRuntimeInstance() {
+    public static AsyncRuntime threadLocalMappingRuntime() {
         return threadLocalMapper.get();
     }
 
@@ -140,7 +140,7 @@ public enum AsyncRuntimeInstances {
      * Returns the thread-local unmapping runtime instance for sharing within the calling thread
      * @return the per-thread unmapping runtime instance for sharing within the calling thread
      */
-    public static AsyncRuntime threadLocalUnmappingRuntimeInstance() {
+    public static AsyncRuntime threadLocalUnmappingRuntime() {
         return threadLocalUnmapper.get();
     }
 
@@ -153,10 +153,9 @@ public enum AsyncRuntimeInstances {
      */
     public static Supplier<AsyncRuntime> mappingRuntimeSupplier(final SharingPolicy sharingPolicy) {
         return switch (sharingPolicy) {
-            case SHARED -> AsyncRuntimeInstances::sharedMappingRuntimeInstance;
-            case PER_THREAD -> AsyncRuntimeInstances::threadLocalMappingRuntimeInstance;
-            case INDIVIDUAL -> AsyncRuntimeInstances::newMappingRuntimeInstance;
-            default -> throw new IllegalArgumentException("Unsupported sharing policy: " + sharingPolicy);
+            case SHARED -> AsyncRuntimeInstances::sharedMappingRuntime;
+            case PER_THREAD -> AsyncRuntimeInstances::threadLocalMappingRuntime;
+            case INDIVIDUAL -> AsyncRuntimeInstances::newMappingRuntime;
         };
     }
 
@@ -169,10 +168,9 @@ public enum AsyncRuntimeInstances {
      */
     public static Supplier<AsyncRuntime> unmappingRuntimeSupplier(final SharingPolicy sharingPolicy) {
         return switch (sharingPolicy) {
-            case SHARED -> AsyncRuntimeInstances::sharedUnmappingRuntimeInstance;
-            case PER_THREAD -> AsyncRuntimeInstances::threadLocalUnmappingRuntimeInstance;
-            case INDIVIDUAL -> AsyncRuntimeInstances::newUnmappingRuntimeInstance;
-            default -> throw new IllegalArgumentException("Unsupported sharing policy: " + sharingPolicy);
+            case SHARED -> AsyncRuntimeInstances::sharedUnmappingRuntime;
+            case PER_THREAD -> AsyncRuntimeInstances::threadLocalUnmappingRuntime;
+            case INDIVIDUAL -> AsyncRuntimeInstances::newUnmappingRuntime;
         };
     }
 

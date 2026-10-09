@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.region.impl;
 
+import org.tools4j.mmap.region.api.Closeable;
+
 /**
  * A pool of IDs that can be acquired and released atomically.
  */

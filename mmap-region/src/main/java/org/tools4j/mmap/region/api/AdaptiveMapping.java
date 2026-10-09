@@ -80,7 +80,6 @@ public interface AdaptiveMapping extends DynamicMapping {
      * @param length the new byte length for this mapping, at least zero and no more than {@link #maxLength()}, or -1
      *               to map all bytes to the end of the region
      * @return true if the mapping is ready for data access, and false otherwise
-     * @throws IllegalStateException if this mapping has no current position
      * @throws IllegalArgumentException if position is negative, or length is less than -1 or exceeds the maximum bytes
      *                                  available at the specified position
      * @see #maxLengthAtPosition(long)
@@ -204,7 +203,7 @@ public interface AdaptiveMapping extends DynamicMapping {
      * @return true if the mapping is ready for data access, and false otherwise
      * @throws IllegalStateException if this mapping has no current position
      * @throws IllegalArgumentException if the provided delta value results in a negative position, or the length is
-     *                                  negative or exceeds max-length
+     *                                  less than -1 or exceeds the maximum bytes available at the resulting position
      */
     default boolean moveBy(final long delta, final int length) {
         final long position = position();

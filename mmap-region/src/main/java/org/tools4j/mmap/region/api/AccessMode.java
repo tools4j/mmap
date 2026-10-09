@@ -45,11 +45,11 @@ public enum AccessMode {
      */
     READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
 
-    private final String rasMode;
+    private final String randomAccessMode;
     private final FileChannel.MapMode mapMode;
 
-    AccessMode(final String rasMode, final FileChannel.MapMode mapMode) {
-        this.rasMode = Objects.requireNonNull(rasMode);
+    AccessMode(final String randomAccessMode, final FileChannel.MapMode mapMode) {
+        this.randomAccessMode = Objects.requireNonNull(randomAccessMode);
         this.mapMode = Objects.requireNonNull(mapMode);
     }
 
@@ -58,8 +58,8 @@ public enum AccessMode {
      *
      * @return the random access mode string, e.g. {@code "r"} or {@code "rw"}
      */
-    public String getRandomAccessMode() {
-        return rasMode;
+    public String randomAccessMode() {
+        return randomAccessMode;
     }
 
     /**
@@ -67,7 +67,7 @@ public enum AccessMode {
      *
      * @return the file channel map mode corresponding to this access mode
      */
-    public FileChannel.MapMode getMapMode() {
+    public FileChannel.MapMode mapMode() {
         return mapMode;
     }
 

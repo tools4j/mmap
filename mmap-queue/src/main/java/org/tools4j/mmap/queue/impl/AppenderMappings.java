@@ -26,10 +26,11 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Closeable;
 import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.region.api.FileInitialiser;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.IdPool;
 
 import static java.util.Objects.requireNonNull;
@@ -39,7 +40,7 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConf
 /**
  * Header and payload mapping for queues appenders.
  */
-interface AppenderMappings extends AutoCloseable {
+interface AppenderMappings extends Closeable {
     /**
      * Returns the appender ID.
      *
@@ -59,11 +60,6 @@ interface AppenderMappings extends AutoCloseable {
      * @return payload region
      */
     ElasticMapping payload();
-
-    boolean isClosed();
-
-    @Override
-    void close();
 
     /**
      * Factory method for appender mappings.

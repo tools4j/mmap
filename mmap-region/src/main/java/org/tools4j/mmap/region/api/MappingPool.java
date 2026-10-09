@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.region.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
 
 /**
  * A mapping pool provides mappings that share the same file, {@linkplain #accessMode() access mode} and mapping
@@ -41,9 +40,9 @@ import org.tools4j.mmap.region.impl.Closeable;
  */
 public interface MappingPool extends RegionAware, Closeable {
     /**
-     * Returns the file access mode used for all mapping from this repository.
+     * Returns the file access mode used for all mappings from this pool.
      *
-     * @return the file access mode used for all mapping from this repository
+     * @return the file access mode used for all mappings from this pool
      */
     AccessMode accessMode();
 
@@ -66,14 +65,8 @@ public interface MappingPool extends RegionAware, Closeable {
     AdaptiveMapping acquireAdaptiveMapping();
 
     /**
-     * Returns whether this mapping pool is closed.
-     *
-     * @return true if this mapping pool is closed
+     * Closes this pool and all mappings acquired from it, and unmaps all regions still mapped by the pool.
      */
-    boolean isClosed();
-
-    /**
-     * Closes this repository with all its mappings.
-     */
+    @Override
     void close();
 }

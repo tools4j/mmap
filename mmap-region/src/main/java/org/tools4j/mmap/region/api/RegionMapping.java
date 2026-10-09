@@ -28,7 +28,7 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 
 /**
  * A region mapping is a {@link DynamicMapping} that always maps a whole region. As a consequence, move operations are
- * only permitted to positions that are multiples the {@linkplain #regionSize() region size}.
+ * only permitted to positions that are multiples of the {@linkplain #regionSize() region size}.
  * <p>
  * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
  * {@link RegionMapper}.
@@ -38,9 +38,9 @@ import org.tools4j.mmap.region.unsafe.RegionMapper;
 public interface RegionMapping extends DynamicMapping {
     /**
      * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, which is always
-     * zero for a <code>RegionPosition</code>.
+     * zero for a {@code RegionMapping}.
      *
-     * @return the offset from the region start position, always zero for a region position
+     * @return the offset from the region start position, always zero for a region mapping
      */
     default int regionOffset() {
         return 0;
@@ -48,7 +48,7 @@ public interface RegionMapping extends DynamicMapping {
 
     /**
      * The step size (or minimum increment) of position values passed to the moveTo(long) method, which is the same as
-     * {@link #regionSize()} for a <code>RegionPosition</code>.
+     * {@link #regionSize()} for a {@code RegionMapping}.
      *
      * @return the step size for position values, same as region size
      */

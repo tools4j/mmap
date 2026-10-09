@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 /**
  * Flyweight return by {@link EntryReader} with access to entry data and index.
@@ -45,14 +45,9 @@ public interface ReadingContext extends Entry, Closeable {
     boolean hasEntry();
 
     /**
-     * Returns whether the context is closed.
-     *
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the reading context and unwraps the buffer
+     * Closes this reading context: the {@link #buffer() buffer} is unwrapped and the {@link #index() index} reset to
+     * {@link Index#NULL}. The context must be closed before the next reading context is requested from the same
+     * {@link EntryReader}, otherwise an {@link IllegalStateException} is thrown at that point.
      */
     @Override
     void close();

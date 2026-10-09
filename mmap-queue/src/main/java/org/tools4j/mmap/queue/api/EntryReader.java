@@ -95,10 +95,4 @@ public interface EntryReader extends IndexReader {
      * @return reading context to access entry data if available
      */
     ReadingContext readingLast();
-
-    /**
-     * Closes this reader.
-     */
-    @Override
-    void close();
 }

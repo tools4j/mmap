@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.agrona.MutableDirectBuffer;
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 /**
  * Flyweight returned by {@link Appender#appending(int)} to encode a new entry directly to the queue {@link #buffer()}.
@@ -60,7 +60,7 @@ public interface AppendingContext extends Closeable {
     /**
      * Commits the entry that was encoded into the {@link #buffer()}
      *
-     * @param length - length of the entry in bytes
+     * @param length length of the entry in bytes
      * @return queue index at which the entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
@@ -68,14 +68,9 @@ public interface AppendingContext extends Closeable {
     long commit(int length);
 
     /**
-     * Returns whether the context is closed.
-     *
-     * @return true if the context is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Aborts appending if not closed or committed yet.
+     * Closes this appending context, {@linkplain #abort() aborting} the entry unless it has already been committed or
+     * aborted. The context must be closed before the next appending context is requested from the same
+     * {@link Appender}, otherwise an {@link IllegalStateException} is thrown at that point.
      */
     @Override
     default void close() {

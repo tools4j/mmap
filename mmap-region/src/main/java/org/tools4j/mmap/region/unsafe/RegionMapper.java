@@ -24,10 +24,10 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Closeable;
 import org.tools4j.mmap.region.api.Mapping;
 import org.tools4j.mmap.region.api.RegionAware;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.Closeable;
 
 import static org.tools4j.mmap.region.impl.Constraints.validateAddress;
 import static org.tools4j.mmap.region.impl.Constraints.validateNotClosed;

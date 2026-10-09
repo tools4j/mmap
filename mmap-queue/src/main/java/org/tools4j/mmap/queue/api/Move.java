@@ -28,6 +28,9 @@ import org.agrona.DirectBuffer;
 /**
  * Defines constants for index increments that can be used as return values in implementations of
  * {@link EntryHandler#onEntry(long, DirectBuffer, int, int)}.
+ * <p>
+ * {@link #NEXT}, {@link #PREVIOUS} and {@link #NONE} are relative increments, while {@link #FIRST}, {@link #LAST}
+ * and {@link #END} are sentinels for absolute targets.
  */
 public interface Move {
     /**

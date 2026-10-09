@@ -146,8 +146,8 @@ class QueueTest {
                 assertThat(poll(poller2, actualIndex)).isEqualTo(testString3);
 
                 //when
-                poller1.seekNext(0);
-                poller2.seekNext(1);
+                poller1.seek(0);
+                poller2.seek(1);
 
                 //then
                 assertThat(poll(poller1, 0)).isEqualTo(testString1);

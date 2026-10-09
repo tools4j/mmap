@@ -24,8 +24,8 @@
 package org.tools4j.mmap.region.unsafe;
 
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Closeable;
 import org.tools4j.mmap.region.api.Unsafe;
-import org.tools4j.mmap.region.impl.Closeable;
 
 /**
  * Maps a file to specified position and length.
@@ -44,8 +44,8 @@ public interface FileMapper extends Closeable {
     /**
      * Map memory region at absolute position with given length to memory address.
      *
-     * @param position - absolute position
-     * @param length - region length
+     * @param position absolute position
+     * @param length region length
      * @return positive value if address has been mapped, or {@code NULL_ADDRESS} otherwise
      */
     long map(long position, int length);

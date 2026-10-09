@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 /**
  * API for sequential read access of entries from a {@link Queue}.
@@ -43,12 +43,13 @@ public interface EntryIterator extends Closeable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
      * entries are subsequently appended to the queue in the background.
      *
-     * @param index     zero-based entry index from which to start
+     * @param index zero-based entry index from which to start, or {@link Index#LAST} or {@link Index#END} to start
+     *              from the last entry or from the end of the queue, respectively
      * @return an entry iterable that can be used in a for-loop
-     * @throws IllegalArgumentException Direction is NONE
+     * @throws IllegalArgumentException if index is negative (including {@link Index#NULL})
      */
     IterableContext readingFrom(long index);
 
@@ -65,7 +66,7 @@ public interface EntryIterator extends Closeable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
      * entries are subsequently appended to the queue in the background.
      *
      * @return an entry iterable that can be used in a for-loop
@@ -85,7 +86,7 @@ public interface EntryIterator extends Closeable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if ent
+     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
      * entries are subsequently appended to the queue in the background.
      * <p>
      * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
@@ -116,12 +117,4 @@ public interface EntryIterator extends Closeable {
      * @return an entry iterable that can be used in a for-loop
      */
     IterableContext readingFromEnd();
-
-    boolean isClosed();
-
-    /**
-     * Closes this reader.
-     */
-    @Override
-    void close();
 }

@@ -66,7 +66,7 @@ final class PollerImpl implements Poller {
     }
 
     @Override
-    public void seekStart() {
+    public void seekFirst() {
         checkNotClosed();
         nextIndex = Index.FIRST;
     }
@@ -84,7 +84,7 @@ final class PollerImpl implements Poller {
     }
 
     @Override
-    public void seekNext(final long index) {
+    public void seek(final long index) {
         checkNotClosed();
         nextIndex = nextIndex(Index.FIRST, index);
     }

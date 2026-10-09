@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 /**
  * Poller for sequential retrieval of {@link Queue} entries with callback to an {@link EntryHandler}.
@@ -55,53 +55,53 @@ public interface Poller extends Closeable {
     int poll(EntryHandler entryHandler);
 
     /**
-     * Returns the index of the current entry, or -1 if no current entry exists.
+     * Returns the index of the current entry, or {@link Index#NULL} if no current entry exists.
      * The current entry is the one last polled or last touched when moving the cursor.
      * @return index of current entry, zero for first queue entry
      */
     long currentIndex();
 
     /**
-     * Returns the index of the next entry to be polled, or -1 polling has moved the cursor before the first entry or
-     * past {@link Index#MAX}, and {@link Index#END} for the next entry at the end of the queue.
+     * Returns the index of the next entry to be polled, or {@link Index#NULL} if polling has moved the cursor before
+     * the first entry or past {@link Index#MAX}, and {@link Index#END} for the next entry at the end of the queue.
      *
      * @return index of next entry to be polled, zero for first queue entry
      */
     long nextIndex();
 
     /**
-     * Sets the index of the next polled entry to zero. Equivalent to {@code seekNext(0)}.
+     * Sets the index of the next polled entry to the first entry. Equivalent to {@code seek(Index.FIRST)}.
      *
-     * @see #seekNext(long)
+     * @see #seek(long)
      * @see #seekLast()
      * @see #seekEnd()
      */
-    void seekStart();
+    void seekFirst();
 
     /**
-     * Sets the index of the next polled entry to be the last entry. Equivalent to {@code seekNext(Index.LAST)}.
+     * Sets the index of the next polled entry to be the last entry. Equivalent to {@code seek(Index.LAST)}.
      * This operation returns fast and does not move the cursor immediately, instead the cursor is moved through
      * subsequent {@link #poll(EntryHandler) poll(..)} invocations.
      * <p>
      * Note that last entry of the queue be a moving target if entries are concurrently appended to the queue.
      *
      * @see #seekEnd()
-     * @see #seekStart()
-     * @see #seekNext(long)
+     * @see #seekFirst()
+     * @see #seek(long)
      * @see Index#LAST
      */
     void seekLast();
 
     /**
-     * Sets the index of the next polled entry to be at the end. Equivalent to {@code seekNext(Index.END)}.
+     * Sets the index of the next polled entry to be at the end. Equivalent to {@code seek(Index.END)}.
      * This operation returns fast and does not move the cursor immediately, instead the cursor is moved through
      * subsequent {@link #poll(EntryHandler) poll(..)} invocations.
      * <p>
      * Note that queue end may be a moving target if entries are concurrently appended to the queue.
      *
-     * @see #seekStart()
+     * @see #seekFirst()
      * @see #seekLast()
-     * @see #seekNext(long)
+     * @see #seek(long)
      * @see Index#END
      */
     void seekEnd();
@@ -110,23 +110,10 @@ public interface Poller extends Closeable {
      * Sets the index of the next polled entry. This operation returns fast and does not move the cursor immediately,
      * instead the cursor is moved through subsequent {@link #poll(EntryHandler) poll(..)} invocations.
      *
-     * @param index the index of the next entry to poll, 0 for first and {@link Index#END} end of the queue
+     * @param index the index of the next entry to poll, 0 for first and {@link Index#END} for the end of the queue
      * @throws IllegalArgumentException if the provided index is negative
-     * @see #seekStart()
+     * @see #seekFirst()
      * @see #seekEnd()
      */
-    void seekNext(long index);
-
-    /**
-     * Returns whether this poller is closed.
-     *
-     * @return true if this poller is closed
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the poller.
-     */
-    @Override
-    void close();
+    void seek(long index);
 }

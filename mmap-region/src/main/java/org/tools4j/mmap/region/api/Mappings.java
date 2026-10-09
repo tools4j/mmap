@@ -26,14 +26,13 @@ package org.tools4j.mmap.region.api;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.AdaptiveMappingImpl;
 import org.tools4j.mmap.region.impl.ElasticMappingImpl;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 import org.tools4j.mmap.region.impl.FixedMappingImpl;
+import org.tools4j.mmap.region.impl.MappingPoolImpl;
 import org.tools4j.mmap.region.impl.NullMapping;
 import org.tools4j.mmap.region.impl.RegionMappingImpl;
 import org.tools4j.mmap.region.unsafe.FileMapper;
 import org.tools4j.mmap.region.unsafe.FileMappers;
 import org.tools4j.mmap.region.unsafe.FixedSizeFileMapper;
-import org.tools4j.mmap.region.unsafe.MappingPoolImpl;
 import org.tools4j.mmap.region.unsafe.RegionMapper;
 import org.tools4j.mmap.region.unsafe.RegionMappers;
 
@@ -66,8 +65,8 @@ public enum Mappings {
      * @param accessMode the access mode to open the file with
      * @return a new fixed mapping covering the whole file
      */
-    public static FixedMapping fixedSizeMapping(final File file, final AccessMode accessMode) {
-        return fixedSizeMapping(file, accessMode, 0L);
+    public static FixedMapping fixedMapping(final File file, final AccessMode accessMode) {
+        return fixedMapping(file, accessMode, 0L);
     }
 
     /**
@@ -79,10 +78,10 @@ public enum Mappings {
      * @param offset     the start offset in the file
      * @return a new fixed mapping from the offset to the end of the file
      */
-    public static FixedMapping fixedSizeMapping(final File file,
-                                                final AccessMode accessMode,
-                                                final long offset) {
-        return fixedSizeMapping(file, accessMode, offset, -1);
+    public static FixedMapping fixedMapping(final File file,
+                                            final AccessMode accessMode,
+                                            final long offset) {
+        return fixedMapping(file, accessMode, offset, -1);
     }
 
     /**
@@ -95,15 +94,15 @@ public enum Mappings {
      * @return a new fixed mapping for the specified file slice
      * @throws IllegalArgumentException if the resulting mapping length exceeds the integer range
      */
-    public static FixedMapping fixedSizeMapping(final File file,
-                                                final AccessMode accessMode,
-                                                final long offset,
-                                                final int length) {
+    public static FixedMapping fixedMapping(final File file,
+                                            final AccessMode accessMode,
+                                            final long offset,
+                                            final int length) {
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
         final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, offset, fileSize);
         final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, accessMode, initialiser);
-        return fixedSizeMapping(fileMapper, offset, (int)(fileSize - offset), true);
+        return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
     /**
@@ -113,7 +112,7 @@ public enum Mappings {
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
      * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code fixedSizeMapping} factory methods instead.
+     * {@code fixedMapping} factory methods instead.
      *
      * @param fileMapper the file mapper providing access to the underlying file
      * @param offset     the start offset in the file
@@ -121,10 +120,10 @@ public enum Mappings {
      * @return a new fixed mapping for the specified file slice
      */
     @Unsafe
-    public static FixedMapping fixedSizeMapping(final FileMapper fileMapper,
-                                                final long offset,
-                                                final int length) {
-        return fixedSizeMapping(fileMapper, offset, length, true);
+    public static FixedMapping fixedMapping(final FileMapper fileMapper,
+                                            final long offset,
+                                            final int length) {
+        return fixedMapping(fileMapper, offset, length, true);
     }
 
     /**
@@ -133,7 +132,7 @@ public enum Mappings {
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
      * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code fixedSizeMapping} factory methods instead.
+     * {@code fixedMapping} factory methods instead.
      *
      * @param fileMapper             the file mapper providing access to the underlying file
      * @param offset                 the start offset in the file
@@ -142,10 +141,10 @@ public enum Mappings {
      * @return a new fixed mapping for the specified file slice
      */
     @Unsafe
-    public static FixedMapping fixedSizeMapping(final FileMapper fileMapper,
-                                                final long offset,
-                                                final int length,
-                                                final boolean closeFileMapperOnClose) {
+    public static FixedMapping fixedMapping(final FileMapper fileMapper,
+                                            final long offset,
+                                            final int length,
+                                            final boolean closeFileMapperOnClose) {
         return new FixedMappingImpl(fileMapper, offset, length, closeFileMapperOnClose);
     }
 

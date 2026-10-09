@@ -27,10 +27,11 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.Closeable;
 import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.region.api.FileInitialiser;
 import org.tools4j.mmap.region.api.Mappings;
 import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.util.function.IntFunction;
 
@@ -41,7 +42,7 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConf
 /**
  * Header and payload mappings for pollers and readers of queues.
  */
-interface ReaderMappings extends AutoCloseable {
+interface ReaderMappings extends Closeable {
     /**
      * Returns the header region mapping.
      *
@@ -56,11 +57,6 @@ interface ReaderMappings extends AutoCloseable {
      * @return payload region
      */
     ElasticMapping payload(int appenderId);
-
-    boolean isClosed();
-
-    @Override
-    void close();
 
     /**
      * Factory method for reader mappings.

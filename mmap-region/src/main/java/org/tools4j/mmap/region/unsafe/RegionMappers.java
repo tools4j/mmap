@@ -55,6 +55,19 @@ public enum RegionMappers {
         }
     }
 
+    /**
+     * Creates a region mapper with an unbounded cache and reference counting for mapped regions, delegating actual
+     * mapping and unmapping operations to the given base mapper. A region is unmapped when its reference count
+     * reaches zero.
+     *
+     * @param baseMapper       the region mapper performing the actual mapping and unmapping operations
+     * @param initialCacheSize the initial capacity of the region cache
+     * @return a new reference counting region mapper
+     */
+    public static RegionMapper createRefCountRegionMapper(final RegionMapper baseMapper, final int initialCacheSize) {
+        return new RefCountRegionMapper(baseMapper, initialCacheSize);
+    }
+
     public static RegionMapper createSyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
         return new SyncRegionMapper(fileMapper, regionSize);
     }

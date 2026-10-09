@@ -131,8 +131,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     @Override
     public boolean moveTo(final long position, final int length) {
         validatePosition(position);
-        validateAdaptiveMappingLength(length, maxLengthAtPosition(position));
-        return moveToInternal(position, length);
+        return moveToInternal(position, resolveLength(position, length));
     }
 
     private boolean moveToInternal(final long position, final int length) {
@@ -173,8 +172,17 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
         validatePositionState(position);
         validatePositionDelta(position, delta);
         final long newPosition = position + delta;
-        validateAdaptiveMappingLength(length, maxLengthAtPosition(newPosition));
-        return moveToInternal(newPosition, length);
+        final int newLength = resolveLength(newPosition, length);
+        return moveToInternal(newPosition, newLength);
+    }
+
+    private int resolveLength(final long position, final int length) {
+        final int maxLength = maxLengthAtPosition(position);
+        if (length == -1) {
+            return maxLength;
+        }
+        validateAdaptiveMappingLength(length, maxLength);
+        return length;
     }
 
     private void initBufferAndOffset(final long regionAddress, final int offset, final int length) {

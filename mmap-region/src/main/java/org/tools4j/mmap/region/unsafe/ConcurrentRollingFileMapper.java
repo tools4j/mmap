@@ -26,11 +26,11 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.region.api.FileInitialiser;
 import org.tools4j.mmap.region.api.Unsafe;
 import org.tools4j.mmap.region.config.MappingConfig;
 import org.tools4j.mmap.region.impl.AtomicArray;
 import org.tools4j.mmap.region.impl.AtomicLruCache;
-import org.tools4j.mmap.region.impl.FileInitialiser;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;

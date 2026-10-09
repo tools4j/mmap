@@ -26,8 +26,8 @@ package org.tools4j.mmap.region.unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.impl.Closeable;
-import org.tools4j.mmap.region.impl.FileInitialiser;
+import org.tools4j.mmap.region.api.Closeable;
+import org.tools4j.mmap.region.api.FileInitialiser;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -162,7 +162,7 @@ final class FileChannelProvider implements Closeable {
     private RandomAccessFile initRandomAccessFile() {
         final RandomAccessFile raf;
         try {
-            raf = new RandomAccessFile(file, accessMode.getRandomAccessMode());
+            raf = new RandomAccessFile(file, accessMode.randomAccessMode());
         } catch (final FileNotFoundException e) {
             LOGGER.error("Failed to create new random access file: {}", file, e);
             return null;

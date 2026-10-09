@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.impl.Closeable;
+import org.tools4j.mmap.region.api.Closeable;
 
 import java.nio.ByteBuffer;
 
@@ -37,7 +37,7 @@ public interface Appender extends Closeable {
     /**
      * Appends an entry copying the data provided in the given array.
      *
-     * @param bytes - entry data
+     * @param bytes entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if array length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
@@ -47,9 +47,9 @@ public interface Appender extends Closeable {
     /**
      * Appends an entry copying the data provided in the given array.
      *
-     * @param bytes - entry data
-     * @param offset - offset of the entry data in the array
-     * @param length - length of the entry data
+     * @param bytes entry data
+     * @param offset offset of the entry data in the array
+     * @param length length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
@@ -62,7 +62,7 @@ public interface Appender extends Closeable {
      * <p>
      * The source buffer will have its {@link ByteBuffer#position()} advanced as a result.
      *
-     * @param buffer - buffer containing entry data
+     * @param buffer buffer containing entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if the buffer's remaining bytes exceeds the maximum length for an entry allowed
      *                                  by the queue
@@ -76,8 +76,8 @@ public interface Appender extends Closeable {
      * <p>
      * The source buffer will have its {@link ByteBuffer#position()} advanced as a result.
      *
-     * @param buffer - buffer containing entry data
-     * @param length - length of the entry data
+     * @param buffer buffer containing entry data
+     * @param length length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
@@ -90,9 +90,9 @@ public interface Appender extends Closeable {
      * <p>
      * The source buffer will not have its {@link ByteBuffer#position()} advanced as a result.
      *
-     * @param buffer - buffer containing entry data
-     * @param offset - offset of the entry data in the buffer
-     * @param length - length of the entry data
+     * @param buffer buffer containing entry data
+     * @param offset offset of the entry data in the buffer
+     * @param length length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
@@ -103,9 +103,9 @@ public interface Appender extends Closeable {
      * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
      * buffer the {@link #appending(int)} method can be used instead.
      *
-     * @param buffer - direct buffer containing entry data
-     * @param offset - offset of the entry data in the buffer
-     * @param length - length of the entry data
+     * @param buffer direct buffer containing entry data
+     * @param offset offset of the entry data in the buffer
+     * @param length length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
@@ -135,17 +135,4 @@ public interface Appender extends Closeable {
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     AppendingContext appending(int capacity);
-
-    /**
-     * Returns whether this appender is closed.
-     *
-     * @return true if this appender is closed
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the appender.
-     */
-    @Override
-    void close();
 }

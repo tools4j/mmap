@@ -61,7 +61,7 @@ public interface DynamicMapping extends Mapping, RegionAware {
      * {@linkplain #position() position} minus the {@linkplain #regionOffset() offset}.
      *
      * @return the region's start position, equal to the largest region size multiple that is less or equal to the
-     *         current position, or -1 if unavailable
+     *         current position, or {@link NullValues#NULL_POSITION NULL_POSITION} if unavailable
      */
     default long regionStartPosition() {
         return regionMetrics().regionPosition(position());
