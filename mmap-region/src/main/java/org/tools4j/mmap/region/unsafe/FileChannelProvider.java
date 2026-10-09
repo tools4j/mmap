@@ -188,6 +188,10 @@ final class FileChannelProvider implements Closeable {
             close("channel", channel);
             close("raf", raf);
             return null;
+        } catch (final RuntimeException e) {
+            close("channel", channel);
+            close("raf", raf);
+            throw e;
         }
         assert channel != null : "channel cannot be null";
         assert channel.isOpen() : "channel must be open";

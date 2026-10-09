@@ -29,7 +29,7 @@ import org.tools4j.mmap.region.api.Closeable;
  * Poller for sequential retrieval of {@link Queue} entries with callback to an {@link EntryHandler}.
  */
 public interface Poller extends Closeable {
-    /** No entry was polled but the cursor was moved towards {@link #nextIndex()} */
+    /** No entry was polled but the cursor was moved towards {@link #nextIndex()}, or the next index was resolved */
     int CURSOR_MOVED = 2;
     /** An entry was polled */
     int ENTRY_POLLED = 1;
@@ -50,7 +50,7 @@ public interface Poller extends Closeable {
      * @param entryHandler entry handler callback invoked if an entry is present
      * @return  a positive value if an entry was polled or if the entry cursor was moved,
      *          zero if not polled or moved, and negative if queue is not yet open, closed or if the cursor has been
-     *          moved before the first entry (see constants defined in this class)
+     *          moved before the first entry or past {@link Index#MAX} (see constants defined in this class)
      */
     int poll(EntryHandler entryHandler);
 
@@ -63,7 +63,12 @@ public interface Poller extends Closeable {
 
     /**
      * Returns the index of the next entry to be polled, or {@link Index#NULL} if polling has moved the cursor before
-     * the first entry or past {@link Index#MAX}, and {@link Index#END} for the next entry at the end of the queue.
+     * the first entry.
+     * <p>
+     * After {@link #seekLast()} or {@link #seekEnd()}, this method returns {@link Index#LAST} or {@link Index#END}
+     * until subsequent {@link #poll(EntryHandler) poll(..)} invocations have resolved the actual index. Note that
+     * {@link Index#LAST} or {@link Index#END} is also returned if polling has moved the cursor past
+     * {@link Index#MAX}.
      *
      * @return index of next entry to be polled, zero for first queue entry
      */

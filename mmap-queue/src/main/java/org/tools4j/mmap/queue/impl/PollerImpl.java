@@ -33,6 +33,7 @@ import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class PollerImpl implements Poller {
@@ -86,7 +87,10 @@ final class PollerImpl implements Poller {
     @Override
     public void seek(final long index) {
         checkNotClosed();
-        nextIndex = nextIndex(Index.FIRST, index);
+        if (index < 0) {
+            throw invalidIndexException(pollerName(), index);
+        }
+        nextIndex = index;
     }
 
     @Override

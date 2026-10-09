@@ -31,6 +31,9 @@ import org.agrona.DirectBuffer;
 public interface EntryHandler {
     /**
      * Handles an entry and returns the direction how to move the cursor for the next entry to poll.
+     * <p>
+     * Note that the returned value determines the next entry to poll; seek operations performed on the poller from
+     * within this method are overridden by it.
      *
      * @param index entry index in the queue
      * @param buffer buffer with access to entry data, with valid byte range {@code [offset...(offset + length - 1)]}

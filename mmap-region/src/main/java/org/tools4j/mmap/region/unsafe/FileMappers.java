@@ -33,7 +33,7 @@ import java.io.File;
 import static org.tools4j.mmap.region.impl.Constraints.validateMaxOpenFiles;
 
 @Unsafe
-public class FileMappers {
+public enum FileMappers {
     ;
     public static FileMapper create(final File file,
                                     final AccessMode accessMode,

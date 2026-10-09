@@ -86,7 +86,11 @@ public class FixedSizeFileMapper implements FileMapper {
                     "exceeds fixed file size " + fileSize + " for file " + file);
         }
         //NOTE: relying on fileChannelProvider's closed check
-        final long address = FileChannels.map(fileChannelProvider.get(), accessMode.mapMode(), position, length);
+        final FileChannel channel = fileChannelProvider.get();
+        if (channel == null) {
+            throw new IllegalStateException("Failed to open file channel for file " + file);
+        }
+        final long address = FileChannels.map(channel, accessMode.mapMode(), position, length);
         preTouchHelper.preTouch(position, length, address);
         return address;
     }

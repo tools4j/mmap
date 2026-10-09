@@ -61,7 +61,8 @@ public interface FileInitialiser {
      * Returns a file initialiser that ensures the file is at least {@code end} bytes long, with behaviour depending
      * on the access mode:
      * <ul>
-     *     <li>{@link AccessMode#READ_ONLY READ_ONLY}: fails if the file is shorter than {@code end}</li>
+     *     <li>{@link AccessMode#READ_ONLY READ_ONLY}: throws an {@link IllegalArgumentException} if the file is
+     *         shorter than {@code end}</li>
      *     <li>{@link AccessMode#READ_WRITE READ_WRITE}: appends zero bytes if the file is shorter than {@code end},
      *         leaving existing content untouched</li>
      *     <li>{@link AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}: overwrites the range {@code [start, end)} with zero
