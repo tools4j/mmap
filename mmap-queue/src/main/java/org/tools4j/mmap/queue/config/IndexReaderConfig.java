@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 public interface IndexReaderConfig {
     MappingStrategyConfig headerMappingStrategy();

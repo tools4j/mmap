@@ -35,8 +35,8 @@ import org.tools4j.mmap.queue.perf.Receiver;
 import org.tools4j.mmap.queue.perf.Sender;
 import org.tools4j.mmap.queue.util.ConfigPrinter;
 import org.tools4j.mmap.queue.util.FileUtil;
-import org.tools4j.mmap.region.config.SharingPolicy;
-import org.tools4j.mmap.region.impl.OS;
+import org.tools4j.mmap.mapping.config.SharingPolicy;
+import org.tools4j.mmap.mapping.impl.OS;
 
 import java.io.File;
 import java.io.IOException;

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.config.MappingConfigurations;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.impl.Constraints;
-import org.tools4j.mmap.region.impl.IdPool64;
+import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.impl.Constraints;
+import org.tools4j.mmap.mapping.impl.IdPool64;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;

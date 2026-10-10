@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import java.nio.ByteBuffer;
 

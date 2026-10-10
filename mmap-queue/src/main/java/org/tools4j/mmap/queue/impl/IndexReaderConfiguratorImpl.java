@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfigurator;
 import org.tools4j.mmap.queue.config.MappingStrategy;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 

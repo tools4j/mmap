@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IndexReader;
-import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 

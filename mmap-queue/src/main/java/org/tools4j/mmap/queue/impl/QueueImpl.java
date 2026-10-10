@@ -36,11 +36,11 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.impl.IdPool;
-import org.tools4j.mmap.region.impl.IdPool256;
-import org.tools4j.mmap.region.impl.IdPool64;
+import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.impl.IdPool;
+import org.tools4j.mmap.mapping.impl.IdPool256;
+import org.tools4j.mmap.mapping.impl.IdPool64;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;

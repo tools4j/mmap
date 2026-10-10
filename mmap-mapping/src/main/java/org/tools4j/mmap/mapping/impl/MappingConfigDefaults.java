@@ -1,0 +1,88 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016-2026 tools4j.org (Marco Terzer, Anton Anufriev)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+package org.tools4j.mmap.mapping.impl;
+
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultExpandFile;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxFileSize;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxOpenFiles;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMinFileSize;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRollFiles;
+import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
+
+/**
+ * Configuration taking values from {@link MappingConfigurations}.
+ */
+public enum MappingConfigDefaults implements MappingConfig {
+    MAPPING_CONFIG_DEFAULTS;
+
+    @Override
+    public MappingConfig toImmutableConfig() {
+        return new MappingConfigImpl(this);
+    }
+
+    @Override
+    public long minFileSize() {
+        return defaultMinFileSize();
+    }
+
+    @Override
+    public long maxFileSize() {
+        return defaultMaxFileSize();
+    }
+
+    @Override
+    public boolean expandFile() {
+        return defaultExpandFile();
+    }
+
+    @Override
+    public boolean rollFiles() {
+        return defaultRollFiles();
+    }
+
+    @Override
+    public int maxOpenFiles() {
+        return defaultMaxOpenFiles();
+    }
+
+    @Override
+    public int filesToCreateAhead() {
+        return defaultFilesToCreateAhead();
+    }
+
+    @Override
+    public MappingStrategyConfig mappingStrategy() {
+        return MAPPING_STRATEGY_CONFIG_DEFAULTS;
+    }
+
+    @Override
+    public String toString() {
+        return MappingConfigImpl.toString("MappingConfigDefaults", this);
+    }
+}

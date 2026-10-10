@@ -28,7 +28,7 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
-import org.tools4j.mmap.region.api.Closeable;
+import org.tools4j.mmap.mapping.api.Closeable;
 
 import java.io.File;
 
@@ -141,9 +141,9 @@ public interface Queue extends Closeable {
      * <p>
      * The queue files are created inside the directory and are named after it, e.g. {@code <dir>/<dir>_hdr.mmq}.
      * Unless the configured {@link QueueConfig#accessMode() access mode} is
-     * {@link org.tools4j.mmap.region.api.AccessMode#READ_ONLY READ_ONLY}, the directory is created if it does not
+     * {@link org.tools4j.mmap.mapping.api.AccessMode#READ_ONLY READ_ONLY}, the directory is created if it does not
      * exist; its parent directory must exist. With
-     * {@link org.tools4j.mmap.region.api.AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}, existing queue files are
+     * {@link org.tools4j.mmap.mapping.api.AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}, existing queue files are
      * deleted first.
      *
      * @param directory the queue directory

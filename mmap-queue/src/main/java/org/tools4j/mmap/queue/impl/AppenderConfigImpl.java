@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;

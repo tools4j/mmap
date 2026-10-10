@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.ReadingContext;
-import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;

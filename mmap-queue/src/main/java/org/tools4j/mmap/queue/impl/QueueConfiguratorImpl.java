@@ -32,9 +32,9 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
-import org.tools4j.mmap.region.api.AccessMode;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfigurator;
+import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
@@ -46,9 +46,9 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloa
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.region.impl.Constraints.validateMaxAppenders;
-import static org.tools4j.mmap.region.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.region.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;

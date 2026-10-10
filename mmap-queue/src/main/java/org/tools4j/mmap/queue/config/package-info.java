@@ -24,6 +24,6 @@
 /**
  * Configuration interfaces for the queue ({@code QueueConfig}, {@code AppenderConfig}, {@code ReaderConfig},
  * {@code IndexReaderConfig}), following the same Config/Configurator/ConfigImpl/ConfigDefaults pattern as
- * {@code mmap-region}'s config package.
+ * {@code mmap-mapping}'s config package.
  */
 package org.tools4j.mmap.queue.config;

@@ -27,9 +27,9 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.config.MappingConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
-import org.tools4j.mmap.region.impl.MappingConfigImpl;
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.impl.MappingConfigImpl;
 
 import static java.util.Objects.requireNonNull;
 

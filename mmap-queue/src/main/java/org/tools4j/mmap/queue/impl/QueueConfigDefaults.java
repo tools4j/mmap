@@ -27,7 +27,7 @@ import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.api.AccessMode;
+import org.tools4j.mmap.mapping.api.AccessMode;
 
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;

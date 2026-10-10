@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.api;
 
 import org.agrona.DirectBuffer;
-import org.tools4j.mmap.region.api.Closeable;
+import org.tools4j.mmap.mapping.api.Closeable;
 
 import java.nio.ByteBuffer;
 

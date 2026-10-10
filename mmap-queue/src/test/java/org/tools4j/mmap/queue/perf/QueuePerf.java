@@ -39,8 +39,8 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 import org.tools4j.mmap.queue.util.HistogramPrinter;
 import org.tools4j.mmap.queue.util.MessageCodec;
-import org.tools4j.mmap.region.config.SharingPolicy;
-import org.tools4j.mmap.region.impl.Constants;
+import org.tools4j.mmap.mapping.config.SharingPolicy;
+import org.tools4j.mmap.mapping.impl.Constants;
 
 import java.io.File;
 import java.nio.file.Files;

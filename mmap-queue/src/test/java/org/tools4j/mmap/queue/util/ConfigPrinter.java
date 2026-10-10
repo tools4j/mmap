@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.util;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import java.util.Arrays;
 import java.util.function.ToIntFunction;

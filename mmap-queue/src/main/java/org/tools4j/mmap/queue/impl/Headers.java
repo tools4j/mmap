@@ -24,8 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.region.api.ElasticMapping;
-import org.tools4j.mmap.region.impl.IdPool256;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.impl.IdPool256;
 
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
 

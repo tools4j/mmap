@@ -32,7 +32,7 @@ import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.region.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

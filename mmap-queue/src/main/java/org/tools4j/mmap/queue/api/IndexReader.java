@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.tools4j.mmap.region.api.Closeable;
+import org.tools4j.mmap.mapping.api.Closeable;
 
 /**
  * API for reading and checking entry indices of a {@link Queue}.

@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
-import org.tools4j.mmap.region.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;

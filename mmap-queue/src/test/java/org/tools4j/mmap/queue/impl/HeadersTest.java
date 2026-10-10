@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.tools4j.mmap.region.impl.StepBijection;
+import org.tools4j.mmap.mapping.impl.StepBijection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
