@@ -29,20 +29,98 @@ import org.tools4j.mmap.mapping.impl.AsyncUnmappingConfiguratorImpl;
 
 import java.util.function.Supplier;
 
+/**
+ * Configurator to build an {@link AsyncUnmappingConfig} for asynchronous unmapping.
+ * <p>
+ * The {@code unmappingRuntime..(..)} methods are alternative ways to define the
+ * {@linkplain #unmappingRuntimeSupplier() runtime supplier}; the last one invoked takes effect.
+ */
 public interface AsyncUnmappingConfigurator extends AsyncUnmappingConfig {
+    /**
+     * Sets the capacity of the queue for pending unmap requests, or resets it to the default value if zero is
+     * passed. If the queue is full, regions are unmapped synchronously by the requesting thread.
+     *
+     * @param cacheSize the capacity of the unmap request queue, a power of two, or zero to reset to the default
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if cache size is neither zero nor a power of two
+     */
     AsyncUnmappingConfigurator unmappingCacheSize(int cacheSize);
-    AsyncUnmappingConfigurator unmappingRuntime(AsyncRuntime unmappingRuntime);
-    AsyncUnmappingConfigurator unmappingRuntimeShared(SharingPolicy sharingPolicy);
-    AsyncUnmappingConfigurator unmappingRuntimeSupplier(Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier);
-    AsyncUnmappingConfigurator unmappingRuntimeSupplier(IdleStrategy idleStrategy);
-    AsyncUnmappingConfigurator unmappingRuntimeSupplierUsing(Supplier<? extends IdleStrategy> idleStrategy);
 
+    /**
+     * Sets the runtime to perform unmapping operations for all region mappers created with this configuration.
+     *
+     * @param unmappingRuntime the async unmapping runtime
+     * @return this configurator for method chaining
+     */
+    AsyncUnmappingConfigurator unmappingRuntime(AsyncRuntime unmappingRuntime);
+
+    /**
+     * Sets the runtime to perform unmapping operations to an instance provided by
+     * {@link org.tools4j.mmap.mapping.api.AsyncRuntimeInstances AsyncRuntimeInstances} according to the given sharing
+     * policy.
+     *
+     * @param sharingPolicy the policy defining if and how the runtime is shared
+     * @return this configurator for method chaining
+     * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances#unmappingRuntimeSupplier(SharingPolicy)
+     */
+    AsyncUnmappingConfigurator unmappingRuntime(SharingPolicy sharingPolicy);
+
+    /**
+     * Sets the supplier of the runtime to perform unmapping operations, invoked once for every region mapper created
+     * with this configuration.
+     *
+     * @param unmappingRuntimeSupplier the supplier of the async unmapping runtime
+     * @return this configurator for method chaining
+     */
+    AsyncUnmappingConfigurator unmappingRuntimeSupplier(Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier);
+
+    /**
+     * Configures a new runtime for every region mapper created with this configuration, all of them using the given
+     * idle strategy instance. The runtimes stop automatically when their last region mapper is closed.
+     * <p>
+     * Note that the same idle strategy instance is used by all runtimes; use
+     * {@link #unmappingRuntimeUsing(Supplier)} instead for idle strategies that hold state.
+     *
+     * @param idleStrategy the idle strategy used by all runtimes
+     * @return this configurator for method chaining
+     */
+    AsyncUnmappingConfigurator unmappingRuntimeUsing(IdleStrategy idleStrategy);
+
+    /**
+     * Configures a new runtime for every region mapper created with this configuration, each with an idle strategy
+     * obtained from the given supplier. The runtimes stop automatically when their last region mapper is closed.
+     *
+     * @param idleStrategy the supplier of an idle strategy for every new runtime
+     * @return this configurator for method chaining
+     */
+    AsyncUnmappingConfigurator unmappingRuntimeUsing(Supplier<? extends IdleStrategy> idleStrategy);
+
+    /**
+     * Resets all values set on this configurator, so that values are again taken from the defaults this configurator
+     * was created with.
+     *
+     * @return this configurator for method chaining
+     */
     AsyncUnmappingConfigurator reset();
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async unmapping configuration.
+     * System defaults are used where no custom configuration is provided.
+     *
+     * @return a new async unmapping configurator
+     * @see AsyncUnmappingConfig#getDefault()
+     */
     static AsyncUnmappingConfigurator configure() {
         return new AsyncUnmappingConfiguratorImpl();
     }
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async unmapping configuration. The
+     * provided default configuration values are used where no custom configuration is provided.
+     *
+     * @param defaults the default configuration values to use if no custom override is made
+     * @return a new async unmapping configurator
+     */
     static AsyncUnmappingConfigurator configure(final AsyncUnmappingConfig defaults) {
         return new AsyncUnmappingConfiguratorImpl(defaults);
     }

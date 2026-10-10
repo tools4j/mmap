@@ -246,7 +246,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(sharingPolicy)
+                                        .mappingRuntime(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )
@@ -258,7 +258,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(sharingPolicy)
+                                        .mappingRuntime(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )
@@ -268,7 +268,7 @@ public class QueuePerf {
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
-                                        .mappingRuntimeShared(sharingPolicy)
+                                        .mappingRuntime(sharingPolicy)
                                         .regionsToMapAhead(regionsToMapAhead)
                                         .aheadMappingCacheSize(aheadMappingCacheSize)
                                 )

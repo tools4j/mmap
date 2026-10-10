@@ -152,6 +152,30 @@ public enum Constraints {
         }
     }
 
+    /**
+     * Validates file sizes relative to each other and to region size; all sizes are expected to be valid individually,
+     * hence powers of two, so that "at least" implies "a multiple of".
+     */
+    public static void validateFileSizes(final long minFileSize,
+                                         final long maxFileSize,
+                                         final boolean expandFile,
+                                         final int regionSize) {
+        if (maxFileSize < regionSize) {
+            throw new IllegalArgumentException("Max file size " + maxFileSize +
+                    " must be a multiple of region size " + regionSize);
+        }
+        if (expandFile && minFileSize != 0) {
+            if (minFileSize < regionSize) {
+                throw new IllegalArgumentException("Min file size " + minFileSize +
+                        " must be zero or a multiple of region size " + regionSize);
+            }
+            if (minFileSize > maxFileSize) {
+                throw new IllegalArgumentException("Max file size " + maxFileSize +
+                        " must be a multiple of min file size " + minFileSize);
+            }
+        }
+    }
+
     public static void validateFileSizeIncrement(final long fileSizeIncrement) {
         if (!BitUtil.isPowerOfTwo(fileSizeIncrement) || fileSizeIncrement % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("File size increment must be a power of two and a multiple of " +
@@ -185,13 +209,14 @@ public enum Constraints {
     }
 
     public static void validateAheadMappingCacheSize(final int aheadMappingCacheSize) {
+        validateNonNegative("Ahead-mapping cache size", aheadMappingCacheSize);
         if (aheadMappingCacheSize > 0) {
             validatePowerOfTwo("Ahead-mapping cache size", aheadMappingCacheSize);
         }
     }
 
     public static void validateUnmappingCacheSize(final int cacheSize) {
-        validateNonNegative("Unmapping cache size", cacheSize);
+        validatePowerOfTwo("Unmapping cache size", cacheSize);
     }
 
     public static void validateFilesToCreateAhead(final int filesToCreateAhead) {

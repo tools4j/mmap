@@ -27,8 +27,11 @@ import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateFileSizes;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
 
@@ -44,9 +47,12 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, boolean expa
     }
 
     public MappingConfigImpl {
+        validateMinFileSize(minFileSize);
         validateMaxFileSize(maxFileSize);
+        validateMaxOpenFiles(maxOpenFiles);
         validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(mappingStrategy);
+        validateFileSizes(minFileSize, maxFileSize, expandFile, mappingStrategy.regionSize());
     }
 
     @Override

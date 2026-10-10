@@ -123,8 +123,8 @@ public enum RegionMappers {
             return new LruCacheRegionMapper(regionMapper, lruCacheSize, deferUnmapping);
         } else {
             //ring cache, then LRU cache
-            return new RingCacheRegionMapper(new LruCacheRegionMapper(regionMapper, cacheSize, deferUnmapping),
-                    lruCacheSize, deferUnmapping);
+            return new RingCacheRegionMapper(new LruCacheRegionMapper(regionMapper, lruCacheSize, deferUnmapping),
+                    cacheSize, deferUnmapping);
         }
     }
 

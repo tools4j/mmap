@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingCacheSize;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateUnmappingCacheSize;
@@ -64,10 +64,10 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
 
     @Override
     public int unmappingCacheSize() {
-        if (unmappingCacheSize <= 0) {
+        if (unmappingCacheSize == 0) {
             unmappingCacheSize = defaults.unmappingCacheSize();
         }
-        if (unmappingCacheSize <= 0) {
+        if (unmappingCacheSize == 0) {
             unmappingCacheSize = defaultUnmappingCacheSize();
         }
         return unmappingCacheSize;
@@ -75,7 +75,9 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
 
     @Override
     public AsyncUnmappingConfigurator unmappingCacheSize(final int cacheSize) {
-        validateUnmappingCacheSize(cacheSize);
+        if (cacheSize != 0) {
+            validateUnmappingCacheSize(cacheSize);
+        }
         this.unmappingCacheSize = cacheSize;
         return this;
     }
@@ -86,7 +88,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
             unmappingRuntimeSupplier = defaults.unmappingRuntimeSupplier();
         }
         if (unmappingRuntimeSupplier == null) {
-            unmappingRuntimeSupplier = defaultMappingAsyncRuntimeSupplier();
+            unmappingRuntimeSupplier = defaultUnmappingRuntimeSupplier();
         }
         return unmappingRuntimeSupplier;
     }
@@ -98,7 +100,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     }
 
     @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeShared(final SharingPolicy sharingPolicy) {
+    public AsyncUnmappingConfigurator unmappingRuntime(final SharingPolicy sharingPolicy) {
         return unmappingRuntimeSupplier(AsyncRuntimeInstances.unmappingRuntimeSupplier(sharingPolicy));
     }
 
@@ -109,13 +111,13 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     }
 
     @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeSupplier(final IdleStrategy idleStrategy) {
+    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final IdleStrategy idleStrategy) {
         requireNonNull(idleStrategy);
-        return unmappingRuntimeSupplierUsing(() -> idleStrategy);
+        return unmappingRuntimeUsing(() -> idleStrategy);
     }
 
     @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeSupplierUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
+    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
         requireNonNull(idleStrategy);
         return unmappingRuntimeSupplier(() -> AsyncRuntime.create(
                 "unmapper-" + unmapperCounter.incrementAndGet(), idleStrategy.get(), true));

@@ -173,7 +173,7 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     @Override
     public MappingStrategyConfigurator asyncMapping(final boolean async) {
         this.asyncMapping = async
-                ? asyncMapping != null && asyncMapping.isPresent() ? asyncMapping : Optional.of(ASYNC_MAPPING_CONFIG_DEFAULTS)
+                ? asyncMapping().isPresent() ? asyncMapping : Optional.of(ASYNC_MAPPING_CONFIG_DEFAULTS)
                 : Optional.empty();
         return this;
     }
@@ -186,9 +186,9 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
 
     @Override
     public MappingStrategyConfigurator asyncMapping(final Consumer<? super AsyncMappingConfigurator> configurator) {
-        final AsyncMappingConfigurator config = asyncMapping != null && asyncMapping.isPresent()
-                ? AsyncMappingConfigurator.configure(asyncMapping.get())
-                : AsyncMappingConfigurator.configure();
+        final AsyncMappingConfigurator config = asyncMapping()
+                .map(AsyncMappingConfigurator::configure)
+                .orElseGet(AsyncMappingConfigurator::configure);
         configurator.accept(config);
         return asyncMapping(config);
     }
@@ -196,7 +196,7 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     @Override
     public MappingStrategyConfigurator asyncUnmapping(final boolean async) {
         this.asyncUnmapping = async
-                ? asyncUnmapping != null && asyncUnmapping.isPresent() ? asyncUnmapping : Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS)
+                ? asyncUnmapping().isPresent() ? asyncUnmapping : Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS)
                 : Optional.empty();
         return this;
     }
@@ -209,9 +209,9 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
 
     @Override
     public MappingStrategyConfigurator asyncUnmapping(final Consumer<? super AsyncUnmappingConfigurator> configurator) {
-        final AsyncUnmappingConfigurator config = asyncUnmapping != null && asyncUnmapping.isPresent()
-                ? AsyncUnmappingConfigurator.configure(asyncUnmapping.get())
-                : AsyncUnmappingConfigurator.configure();
+        final AsyncUnmappingConfigurator config = asyncUnmapping()
+                .map(AsyncUnmappingConfigurator::configure)
+                .orElseGet(AsyncUnmappingConfigurator::configure);
         configurator.accept(config);
         return asyncUnmapping(config);
     }

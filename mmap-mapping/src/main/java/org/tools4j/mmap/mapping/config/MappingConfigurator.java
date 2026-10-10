@@ -44,7 +44,9 @@ public interface MappingConfigurator extends MappingConfig {
      * @param minFileSize the minimum file size in bytes, also used as minimum file size increments; minimum size zero
      *                    implies region-sized increments
      * @return this configurator for method chaining
-     * @see #expandFile(boolean) 
+     * @throws IllegalArgumentException if min file size is neither zero nor a power of two and a multiple of the OS
+     *                                  page size
+     * @see #expandFile(boolean)
      * @see #maxFileSize(long)
      */
     MappingConfigurator minFileSize(long minFileSize);
@@ -57,8 +59,9 @@ public interface MappingConfigurator extends MappingConfig {
      *
      * @param maxFileSize the maximum file size in bytes
      * @return this configurator for method chaining
-     * @see #minFileSize(long) 
-     * @see #expandFile(boolean)  
+     * @throws IllegalArgumentException if max file size is not a power of two or not a multiple of the OS page size
+     * @see #minFileSize(long)
+     * @see #expandFile(boolean)
      */
     MappingConfigurator maxFileSize(long maxFileSize);
 
@@ -88,29 +91,38 @@ public interface MappingConfigurator extends MappingConfig {
      *
      * @param maxOpenFiles the maximum files to keep open in file rolling mode
      * @return this configurator for method chaining
+     * @throws IllegalArgumentException if max open files is less than one
      * @see #rollFiles(boolean)
      */
     MappingConfigurator maxOpenFiles(int maxOpenFiles);
 
     /**
-     * Sets the number of files to create ahead, that is, before they are actually used for mappings.
+     * Sets the number of files to create ahead if file rolling is used, that is, before they are actually used for
+     * mappings.
      *
      * @param filesToCreateAhead the number of files to create ahead, zero to disable or a positive number to enable
      * @return this configurator for method chaining
+     * @throws IllegalArgumentException if files to create ahead is negative
+     * @see #rollFiles(boolean)
      */
     MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
+
     /**
-     * Sets the mapping strategy configuration to use. Consider using {@link #configure(MappingConfig)} instead.
+     * Sets the mapping strategy configuration to use. Alternatively, {@link #mappingStrategy(Consumer)} can be used
+     * to customize the mapping strategy in place.
      *
      * @param config the mapping strategy configuration
      * @return this configurator for method chaining
      */
     MappingConfigurator mappingStrategy(MappingStrategyConfig config);
+
     /**
      * Configures the mapping strategy to use, usually provided in lambda-format:
      * <pre><code>
-     * mappingConfig.mappingStrategy(cfg -> cfg.cacheSize(16).asyncMapping(true));
+     * mappingConfig.mappingStrategy(cfg -&gt; cfg.cacheSize(16).asyncMapping(true));
      * </code></pre>
+     * The configurator passed to the consumer starts from the current mapping strategy of this configurator, that is,
+     * the one set previously or otherwise the one of the defaults this configurator was created with.
      *
      * @param configurator a consumer for the configurator to customize strategy configuration
      * @return this configurator for method chaining
@@ -118,12 +130,12 @@ public interface MappingConfigurator extends MappingConfig {
     MappingConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
 
     /**
-     * Resets all previously customized values back to default values.
+     * Resets all values set on this configurator, so that values are again taken from the defaults this configurator
+     * was created with.
      *
      * @return this configurator for method chaining
      */
     MappingConfigurator reset();
-
 
     /**
      * Creates and returns a new configurator instance that allows customization of mapping configuration. System

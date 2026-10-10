@@ -42,24 +42,129 @@ public interface MappingStrategyConfigurator extends MappingStrategyConfig {
      *
      * @param regionSize the region size in bytes
      * @return this configurator for method chaining
+     * @throws IllegalArgumentException if region size is not a power of two or not a multiple of the OS page size
      */
     MappingStrategyConfigurator regionSize(int regionSize);
+
+    /**
+     * Sets the size of the ring cache keeping the most recently used regions mapped. If an
+     * {@linkplain #lruCacheSize(int) LRU cache} is also used, the ring cache is placed in front of it.
+     *
+     * @param cacheSize the ring cache size, a power of two
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if cache size is not a power of two
+     */
     MappingStrategyConfigurator cacheSize(int cacheSize);
+
+    /**
+     * Sets the size of the cache keeping regions mapped and evicting them on a least-recently-used (LRU) basis.
+     *
+     * @param cacheSize the LRU cache size, or zero for no LRU cache
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if cache size is negative
+     */
     MappingStrategyConfigurator lruCacheSize(int cacheSize);
+
+    /**
+     * Sets whether unmapping operations are deferred until it becomes necessary, for instance due to cache eviction.
+     *
+     * @param deferUnmapping true to defer unmapping operations until they become necessary
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator deferUnmapping(boolean deferUnmapping);
+
+    /**
+     * Enables or disables asynchronous ahead-mapping. When enabling, the current async mapping configuration of this
+     * configurator is kept if present (set previously or from the defaults this configurator was created with), and
+     * system defaults are used otherwise.
+     *
+     * @param asyncMapping true to enable and false to disable async mapping
+     * @return this configurator for method chaining
+     * @see AsyncMappingConfig#getDefault()
+     */
     MappingStrategyConfigurator asyncMapping(boolean asyncMapping);
+
+    /**
+     * Enables asynchronous ahead-mapping with the given configuration.
+     *
+     * @param config the async mapping configuration
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator asyncMapping(AsyncMappingConfig config);
+
+    /**
+     * Enables and configures asynchronous ahead-mapping, usually provided in lambda-format:
+     * <pre><code>
+     * strategyConfig.asyncMapping(cfg -&gt; cfg.regionsToMapAhead(4));
+     * </code></pre>
+     * The configurator passed to the consumer starts from the current async mapping configuration of this
+     * configurator if present (set previously or from the defaults this configurator was created with), and from
+     * system defaults otherwise.
+     *
+     * @param configurator a consumer for the configurator to customize async mapping configuration
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator asyncMapping(Consumer<? super AsyncMappingConfigurator> configurator);
+
+    /**
+     * Enables or disables asynchronous unmapping. When enabling, the current async unmapping configuration of this
+     * configurator is kept if present (set previously or from the defaults this configurator was created with), and
+     * system defaults are used otherwise.
+     *
+     * @param asyncUnmapping true to enable and false to disable async unmapping
+     * @return this configurator for method chaining
+     * @see AsyncUnmappingConfig#getDefault()
+     */
     MappingStrategyConfigurator asyncUnmapping(boolean asyncUnmapping);
+
+    /**
+     * Enables asynchronous unmapping with the given configuration.
+     *
+     * @param config the async unmapping configuration
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator asyncUnmapping(AsyncUnmappingConfig config);
+
+    /**
+     * Enables and configures asynchronous unmapping, usually provided in lambda-format:
+     * <pre><code>
+     * strategyConfig.asyncUnmapping(cfg -&gt; cfg.unmappingCacheSize(64));
+     * </code></pre>
+     * The configurator passed to the consumer starts from the current async unmapping configuration of this
+     * configurator if present (set previously or from the defaults this configurator was created with), and from
+     * system defaults otherwise.
+     *
+     * @param configurator a consumer for the configurator to customize async unmapping configuration
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator asyncUnmapping(Consumer<? super AsyncUnmappingConfigurator> configurator);
 
+    /**
+     * Resets all values set on this configurator, so that values are again taken from the defaults this configurator
+     * was created with.
+     *
+     * @return this configurator for method chaining
+     */
     MappingStrategyConfigurator reset();
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of mapping strategy configuration.
+     * System defaults are used where no custom configuration is provided.
+     *
+     * @return a new mapping strategy configurator
+     * @see MappingStrategyConfig#getDefault()
+     */
     static MappingStrategyConfigurator configure() {
         return new MappingStrategyConfiguratorImpl();
     }
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of mapping strategy configuration. The
+     * provided default configuration values are used where no custom configuration is provided.
+     *
+     * @param defaults the default configuration values to use if no custom override is made
+     * @return a new mapping strategy configurator
+     */
     static MappingStrategyConfigurator configure(final MappingStrategyConfig defaults) {
         return new MappingStrategyConfiguratorImpl(defaults);
     }

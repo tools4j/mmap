@@ -39,34 +39,40 @@ public interface MappingStrategyConfig {
     /**
      * Returns the size of the region mapped into memory when an actual mapping operation occurs.
      *
-     * @return the size of the region mapped into memory when an actual mapping operation occurs
+     * @return the region size in bytes, a power of two and a multiple of the OS page size
      */
     int regionSize();
+
     /**
-     * Returns the cache size with mapped regions, usually a ring cache.
+     * Returns the size of the ring cache keeping the most recently used regions mapped. If an
+     * {@linkplain #lruCacheSize() LRU cache} is also used, the ring cache is placed in front of it.
      *
-     * @return the cache size with mapped regions, usually a ring cache
+     * @return the ring cache size, a power of two
      */
     int cacheSize();
+
     /**
-     * Returns the LRU cache size with mapped regions evicting mappings on a least-recently-used basis.
+     * Returns the size of the cache keeping regions mapped and evicting them on a least-recently-used (LRU) basis.
      *
-     * @return the LRU cache size with mapped regions evicting mappings on a least-recently-used (LRU) basis
+     * @return the LRU cache size, or zero if no LRU cache is used
      */
     int lruCacheSize();
+
     /**
-     * Returns whether unmapping operations are deferred until it becomes necessary, for instance due to cache eviction.
+     * Returns whether unmapping operations are deferred until it becomes necessary, for instance due to cache
+     * eviction. Deferring unmapping avoids unmapping a region that is requested again before it is evicted.
      *
-     * @return true if unmapping operations are to be deferred until it becomes necessary, for instance due to cache eviction
+     * @return true if unmapping operations are deferred until they become necessary
      */
     boolean deferUnmapping();
 
     /**
-     * Returns the async mapping configuration, if mapping is performed asynchronously.
+     * Returns the async mapping configuration, if regions are mapped ahead asynchronously.
      *
      * @return the async mapping configuration, or absent to indicate that all mappings are performed synchronously
      */
     Optional<AsyncMappingConfig> asyncMapping();
+
     /**
      * Returns the async unmapping configuration, if unmapping is performed asynchronously.
      *
@@ -77,7 +83,8 @@ public interface MappingStrategyConfig {
     /**
      * Returns an immutable version of this mapping strategy config.
      *
-     * @return an immutable version of this mapping strategy config, for instance useful if this is a {@link MappingStrategyConfigurator}
+     * @return an immutable version of this mapping strategy config, for instance useful if this is a
+     *         {@link MappingStrategyConfigurator}
      */
     MappingStrategyConfig toImmutableConfig();
 
@@ -104,7 +111,9 @@ public interface MappingStrategyConfig {
     }
 
     /**
-     * Returns the mapping strategy config system defaults.
+     * Returns the mapping strategy config system defaults, with async mapping and unmapping as defined by system
+     * properties.
+     *
      * @return the default mapping strategy config
      * @see org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults#MAPPING_STRATEGY_CONFIG_DEFAULTS
      */
@@ -113,7 +122,9 @@ public interface MappingStrategyConfig {
     }
 
     /**
-     * Returns the system default config for the synchronous mapping strategy
+     * Returns the system default config for the synchronous mapping strategy, with neither async mapping nor async
+     * unmapping.
+     *
      * @return the default mapping strategy config for synchronous mapping
      * @see org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults#MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS
      */
@@ -122,7 +133,8 @@ public interface MappingStrategyConfig {
     }
 
     /**
-     * Returns the system default config for the synchronous mapping strategy with asynchronous unmapping
+     * Returns the system default config for the synchronous mapping strategy with asynchronous unmapping.
+     *
      * @return the default mapping strategy config for synchronous mapping with asynchronous unmapping
      * @see org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults#MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS
      */
@@ -131,7 +143,9 @@ public interface MappingStrategyConfig {
     }
 
     /**
-     * Returns the system default config for the asynchronous map-ahead strategy
+     * Returns the system default config for the asynchronous map-ahead strategy, with both async mapping and async
+     * unmapping.
+     *
      * @return the default mapping strategy config for asynchronous ahead mapping
      * @see org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults#MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS
      */

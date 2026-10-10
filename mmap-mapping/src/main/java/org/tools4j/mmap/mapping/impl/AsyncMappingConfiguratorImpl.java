@@ -35,7 +35,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultAheadMappingCacheSize;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionsToMapAhead;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateAheadMappingCacheSize;
@@ -61,7 +61,7 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
     @Override
     public AsyncMappingConfigurator reset() {
         regionsToMapAhead = 0;
-        aheadMappingCacheSize = 0;
+        aheadMappingCacheSize = -1;
         mappingRuntimeSupplier = null;
         return this;
     }
@@ -86,10 +86,10 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
 
     @Override
     public int aheadMappingCacheSize() {
-        if (aheadMappingCacheSize <= 0) {
+        if (aheadMappingCacheSize < 0) {
             aheadMappingCacheSize = defaults.aheadMappingCacheSize();
         }
-        if (aheadMappingCacheSize <= 0) {
+        if (aheadMappingCacheSize < 0) {
             aheadMappingCacheSize = defaultAheadMappingCacheSize();
         }
         return aheadMappingCacheSize;
@@ -108,7 +108,7 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
             mappingRuntimeSupplier = defaults.mappingRuntimeSupplier();
         }
         if (mappingRuntimeSupplier == null) {
-            mappingRuntimeSupplier = defaultMappingAsyncRuntimeSupplier();
+            mappingRuntimeSupplier = defaultMappingRuntimeSupplier();
         }
         return mappingRuntimeSupplier;
     }
@@ -120,7 +120,7 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
     }
 
     @Override
-    public AsyncMappingConfigurator mappingRuntimeShared(final SharingPolicy sharingPolicy) {
+    public AsyncMappingConfigurator mappingRuntime(final SharingPolicy sharingPolicy) {
         return mappingRuntimeSupplier(AsyncRuntimeInstances.mappingRuntimeSupplier(sharingPolicy));
     }
 
@@ -131,13 +131,13 @@ public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
     }
 
     @Override
-    public AsyncMappingConfigurator mappingRuntimeSupplier(final IdleStrategy idleStrategy) {
+    public AsyncMappingConfigurator mappingRuntimeUsing(final IdleStrategy idleStrategy) {
         requireNonNull(idleStrategy);
-        return mappingRuntimeSupplierUsing(() -> idleStrategy);
+        return mappingRuntimeUsing(() -> idleStrategy);
     }
 
     @Override
-    public AsyncMappingConfigurator mappingRuntimeSupplierUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
+    public AsyncMappingConfigurator mappingRuntimeUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
         requireNonNull(idleStrategy);
         return mappingRuntimeSupplier(() -> AsyncRuntime.create(
                 "mapper-" + mapperCounter.incrementAndGet(), idleStrategy.get(), true));

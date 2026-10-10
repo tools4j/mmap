@@ -30,7 +30,7 @@ import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import java.util.function.Supplier;
 
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultAheadMappingCacheSize;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingAsyncRuntimeSupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionsToMapAhead;
 
 /**
@@ -56,7 +56,7 @@ public enum AsyncMappingConfigDefaults implements AsyncMappingConfig {
 
     @Override
     public Supplier<? extends AsyncRuntime> mappingRuntimeSupplier() {
-        return defaultMappingAsyncRuntimeSupplier();
+        return defaultMappingRuntimeSupplier();
     }
 
     @Override

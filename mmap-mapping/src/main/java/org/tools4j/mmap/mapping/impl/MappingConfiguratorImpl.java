@@ -194,8 +194,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
 
     @Override
     public MappingConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = mappingStrategy != null
-                ? MappingStrategyConfigurator.configure(mappingStrategy) : MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(mappingStrategy());
         configurator.accept(config);
         return mappingStrategy(config);
     }

@@ -29,21 +29,72 @@ import java.util.function.Supplier;
 
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 
+/**
+ * Configuration of asynchronous ahead-mapping, used if a {@link MappingStrategyConfig mapping strategy} has
+ * {@linkplain MappingStrategyConfig#asyncMapping() async mapping} enabled. When sequential forward or backward access
+ * is detected, upcoming regions are mapped ahead by an {@link AsyncRuntime} on a background thread, so that moving to
+ * the next region does not have to wait for the mapping operation.
+ */
 public interface AsyncMappingConfig {
+    /**
+     * Returns the number of regions mapped ahead of the current region when sequential access is detected.
+     *
+     * @return the number of regions to map ahead, at least one
+     */
     int regionsToMapAhead();
+
+    /**
+     * Returns the size of the cache holding regions that were mapped ahead, or zero to use the smallest power of two
+     * that is no less than {@link #regionsToMapAhead()}.
+     *
+     * @return zero, or a power of two no less than {@link #regionsToMapAhead()}
+     */
     int aheadMappingCacheSize();
+
+    /**
+     * Returns the supplier of the runtime that performs ahead-mapping operations. The supplier is invoked once for
+     * every region mapper created with this configuration.
+     *
+     * @return the supplier of the async mapping runtime
+     */
     Supplier<? extends AsyncRuntime> mappingRuntimeSupplier();
 
+    /**
+     * Returns an immutable version of this async mapping config.
+     *
+     * @return an immutable version of this async mapping config, for instance useful if this is an
+     *         {@link AsyncMappingConfigurator}
+     */
     AsyncMappingConfig toImmutableConfig();
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async mapping configuration.
+     * System defaults are used where no custom configuration is provided.
+     *
+     * @return a new async mapping configurator
+     * @see #getDefault()
+     */
     static AsyncMappingConfigurator configure() {
         return AsyncMappingConfigurator.configure();
     }
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async mapping configuration. The
+     * provided default configuration values are used where no custom configuration is provided.
+     *
+     * @param defaults the default configuration values to use if no custom override is made
+     * @return a new async mapping configurator
+     */
     static AsyncMappingConfigurator configure(final AsyncMappingConfig defaults) {
         return AsyncMappingConfigurator.configure(defaults);
     }
 
+    /**
+     * Returns the async mapping config system defaults.
+     *
+     * @return the default async mapping config
+     * @see MappingConfigurations
+     */
     static AsyncMappingConfig getDefault() {
         return ASYNC_MAPPING_CONFIG_DEFAULTS;
     }

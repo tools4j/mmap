@@ -124,7 +124,7 @@ public class QueueLatencyTest {
                         .asyncMapping(async -> async
                                 .regionsToMapAhead(REGIONS_TO_MAP_AHED)
                                 .aheadMappingCacheSize(AHEAD_MAPPING_CACHE_SIZE)
-                                .mappingRuntimeShared(SHARING_POLICY)
+                                .mappingRuntime(SHARING_POLICY)
                         )
                 ).toImmutableQueueConfig();
     }

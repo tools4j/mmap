@@ -24,6 +24,7 @@
 package org.tools4j.mmap.mapping.api;
 
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.AdaptiveMappingImpl;
 import org.tools4j.mmap.mapping.impl.ElasticMappingImpl;
 import org.tools4j.mmap.mapping.impl.FixedMappingImpl;
@@ -342,6 +343,7 @@ public enum Mappings {
      * @param accessMode the access mode to open the file with
      * @return a new mapping pool for the given file
      * @see MappingConfig#getDefault()
+     * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
     public static MappingPool mappingPool(final File file, final AccessMode accessMode) {
         return mappingPool(file, accessMode, MappingConfig.getDefault());
@@ -355,6 +357,7 @@ public enum Mappings {
      * @param accessMode the access mode to open the file with
      * @param config     the mapping configuration to use
      * @return a new mapping pool for the given file
+     * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
     public static MappingPool mappingPool(final File file,
                                           final AccessMode accessMode,

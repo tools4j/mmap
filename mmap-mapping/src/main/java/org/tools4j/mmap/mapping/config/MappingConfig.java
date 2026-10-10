@@ -40,9 +40,11 @@ public interface MappingConfig {
     long minFileSize();
 
     /**
-     * Returns the maximum size of a file newly created when mapped.
+     * Returns the maximum file size. Files are created with this size unless {@linkplain #expandFile() expand-file}
+     * mode is in use, in which case files grow up to this size. If {@linkplain #rollFiles() file rolling} is used,
+     * this is the size of every individual file, and the next file is used for positions beyond.
      *
-     * @return the maximum size of a file newly created when mapped
+     * @return the maximum file size in bytes, a power of two and a multiple of the region size
      */
     long maxFileSize();
 
@@ -56,21 +58,25 @@ public interface MappingConfig {
     /**
      * Returns whether files should be rolled (with indexation) when the maximum file size is reached.
      *
-     * @return true if files should be rolled (with indexation) when the {@linkplain #maxFileSize() maximum file size} is reached
+     * @return true if files should be rolled (with indexation) when the {@linkplain #maxFileSize() maximum file size}
+     *         is reached
      */
     boolean rollFiles();
 
     /**
-     * Returns the maximum number of files kept open at once if file rolling is used.
+     * Returns the maximum number of files kept open at once if file rolling is used; files are closed on a
+     * least-recently-used basis. The value must be no less than the number of threads mapping files, that is, one
+     * plus one each for async mapping and async unmapping if used.
      *
      * @return the maximum files kept open if {@linkplain #rollFiles() file rolling} is used
      */
     int maxOpenFiles();
 
     /**
-     * Returns the number of files to create ahead, that is, before they are actually used for mappings.
+     * Returns the number of files to create ahead if file rolling is used, that is, before they are actually used
+     * for mappings.
      *
-     * @return the number of files to create ahead, that is, before they are actually used for mappings
+     * @return the number of files to create ahead if {@linkplain #rollFiles() file rolling} is used, zero if none
      */
     int filesToCreateAhead();
 

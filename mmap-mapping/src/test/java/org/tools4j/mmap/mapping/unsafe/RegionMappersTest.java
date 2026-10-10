@@ -21,40 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.mapping.unsafe;
 
-import org.tools4j.mmap.mapping.api.AsyncRuntime;
-import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
+import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
-import java.util.function.Supplier;
-
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeSupplier;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingCacheSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
- * Configuration taking values from {@link MappingConfigurations}.
+ * Unit test for the cache decorator chain assembled by {@link RegionMappers}.
  */
-public enum AsyncUnmappingConfigDefaults implements AsyncUnmappingConfig {
-    ASYNC_UNMAPPING_CONFIG_DEFAULTS;
+class RegionMappersTest {
 
-    @Override
-    public AsyncUnmappingConfig toImmutableConfig() {
-        return new AsyncUnmappingConfigImpl(this);
-    }
-
-    @Override
-    public int unmappingCacheSize() {
-        return defaultUnmappingCacheSize();
-    }
-
-    @Override
-    public Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier() {
-        return defaultUnmappingRuntimeSupplier();
-    }
-
-    @Override
-    public String toString() {
-        return AsyncUnmappingConfigImpl.toString("AsyncUnmappingConfigDefaults", this);
+    @Test
+    void syncRegionMapperWithRingAndLruCacheUsesRingCacheSizeForRingCache() {
+        final FileMapper fileMapper = mock(FileMapper.class);
+        final int regionSize = MappingConfigurations.REGION_SIZE_DEFAULT;
+        //LRU cache size deliberately not a power of two, which a ring cache would reject
+        final RegionMapper mapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, 4, 3, false);
+        final String description = mapper.toString();
+        assertTrue(description.startsWith("RingCacheRegionMapper:cacheSize=4|"), description);
+        assertTrue(description.contains("baseMapper=LruCacheRegionMapper"), description);
     }
 }

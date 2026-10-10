@@ -23,8 +23,17 @@
  */
 package org.tools4j.mmap.mapping.config;
 
+/**
+ * Defines whether and how instances, such as {@link org.tools4j.mmap.mapping.api.AsyncRuntime async runtimes}, are
+ * shared when they are requested.
+ *
+ * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
+ */
 public enum SharingPolicy {
+    /** A single instance is shared by all requestors in the virtual machine. */
     SHARED,
+    /** One instance is shared by all requestors on the same thread, so different threads use different instances. */
     PER_THREAD,
+    /** Every request returns a new instance that is not shared. */
     INDIVIDUAL
 }

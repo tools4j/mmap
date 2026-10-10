@@ -29,20 +29,65 @@ import java.util.function.Supplier;
 
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 
+/**
+ * Configuration of asynchronous unmapping, used if a {@link MappingStrategyConfig mapping strategy} has
+ * {@linkplain MappingStrategyConfig#asyncUnmapping() async unmapping} enabled. Unmap requests are queued and performed
+ * by an {@link AsyncRuntime} on a background thread, so that the thread releasing a region does not have to wait for
+ * the unmapping operation.
+ */
 public interface AsyncUnmappingConfig {
+    /**
+     * Returns the capacity of the queue for pending unmap requests. If the queue is full, regions are unmapped
+     * synchronously by the requesting thread.
+     *
+     * @return the capacity of the unmap request queue, a power of two
+     */
     int unmappingCacheSize();
+
+    /**
+     * Returns the supplier of the runtime that performs unmapping operations. The supplier is invoked once for every
+     * region mapper created with this configuration.
+     *
+     * @return the supplier of the async unmapping runtime
+     */
     Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier();
 
+    /**
+     * Returns an immutable version of this async unmapping config.
+     *
+     * @return an immutable version of this async unmapping config, for instance useful if this is an
+     *         {@link AsyncUnmappingConfigurator}
+     */
     AsyncUnmappingConfig toImmutableConfig();
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async unmapping configuration.
+     * System defaults are used where no custom configuration is provided.
+     *
+     * @return a new async unmapping configurator
+     * @see #getDefault()
+     */
     static AsyncUnmappingConfigurator configure() {
         return AsyncUnmappingConfigurator.configure();
     }
 
+    /**
+     * Creates and returns a new configurator instance that allows customization of async unmapping configuration. The
+     * provided default configuration values are used where no custom configuration is provided.
+     *
+     * @param defaults the default configuration values to use if no custom override is made
+     * @return a new async unmapping configurator
+     */
     static AsyncUnmappingConfigurator configure(final AsyncUnmappingConfig defaults) {
         return AsyncUnmappingConfigurator.configure(defaults);
     }
 
+    /**
+     * Returns the async unmapping config system defaults.
+     *
+     * @return the default async unmapping config
+     * @see MappingConfigurations
+     */
     static AsyncUnmappingConfig getDefault() {
         return ASYNC_UNMAPPING_CONFIG_DEFAULTS;
     }

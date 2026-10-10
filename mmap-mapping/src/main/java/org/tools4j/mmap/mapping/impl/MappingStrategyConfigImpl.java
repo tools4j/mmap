@@ -71,6 +71,8 @@ public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCa
         return name +
                 ":regionSize=" + config.regionSize() +
                 "|cacheSize=" + config.cacheSize() +
+                "|lruCacheSize=" + config.lruCacheSize() +
+                "|deferUnmapping=" + config.deferUnmapping() +
                 "|asyncMapping=" + config.asyncMapping().map(Object::toString).orElse("n/a") +
                 "|asyncUnmapping=" + config.asyncUnmapping().map(Object::toString).orElse("n/a");
     }

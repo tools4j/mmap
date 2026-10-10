@@ -44,13 +44,18 @@ import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_U
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
-    MAPPING_STRATEGY_CONFIG_DEFAULTS,
-    MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS,
-    MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS,
-    MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS;
+    MAPPING_STRATEGY_CONFIG_DEFAULTS(defaultAsyncMapping(), defaultAsyncUnmapping()),
+    MAPPING_STRATEGY_CONFIG_SYNC_DEFAULTS(false, false),
+    MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS(false, true),
+    MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS(true, true);
 
-    private final Optional<AsyncMappingConfig> asyncMappingConfig = Optional.of(ASYNC_MAPPING_CONFIG_DEFAULTS);
-    private final Optional<AsyncUnmappingConfig> asyncUnmappingConfig = Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS);
+    private final Optional<AsyncMappingConfig> asyncMapping;
+    private final Optional<AsyncUnmappingConfig> asyncUnmapping;
+
+    MappingStrategyConfigDefaults(final boolean asyncMapping, final boolean asyncUnmapping) {
+        this.asyncMapping = asyncMapping ? Optional.of(ASYNC_MAPPING_CONFIG_DEFAULTS) : Optional.empty();
+        this.asyncUnmapping = asyncUnmapping ? Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS) : Optional.empty();
+    }
 
     @Override
     public MappingStrategyConfig toImmutableConfig() {
@@ -77,23 +82,14 @@ public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
         return defaultDeferUnmapping();
     }
 
-    public boolean useAsyncMapping() {
-        return this == MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS || defaultAsyncMapping();
-    }
-
-    public boolean useAsyncUnmapping() {
-        return this == MAPPING_STRATEGY_CONFIG_SYNC_WITH_ASYNC_UNMAPPING_DEFAULTS ||
-                this == MAPPING_STRATEGY_CONFIG_ASYNC_MAP_AHEAD_DEFAULTS || defaultAsyncUnmapping();
-    }
-
     @Override
     public Optional<AsyncMappingConfig> asyncMapping() {
-        return useAsyncMapping() ? asyncMappingConfig : Optional.empty();
+        return asyncMapping;
     }
 
     @Override
     public Optional<AsyncUnmappingConfig> asyncUnmapping() {
-        return useAsyncUnmapping() ? asyncUnmappingConfig : Optional.empty();
+        return asyncUnmapping;
     }
 
     @Override
