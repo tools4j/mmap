@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 /**
- * Low-level mapping engine ({@code RegionMapper}, {@code FileMapper} and their implementations) that deals directly
- * in raw memory addresses and is marked {@code @Unsafe}; intended to be composed by the {@code api}/{@code config}
- * layers rather than used directly by application code.
+ * Low-level mapping engine ({@linkplain RegionMapper}, {@linkplain FileMapper} and their implementations) that deals
+ * directly in raw memory addresses and is marked {@linkplain org.tools4j.mmap.mapping.api.Unsafe @Unsafe}; intended to
+ * be composed by the {@code api}/{@code config} layers rather than used directly by application code.
  */
 package org.tools4j.mmap.mapping.unsafe;

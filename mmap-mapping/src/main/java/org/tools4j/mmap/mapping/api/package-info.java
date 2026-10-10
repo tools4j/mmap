@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 /**
- * Public API for memory-mapped regions and files: {@code Mapping} types that expose a mapped byte range as an
- * {@code AtomicBuffer}, and the pools/factories ({@code Mappings}, {@code MappingPool}) that create them.
+ * Public mapping API with {@linkplain Mapping} types that expose a mapped byte range as byte buffers and the factory
+ * methods in {@linkplain Mappings} to create them.
  */
 package org.tools4j.mmap.mapping.api;

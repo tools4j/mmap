@@ -23,6 +23,7 @@
  */
 /**
  * Internal implementations backing the {@code api} and {@code config} packages, including the concrete
- * {@code Mapping} classes, lock-free data structures, and the configurator/config-defaults classes.
+ * {@linkplain org.tools4j.mmap.mapping.api.Mapping Mapping} classes, config/configurator classes and lock-free data
+ * structures.
  */
 package org.tools4j.mmap.mapping.impl;

@@ -22,7 +22,8 @@
  * SOFTWARE.
  */
 /**
- * Configuration interfaces for the region-mapping engine, covering mapping, mapping-strategy, async-mapping and
- * async-unmapping settings, each following the repeated Config/Configurator/ConfigImpl/ConfigDefaults pattern.
+ * Configuration interfaces for the mappings, covering {@linkplain MappingConfig}, {@linkplain MappingStrategyConfig}
+ * and {@linkplain AsyncMappingConfig} and {@linkplain AsyncUnmappingConfig}, each following the
+ * {@linkplain MappingConfig config}/{@linkplain MappingConfigurator configurator} pattern.
  */
 package org.tools4j.mmap.mapping.config;
