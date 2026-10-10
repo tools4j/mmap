@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: build
 on:
   repository_dispatch:
     types: run-commit-tests
@@ -73,6 +73,35 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Build with Gradle
         run: ./gradlew
+      - name: Generate coverage reports
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
+        run: ./gradlew jacocoTestReport
+      - name: Upload mmap-mapping coverage to Coveralls
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: mmap-mapping/build/reports/jacoco/test/jacocoTestReport.xml
+          format: jacoco
+          base-path: mmap-mapping/src/main/java
+          flag-name: mmap-mapping
+          parallel: true
+          fail-on-error: false
+      - name: Upload mmap-queue coverage to Coveralls
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: mmap-queue/build/reports/jacoco/test/jacocoTestReport.xml
+          format: jacoco
+          base-path: mmap-queue/src/main/java
+          flag-name: mmap-queue
+          parallel: true
+          fail-on-error: false
+      - name: Finish Coveralls upload
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '21'
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
+          fail-on-error: false
 #      - name: Copy test logs
 #        id: copy_test_logs
 #        if: failure()
