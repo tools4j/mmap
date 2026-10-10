@@ -52,6 +52,12 @@ enum Exceptions {
         return mappingMoveException(appender.appenderName() + ".payload", position);
     }
 
+    static IllegalStateException payloadMoveException(final PollerImpl poller,
+                                                      final int appenderId,
+                                                      final long position) {
+        return mappingMoveException(poller.pollerName() + "-" + appenderId + ".payload", position);
+    }
+
     static IllegalStateException payloadMoveException(final EntryReaderImpl reader,
                                                       final int appenderId,
                                                       final long position) {

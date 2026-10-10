@@ -28,12 +28,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.region.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
+import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
 final class PollerImpl implements Poller {
@@ -95,26 +95,34 @@ final class PollerImpl implements Poller {
 
     @Override
     public int poll(final EntryHandler entryHandler) {
-        final int result = moveHeaderToNext();
-        if (result == ENTRY_POLLED) {
-            final long curIndex = currentIndex;
-            final long moveNext = handleCurrentEntry(entryHandler, curIndex);
-            nextIndex = nextIndex(curIndex, moveNext);
-            return ENTRY_POLLED;
-        }
-        return result;
-    }
-
-    private long handleCurrentEntry(final EntryHandler entryHandler, final long index) {
-        final DirectBuffer buffer = payloadBuffer();
-        final int length = buffer.getInt(0);
+        requireNonNull(entryHandler);
+        int result = UNKNOWN_ERROR;
+        long index = Index.NULL;
+        final long moveNext;
         try {
-            return entryHandler.onEntry(index, buffer, Integer.BYTES, length);
+            result = moveHeaderToNext();
+            if (result != ENTRY_POLLED) {
+                return result;
+            }
+            index = currentIndex;
+            final DirectBuffer buffer = payloadBuffer();
+            final int length = buffer.getInt(0);
+            result = HANDLER_ERROR;
+            moveNext = entryHandler.onEntry(index, buffer, Integer.BYTES, length);
         } catch (final Exception e) {
-            LOGGER.error("Unexpected exception thrown by entry handler for message entry {} of queue {}", index,
-                    queueName, e);
-            return Move.NONE;//FIXME make sure error does not repeat forever, or at least throttle logging
+            //TODO consider throttling of error logging inside poll method
+            if (result == HANDLER_ERROR) {
+                LOGGER.error("Unexpected exception thrown by entry handler for message entry {} of queue {}", index,
+                        queueName, e);
+                return HANDLER_ERROR;
+            } else {
+                final long ix = result == ENTRY_POLLED ? index : nextIndex;
+                LOGGER.error("Unexpected exception occurred when polling entry {} of queue {}", ix, queueName, e);
+                return UNKNOWN_ERROR;
+            }
         }
+        nextIndex = nextIndex(index, moveNext);
+        return ENTRY_POLLED;
     }
 
     private DirectBuffer payloadBuffer() {
@@ -122,9 +130,10 @@ final class PollerImpl implements Poller {
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);
         final ElasticMapping mapping = mappings.payload(appenderId);
-        final boolean success = mapping.moveTo(payloadPosition);
-        assert success : "moving to payload position failed";
-        return mapping.buffer();
+        if (mapping.moveTo(payloadPosition)) {
+            return mapping.buffer();
+        }
+        throw payloadMoveException(this, appenderId, payloadPosition);
     }
 
     private int moveHeaderToNext() {
@@ -185,10 +194,6 @@ final class PollerImpl implements Poller {
         }
     }
 
-    private String pollerName() {
-        return queueName + ".poller-" + System.identityHashCode(this);
-    }
-
     @Override
     public void close() {
         if (!isClosed()) {
@@ -212,6 +217,10 @@ final class PollerImpl implements Poller {
         }
         final long nextIndex = currentIndex + move;
         return nextIndex >= 0 ? nextIndex : (move > 0 ? Index.END : Index.NULL);
+    }
+
+    String pollerName() {
+        return queueName + ".poller-" + System.identityHashCode(this);
     }
 
     @Override

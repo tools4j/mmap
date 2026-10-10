@@ -26,6 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.queue.api.Appender;
+import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
@@ -35,8 +37,13 @@ import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,6 +117,76 @@ class PollerTest {
     @Test
     void pollReturnsPendingOpenForHeaderFileShorterThanRegion() throws IOException {
         pollReturnsPendingOpenForHeaderFileOfLength(1024);
+    }
+
+    @Test
+    void pollReturnsHandlerErrorAndRedeliversEntry() {
+        try (final Queue queue = Queue.create(queueDir);
+             final Appender appender = queue.createAppender();
+             final Poller poller = queue.createPoller()) {
+            appender.append(new byte[]{1});
+            appender.append(new byte[]{2});
+            final List<Long> polled = new ArrayList<>();
+            final int[] failures = {2};
+            final EntryHandler handler = (index, buffer, offset, length) -> {
+                polled.add(index);
+                if (failures[0]-- > 0) {
+                    throw new RuntimeException("test handler failure for entry " + index);
+                }
+                return Move.NEXT;
+            };
+
+            assertThat(poller.poll(handler)).isEqualTo(Poller.HANDLER_ERROR);
+            assertThat(poller.currentIndex()).isEqualTo(0);
+            assertThat(poller.nextIndex()).isEqualTo(0);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.HANDLER_ERROR);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+            assertThat(polled).containsExactly(0L, 0L, 0L, 1L);
+        }
+    }
+
+    @Test
+    void pollReturnsUnknownErrorIfPayloadCannotBeMapped() throws IOException {
+        try (final Queue queue = Queue.create(queueDir)) {
+            try (final Appender appender = queue.createAppender()) {
+                appender.append(new byte[]{1});
+            }
+            //header for entry 1 referencing an appender whose payload file does not exist
+            writeHeader(1, Headers.header(Headers.MAX_APPENDER_ID, 0));
+            try (final Poller poller = queue.createPoller()) {
+                final List<Long> polled = new ArrayList<>();
+                final EntryHandler handler = (index, buffer, offset, length) -> {
+                    polled.add(index);
+                    return Move.NEXT;
+                };
+
+                assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+                assertThat(poller.poll(handler)).isEqualTo(Poller.UNKNOWN_ERROR);
+                assertThat(poller.currentIndex()).isEqualTo(1);
+                assertThat(poller.nextIndex()).isEqualTo(1);
+                assertThat(poller.poll(handler)).isEqualTo(Poller.UNKNOWN_ERROR);
+                assertThat(polled).containsExactly(0L);
+
+                //skipping the corrupt entry resumes polling
+                poller.seek(2);
+                assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+                assertThat(polled).containsExactly(0L);
+            }
+        }
+    }
+
+    private void writeHeader(final long index, final long header) throws IOException {
+        final File headerFile = new QueueFiles(queueDir, QueueConfig.getDefault().maxAppenders()).headerFile();
+        final File rolledHeaderFile = new File(queueDir, headerFile.getName().replace(".mmq", "_0.mmq"));
+        final File file = rolledHeaderFile.exists() ? rolledHeaderFile : headerFile;
+        assertThat(file).exists();
+        final ByteBuffer bytes = ByteBuffer.allocate(Headers.HEADER_LENGTH).order(ByteOrder.nativeOrder());
+        bytes.putLong(0, header);
+        try (final RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            raf.getChannel().write(bytes, Headers.headerPositionForIndex(index));
+        }
     }
 
     private void pollReturnsPendingOpenForHeaderFileOfLength(final int length) throws IOException {

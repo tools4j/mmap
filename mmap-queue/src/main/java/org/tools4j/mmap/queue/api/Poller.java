@@ -41,16 +41,24 @@ public interface Poller extends Closeable {
     int AFTER_MAX = -2;
     /** The cursor has been moved backwards and has moved past the first entry (use seek method to resume) */
     int BEFORE_FIRST = -3;
+    /**
+     * The {@link EntryHandler} threw an exception while processing an entry; the cursor stays on the entry and the
+     * next poll delivers it again
+     */
+    int HANDLER_ERROR = -4;
+    /** An unknown (usually fatal) error occurred, for instance due to a corrupted data file; the cursor is not moved */
+    int UNKNOWN_ERROR = -5;
     /** The poller or the underlying queue has been closed */
-    int CLOSED = -4;
+    int CLOSED = -6;
 
     /**
      * Polls the queue and invokes the entry handler if one is available.
      *
      * @param entryHandler entry handler callback invoked if an entry is present
      * @return  a positive value if an entry was polled or if the entry cursor was moved,
-     *          zero if not polled or moved, and negative if queue is not yet open, closed or if the cursor has been
-     *          moved before the first entry or past {@link Index#MAX} (see constants defined in this class)
+     *          zero if not polled or moved, and negative if queue is not yet open, closed, if the cursor has been
+     *          moved before the first entry or past {@link Index#MAX}, if the entry handler threw an exception, or if
+     *          an unexpected error occurred (see constants defined in this class)
      */
     int poll(EntryHandler entryHandler);
 
