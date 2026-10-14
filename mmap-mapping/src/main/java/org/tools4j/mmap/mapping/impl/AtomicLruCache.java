@@ -95,7 +95,13 @@ public final class AtomicLruCache<E> {
     private static final int VALID = 2;
     private static final int CLOSING = 3;
     private static final long CLOCK = UnsafeApi.objectFieldOffset(AtomicLruCache.class, "clock");
-    //private static final int ACQUIRE_ATTEMPTS_MIN = 3;
+    /**
+     * Claim attempts per unit of capacity in createAndAcquire(). With at most capacity threads, each performing a
+     * single acquire/use/release sequence while we are claiming, every failed attempt is caused by a state change of
+     * another thread, and these are bounded by roughly 13 * capacity; exceeding this bound indicates more concurrent
+     * threads than capacity (or threads holding multiple pins).
+     */
+    private static final int CLAIM_ATTEMPTS_PER_CAPACITY = 16;
 
     // --- Atomic long clock ---
     private long getClockAndTick() {
@@ -122,6 +128,7 @@ public final class AtomicLruCache<E> {
 
     // --- shared state -->
     private final int capacity;
+    private final int maxClaimAttempts;
     private final int cacheSize;
     private final int cacheSizeMask;
     private final AtomicLongArray meta;
@@ -150,6 +157,7 @@ public final class AtomicLruCache<E> {
             );
         }
         this.capacity = capacity;
+        this.maxClaimAttempts = (int) Math.min(Integer.MAX_VALUE, (long) CLAIM_ATTEMPTS_PER_CAPACITY * capacity);
         this.cacheSize = cacheSize;
         this.cacheSizeMask = cacheSize - 1;
         this.meta = new AtomicLongArray(cacheSize);
@@ -292,9 +300,7 @@ public final class AtomicLruCache<E> {
 
     private E createAndAcquire(final int index, final IntFunction<? extends E> factory, final int initialPin) {
         int live = liveCount.incrementAndGet();
-        //NOTE: we do n=capacity retries here because we can have up to that many threads
-        //      each thread can win the CAS with the same target (n-1 would probably be enough)
-        for (int attempt = 0; attempt < capacity; attempt++) {
+        for (int attempt = 0; attempt < maxClaimAttempts; attempt++) {
             final boolean full = live > capacity;
 
             final int target = full ? findEvictableSlot(index + attempt) : findEmptySlot(index + attempt);
@@ -336,7 +342,14 @@ public final class AtomicLruCache<E> {
             }
 
             // We exclusively own `target` in CLAIMED state now — safe to write.
-            final E created = factory.apply(index);
+            final E created;
+            try {
+                created = factory.apply(index);
+            } catch (final RuntimeException | Error e) {
+                meta.set(target, pack(0, EMPTY, 0)); // roll back claim, publishes slot as reusable
+                liveCount.decrementAndGet();
+                throw e;
+            }
             values.setPlain(target, created);      // ordering guaranteed by meta.set below
             lastUsed.setOpaque(target, getClockAndTick());
 
@@ -349,8 +362,9 @@ public final class AtomicLruCache<E> {
             return created;
         }
         live = liveCount.decrementAndGet();
-        throw new IllegalStateException("Not able to claim empty or evictable entry, live=" + live + ", capacity=" +
-                capacity + ", cacheSize=" + cacheSize + ", slots=" + slots());
+        throw new IllegalStateException("Not able to claim empty or evictable entry after " + maxClaimAttempts +
+                " attempts, all entries in use or more concurrent threads than capacity: live=" + live +
+                ", capacity=" + capacity + ", cacheSize=" + cacheSize + ", slots=" + slots());
     }
 
     private String slots() {
