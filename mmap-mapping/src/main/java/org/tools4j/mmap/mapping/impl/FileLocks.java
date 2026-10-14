@@ -38,7 +38,7 @@ enum FileLocks {
 
     static FileLock acquireLock(final FileChannel fileChannel, final long maxWaitMillis) {
         final long endTime = System.currentTimeMillis() + maxWaitMillis;
-        long remainingMillis;
+        long remainingMillis = maxWaitMillis;
         FileLock fileLock = null;
         do {
             try {
@@ -60,7 +60,7 @@ enum FileLocks {
                     }
                 }
             }
-        } while (fileLock == null && maxWaitMillis > 0);
+        } while (fileLock == null && remainingMillis > 0);
         if (fileLock != null) {
             return fileLock;
         }
