@@ -44,7 +44,8 @@ public interface FileMapper extends Closeable {
     /**
      * Map memory region at absolute position with given length to memory address.
      *
-     * @param position absolute position
+     * @param position absolute position, a multiple of
+     *                 {@link org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY REGION_SIZE_GRANULARITY}
      * @param length region length
      * @return positive value if address has been mapped, or {@code NULL_ADDRESS} otherwise
      */

@@ -33,6 +33,7 @@ import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLength;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
 
@@ -40,6 +41,8 @@ public class FixedMappingImpl implements FixedMapping {
     private final FileMapper fileMapper;
     private final boolean closeFileMapperOnClose;
     private final int fileSize;
+    /** File mappings must start at a granularity aligned position, the buffer starts pageOffset bytes later */
+    private final int pageOffset;
     private final UnsafeBuffer buffer;
     private long mappedPosition;
 
@@ -65,7 +68,13 @@ public class FixedMappingImpl implements FixedMapping {
         this.fileMapper = fileMapper;
         this.closeFileMapperOnClose = closeFileMapperOnClose;
         this.fileSize = length;
-        this.buffer = new UnsafeBuffer(map(fileMapper, offset, length), length);
+        this.pageOffset = (int) (offset & (REGION_SIZE_GRANULARITY - 1));
+        if (length > Integer.MAX_VALUE - pageOffset) {
+            throw new IllegalArgumentException("Mapping length " + length + " exceeds integer limit when aligned " +
+                    "to granularity " + REGION_SIZE_GRANULARITY + " for offset " + offset);
+        }
+        final long pageAddress = map(fileMapper, offset - pageOffset, length + pageOffset);
+        this.buffer = new UnsafeBuffer(pageAddress + pageOffset, length);
         this.mappedPosition = offset;
     }
 
@@ -132,7 +141,7 @@ public class FixedMappingImpl implements FixedMapping {
             mappedPosition = NULL_POSITION;
             final long address = address();
             buffer.wrap(0, 0);
-            unmap(fileMapper, position, address, fileSize);
+            unmap(fileMapper, position - pageOffset, address - pageOffset, fileSize + pageOffset);
             if (closeFileMapperOnClose) {
                 fileMapper.close();
             }

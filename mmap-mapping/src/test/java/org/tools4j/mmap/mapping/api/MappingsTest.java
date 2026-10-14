@@ -38,7 +38,6 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
  * Unit test for the {@link Mappings} factory methods, writing through one mapping and reading back through another.
@@ -61,23 +60,21 @@ class MappingsTest {
 
     @Test
     void fixedMappingOfWholeFileAndFromOffset() throws IOException {
-        //NOTE: offset must currently be page aligned, mapping fails with an IOException otherwise
-        final int offset = (int) REGION_SIZE_GRANULARITY;
-        final byte[] bytes = new byte[2 * offset];
+        final byte[] bytes = new byte[16];
         for (int i = 0; i < bytes.length; i++) {
             bytes[i] = (byte) i;
         }
         final File file = Files.write(tempDir.resolve("fixed.dat"), bytes).toFile();
         try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY)) {
-            assertEquals(bytes.length, mapping.bytesAvailable());
+            assertEquals(16, mapping.bytesAvailable());
             assertEquals(0, mapping.position());
-            assertEquals(bytes[bytes.length - 1], mapping.buffer().getByte(bytes.length - 1));
+            assertEquals(15, mapping.buffer().getByte(15));
         }
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, offset)) {
-            assertEquals(bytes.length - offset, mapping.bytesAvailable());
-            assertEquals(offset, mapping.position());
-            assertEquals(bytes[offset], mapping.buffer().getByte(0));
-            assertEquals(bytes[bytes.length - 1], mapping.buffer().getByte(bytes.length - offset - 1));
+        try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, 4)) {
+            assertEquals(12, mapping.bytesAvailable());
+            assertEquals(4, mapping.position());
+            assertEquals(4, mapping.buffer().getByte(0));
+            assertEquals(15, mapping.buffer().getByte(11));
         }
     }
 

@@ -31,15 +31,19 @@ import org.tools4j.mmap.mapping.api.Mappings;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Unit test for {@link FixedMappingImpl} creation failures with read-only files.
+ * Unit test for {@link FixedMappingImpl} creation failures with read-only files, and mapping at offsets that are not
+ * aligned to {@link Constants#REGION_SIZE_GRANULARITY}.
  */
 class FixedMappingImplTest {
 
@@ -73,5 +77,37 @@ class FixedMappingImplTest {
             assertEquals(8, mapping.bytesAvailable());
             assertEquals(8, mapping.buffer().getByte(7));
         }
+    }
+
+    @Test
+    void readOnlyAtUnalignedOffsets() throws IOException {
+        final int granularity = (int) REGION_SIZE_GRANULARITY;
+        final byte[] bytes = new byte[2 * granularity + 16];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) (i * 31);
+        }
+        final File file = Files.write(tempDir.resolve("unaligned.dat"), bytes).toFile();
+        for (final int offset : new int[]{1, 7, granularity - 1, granularity + 3, 2 * granularity + 15}) {
+            try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, offset, 1)) {
+                assertEquals(offset, mapping.position(), "offset=" + offset);
+                assertEquals(1, mapping.bytesAvailable(), "offset=" + offset);
+                assertEquals(bytes[offset], mapping.buffer().getByte(0), "offset=" + offset);
+            }
+        }
+    }
+
+    @Test
+    void readWriteAtUnalignedOffsetWritesToFilePosition() throws IOException {
+        final int offset = (int) REGION_SIZE_GRANULARITY + 5;
+        final File file = tempDir.resolve("unaligned.map").toFile();
+        try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_WRITE, offset, 8)) {
+            assertEquals(8, mapping.bytesAvailable());
+            mapping.buffer().putLong(0, 0x0102030405060708L);
+        }
+        final byte[] bytes = Files.readAllBytes(file.toPath());
+        assertEquals(offset + 8, bytes.length);
+        final long value = ByteBuffer.wrap(bytes, offset, 8).order(ByteOrder.nativeOrder()).getLong();
+        assertEquals(0x0102030405060708L, value);
+        assertEquals(0, bytes[offset - 1]);
     }
 }
