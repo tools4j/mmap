@@ -66,9 +66,10 @@ public interface MappingStrategyConfigurator extends MappingStrategyConfig {
     MappingStrategyConfigurator lruCacheSize(int cacheSize);
 
     /**
-     * Sets whether unmapping operations are deferred until it becomes necessary, for instance due to cache eviction.
+     * Sets whether unmapping of released regions is deferred until the cache slot is needed, see
+     * {@link MappingStrategyConfig#deferUnmapping()} for details and trade-offs.
      *
-     * @param deferUnmapping true to defer unmapping operations until they become necessary
+     * @param deferUnmapping true to keep released regions mapped in the cache until their slot is needed
      * @return this configurator for method chaining
      */
     MappingStrategyConfigurator deferUnmapping(boolean deferUnmapping);

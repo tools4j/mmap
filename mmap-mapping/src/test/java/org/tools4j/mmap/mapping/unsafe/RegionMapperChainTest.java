@@ -46,10 +46,9 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
  * Unit test for the region mapper decorator chains assembled by {@link RegionMappers#create(FileMapper,
- * MappingStrategyConfig)}: every combination of sync/async mapping, sync/async unmapping and cache settings writes
+ * MappingStrategyConfig)}: every combination of sync/async mapping, sync/async unmapping, ring and LRU cache settings
+ * writes
  * and reads back data, and is assembled from the expected mappers.
- * <p>
- * Combinations with an LRU cache are not included, since {@link LruCacheRegionMapper} is currently broken.
  */
 class RegionMapperChainTest {
 
@@ -64,8 +63,11 @@ class RegionMapperChainTest {
         for (final boolean asyncMapping : new boolean[]{false, true}) {
             for (final boolean asyncUnmapping : new boolean[]{false, true}) {
                 for (final int cacheSize : new int[]{1, 4}) {
-                    for (final boolean deferUnmapping : new boolean[]{false, true}) {
-                        strategies.add(Arguments.of(asyncMapping, asyncUnmapping, cacheSize, deferUnmapping));
+                    for (final int lruCacheSize : new int[]{0, 2}) {
+                        for (final boolean deferUnmapping : new boolean[]{false, true}) {
+                            strategies.add(Arguments.of(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
+                                    deferUnmapping));
+                        }
                     }
                 }
             }
@@ -76,11 +78,12 @@ class RegionMapperChainTest {
     private static MappingStrategyConfig strategy(final boolean asyncMapping,
                                                   final boolean asyncUnmapping,
                                                   final int cacheSize,
+                                                  final int lruCacheSize,
                                                   final boolean deferUnmapping) {
         final MappingStrategyConfigurator config = MappingStrategyConfig.configure()
                 .regionSize(REGION_SIZE)
                 .cacheSize(cacheSize)
-                .lruCacheSize(0)
+                .lruCacheSize(lruCacheSize)
                 .deferUnmapping(deferUnmapping)
                 .asyncMapping(false)
                 .asyncUnmapping(false);
@@ -97,9 +100,13 @@ class RegionMapperChainTest {
     private static String expectedChainStart(final boolean asyncMapping,
                                              final boolean asyncUnmapping,
                                              final int cacheSize,
+                                             final int lruCacheSize,
                                              final boolean deferUnmapping) {
         if (asyncMapping) {
             return "AsyncRunAheadRegionMapper:";
+        }
+        if (lruCacheSize > 0) {
+            return cacheSize > 1 ? "RingCacheRegionMapper:" : "LruCacheRegionMapper:";
         }
         final boolean cached = cacheSize > 1 || deferUnmapping;
         return cached ? "RingCacheRegionMapper:" : asyncUnmapping ? "SyncRegionMapperAsyncUnmapper:" :
@@ -115,18 +122,22 @@ class RegionMapperChainTest {
         return 0x7700_0000_0000_0000L | region;
     }
 
-    @ParameterizedTest(name = "asyncMapping={0}, asyncUnmapping={1}, cacheSize={2}, deferUnmapping={3}")
+    @ParameterizedTest(name = "asyncMapping={0}, asyncUnmapping={1}, cacheSize={2}, lruCacheSize={3}, " +
+            "deferUnmapping={4}")
     @MethodSource("strategies")
     void writeAndReadBack(final boolean asyncMapping,
                           final boolean asyncUnmapping,
                           final int cacheSize,
+                          final int lruCacheSize,
                           final boolean deferUnmapping) {
         final File file = tempDir.resolve("chain.map").toFile();
-        final MappingStrategyConfig config = strategy(asyncMapping, asyncUnmapping, cacheSize, deferUnmapping);
+        final MappingStrategyConfig config = strategy(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
+                deferUnmapping);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper(file), config);
         final String chain = regionMapper.toString();
-        assertTrue(chain.startsWith(expectedChainStart(asyncMapping, asyncUnmapping, cacheSize, deferUnmapping)),
-                chain);
+        assertTrue(chain.startsWith(expectedChainStart(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
+                deferUnmapping)), chain);
+        assertEquals(lruCacheSize > 0, chain.contains("LruCacheRegionMapper:"), chain);
         assertTrue(chain.contains(asyncUnmapping ? "SyncRegionMapperAsyncUnmapper:" : "SyncRegionMapper:"), chain);
 
         try (final ElasticMapping mapping = Mappings.elasticMapping(regionMapper, true)) {

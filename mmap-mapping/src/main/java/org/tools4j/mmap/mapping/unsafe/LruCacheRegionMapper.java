@@ -37,16 +37,23 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 
 /**
- * Region mapper with a bounded cache for mapped regions.  Actual mapping and unmapping operations are delegated to an
- * underlying region mapper.
+ * Region mapper with a bounded cache of mapped regions, evicted on a least-recently-used basis. Actual mapping and
+ * unmapping operations are delegated to an underlying region mapper.
  * <p>
- * If a new mapping is cached and the cache is already at capacity, the least recently used mapping is evicted from the
- * cache (but not unmapped).
+ * A cached region is <i>in use</i> from the time it is mapped until the holder unmaps it. Without deferred
+ * unmapping, unmapping a cached region unmaps it immediately and frees its cache slot. With deferred unmapping, the
+ * region is kept mapped and only marked as <i>unused</i>; if it is requested again while still cached, it is in use
+ * again without a new map operation.
  * <p>
- * A <i>defer-unmapping</i> option can be specified at construction time.  Without deferred unmapping, all unmapping
- * operations are performed immediately which also frees up the corresponding cache position. With deferred unmapping
- * enabled, a mapped position is first marked as unused and only unmapped later if the cache position is needed for
- * another position mapping.  The unused flag is cleared if an unused but still cached mapping is re-requested.
+ * When a new region is mapped and the cache is full, a slot is reused as follows:
+ * <ol>
+ *     <li>the least recently freed unused slot, unmapping its region first, or otherwise</li>
+ *     <li>the least recently used slot of a region still in use: the region is evicted from the cache but
+ *         <b>not</b> unmapped, as its holder may still access it; the holder's later unmap is passed through to the
+ *         underlying mapper.</li>
+ * </ol>
+ * Unmap requests for regions that are not cached, or that are cached with a different address (a region evicted
+ * while in use and mapped again since), are always passed through to the underlying mapper.
  */
 class LruCacheRegionMapper implements RegionMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(LruCacheRegionMapper.class);
@@ -74,7 +81,7 @@ class LruCacheRegionMapper implements RegionMapper {
         for (int i = 0; i < cacheSize; i++) {
             positions[i] = NULL_POSITION;
             addresses[i] = NULL_ADDRESS;
-            prevIndex[i] = cacheSize - i - 1;
+            prevIndex[i] = (cacheSize + i - 1) % cacheSize;
             nextIndex[i] = (i + 1) % cacheSize;
         }
         this.mruIndex = -1;
@@ -93,14 +100,20 @@ class LruCacheRegionMapper implements RegionMapper {
 
     @Override
     public long mapInternal(final long position, final int regionSize) {
-        long addr;
+        long addr, posn;
         int index = (int)positionToIndex.get(position);
         if (index >= 0) {
+            posn = positions[index];
             addr = addresses[index];
-            assert (positions[index] & USED_MASK) == position;
+            assert (posn & USED_MASK) == position;
             assert addr > NULL_ADDRESS;
-            positions[index] = position;//mark used again, if it was not
-            markMostRecentlyUsed(index);
+            if ((posn & UNUSED_BIT) != 0) {
+                positions[index] = position;//mark used again
+                popFromFree(index);
+                pushAsMru(index);
+            } else {
+                markMostRecentlyUsed(index);
+            }
             return addr;
         }
         addr = baseMapper.mapInternal(position, regionSize);
@@ -126,10 +139,9 @@ class LruCacheRegionMapper implements RegionMapper {
     @Override
     public void unmapInternal(final long position, final long address, final int regionSize) {
         final int index = (int)positionToIndex.get(position);
-        final long addr = index >= 0 ? addresses[index] : NULL_ADDRESS;
-        if (addr != address) {
-            throw new IllegalArgumentException("Position " + position + " is mapped to " + addr +
-                    " but provided address is " + address);
+        if (index < 0 || addresses[index] != address) {
+            baseMapper.unmapInternal(position, address, regionSize);
+            return;
         }
         assert positions[index] == position;
         if (deferUnmapping) {
@@ -143,29 +155,18 @@ class LruCacheRegionMapper implements RegionMapper {
         markMostRecentlyFreed(index);
     }
 
-    //precondition: currently used
+    //precondition: index is in used list
     private void markMostRecentlyUsed(final int index) {
-        final int mru = mruIndex;
-        if (index == mru) {
-            return;
+        if (index != mruIndex) {
+            popFromUsed(index);
+            pushAsMru(index);
         }
-        pop(index);
-        push(index, mru);
-        mruIndex = index;
     }
 
+    //precondition: index is in used list
     private void markMostRecentlyFreed(final int index) {
-        final int next = pop(index);
-        if (mruIndex == index) {
-            mruIndex = next;
-        }
-        final int lrf = lrfIndex;
-        if (lrf >= 0) {
-            final int mrf = prevIndex[lrf];
-            push(mrf, index);
-        } else {
-            lrfIndex = index;
-        }
+        popFromUsed(index);
+        pushAsMrf(index);
     }
 
     //precondition: currently free
@@ -179,26 +180,21 @@ class LruCacheRegionMapper implements RegionMapper {
         if (lrf < 0) {
             return -1;
         }
-        //free ones exist, take it
         unmapPositionIfNeeded(lrf);
-        lrfIndex = pop(lrf);
-        if (mruIndex >= 0) {
-            push(lrf, mruIndex);
-        }
-        mruIndex = lrf;
+        popFromFree(lrf);
+        pushAsMru(lrf);
         return lrf;
     }
 
     private int acquireIndexFromUsed() {
-        //unmap least recently used
-        final int mru = mruIndex;
-        final int lru = prevIndex[mru];
-        unmapPositionIfNeeded(lru);
-        pop(lru);
-        if (mru == lru) {
-            //no used ones anymore
-            mruIndex = -1;
-        }
+        //repurpose least recently used, but don't unmap
+        final int lru = prevIndex[mruIndex];
+        final long pos = positions[lru];
+        positionToIndex.remove(pos);
+        positions[lru] = NULL_POSITION;
+        addresses[lru] = NULL_ADDRESS;
+        popFromUsed(lru);
+        pushAsMru(lru);
         return lru;
     }
 
@@ -216,25 +212,57 @@ class LruCacheRegionMapper implements RegionMapper {
         }
     }
 
+    //precondition: index is a single-element list
+    private void pushAsMru(final int index) {
+        if (mruIndex >= 0) {
+            push(index, mruIndex);
+        }
+        mruIndex = index;
+    }
+
+    //precondition: index is a single-element list
+    private void pushAsMrf(final int index) {
+        if (lrfIndex >= 0) {
+            push(index, lrfIndex);
+        } else {
+            lrfIndex = index;
+        }
+    }
+
+    private void popFromUsed(final int index) {
+        final int next = pop(index);
+        if (mruIndex == index) {
+            mruIndex = next;
+        }
+    }
+
+    private void popFromFree(final int index) {
+        final int next = pop(index);
+        if (lrfIndex == index) {
+            lrfIndex = next;
+        }
+    }
+
     private int pop(final int index) {
         final int prev = prevIndex[index];
         final int next = nextIndex[index];
-        if (prev != index) {
+        if (prev == index) {
             assert next == index;
             return -1;//single element queue
         }
         nextIndex[prev] = next;
         prevIndex[next] = prev;
+        prevIndex[index] = index;
+        nextIndex[index] = index;
         return next;
     }
 
     private void push(final int index, final int position) {
         final int prev = prevIndex[position];
-        final int next = nextIndex[position];
         nextIndex[prev] = index;
-        prevIndex[next] = index;
         prevIndex[index] = prev;
-        nextIndex[index] = next;
+        nextIndex[index] = position;
+        prevIndex[position] = index;
     }
 
     @Override

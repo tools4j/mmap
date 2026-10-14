@@ -38,16 +38,17 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 
 /**
- * A region mapper that caches mapped pages in a bounded ring buffer.  Actual mapping and unmapping operations are
- * delegated to an underlying region mapper.
+ * Region mapper with a bounded ring cache of mapped regions, where each region position maps to a fixed slot.
+ * Actual mapping and unmapping operations are delegated to an underlying region mapper.
  * <p>
- * If a new mapping is cached and a different mapping already exists at the same location in the ring cache, it is
- * evicted from the cache (but not unmapped).
+ * A cached region is <i>in use</i> from the time it is mapped until the holder unmaps it. Without deferred
+ * unmapping, unmapping a cached region unmaps it immediately and frees its slot. With deferred unmapping, the region
+ * is kept mapped and only marked as <i>unused</i>; if it is requested again while still cached, it is in use again
+ * without a new map operation.
  * <p>
- * A <i>defer-unmapping</i> option can be specified at construction time.  Without deferred unmapping, all unmapping operations
- * are performed immediately which also frees up the corresponding cache position. With deferred unmapping enabled, a
- * mapped position is first marked as unused and only unmapped later if the cache position is needed for another
- * position mapping.  The unused flag is cleared if an unused but still cached mapping is re-requested.
+ * When a new region is mapped to an occupied slot, an unused region in the slot is unmapped, while a region still in
+ * use is evicted from the cache but <b>not</b> unmapped, as its holder may still access it; the holder's later unmap
+ * is passed through to the underlying mapper.
  */
 @Unsafe
 final class RingCacheRegionMapper implements RegionMapper {

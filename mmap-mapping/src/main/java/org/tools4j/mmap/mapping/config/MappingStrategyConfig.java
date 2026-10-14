@@ -59,10 +59,23 @@ public interface MappingStrategyConfig {
     int lruCacheSize();
 
     /**
-     * Returns whether unmapping operations are deferred until it becomes necessary, for instance due to cache
-     * eviction. Deferring unmapping avoids unmapping a region that is requested again before it is evicted.
+     * Returns whether unmapping of released regions is deferred.
+     * <p>
+     * A mapping releases its current region whenever it moves to a different region. Without deferred unmapping, a
+     * released region is unmapped immediately, even if it is cached; the ring and LRU caches then only avoid
+     * re-mapping regions that are still in use. With deferred unmapping, a released region stays mapped in the cache,
+     * marked as unused, and is only unmapped when its cache slot is needed for another region, or when the mapper is
+     * closed. Moving back to a recently released region then requires no map or unmap operation, which benefits
+     * access patterns that revisit regions, for instance moving back and forth across a region boundary or binary
+     * search.
+     * <p>
+     * The cost is that up to cache-size regions remain mapped while not in use, and that the deferred unmap is
+     * performed later, as part of an unrelated map request (on a background thread if async unmapping is
+     * configured). If deferred unmapping is enabled without ring or LRU cache, a ring cache of size one is used.
      *
-     * @return true if unmapping operations are deferred until they become necessary
+     * @return true if unmapping of released regions is deferred until the cache slot is needed
+     * @see #cacheSize()
+     * @see #lruCacheSize()
      */
     boolean deferUnmapping();
 

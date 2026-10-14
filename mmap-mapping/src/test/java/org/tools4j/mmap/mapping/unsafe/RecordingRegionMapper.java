@@ -28,7 +28,9 @@ import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
@@ -36,16 +38,20 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
  * Base region mapper for cache tests: records map and unmap calls and returns a synthetic address for every position
  * up to {@link #maxPosition()}, and {@code NULL_ADDRESS} beyond. Addresses are never dereferenced by the caching
  * mappers under test, so no actual memory is mapped.
+ * <p>
+ * The first live mapping of a position gets {@link #address(long)}; mapping a position again while still mapped
+ * returns a different address, as a real mapper would.
  */
 final class RecordingRegionMapper implements RegionMapper {
 
     static final int REGION_SIZE = 4096;
     private static final long ADDRESS_BASE = 1L << 40;
+    private static final long GENERATION_STEP = 1L << 36;
 
     private final RegionMetrics regionMetrics = new RegionMetricsImpl(REGION_SIZE);
     private final long maxPosition;
     private final List<String> calls = new ArrayList<>();
-    private int mapped;
+    private final Set<Long> liveAddresses = new HashSet<>();
     private boolean closed;
 
     RecordingRegionMapper(final int regions) {
@@ -73,7 +79,7 @@ final class RecordingRegionMapper implements RegionMapper {
 
     /** @return number of regions currently mapped through this mapper */
     int mapped() {
-        return mapped;
+        return liveAddresses.size();
     }
 
     @Override
@@ -92,17 +98,19 @@ final class RecordingRegionMapper implements RegionMapper {
             return NULL_ADDRESS;
         }
         calls.add("map:" + position / REGION_SIZE);
-        mapped++;
-        return address(position);
+        long address = address(position);
+        while (!liveAddresses.add(address)) {
+            address += GENERATION_STEP;
+        }
+        return address;
     }
 
     @Override
     public void unmapInternal(final long position, final long address, final int regionSize) {
-        if (address != address(position)) {
-            throw new IllegalArgumentException("Position " + position + " was not mapped to address " + address);
+        if ((address - address(position)) % GENERATION_STEP != 0 || !liveAddresses.remove(address)) {
+            throw new IllegalArgumentException("Position " + position + " is not mapped to address " + address);
         }
         calls.add("unmap:" + position / REGION_SIZE);
-        mapped--;
     }
 
     @Override
@@ -123,6 +131,6 @@ final class RecordingRegionMapper implements RegionMapper {
 
     @Override
     public String toString() {
-        return "RecordingRegionMapper:mapped=" + mapped + "|closed=" + closed;
+        return "RecordingRegionMapper:mapped=" + mapped() + "|closed=" + closed;
     }
 }

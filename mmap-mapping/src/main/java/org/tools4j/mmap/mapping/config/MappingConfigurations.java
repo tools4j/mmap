@@ -114,7 +114,11 @@ public enum MappingConfigurations {
      * is not set.
      */
     public static final int REGION_LRU_CACHE_SIZE_DEFAULT = 0;
-    /** Name of the system property to override the default defer-unmapping flag. */
+    /**
+     * Name of the system property to override the default defer-unmapping flag.
+     *
+     * @see MappingStrategyConfig#deferUnmapping()
+     */
     public static final String DEFER_UNMAPPING_PROPERTY = "mmap.mapping.deferUnmapping";
     /** The default defer-unmapping flag, used if system property {@value #DEFER_UNMAPPING_PROPERTY} is not set. */
     public static final boolean DEFER_UNMAPPING_DEFAULT = false;
