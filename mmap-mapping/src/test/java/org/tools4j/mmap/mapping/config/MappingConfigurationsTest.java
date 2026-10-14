@@ -23,12 +23,18 @@
  */
 package org.tools4j.mmap.mapping.config;
 
+import org.agrona.concurrent.IdleStrategy;
+import org.agrona.concurrent.NoOpIdleStrategy;
+import org.agrona.concurrent.YieldingIdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 
+import java.util.function.Supplier;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,10 +45,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MappingConfigurationsTest {
 
+    /** Supplier returning the same idle strategy every time, instantiated via the idle strategy property */
+    public static final class NoOpIdleStrategySupplier implements Supplier<IdleStrategy> {
+        @Override
+        public IdleStrategy get() {
+            return NoOpIdleStrategy.INSTANCE;
+        }
+    }
+
     @AfterEach
     void clearProperties() {
         System.clearProperty(MappingConfigurations.ROLL_FILES_PROPERTY);
         System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_SHARING_POLICY_PROPERTY);
+        System.clearProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY);
+        System.clearProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY);
+        System.clearProperty(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_PROPERTY);
+        System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY);
     }
 
     @Test
@@ -81,5 +99,77 @@ class MappingConfigurationsTest {
     void defaultUnmappingIdleStrategySupplierReturnsNewInstances() {
         assertNotSame(MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get(),
                 MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get());
+    }
+
+    @Test
+    void intPropertyIsParsedAndValidated() {
+        assertEquals(MappingConfigurations.MAX_OPEN_FILES_DEFAULT, MappingConfigurations.defaultMaxOpenFiles());
+        System.setProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY, "5");
+        assertEquals(5, MappingConfigurations.defaultMaxOpenFiles());
+        System.setProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY, "five");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMaxOpenFiles);
+        System.setProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY, "0");
+        final IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                MappingConfigurations::defaultMaxOpenFiles);
+        assertEquals("Invalid value for system property: " + MappingConfigurations.MAX_OPEN_FILES_PROPERTY + "=0",
+                e.getMessage());
+    }
+
+    @Test
+    void longPropertyIsParsedAndValidated() {
+        assertEquals(MappingConfigurations.MAX_FILE_SIZE_DEFAULT, MappingConfigurations.defaultMaxFileSize());
+        final long maxFileSize = 4 * MappingConfigurations.defaultRegionSize();
+        System.setProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY, String.valueOf(maxFileSize));
+        assertEquals(maxFileSize, MappingConfigurations.defaultMaxFileSize());
+        System.setProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY, "4GB");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMaxFileSize);
+        System.setProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY, String.valueOf(maxFileSize + 1));
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMaxFileSize);
+    }
+
+    @Test
+    void initialMappingPoolSizeProperty() {
+        assertEquals(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_DEFAULT,
+                MappingConfigurations.defaultInitialMappingPoolSize());
+        System.setProperty(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_PROPERTY, "8");
+        assertEquals(8, MappingConfigurations.defaultInitialMappingPoolSize());
+        System.setProperty(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_PROPERTY, "-1");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultInitialMappingPoolSize);
+    }
+
+    @Test
+    void idleStrategyPropertyDefault() {
+        assertSame(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT,
+                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier());
+    }
+
+    @Test
+    void idleStrategyPropertyWithIdleStrategyClassCreatesNewInstances() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
+                YieldingIdleStrategy.class.getName());
+        final Supplier<? extends IdleStrategy> supplier = MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier();
+        final IdleStrategy first = supplier.get();
+        assertInstanceOf(YieldingIdleStrategy.class, first);
+        assertInstanceOf(YieldingIdleStrategy.class, supplier.get());
+        assertNotSame(first, supplier.get());
+    }
+
+    @Test
+    void idleStrategyPropertyWithSupplierClassDelegatesToSupplier() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
+                NoOpIdleStrategySupplier.class.getName());
+        final Supplier<? extends IdleStrategy> supplier = MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier();
+        assertSame(NoOpIdleStrategy.INSTANCE, supplier.get());
+        assertSame(NoOpIdleStrategy.INSTANCE, supplier.get());
+    }
+
+    @Test
+    void idleStrategyPropertyWithInvalidClassFailsOnFirstUse() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, "no.such.IdleStrategy");
+        assertThrows(IllegalArgumentException.class,
+                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier()::get);
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, String.class.getName());
+        assertThrows(IllegalArgumentException.class,
+                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier()::get);
     }
 }
