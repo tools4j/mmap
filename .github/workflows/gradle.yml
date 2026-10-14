@@ -104,15 +104,3 @@ jobs:
         with:
           parallel-finished: true
           fail-on-error: false
-#      - name: Copy test logs
-#        id: copy_test_logs
-#        if: failure()
-#        run: |
-#          echo "name=file::build/distributions/test_logs.tbz2" >> $GITHUB_OUTPUT
-#          ./gradlew tarTestLogs
-      - name: Upload crash logs
-        if: always() && steps.copy_test_logs.outputs.file == 'build/distributions/test_logs.tbz2'
-        uses: actions/upload-artifact@v7
-        with:
-          name: crash-logs-${{ matrix.os }}-java-${{ matrix.java }}
-          path: ${{ steps.copy_test_logs.outputs.file }}
