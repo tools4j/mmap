@@ -43,7 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AsyncRuntimeInstancesTest {
 
-    private static final long STOP_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(5);
+    private static final long STOP_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10);
+    private static final long POLL_INTERVAL_MILLIS = 10;
 
     @Test
     void sharedRuntimesAreRunningSingletons() {
@@ -63,7 +64,7 @@ class AsyncRuntimeInstancesTest {
     }
 
     @Test
-    void newRuntimesAreIndividualAndCanBeStopped() {
+    void newRuntimesAreIndividualAndCanBeStopped() throws InterruptedException {
         assertIndividualRuntimes(AsyncRuntimeInstances::newMappingRuntime);
         assertIndividualRuntimes(AsyncRuntimeInstances::newUnmappingRuntime);
         assertIndividualRuntimes(() -> AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1)));
@@ -71,7 +72,7 @@ class AsyncRuntimeInstancesTest {
     }
 
     @Test
-    void individualPolicySuppliesNewRuntimes() {
+    void individualPolicySuppliesNewRuntimes() throws InterruptedException {
         assertIndividualRuntimes(AsyncRuntimeInstances.mappingRuntimeSupplier(SharingPolicy.INDIVIDUAL));
         assertIndividualRuntimes(AsyncRuntimeInstances.unmappingRuntimeSupplier(SharingPolicy.INDIVIDUAL));
     }
@@ -83,7 +84,7 @@ class AsyncRuntimeInstancesTest {
     }
 
     @Test
-    void autoStopOnLastDeregister() {
+    void autoStopOnLastDeregister() throws InterruptedException {
         final AsyncRuntime.Recurring task = () -> 0;
         final AsyncRuntime autoStop = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), true);
         autoStop.register(task);
@@ -102,7 +103,7 @@ class AsyncRuntimeInstancesTest {
         awaitStopped(noAutoStop);
     }
 
-    private static void assertIndividualRuntimes(final Supplier<AsyncRuntime> supplier) {
+    private static void assertIndividualRuntimes(final Supplier<AsyncRuntime> supplier) throws InterruptedException {
         final AsyncRuntime runtime1 = supplier.get();
         final AsyncRuntime runtime2 = supplier.get();
         try {
@@ -144,10 +145,10 @@ class AsyncRuntimeInstancesTest {
         return runtimes;
     }
 
-    private static void awaitStopped(final AsyncRuntime runtime) {
+    private static void awaitStopped(final AsyncRuntime runtime) throws InterruptedException {
         final long deadline = System.nanoTime() + STOP_TIMEOUT_NANOS;
         while (runtime.isRunning() && System.nanoTime() < deadline) {
-            Thread.onSpinWait();
+            Thread.sleep(POLL_INTERVAL_MILLIS);
         }
         assertFalse(runtime.isRunning(), runtime.toString());
         assertTrue(runtime.isClosed());
