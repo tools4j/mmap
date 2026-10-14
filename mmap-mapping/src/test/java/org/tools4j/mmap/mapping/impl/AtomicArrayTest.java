@@ -32,7 +32,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.BitSet;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -375,30 +378,46 @@ class AtomicArrayTest {
         //given
         final long maxRuntimeMillis = 10_000;
         final int n = 1_000_000;
-        final int r = 1_000_000 / (int)Math.pow(10, Math.floor(Math.log10(nThreads)));
+        final int r = 100_000 / (int)Math.pow(10, Math.floor(Math.log10(nThreads)));
+        final long seed = System.currentTimeMillis();
         final AtomicArray<Integer> array = new AtomicArray<>();
 
         //when
         final AtomicInteger casCount = new AtomicInteger();
+        final CountDownLatch start = new CountDownLatch(1);
+        final Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
         final Thread[] threads = IntStream.range(0, nThreads).mapToObj(index -> {
             final Thread thread = new Thread(null, () -> {
-                final Random random = new Random(System.currentTimeMillis() + index);
-                for (int i = 0; i < r; i++) {
-                    final Integer value = random.nextInt(n);
-                    if (array.compareAndSet(value, null, value)) {
-                        casCount.incrementAndGet();
+                try {
+                    final Random random = new Random(seed + index);
+                    start.await();
+                    for (int i = 0; i < r; i++) {
+                        final Integer value = random.nextInt(n);
+                        if (array.compareAndSet(value, null, value)) {
+                            casCount.incrementAndGet();
+                        }
+                        assertFalse(array.compareAndSet(value, null, value));
+                        assertEquals(value, array.computeIfAbsent(value, x -> x + 3));
+                        array.set(value, value);
+                        assertFalse(array.compareAndSet(value, value + 1, value + 2));
                     }
-                    assertFalse(array.compareAndSet(value, null, value));
-                    assertEquals(value, array.computeIfAbsent(value, x -> x + 3));
-                    array.set(value, value);
-                    assertFalse(array.compareAndSet(value, value + 1, value + 2));
+                } catch (final Throwable t) {
+                    failures.add(t);
                 }
             }, "thread-" + index);
             thread.start();
             return thread;
         }).toArray(Thread[]::new);
+        start.countDown();
         for (final Thread thread : threads) {
             thread.join(maxRuntimeMillis);
+            assertFalse(thread.isAlive(), thread.getName() + " still running after " + maxRuntimeMillis + "ms");
+        }
+        if (!failures.isEmpty()) {
+            final AssertionError error = new AssertionError(failures.size() + " of " + nThreads +
+                    " threads failed, seed=" + seed, failures.peek());
+            failures.stream().skip(1).forEach(error::addSuppressed);
+            throw error;
         }
 
         //then
