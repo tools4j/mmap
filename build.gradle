@@ -315,15 +315,6 @@ tasks.register('testReport', TestReport) {
     testResults.setFrom(subprojects*.test)
 }
 
-task copyCrashLogs(type: Copy) {
-    from '.'
-    include '**/hs_err*.log'
-    include 'LICENSE'
-    into 'build/crash_logs'
-
-    includeEmptyDirs = false
-}
-
 wrapper {
     gradleVersion = '9.8.1'
     distributionType = 'ALL'
