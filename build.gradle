@@ -9,7 +9,7 @@ buildscript {
 plugins {
     id 'idea'
     id 'java-library'
-    id 'com.github.hierynomus.license' version "0.16.1" apply false
+    id 'com.diffplug.spotless' version '8.10.4' apply false
     id 'biz.aQute.bnd.builder' version '7.4.0' apply false
     id 'com.vanniktech.maven.publish' version '0.34.0' apply false
 }
@@ -95,7 +95,7 @@ allprojects {
 
 subprojects {
     apply plugin: 'java-library'
-    apply plugin: 'com.github.hierynomus.license'
+    apply plugin: 'com.diffplug.spotless'
     apply plugin: 'com.vanniktech.maven.publish'
     apply plugin: 'signing'
     apply plugin: 'biz.aQute.bnd.builder'
@@ -196,17 +196,22 @@ subprojects {
         }
     }
 
-    license {
-        header = file("${rootDir}/etc/LICENSE.template")
-        strictCheck = true
-        ext.year = Year.now().value
-        include "**/*.java"
-        mapping {
-            java='SLASHSTAR_STYLE'
+    spotless {
+        def headerText = '/*\n' + file("${rootDir}/etc/LICENSE.template").readLines()
+                .collect { it.isEmpty() ? ' *' : ' * ' + it }
+                .join('\n')
+                .replace('${year}', String.valueOf(Year.now().value)) + '\n */\n'
+        java {
+            licenseHeader(headerText)
+        }
+        // spotless java{} always skips package-info.java; '/**' delimiter keeps its package javadoc
+        format 'packageInfo', {
+            target 'src/*/java/**/package-info.java'
+            licenseHeader(headerText, '(/\\*\\*|package )')
         }
     }
 
-    compileJava.dependsOn licenseFormat
+    compileJava.dependsOn spotlessApply
 
     javadoc {
         title = '<h1>mmap</h1>'
@@ -320,6 +325,6 @@ task copyCrashLogs(type: Copy) {
 }
 
 wrapper {
-    gradleVersion = '8.12.1'
+    gradleVersion = '9.8.1'
     distributionType = 'ALL'
 }
