@@ -155,6 +155,8 @@ subprojects {
 
     task perfTest(type: Test) {
         maxParallelForks = 1
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
         jacoco.enabled = false
 
         enableAssertions = false
@@ -171,12 +173,15 @@ subprojects {
         }
 
         useJUnitPlatform {
+            excludeTags = [] as Set // inherited from tasks.withType(Test) above
             includeTags 'perf'
         }
     }
 
     task profilerTest(type: Test) {
         maxParallelForks = 1
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
         jacoco.enabled = false
 
         enableAssertions = false
@@ -184,6 +189,7 @@ subprojects {
         jvmArgs('-agentpath:/Applications/JProfiler.app/Contents/Resources/app/bin/macos/libjprofilerti.jnilib=port=8849')
 
         useJUnitPlatform {
+            excludeTags = [] as Set // inherited from tasks.withType(Test) above
             includeTags 'perf'
         }
     }
