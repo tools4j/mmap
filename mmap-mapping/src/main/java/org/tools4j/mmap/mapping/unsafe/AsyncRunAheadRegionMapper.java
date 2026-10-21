@@ -266,7 +266,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         final Timeout closeTimeout = new Timeout();
 
         AsyncMapper(final DirectRegionMapper regionMapper, final SharedState sharedState) {
-            this.fileMapper = regionMapper.fileMapper();
+            this.fileMapper = FileMappers.forThread(regionMapper.fileMapper());
             this.regionSize = regionMapper.regionSize();
             this.sharedState = requireNonNull(sharedState);
         }

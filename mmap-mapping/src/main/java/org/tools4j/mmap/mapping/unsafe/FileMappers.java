@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.config.MappingConfig;
 
 import java.io.File;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 @Unsafe
@@ -66,6 +67,25 @@ public enum FileMappers {
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }
+    }
+
+    /**
+     * Returns a file mapper over the same file(s) as the given one, for use by one other thread such as an async
+     * mapping thread. All file mappers are thread-safe except for {@link RollingFileMapper}, hence the given file
+     * mapper itself is returned.
+     * <p>
+     * The returned file mapper must not be closed by the caller, it is released when the given file mapper is closed,
+     * which must happen only after the other thread has stopped using it.
+     *
+     * @param fileMapper the file mapper whose file(s) are to be mapped by another thread
+     * @return a file mapper for use by the other thread
+     * @throws IllegalArgumentException if the given file mapper is single-threaded
+     */
+    public static FileMapper forThread(final FileMapper fileMapper) {
+        if (fileMapper instanceof RollingFileMapper) {
+            throw new IllegalArgumentException("Single-threaded " + fileMapper + " cannot be used by another thread");
+        }
+        return requireNonNull(fileMapper);
     }
 
     private static int maxThreadCountFor(final MappingConfig config) {
