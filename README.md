@@ -108,13 +108,13 @@ MappingConfig config = MappingConfig.configure()
         .mappingStrategy(cfg -> cfg.asyncMapping(true).regionSize(1 << 16));
 File file = new File("/tmp/rolling.map");//creates rolling_0.map, rolling_1.map, ...
 
-try (RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
+try (var mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
     for (int region = 0; region < 64; region++) {
         mapping.moveToRegion(region);
         mapping.buffer().putInt(0, region);
     }
 }
-try (RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
+try (var mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
     mapping.moveToRegion(63);
     int value = mapping.buffer().getInt(0);//63
 }
@@ -156,9 +156,9 @@ try (Queue queue = Queue.create(new File("/tmp/myQueue"))) {
 
     //poll: sequential retrieval via callback, the returned move determines the next entry
     Poller poller = queue.createPoller();
-    while (poller.poll((index, buffer, offset, length) -> {
+    while (poller.poll((index, buffer, offset, len) -> {
         //print: 0:Hello, 1:World
-        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, length));
+        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, len));
         return Move.NEXT;
     }) > 0);
 

@@ -105,13 +105,13 @@ class QuickIntroTest {
                 .mappingStrategy(cfg -> cfg.asyncMapping(true).regionSize(1 << 16));
         final File file = tempDir.resolve("rolling.map").toFile();//creates rolling_0.map, rolling_1.map, ...
 
-        try (RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
+        try (var mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
             for (int region = 0; region < 64; region++) {
                 mapping.moveToRegion(region);
                 mapping.buffer().putInt(0, region);
             }
         }
-        try (RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
+        try (var mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
             mapping.moveToRegion(63);
             assertEquals(63, mapping.buffer().getInt(0));
         }
