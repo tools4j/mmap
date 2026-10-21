@@ -59,6 +59,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ConcurrentLruCacheTest {
 
     private static final long MAX_WAIT_MILLIS = 10_000;
+    /** Shared by all workers of a concurrent test, generous for slow CI machines with fewer cores than threads */
+    private static final long WORKERS_MAX_WAIT_MILLIS = 30_000;
     /** Wait for something expected not to happen */
     private static final long SHORT_WAIT_MILLIS = 100;
 
@@ -123,6 +125,10 @@ class ConcurrentLruCacheTest {
     }
 
     private final Factory factory = new Factory();
+    /** Set when workers time out, so that they stop instead of running into subsequent tests */
+    private volatile boolean stopped;
+    /** Snapshot of stopped taken by the barrier action, so that all workers of a round agree on stopping */
+    private volatile boolean stopRound;
 
     private static Value use(final Borrower<Value> borrower, final int index, final IntFunction<Value> factory) {
         final Value value = borrower.acquire(index, factory);
@@ -375,12 +381,15 @@ class ConcurrentLruCacheTest {
     void concurrentAcquireOfSameNewIndexCreatesSingleValue(final int capacity) throws Exception {
         final int rounds = 500;
         final ConcurrentLruCache<Value> cache = new ConcurrentLruCache<>(capacity);
-        final CyclicBarrier barrier = new CyclicBarrier(capacity);
+        final CyclicBarrier barrier = new CyclicBarrier(capacity, () -> stopRound = stopped);
         final Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
         runWorkers(capacity, failures, "", (worker, borrower) -> {
             for (int round = 0; round < rounds; round++) {
                 try {
                     barrier.await(MAX_WAIT_MILLIS, TimeUnit.MILLISECONDS);
+                    if (stopRound) {
+                        return;
+                    }
                     final Value value = borrower.acquire(round, factory);
                     try {
                         assertEquals(round, value.index);
@@ -415,7 +424,7 @@ class ConcurrentLruCacheTest {
         final int rounds = 100_000;
         final long seed = System.nanoTime();
         final ConcurrentLruCache<Value> cache = new ConcurrentLruCache<>(capacity);
-        final CyclicBarrier barrier = new CyclicBarrier(capacity);
+        final CyclicBarrier barrier = new CyclicBarrier(capacity, () -> stopRound = stopped);
         final Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
         runWorkers(capacity, failures, ", seed=" + seed, (worker, borrower) -> {
             final Random random = new Random(seed + worker);
@@ -424,6 +433,9 @@ class ConcurrentLruCacheTest {
                     barrier.await(MAX_WAIT_MILLIS, TimeUnit.MILLISECONDS);
                 } catch (final Exception e) {
                     failures.add(e);
+                    return;
+                }
+                if (stopRound) {
                     return;
                 }
                 if (!acquireUseRelease(borrower, random.nextInt(indices), random.nextInt(4) == 0, failures,
@@ -450,7 +462,7 @@ class ConcurrentLruCacheTest {
         final Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
         runWorkers(capacity, failures, ", seed=" + seed, (worker, borrower) -> {
             final Random random = new Random(seed + worker);
-            for (int i = 0; i < iterations; i++) {
+            for (int i = 0; i < iterations && !stopped; i++) {
                 if (!acquireUseRelease(borrower, random.nextInt(indices), random.nextInt(4) == 0, failures,
                         i)) {
                     return;
@@ -505,11 +517,11 @@ class ConcurrentLruCacheTest {
         void run(int worker, Borrower<Value> borrower);
     }
 
-    private static void runWorkers(final int threads,
-                                   final Queue<Throwable> failures,
-                                   final String context,
-                                   final Worker worker,
-                                   final ConcurrentLruCache<Value> cache) throws InterruptedException {
+    private void runWorkers(final int threads,
+                            final Queue<Throwable> failures,
+                            final String context,
+                            final Worker worker,
+                            final ConcurrentLruCache<Value> cache) throws InterruptedException {
         final Thread[] workers = new Thread[threads];
         for (int t = 0; t < threads; t++) {
             final int id = t;
@@ -522,9 +534,14 @@ class ConcurrentLruCacheTest {
             }, "worker-" + t);
             workers[t].start();
         }
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(WORKERS_MAX_WAIT_MILLIS);
         for (final Thread thread : workers) {
-            thread.join(MAX_WAIT_MILLIS);
-            assertFalse(thread.isAlive(), thread.getName() + " still running after " + MAX_WAIT_MILLIS + "ms");
+            thread.join(Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())));
+            if (thread.isAlive()) {
+                stopped = true;
+                throw new AssertionError(thread.getName() + " still running after " + WORKERS_MAX_WAIT_MILLIS +
+                        "ms with " + threads + " threads" + context);
+            }
         }
         if (!failures.isEmpty()) {
             final AssertionError error = new AssertionError(failures.size() + " failures with " + threads +
