@@ -31,7 +31,6 @@ import org.tools4j.mmap.mapping.config.MappingConfig;
 import java.io.File;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 @Unsafe
 public enum FileMappers {
@@ -43,19 +42,15 @@ public enum FileMappers {
         switch (accessMode) {
             case READ_ONLY:
                 if (config.rollFiles()) {
-                    final int maxThreadCount = maxThreadCountFor(config);
-                    validateMaxOpenFiles(config.maxOpenFiles(), maxThreadCount);
-                    return maxThreadCount > 1
+                    return isAsyncMapping(config)
                             ? ConcurrentRollingFileMapper.forReadOnly(file, config, fileInitialiser)
                             : RollingFileMapper.forReadOnly(file, config, fileInitialiser);
                 }
                 return new ReadOnlyFileMapper(file, fileInitialiser);
             case READ_WRITE:
             case READ_WRITE_CLEAR:
-                final int maxThreadCount = maxThreadCountFor(config);
                 if (config.rollFiles()) {
-                    validateMaxOpenFiles(config.maxOpenFiles(), maxThreadCount);
-                    return maxThreadCount > 1
+                    return isAsyncMapping(config)
                             ? ConcurrentRollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser)
                             : RollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser);
                 }
@@ -67,6 +62,14 @@ public enum FileMappers {
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }
+    }
+
+    /**
+     * Async mapping maps from a second thread, which requires a thread-safe rolling file mapper; async unmapping does
+     * not, as unmapping is thread-safe for all file mappers.
+     */
+    private static boolean isAsyncMapping(final MappingConfig config) {
+        return config.mappingStrategy().asyncMapping().isPresent();
     }
 
     /**
@@ -90,18 +93,5 @@ public enum FileMappers {
             throw new IllegalArgumentException("Single-threaded " + fileMapper + " cannot be used by another thread");
         }
         return requireNonNull(fileMapper);
-    }
-
-    private static int maxThreadCountFor(final MappingConfig config) {
-        int maxThreadCount = 1;
-        if (config.mappingStrategy().asyncMapping().isPresent()) {
-            maxThreadCount++;
-        }
-        if (config.mappingStrategy().asyncUnmapping().isPresent()) {
-            maxThreadCount++;
-        }
-        //NOTE: if mapper/unmapper share the same runtime, we only have 2 threads, but it is difficult to work this out
-        //      from here
-        return maxThreadCount;
     }
 }

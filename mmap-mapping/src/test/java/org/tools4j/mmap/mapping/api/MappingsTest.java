@@ -25,6 +25,8 @@ package org.tools4j.mmap.mapping.api;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -105,19 +107,23 @@ class MappingsTest {
     }
 
     /**
-     * Rolling files with async map-ahead: the async mapping thread maps via its own per-thread file mapper of the
-     * concurrent rolling file mapper, and more files are written than can be open at a time.
+     * Rolling files with async map-ahead (the async mapping thread maps via its own per-thread file mapper of the concurrent rolling
+     * file mapper) or with async unmapping only (single-threaded rolling file mapper, unmapped from another thread),
+     * writing more files than can be open at a time.
      */
-    @Test
-    void regionMappingWithRollingFilesAndAsyncMapAhead() {
+    @ParameterizedTest(name = "asyncMapAhead={0}")
+    @ValueSource(booleans = {true, false})
+    void regionMappingWithRollingFilesAndAsyncStrategy(final boolean asyncMapAhead) {
         final int files = 6;
         final int regionsPerFile = 2;
         final MappingConfig config = MappingConfig.configure()
                 .rollFiles(true)
                 .maxFileSize((long) regionsPerFile * REGION_SIZE)
-                .maxOpenFiles(3)//async unmapping still counts as another thread when validating max open files
-                .filesToCreateAhead(1)
-                .mappingStrategy(MappingStrategyConfig.getDefaultAsyncMapAhead());
+                .maxOpenFiles(asyncMapAhead ? 2 : 1)
+                .filesToCreateAhead(asyncMapAhead ? 1 : 0)
+                .mappingStrategy(asyncMapAhead
+                        ? MappingStrategyConfig.getDefaultAsyncMapAhead()
+                        : MappingStrategyConfig.getDefaultSyncWithAsyncUnmapping());
         final File file = tempDir.resolve("rolling.map").toFile();
         try (final RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
             for (int region = 0; region < files * regionsPerFile; region++) {

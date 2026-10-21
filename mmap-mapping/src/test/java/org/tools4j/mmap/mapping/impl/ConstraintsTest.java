@@ -165,9 +165,6 @@ class ConstraintsTest {
         invalid(() -> validateInitialPoolSize(-1));
         valid(() -> validateMaxOpenFiles(1));
         invalid(() -> validateMaxOpenFiles(0));
-        valid(() -> validateMaxOpenFiles(3, 3));
-        invalid(() -> validateMaxOpenFiles(2, 3));
-        invalid(() -> validateMaxOpenFiles(0, 0));
         valid(() -> validateFilesToCreateAhead(0));
         invalid(() -> validateFilesToCreateAhead(-1));
         valid(() -> validateRegionsToMapAhead(1));

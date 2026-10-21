@@ -27,9 +27,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
+import java.io.File;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -47,6 +51,42 @@ class FileMappersTest {
 
     @TempDir
     Path tempDir;
+
+    private static MappingConfig rollingConfig(final MappingStrategyConfig strategy, final int maxOpenFiles) {
+        return MappingConfig.configure()
+                .rollFiles(true)
+                .maxFileSize(MAX_FILE_SIZE)
+                .maxOpenFiles(maxOpenFiles)
+                .mappingStrategy(MappingStrategyConfig.configure(strategy).regionSize(REGION_SIZE));
+    }
+
+    @Test
+    void createUsesConcurrentRollingFileMapperOnlyForAsyncMapping() {
+        final File file = tempDir.resolve("create.map").toFile();
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+                rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 2))) {
+            assertInstanceOf(ConcurrentRollingFileMapper.PerThreadFileMapper.class, mapper);
+        }
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, INITIALISER,
+                rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 2))) {
+            assertInstanceOf(ConcurrentRollingFileMapper.PerThreadFileMapper.class, mapper);
+        }
+        //async unmapping only: unmapping is thread-safe, and a single open file suffices
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+                rollingConfig(MappingStrategyConfig.getDefaultSyncWithAsyncUnmapping(), 1))) {
+            assertInstanceOf(RollingFileMapper.class, mapper);
+        }
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+                rollingConfig(MappingStrategyConfig.getDefaultSync(), 1))) {
+            assertInstanceOf(RollingFileMapper.class, mapper);
+        }
+    }
+
+    @Test
+    void createRejectsSingleOpenFileForAsyncMapping() {
+        assertThrows(IllegalArgumentException.class, () -> FileMappers.create(tempDir.resolve("one.map").toFile(),
+                AccessMode.READ_WRITE, INITIALISER, rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 1)));
+    }
 
     @Test
     void forThreadReturnsThreadSafeFileMapperItself() {
