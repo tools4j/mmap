@@ -42,7 +42,7 @@ class QuickIntroTest {
     void writeAndReadFixedMapping(@TempDir final Path tempDir) {
         final File file = tempDir.resolve("fixed.map").toFile();
 
-        //FixedMapping: maps a fixed slice of the file, here the first 64 bytes (file is created if necessary)
+        //FixedMapping: maps a fixed slice of the file, here the first 64 bytes
         try (FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_WRITE, 0, 64)) {
             mapping.buffer().putInt(0, 42);
             mapping.buffer().putInt(60, 43);
@@ -97,7 +97,7 @@ class QuickIntroTest {
 
     @Test
     void rollingFilesWithAsyncMapping(@TempDir final Path tempDir) {
-        //roll over to a new file every 1MB, map regions ahead in a background thread when accessed sequentially
+        //roll file every 1MB, map regions ahead in a background thread when accessed sequentially
         final MappingConfig config = MappingConfig.configure()
                 .rollFiles(true)
                 .maxFileSize(1 << 20)

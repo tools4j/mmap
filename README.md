@@ -47,7 +47,7 @@ the next entry.
 ```java
 File fixedFile = new File("/tmp/fixed.map");
 
-//FixedMapping: maps a fixed slice of the file, here the first 64 bytes (file is created if necessary)
+//FixedMapping: maps a fixed slice of the file, here the first 64 bytes
 try (FixedMapping mapping = Mappings.fixedMapping(fixedFile, AccessMode.READ_WRITE, 0, 64)) {
     mapping.buffer().putInt(0, 42);
     mapping.buffer().putInt(60, 43);
@@ -100,7 +100,7 @@ try (MappingPool pool = Mappings.mappingPool(file, AccessMode.READ_ONLY)) {
 ```
 Rolling files with async mapping, i.e. regions mapped ahead in a background thread for sequential access:
 ```java
-//roll over to a new file every 1MB, map regions ahead in a background thread when accessed sequentially
+//roll file every 1MB, map regions ahead in a background thread when accessed sequentially
 MappingConfig config = MappingConfig.configure()
         .rollFiles(true)
         .maxFileSize(1 << 20)
