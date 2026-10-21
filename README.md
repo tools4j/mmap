@@ -45,16 +45,16 @@ the next entry.
 
 #### Quick example
 ```java
-File fixedFile = new File("/tmp/fixed.map");
+File file = new File("/tmp/fixed.map");
 
 //FixedMapping: maps a fixed slice of the file, here the first 64 bytes
-try (FixedMapping mapping = Mappings.fixedMapping(fixedFile, AccessMode.READ_WRITE, 0, 64)) {
+try (FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_WRITE, 0, 64)) {
     mapping.buffer().putInt(0, 42);
     mapping.buffer().putInt(60, 43);
 }
 
 //without length, the mapping spans from the offset to the end of the file
-try (FixedMapping mapping = Mappings.fixedMapping(fixedFile, AccessMode.READ_ONLY, 60)) {
+try (FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, 60)) {
     int available = mapping.bytesAvailable();//4
     int value = mapping.buffer().getInt(0);//43
 }
@@ -157,7 +157,8 @@ try (Queue queue = Queue.create(new File("/tmp/myQueue"))) {
     //poll: sequential retrieval via callback, the returned move determines the next entry
     Poller poller = queue.createPoller();
     while (poller.poll((index, buffer, offset, length) -> {
-        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, length));//0:Hello, 1:World
+        //print: 0:Hello, 1:World
+        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, length));
         return Move.NEXT;
     }) > 0);
 
