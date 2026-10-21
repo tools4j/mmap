@@ -52,8 +52,9 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  * A {@link FileMapper} that splits a logical stream across multiple physical files ("rolling"), creating a new file
  * once the current one reaches its maximum size and keeping at most a configured number of files open at a time.
  * <p>
- * <b>Note:</b> This class is <b>not thread safe</b> and must only be used from a single thread. See
- * {@link ConcurrentRollingFileMapper} for a thread-safe alternative.
+ * <b>Note:</b> {@code map} is <b>not thread safe</b> and must only be called from a single thread; {@code unmap} is
+ * thread-safe (it needs no file access), e.g. for async unmapping. See {@link ConcurrentRollingFileMapper} for an
+ * alternative with thread-safe mapping, as required for async mapping.
  */
 @Unsafe
 public class RollingFileMapper implements FileMapper {
@@ -291,14 +292,8 @@ public class RollingFileMapper implements FileMapper {
         if (length != regionSize) {
             throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
         }
-        final int fileIndex = positionToFileIndex(position);
-        final long positionWithinFile = position & positionInFileMask;
-        final FileMapper mapperForIndex = fileMappers.get(fileIndex);
-        if (mapperForIndex == null) {
-            return;
-        }
-        touch(fileIndex);
-        mapperForIndex.unmap(positionWithinFile, address, length);
+        //NOTE: unmapping needs no file mapper, the mapping outlives the file if it was closed meanwhile
+        FileChannels.unmap(address, length);
     }
 
     private void closeFilesIfNecessary() {

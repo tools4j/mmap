@@ -183,6 +183,31 @@ class RollingFileMapperTest {
     }
 
     @Test
+    void unmapReleasesMappingOfOpenFile() {
+        try (final FileMapper mapper = readWrite(baseFile("open.map"), false, 0, 1)) {
+            final long address = mapper.map(position(0), REGION_SIZE);
+            final Path file0 = OsMappings.realPath(baseFile("open_0.map"));
+            assertTrue(OsMappings.isMapped(file0));
+            mapper.unmap(position(0), address, REGION_SIZE);
+            assertFalse(OsMappings.isMapped(file0));
+        }
+    }
+
+    @Test
+    void unmapReleasesMappingOfAlreadyClosedFile() {
+        try (final FileMapper mapper = readWrite(baseFile("evicted.map"), false, 0, 1)) {
+            final long address0 = mapper.map(position(0), REGION_SIZE);
+            final Path file0 = OsMappings.realPath(baseFile("evicted_0.map"));
+            final long address1 = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE);//closes file 0
+            assertTrue(mapper.toString().contains("|openFiles=1|"), mapper.toString());
+            assertTrue(OsMappings.isMapped(file0), "mapping outlives closing its file");
+            mapper.unmap(position(0), address0, REGION_SIZE);
+            assertFalse(OsMappings.isMapped(file0), "region of closed file must still be unmapped");
+            mapper.unmap(position(REGIONS_PER_FILE), address1, REGION_SIZE);
+        }
+    }
+
+    @Test
     void negativePositionIsNotMapped() {
         try (final FileMapper mapper = readWrite(baseFile("neg.map"), false, 0, 2)) {
             assertEquals(NULL_ADDRESS, mapper.map(-REGION_SIZE, REGION_SIZE));

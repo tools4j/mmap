@@ -243,18 +243,12 @@ public class ConcurrentRollingFileMapper implements FileMapper {
         if (length != regionSize) {
             throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
         }
-        enter();
-        try {
-            final int fileIndex = positionToFileIndex(position);
-            final long positionWithinFile = position & positionInFileMask;
-            final FileMapper mapperForIndex = fileMappers.tryAcquire(fileIndex);
-            if (mapperForIndex != null) {
-                mapperForIndex.unmap(positionWithinFile, address, length);
-                fileMappers.release(fileIndex);
-            }
-        } finally {
-            exit();
+        if (isClosed()) {
+            throw alreadyClosedException(this);
         }
+        //NOTE: unmapping needs no file mapper, the mapping outlives the file if it was evicted meanwhile; hence
+        //      also no need to enter() and keep close from releasing the files concurrently
+        FileChannels.unmap(address, length);
     }
 
     private void enter() {
