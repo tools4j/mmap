@@ -71,8 +71,9 @@ public enum FileMappers {
 
     /**
      * Returns a file mapper over the same file(s) as the given one, for use by one other thread such as an async
-     * mapping thread. All file mappers are thread-safe except for {@link RollingFileMapper}, hence the given file
-     * mapper itself is returned.
+     * mapping thread. For a {@link ConcurrentRollingFileMapper}, this is a new per-thread file mapper;
+     * all other file mappers except for {@link RollingFileMapper} are thread-safe, and the given file mapper itself is
+     * returned.
      * <p>
      * The returned file mapper must not be closed by the caller, it is released when the given file mapper is closed,
      * which must happen only after the other thread has stopped using it.
@@ -82,6 +83,9 @@ public enum FileMappers {
      * @throws IllegalArgumentException if the given file mapper is single-threaded
      */
     public static FileMapper forThread(final FileMapper fileMapper) {
+        if (fileMapper instanceof ConcurrentRollingFileMapper.PerThreadFileMapper perThreadFileMapper) {
+            return perThreadFileMapper.newSibling();
+        }
         if (fileMapper instanceof RollingFileMapper) {
             throw new IllegalArgumentException("Single-threaded " + fileMapper + " cannot be used by another thread");
         }

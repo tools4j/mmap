@@ -30,10 +30,10 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.impl.AtomicArray;
-import org.tools4j.mmap.mapping.impl.AtomicLruCache;
+import org.tools4j.mmap.mapping.impl.ConcurrentLruCache;
 
 import java.io.File;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -47,17 +47,21 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 
 /**
- * A {@link FileMapper} that splits a logical stream across multiple physical files ("rolling"), creating a new file
- * once the current one reaches its maximum size and keeping at most a configured number of files open at a time.
+ * Splits a logical stream across multiple physical files ("rolling"), creating a new file once the current one reaches
+ * its maximum size and keeping at most a configured number of files open at a time.
  * <p>
- * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
- * multiple threads. See {@link RollingFileMapper} for a single-threaded alternative.
+ * The files are shared by {@link PerThreadFileMapper}s. The factory methods return the owner; per-thread file mappers
+ * for other threads are obtained via {@link FileMappers#forThread(FileMapper)}.
+ * <p>
+ * <b>Note:</b> {@code map} of a per-thread file mapper must be called by one thread at a time only (it maps via its own
+ * {@link ConcurrentLruCache.Borrower}); {@code unmap} is thread-safe, as it needs no file access. Closing the owner
+ * closes the files, after all other per-thread file mappers have stopped mapping; closing any other one only releases
+ * its own resources. See {@link RollingFileMapper} for a single-threaded alternative.
  */
 @Unsafe
-public class ConcurrentRollingFileMapper implements FileMapper {
+public final class ConcurrentRollingFileMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConcurrentRollingFileMapper.class);
     private static final int DEFAULT_CAPACITY = 1024;
-    private static final int CLOSED = Integer.MIN_VALUE;
 
     private final File baseFile;
     private final Function<? super File, ? extends FileMapper> fileMapperFactory;
@@ -70,11 +74,11 @@ public class ConcurrentRollingFileMapper implements FileMapper {
     private final int positionToFileIndexShift;
 
     private final AtomicArray<File> files;
-    private final AtomicLruCache<FileMapper> fileMappers;
+    private final ConcurrentLruCache<FileMapper> fileMappers;
     private final IntFunction<File> fileFactory = this::fileForIndex;
     private final IntFunction<FileMapper> fileMapperByIndexFactory = this::fileMapperForIndex;
 
-    private final AtomicInteger actors = new AtomicInteger(0);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private ConcurrentRollingFileMapper(final File baseFile,
                                         final Function<? super File, ? extends FileMapper> fileMapperFactory,
@@ -112,7 +116,7 @@ public class ConcurrentRollingFileMapper implements FileMapper {
         this.positionInFileMask = maxFileSize - 1;
         this.positionToFileIndexShift = Long.SIZE - Long.numberOfLeadingZeros(maxFileSize - 1);
         this.files = new AtomicArray<>(DEFAULT_CAPACITY);
-        this.fileMappers = new AtomicLruCache<>(maxOpenFiles);
+        this.fileMappers = new ConcurrentLruCache<>(maxOpenFiles);
     }
 
     public static FileMapper forReadOnly(final File baseFile,
@@ -129,7 +133,7 @@ public class ConcurrentRollingFileMapper implements FileMapper {
                                          final FileInitialiser fileInitialiser) {
         requireNonNull(fileInitialiser);
         return new ConcurrentRollingFileMapper(baseFile, file -> new ReadOnlyFileMapper(file, fileInitialiser),
-                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY);
+                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY).newOwnerMapper();
     }
 
     public static FileMapper forReadWrite(final File baseFile,
@@ -156,7 +160,11 @@ public class ConcurrentRollingFileMapper implements FileMapper {
                 file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser) :
                 file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser);
         return new ConcurrentRollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
-                maxOpenFiles, accessMode);
+                maxOpenFiles, accessMode).newOwnerMapper();
+    }
+
+    private PerThreadFileMapper newOwnerMapper() {
+        return new PerThreadFileMapper(true);
     }
 
     private File getOrCreateFile(final int fileIndex) {
@@ -189,103 +197,26 @@ public class ConcurrentRollingFileMapper implements FileMapper {
         throw new IllegalArgumentException("File index exceeded for " + position + " and max file size " + maxFileSize);
     }
 
-    @Override
-    public AccessMode accessMode() {
-        return accessMode;
-    }
-
-    @Override
-    public long map(final long position, final int length) {
-        if (position < 0) {
-            return NULL_ADDRESS;
-        }
+    private void validateRegionLength(final int length) {
         if (length != regionSize) {
             throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
         }
-        final int fileIndex = positionToFileIndex(position);
-        final long positionWithinFile = position & positionInFileMask;
-        enter();
-        FileMapper mapperForIndex = null;
-        try {
-            mapperForIndex = accessMode == AccessMode.READ_ONLY
-                    ? fileMappers.tryAcquire(fileIndex)
-                    : fileMappers.acquire(fileIndex, fileMapperByIndexFactory);
-            if (mapperForIndex == null) {
-                if (accessMode != AccessMode.READ_ONLY) {
-                    return NULL_ADDRESS;
-                }
-                final File file = getOrCreateFile(fileIndex);
-                if (!file.exists()) {
-                    return NULL_ADDRESS;
-                }
-                //NOTE: pre-create next files first, furthest first, before acquiring fileIndex itself: this way
-                //      fileIndex is never exposed to eviction while its own pre-create batch runs, and the nearest
-                //      (soonest-needed) pre-created file ends up most-recently-used, i.e. least likely to be
-                //      evicted under pressure
-                for (int i = filesToCreateAhead; i >= 1; i--) {
-                    fileMappers.createIfAbsent(fileIndex + i, fileMapperByIndexFactory);
-                }
-                mapperForIndex = fileMappers.acquire(fileIndex, fileMapperByIndexFactory);
-            }
-            return mapperForIndex.map(positionWithinFile, length);
-        } finally {
-            if (mapperForIndex != null) {
-                fileMappers.release(fileIndex);
-            }
-            exit();
-        }
     }
 
-    @Override
-    public void unmap(final long position, final long address, final int length) {
-        assert address > NULL_ADDRESS;
-        assert position > NULL_POSITION;
-        if (length != regionSize) {
-            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
-        }
-        if (isClosed()) {
-            throw alreadyClosedException(this);
-        }
-        //NOTE: unmapping needs no file mapper, the mapping outlives the file if it was evicted meanwhile; hence
-        //      also no need to enter() and keep close from releasing the files concurrently
-        FileChannels.unmap(address, length);
-    }
-
-    private void enter() {
-        if (actors.incrementAndGet() <= 0) {
-            actors.decrementAndGet();
-            throw alreadyClosedException(this);
-        }
-    }
-
-    private void exit() {
-        if (actors.decrementAndGet() == CLOSED) {
-            doClose();
-        }
-    }
-
-    @Override
-    public boolean isClosed() {
-        return actors.getAcquire() < 0;
-    }
-
-    public int openFiles() {
+    private int openFiles() {
         return fileMappers.size();
     }
 
-    @Override
-    public void close() {
-        final int actorsOnClose = actors.getAndUpdate(cur -> cur < 0 ? cur : cur + CLOSED);
-        if (actorsOnClose == 0) {
-            doClose();
+    //PRECONDITION: all per-thread file mappers have stopped mapping
+    private void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
-    }
-
-    //PRECONDITION: closed and no actors
-    private void doClose() {
         final int openBeforeClosing = openFiles();
         try {
-            fileMappers.removeAll();
+            if (!fileMappers.removeAll()) {
+                LOGGER.warn("Some files were still in use when closing {}", this);
+            }
             for (int i = 0, len = files.length(); i < len; i++) {
                 files.setIfPresent(i, null);
             }
@@ -296,7 +227,7 @@ public class ConcurrentRollingFileMapper implements FileMapper {
 
     @Override
     public String toString() {
-        return "RollingFileMapper" +
+        return "ConcurrentRollingFileMapper" +
                 ":accessMode=" + accessMode +
                 "|maxFileSize=" + maxFileSize +
                 "|regionSize=" + regionSize +
@@ -304,6 +235,104 @@ public class ConcurrentRollingFileMapper implements FileMapper {
                 "|maxOpenFiles=" + maxOpenFiles +
                 "|baseFile=" + baseFile +
                 "|openFiles=" + openFiles() +
-                "|closed=" + isClosed();
+                "|closed=" + closed.getAcquire();
+    }
+
+    /**
+     * Per-thread file mapper over the shared files: {@code map} must be called by one thread at a time only,
+     * {@code unmap} is thread-safe.
+     */
+    final class PerThreadFileMapper implements FileMapper {
+        private final ConcurrentLruCache.Borrower<FileMapper> borrower = fileMappers.newBorrower();
+        private final boolean owner;
+
+        private PerThreadFileMapper(final boolean owner) {
+            this.owner = owner;
+        }
+
+        /**
+         * Returns a new per-thread file mapper for use by another thread, released when the owner is closed.
+         * @see FileMappers#forThread(FileMapper)
+         */
+        PerThreadFileMapper newSibling() {
+            if (isClosed()) {
+                throw alreadyClosedException(this);
+            }
+            return new PerThreadFileMapper(false);
+        }
+
+        int openFiles() {
+            return ConcurrentRollingFileMapper.this.openFiles();
+        }
+
+        @Override
+        public AccessMode accessMode() {
+            return accessMode;
+        }
+
+        @Override
+        public long map(final long position, final int length) {
+            if (position < 0) {
+                return NULL_ADDRESS;
+            }
+            validateRegionLength(length);
+            if (isClosed()) {
+                throw alreadyClosedException(this);
+            }
+            final int fileIndex = positionToFileIndex(position);
+            FileMapper mapperForIndex = borrower.tryAcquire(fileIndex);
+            if (mapperForIndex == null) {
+                if (accessMode == AccessMode.READ_ONLY && !getOrCreateFile(fileIndex).exists()) {
+                    return NULL_ADDRESS;
+                }
+                //NOTE: pre-create next files first, furthest first, before acquiring fileIndex itself: this way
+                //      fileIndex is never exposed to eviction while its own pre-create batch runs, and the nearest
+                //      (soonest-needed) pre-created file ends up most-recently-used, i.e. least likely to be
+                //      evicted under pressure
+                for (int i = filesToCreateAhead; i >= 1; i--) {
+                    borrower.createIfAbsent(fileIndex + i, fileMapperByIndexFactory);
+                }
+                mapperForIndex = borrower.acquire(fileIndex, fileMapperByIndexFactory);
+            }
+            try {
+                return mapperForIndex.map(position & positionInFileMask, length);
+            } finally {
+                borrower.release();
+            }
+        }
+
+        @Override
+        public void unmap(final long position, final long address, final int length) {
+            assert address > NULL_ADDRESS;
+            assert position > NULL_POSITION;
+            validateRegionLength(length);
+            if (closed.getAcquire()) {
+                throw alreadyClosedException(this);
+            }
+            //NOTE: unmapping needs no file mapper, the mapping outlives the file if it was evicted meanwhile; hence
+            //      also thread-safe, e.g. for async unmapping via the owner
+            FileChannels.unmap(address, length);
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed.getAcquire() || borrower.isClosed();
+        }
+
+        /** Closes the files if this is the owner, otherwise releases only this per-thread file mapper */
+        @Override
+        public void close() {
+            if (!borrower.isClosed()) {
+                borrower.close();
+                if (owner) {
+                    ConcurrentRollingFileMapper.this.close();
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            return ConcurrentRollingFileMapper.this + "|owner=" + owner;
+        }
     }
 }

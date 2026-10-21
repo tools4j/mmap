@@ -104,6 +104,38 @@ class MappingsTest {
         }
     }
 
+    /**
+     * Rolling files with async map-ahead: the async mapping thread maps via its own per-thread file mapper of the
+     * concurrent rolling file mapper, and more files are written than can be open at a time.
+     */
+    @Test
+    void regionMappingWithRollingFilesAndAsyncMapAhead() {
+        final int files = 6;
+        final int regionsPerFile = 2;
+        final MappingConfig config = MappingConfig.configure()
+                .rollFiles(true)
+                .maxFileSize((long) regionsPerFile * REGION_SIZE)
+                .maxOpenFiles(3)//async unmapping still counts as another thread when validating max open files
+                .filesToCreateAhead(1)
+                .mappingStrategy(MappingStrategyConfig.getDefaultAsyncMapAhead());
+        final File file = tempDir.resolve("rolling.map").toFile();
+        try (final RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
+            for (int region = 0; region < files * regionsPerFile; region++) {
+                assertTrue(mapping.moveToRegion(region), "region " + region);
+                mapping.buffer().putLong(0, VALUE + region);
+            }
+        }
+        for (int fileIndex = 0; fileIndex < files; fileIndex++) {
+            assertTrue(tempDir.resolve("rolling_" + fileIndex + ".map").toFile().isFile(), "file " + fileIndex);
+        }
+        try (final RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
+            for (int region = files * regionsPerFile - 1; region >= 0; region--) {
+                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertEquals(VALUE + region, mapping.buffer().getLong(0), "region " + region);
+            }
+        }
+    }
+
     @Test
     void regionMappingWithConfig() {
         final File file = tempDir.resolve("region.map").toFile();

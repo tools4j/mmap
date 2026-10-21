@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -51,10 +52,16 @@ class FileMappersTest {
     void forThreadReturnsThreadSafeFileMapperItself() {
         final FileMapper fileMapper = mock(FileMapper.class);
         assertSame(fileMapper, FileMappers.forThread(fileMapper));
+    }
+
+    @Test
+    void forThreadReturnsNewPerThreadFileMapperForConcurrentRollingFileMapper() {
         try (final FileMapper concurrent = ConcurrentRollingFileMapper.forReadWrite(
                 tempDir.resolve("concurrent.map").toFile(), AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE,
-                REGION_SIZE, 0, 2, INITIALISER)) {
-            assertSame(concurrent, FileMappers.forThread(concurrent));
+                REGION_SIZE, 0, 3, INITIALISER)) {
+            final FileMapper sibling = FileMappers.forThread(concurrent);
+            assertNotSame(concurrent, sibling);
+            assertNotSame(sibling, FileMappers.forThread(sibling));
         }
     }
 
