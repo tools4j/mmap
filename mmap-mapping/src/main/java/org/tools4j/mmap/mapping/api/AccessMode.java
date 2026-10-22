@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.tools4j.mmap.mapping.impl.OS;
-
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 
@@ -36,7 +34,7 @@ public enum AccessMode {
     /**
      * Read-only file access.
      */
-    READ_ONLY(OS.ifWindows("rw", "r"), OS.ifWindows(FileChannel.MapMode.READ_WRITE, FileChannel.MapMode.READ_ONLY)),
+    READ_ONLY("r", FileChannel.MapMode.READ_ONLY),
     /**
      * Read/write file access.
      */
