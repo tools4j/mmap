@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.impl.ElasticMappingImpl;
 import org.tools4j.mmap.mapping.impl.FixedMappingImpl;
 import org.tools4j.mmap.mapping.impl.MappingPoolImpl;
 import org.tools4j.mmap.mapping.impl.NullMapping;
+import org.tools4j.mmap.mapping.impl.OpenModes;
 import org.tools4j.mmap.mapping.impl.RegionMappingImpl;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FileMappers;
@@ -47,6 +48,9 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLeng
  * <p>
  * Unless noted otherwise, all method arguments are required; passing {@code null} for any reference-type argument
  * results in a {@link NullPointerException}.
+ * <p>
+ * Methods mapping a file throw an {@link IllegalArgumentException} if the file cannot be opened as defined by the
+ * given {@link OpenMode}, for instance if it must exist but does not.
  */
 public enum Mappings {
     ;
@@ -63,11 +67,11 @@ public enum Mappings {
      * Creates a fixed mapping over the whole of the specified file, with a length determined by the actual file size.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @return a new fixed mapping covering the whole file
      */
-    public static FixedMapping fixedMapping(final File file, final AccessMode accessMode) {
-        return fixedMapping(file, accessMode, 0L);
+    public static FixedMapping fixedMapping(final File file, final OpenMode openMode) {
+        return fixedMapping(file, openMode, 0L);
     }
 
     /**
@@ -75,34 +79,40 @@ public enum Mappings {
      * determined by the actual file size.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param offset     the start offset in the file
      * @return a new fixed mapping from the offset to the end of the file
      */
     public static FixedMapping fixedMapping(final File file,
-                                            final AccessMode accessMode,
+                                            final OpenMode openMode,
                                             final long offset) {
-        return fixedMapping(file, accessMode, offset, -1);
+        return fixedMapping(file, openMode, offset, -1);
     }
 
     /**
      * Creates a fixed mapping over the specified slice of the given file.
+     * <p>
+     * The file is mapped immediately, hence it must exist when opened for reading only, also with
+     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param offset     the start offset in the file
      * @param length     the length of the mapped slice, or -1 to map from offset to the actual end of the file
      * @return a new fixed mapping for the specified file slice
      * @throws IllegalArgumentException if the resulting mapping length exceeds the integer range
+     * @throws IllegalStateException if the file cannot be mapped, for instance if it does not exist with
+     *                               {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}
      */
     public static FixedMapping fixedMapping(final File file,
-                                            final AccessMode accessMode,
+                                            final OpenMode openMode,
                                             final long offset,
                                             final int length) {
+        OpenModes.apply(file, openMode, false);
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
-        final FileInitialiser initialiser = FileInitialiser.zeroBytes(accessMode, offset, fileSize);
-        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, accessMode, initialiser);
+        final FileInitialiser initialiser = FileInitialiser.minLength(fileSize);
+        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), initialiser);
         return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
@@ -111,7 +121,7 @@ public enum Mappings {
      * the returned mapping also closes the given file mapper.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code fixedMapping} factory methods instead.
      *
@@ -131,7 +141,7 @@ public enum Mappings {
      * Creates a fixed mapping over the specified slice of the file already mapped by the given file mapper.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code fixedMapping} factory methods instead.
      *
@@ -153,40 +163,41 @@ public enum Mappings {
      * Creates a region mapping for the specified file using default mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @return a new region mapping for the given file
      * @see MappingConfig#getDefault()
      */
-    public static RegionMapping regionMapping(final File file, final AccessMode accessMode) {
-        return regionMapping(file, accessMode, MappingConfig.getDefault());
+    public static RegionMapping regionMapping(final File file, final OpenMode openMode) {
+        return regionMapping(file, openMode, MappingConfig.getDefault());
     }
 
     /**
      * Creates a region mapping for the specified file using the given mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param config     the mapping configuration to use
      * @return a new region mapping for the given file
      */
-    public static RegionMapping regionMapping(final File file, final AccessMode accessMode, final MappingConfig config) {
-        return regionMapping(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
+    public static RegionMapping regionMapping(final File file, final OpenMode openMode, final MappingConfig config) {
+        return regionMapping(file, openMode, FileInitialiser.none(), config);
     }
 
     /**
      * Creates a region mapping for the specified file using the given file initialiser and mapping configuration.
      *
      * @param file            the file to map
-     * @param accessMode      the access mode to open the file with
+     * @param openMode        the mode to open the file with
      * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
      * @param config          the mapping configuration to use
      * @return a new region mapping for the given file
      */
     public static RegionMapping regionMapping(final File file,
-                                              final AccessMode accessMode,
+                                              final OpenMode openMode,
                                               final FileInitialiser fileInitialiser,
                                               final MappingConfig config) {
-        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        OpenModes.apply(file, openMode, config.rollFiles());
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
         return regionMapping(regionMapper, true);
     }
@@ -196,7 +207,7 @@ public enum Mappings {
      * region mapper if {@code closeRegionMapperOnClose} is true.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code regionMapping} factory methods instead.
      *
@@ -213,42 +224,43 @@ public enum Mappings {
      * Creates an elastic mapping for the specified file using default mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @return a new elastic mapping for the given file
      * @see MappingConfig#getDefault()
      */
-    public static ElasticMapping elasticMapping(final File file, final AccessMode accessMode) {
-        return elasticMapping(file, accessMode, MappingConfig.getDefault());
+    public static ElasticMapping elasticMapping(final File file, final OpenMode openMode) {
+        return elasticMapping(file, openMode, MappingConfig.getDefault());
     }
 
     /**
      * Creates an elastic mapping for the specified file using the given mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param config     the mapping configuration to use
      * @return a new elastic mapping for the given file
      */
     public static ElasticMapping elasticMapping(final File file,
-                                                final AccessMode accessMode,
+                                                final OpenMode openMode,
                                                 final MappingConfig config) {
-        return elasticMapping(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
+        return elasticMapping(file, openMode, FileInitialiser.none(), config);
     }
 
     /**
      * Creates an elastic mapping for the specified file using the given file initialiser and mapping configuration.
      *
      * @param file            the file to map
-     * @param accessMode      the access mode to open the file with
+     * @param openMode        the mode to open the file with
      * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
      * @param config          the mapping configuration to use
      * @return a new elastic mapping for the given file
      */
     public static ElasticMapping elasticMapping(final File file,
-                                                final AccessMode accessMode,
+                                                final OpenMode openMode,
                                                 final FileInitialiser fileInitialiser,
                                                 final MappingConfig config) {
-        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        OpenModes.apply(file, openMode, config.rollFiles());
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
         return elasticMapping(regionMapper, true);
     }
@@ -258,7 +270,7 @@ public enum Mappings {
      * given region mapper if {@code closeRegionMapperOnClose} is true.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code elasticMapping} factory methods instead.
      *
@@ -276,42 +288,43 @@ public enum Mappings {
      * Creates an adaptive mapping for the specified file using default mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @return a new adaptive mapping for the given file
      * @see MappingConfig#getDefault()
      */
-    public static AdaptiveMapping adaptiveMapping(final File file, final AccessMode accessMode) {
-        return adaptiveMapping(file, accessMode, MappingConfig.getDefault());
+    public static AdaptiveMapping adaptiveMapping(final File file, final OpenMode openMode) {
+        return adaptiveMapping(file, openMode, MappingConfig.getDefault());
     }
 
     /**
      * Creates an adaptive mapping for the specified file using the given mapping configuration.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param config     the mapping configuration to use
      * @return a new adaptive mapping for the given file
      */
     public static AdaptiveMapping adaptiveMapping(final File file,
-                                                  final AccessMode accessMode,
+                                                  final OpenMode openMode,
                                                   final MappingConfig config) {
-        return adaptiveMapping(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config);
+        return adaptiveMapping(file, openMode, FileInitialiser.none(), config);
     }
 
     /**
      * Creates an adaptive mapping for the specified file using the given file initialiser and mapping configuration.
      *
      * @param file            the file to map
-     * @param accessMode      the access mode to open the file with
+     * @param openMode        the mode to open the file with
      * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
      * @param config          the mapping configuration to use
      * @return a new adaptive mapping for the given file
      */
     public static AdaptiveMapping adaptiveMapping(final File file,
-                                                  final AccessMode accessMode,
+                                                  final OpenMode openMode,
                                                   final FileInitialiser fileInitialiser,
                                                   final MappingConfig config) {
-        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        OpenModes.apply(file, openMode, config.rollFiles());
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
         return adaptiveMapping(regionMapper, true);
     }
@@ -321,7 +334,7 @@ public enum Mappings {
      * given region mapper if {@code closeRegionMapperOnClose} is true.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code adaptiveMapping} factory methods instead.
      *
@@ -340,13 +353,13 @@ public enum Mappings {
      * size.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @return a new mapping pool for the given file
      * @see MappingConfig#getDefault()
      * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
-    public static MappingPool mappingPool(final File file, final AccessMode accessMode) {
-        return mappingPool(file, accessMode, MappingConfig.getDefault());
+    public static MappingPool mappingPool(final File file, final OpenMode openMode) {
+        return mappingPool(file, openMode, MappingConfig.getDefault());
     }
 
     /**
@@ -354,22 +367,22 @@ public enum Mappings {
      * pool size.
      *
      * @param file       the file to map
-     * @param accessMode the access mode to open the file with
+     * @param openMode   the mode to open the file with
      * @param config     the mapping configuration to use
      * @return a new mapping pool for the given file
      * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
     public static MappingPool mappingPool(final File file,
-                                          final AccessMode accessMode,
+                                          final OpenMode openMode,
                                           final MappingConfig config) {
-        return mappingPool(file, accessMode, config, defaultInitialMappingPoolSize());
+        return mappingPool(file, openMode, config, defaultInitialMappingPoolSize());
     }
 
     /**
      * Creates a mapping pool for the specified file using the given mapping configuration and initial pool size.
      *
      * @param file            the file to map
-     * @param accessMode      the access mode to open the file with
+     * @param openMode        the mode to open the file with
      * @param config          the mapping configuration to use
      * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
      *                        for its internal tracking structures (mappings themselves are still created lazily,
@@ -377,10 +390,10 @@ public enum Mappings {
      * @return a new mapping pool for the given file
      */
     public static MappingPool mappingPool(final File file,
-                                          final AccessMode accessMode,
+                                          final OpenMode openMode,
                                           final MappingConfig config,
                                           final int initialPoolSize) {
-        return mappingPool(file, accessMode, FileInitialiser.zeroBytes(accessMode, 0), config, initialPoolSize);
+        return mappingPool(file, openMode, FileInitialiser.none(), config, initialPoolSize);
     }
 
     /**
@@ -388,7 +401,7 @@ public enum Mappings {
      * initial pool size.
      *
      * @param file            the file to map
-     * @param accessMode      the access mode to open the file with
+     * @param openMode        the mode to open the file with
      * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
      * @param config          the mapping configuration to use
      * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
@@ -397,11 +410,12 @@ public enum Mappings {
      * @return a new mapping pool for the given file
      */
     public static MappingPool mappingPool(final File file,
-                                          final AccessMode accessMode,
+                                          final OpenMode openMode,
                                           final FileInitialiser fileInitialiser,
                                           final MappingConfig config,
                                           final int initialPoolSize) {
-        final FileMapper fileMapper = FileMappers.create(file, accessMode, fileInitialiser, config);
+        OpenModes.apply(file, openMode, config.rollFiles());
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
         return mappingPool(regionMapper, initialPoolSize);
     }
@@ -410,7 +424,7 @@ public enum Mappings {
      * Creates a mapping pool backed by the given region mapper, sized for the specified expected number of mappings.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link AccessMode}-based
+     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
      * {@code mappingPool} factory methods instead.
      *

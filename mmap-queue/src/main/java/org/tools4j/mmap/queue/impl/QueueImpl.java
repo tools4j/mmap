@@ -37,6 +37,7 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.IdPool;
 import org.tools4j.mmap.mapping.impl.IdPool256;
@@ -65,23 +66,13 @@ public final class QueueImpl implements Queue {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final java.util.Queue<AutoCloseable> closeables = new ConcurrentLinkedQueue<>();
 
-    public QueueImpl(final File file) {
-        this(file, QueueConfig.getDefault());
-    }
-
-    public QueueImpl(final File file, final QueueConfig queueConfig) {
-        final AccessMode accessMode = queueConfig.accessMode();
+    public QueueImpl(final File file, final OpenMode openMode, final QueueConfig queueConfig) {
         final int maxAppenders = queueConfig.maxAppenders();
         this.files = new QueueFiles(file, maxAppenders);
         this.config = queueConfig.toImmutableQueueConfig();
-        if (accessMode == AccessMode.READ_WRITE_CLEAR) {
-            deleteQueueFiles();
-        }
-        if (!file.exists() && accessMode != AccessMode.READ_ONLY) {
-            createQueueDir(file);
-        }
+        openQueueDir(file, openMode);
 
-        final IdPool idPool = open(idPool(files, maxAppenders));
+        final IdPool idPool = openMode.accessMode() == AccessMode.READ_ONLY ? null : open(idPool(files, maxAppenders));
         this.pollerFactory = pollerConfig -> open(new PollerImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, config, pollerConfig)
@@ -97,7 +88,7 @@ public final class QueueImpl implements Queue {
         this.indexReaderFactory = indReaderConfig -> open(new IndexReaderImpl(
                 queueNameIfNotClosed(), IndexMappings.create(files, config, indReaderConfig)
         ));
-        this.appenderFactory = accessMode == AccessMode.READ_ONLY ?
+        this.appenderFactory = idPool == null ?
                 appenderConfig -> {throw new IllegalStateException(
                         "Cannot open appender in read-only mode for queue " + queueNameIfNotClosed());
                 } :
@@ -108,6 +99,37 @@ public final class QueueImpl implements Queue {
                 ));
     }
 
+    private void openQueueDir(final File file, final OpenMode openMode) {
+        final boolean exists = file.isDirectory();
+        switch (openMode) {
+            case READ_ONLY, READ_WRITE -> {
+                if (!exists) {
+                    throw new IllegalArgumentException("Queue does not exist: " + file);
+                }
+            }
+            case READ_ONLY_LAZY -> {}
+            case CREATE -> {
+                if (exists) {
+                    throw new IllegalArgumentException("Queue already exists: " + file);
+                }
+                createQueueDir(file);
+            }
+            case OPEN_OR_CREATE -> {
+                if (!exists) {
+                    createQueueDir(file);
+                }
+            }
+            case RECREATE -> {
+                if (exists) {
+                    deleteQueueFiles();
+                } else {
+                    createQueueDir(file);
+                }
+            }
+            default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
+        }
+    }
+
     private void deleteQueueFiles() {
         for (final File file : files.listFiles()) {
             final boolean deleted = file.delete();
@@ -115,8 +137,9 @@ public final class QueueImpl implements Queue {
         }
     }
 
-    private void createQueueDir(final File file) {
-        if (!file.mkdir()) {
+    private static void createQueueDir(final File file) {
+        //NOTE: a concurrent creator may have created it in the meantime
+        if (!file.mkdir() && !file.isDirectory()) {
             throw new IllegalArgumentException("Parent directory does not exist: " + file);
         }
     }

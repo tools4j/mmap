@@ -26,9 +26,9 @@ package org.tools4j.mmap.mapping.impl;
 import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
 
@@ -50,7 +50,7 @@ public class IdPool64 implements IdPool {
     private final Mapping mapping;
 
     public IdPool64(final File file) {
-        this(file.getPath(), Mappings.fixedMapping(file, AccessMode.READ_WRITE, 0L, FILE_SIZE));
+        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE));
     }
 
     public IdPool64(final String name, final Mapping mapping) {

@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.Constraints;
@@ -52,8 +51,6 @@ public enum QueueConfigurations {
 
     public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
     public static final int MAX_APPENDERS_DEFAULT = IdPool64.MAX_IDS;
-    public static final String ACCESS_MODE_PROPERTY = "mmap.queue.accessMode";
-    public static final AccessMode ACCESS_MODE_DEFAULT = AccessMode.READ_WRITE;
     public static final String MIN_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.minHeaderFileSize";
     public static final long MIN_HEADER_FILE_SIZE_DEFAULT = 16*1024*1024L;
     public static final String MIN_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.minPayloadFileSize";
@@ -157,10 +154,6 @@ public enum QueueConfigurations {
 
     public static int defaultMaxAppenders() {
         return getIntProperty(MAX_APPENDERS_PROPERTY, Constraints::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
-    }
-
-    public static AccessMode defaultAccessMode() {
-        return getEnumProperty(ACCESS_MODE_PROPERTY, AccessMode.class, ACCESS_MODE_DEFAULT);
     }
 
     public static long defaultMinHeaderFileSize() {

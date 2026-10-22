@@ -71,7 +71,7 @@ class PollerTest {
 
     @Test
     void seekNegativeIndexThrows() {
-        try (final Queue queue = Queue.create(queueDir);
+        try (final Queue queue = Queue.open(queueDir);
              final Poller poller = queue.createPoller()) {
             assertThatThrownBy(() -> poller.seek(Index.NULL)).isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> poller.seek(-5)).isInstanceOf(IllegalArgumentException.class);
@@ -82,7 +82,7 @@ class PollerTest {
 
     @Test
     void seekNonNegativeIndexSetsNextIndex() {
-        try (final Queue queue = Queue.create(queueDir);
+        try (final Queue queue = Queue.open(queueDir);
              final Poller poller = queue.createPoller()) {
             poller.seek(5);
             assertThat(poller.nextIndex()).isEqualTo(5);
@@ -97,7 +97,7 @@ class PollerTest {
 
     @Test
     void pollReturnsPendingOpenForMissingHeaderFile() {
-        try (final Queue queue = Queue.create(queueDir);
+        try (final Queue queue = Queue.open(queueDir);
              final Poller poller = queue.createPoller()) {
             assertThat(poller.poll((index, buffer, offset, length) -> Move.NEXT)).isEqualTo(Poller.PENDING_OPEN);
             assertThat(poller.poll((index, buffer, offset, length) -> Move.NEXT)).isEqualTo(Poller.PENDING_OPEN);
@@ -121,7 +121,7 @@ class PollerTest {
 
     @Test
     void pollReturnsHandlerErrorAndRedeliversEntry() {
-        try (final Queue queue = Queue.create(queueDir);
+        try (final Queue queue = Queue.open(queueDir);
              final Appender appender = queue.createAppender();
              final Poller poller = queue.createPoller()) {
             appender.append(new byte[]{1});
@@ -149,7 +149,7 @@ class PollerTest {
 
     @Test
     void pollReturnsUnknownErrorIfPayloadCannotBeMapped() throws IOException {
-        try (final Queue queue = Queue.create(queueDir)) {
+        try (final Queue queue = Queue.open(queueDir)) {
             try (final Appender appender = queue.createAppender()) {
                 appender.append(new byte[]{1});
             }
@@ -190,7 +190,7 @@ class PollerTest {
     }
 
     private void pollReturnsPendingOpenForHeaderFileOfLength(final int length) throws IOException {
-        try (final Queue queue = Queue.create(queueDir)) {
+        try (final Queue queue = Queue.open(queueDir)) {
             final File headerFile = new QueueFiles(queueDir, QueueConfig.getDefault().maxAppenders()).headerFile();
             //write both the plain and the first rolled header file, so the test works with or without file rolling
             final String rolledName = headerFile.getName().replace(".mmq", "_0.mmq");

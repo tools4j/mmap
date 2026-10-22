@@ -23,10 +23,8 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.mapping.api.AccessMode;
 
 public interface QueueConfig {
-    AccessMode accessMode();
     int maxAppenders();
     long minHeaderFileSize();
     long maxHeaderFileSize();

@@ -27,9 +27,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AdaptiveMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.nio.file.Path;
 
@@ -47,7 +47,7 @@ class AdaptiveMappingImplTest {
 
     @BeforeEach
     void init(@TempDir final Path tempDir) {
-        mapping = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), AccessMode.READ_WRITE);
+        mapping = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), OpenMode.OPEN_OR_CREATE);
         regionSize = mapping.regionSize();
     }
 

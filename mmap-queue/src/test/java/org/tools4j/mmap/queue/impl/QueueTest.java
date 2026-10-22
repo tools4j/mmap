@@ -27,6 +27,7 @@ import org.agrona.ExpandableDirectByteBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Entry;
@@ -103,7 +104,7 @@ class QueueTest {
     }
 
     private void appendAndPoll(final QueueConfig config) {
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "testQ"), config)) {
+        try (final Queue queue = Queue.open(new File(tempDir.toFile(), "testQ"), OpenMode.OPEN_OR_CREATE, config)) {
             try (final Appender appender = queue.createAppender();
                  final Poller poller1 = queue.createPoller();
                  final Poller poller2 = queue.createPoller()) {
@@ -171,7 +172,7 @@ class QueueTest {
     }
 
     private void appendAndRead(final QueueConfig config) {
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "testQ"), config)) {
+        try (final Queue queue = Queue.open(new File(tempDir.toFile(), "testQ"), OpenMode.OPEN_OR_CREATE, config)) {
             try (final Appender appender = queue.createAppender();
                  final EntryReader reader1 = queue.createEntryReader();
                  final EntryReader reader2 = queue.createEntryReader()) {
@@ -229,7 +230,7 @@ class QueueTest {
     private void appendAndIterate(final QueueConfig config) {
         final boolean forward = true;
         final boolean backward = false;
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "testQ"), config)) {
+        try (final Queue queue = Queue.open(new File(tempDir.toFile(), "testQ"), OpenMode.OPEN_OR_CREATE, config)) {
             try (final Appender appender = queue.createAppender();
                  final EntryIterator iterator1 = queue.createEntryIterator();
                  final EntryIterator iterator2 = queue.createEntryIterator()) {

@@ -38,12 +38,13 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Unit test for {@link FileInitialiserImpl}.
+ * Unit test for {@link MinLengthFileInitialiser}.
  */
-class FileInitialiserImplTest {
+class MinLengthFileInitialiserTest {
 
     @TempDir
     Path tempDir;
@@ -53,9 +54,9 @@ class FileInitialiserImplTest {
         final Path file = fileWithBytes(1, 2, 3, 4);
         try (final RandomAccessFile raf = new RandomAccessFile(file.toFile(), "r")) {
             final FileChannel channel = raf.getChannel();
-            assertThrows(IllegalArgumentException.class, () -> init(AccessMode.READ_ONLY, 0, 8, channel));
-            assertDoesNotThrow(() -> init(AccessMode.READ_ONLY, 0, 4, channel));
-            assertDoesNotThrow(() -> init(AccessMode.READ_ONLY, 0, 0, channel));
+            assertThrows(IllegalArgumentException.class, () -> init(AccessMode.READ_ONLY, 8, channel));
+            assertDoesNotThrow(() -> init(AccessMode.READ_ONLY, 4, channel));
+            assertDoesNotThrow(() -> init(AccessMode.READ_ONLY, 0, channel));
         }
     }
 
@@ -63,31 +64,39 @@ class FileInitialiserImplTest {
     void readWriteAppendsZeroBytesKeepingContent() throws IOException {
         final Path file = fileWithBytes(1, 2, 3, 4);
         try (final RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw")) {
-            init(AccessMode.READ_WRITE, 2, 8, raf.getChannel());
+            init(AccessMode.READ_WRITE, 8, raf.getChannel());
         }
         assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, Files.readAllBytes(file));
     }
 
     @Test
-    void readWriteClearOverwritesRangeWithZeroBytes() throws IOException {
-        final Path file = fileWithBytes(1, 2, 3, 4);
-        try (final RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw")) {
-            init(AccessMode.READ_WRITE_CLEAR, 2, 6, raf.getChannel());
-        }
-        assertArrayEquals(new byte[]{1, 2, 0, 0, 0, 0}, Files.readAllBytes(file));
-    }
-
-    @Test
-    void zeroEndIsNoOp() throws IOException {
+    void zeroLengthIsNoOp() throws IOException {
         final Path file = fileWithBytes(1, 2, 3, 4);
         for (final AccessMode mode : AccessMode.values()) {
             try (final RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw")) {
-                init(mode, 0, 0, raf.getChannel());
+                init(mode, 0, raf.getChannel());
                 assertEquals(4, raf.getChannel().size());
                 final ByteBuffer bytes = ByteBuffer.allocate(4);
                 raf.getChannel().read(bytes, 0);
                 assertArrayEquals(new byte[]{1, 2, 3, 4}, bytes.array());
             }
+        }
+    }
+
+    @Test
+    void zeroLengthIsNone() {
+        assertSame(FileInitialiser.none(), FileInitialiser.minLength(0));
+        assertThrows(IllegalArgumentException.class, () -> FileInitialiser.minLength(-1));
+    }
+
+    @Test
+    void noneLeavesFileUntouched() throws IOException {
+        final Path file = fileWithBytes(1, 2, 3, 4);
+        for (final AccessMode mode : AccessMode.values()) {
+            try (final RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw")) {
+                FileInitialiser.none().init("init.dat", raf.getChannel(), mode);
+            }
+            assertArrayEquals(new byte[]{1, 2, 3, 4}, Files.readAllBytes(file));
         }
     }
 
@@ -100,10 +109,8 @@ class FileInitialiserImplTest {
     }
 
     private static void init(final AccessMode mode,
-                             final long start,
-                             final long end,
+                             final long length,
                              final FileChannel channel) throws IOException {
-        final FileInitialiser initialiser = FileInitialiser.zeroBytes(mode, start, end);
-        initialiser.init("init.dat", channel);
+        FileInitialiser.minLength(length).init("init.dat", channel, mode);
     }
 }

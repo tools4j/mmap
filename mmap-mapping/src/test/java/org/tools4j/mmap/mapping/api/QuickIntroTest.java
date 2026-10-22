@@ -43,13 +43,13 @@ class QuickIntroTest {
         final File file = tempDir.resolve("fixed.map").toFile();
 
         //FixedMapping: maps a fixed slice of the file, here the first 64 bytes
-        try (FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_WRITE, 0, 64)) {
+        try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0, 64)) {
             mapping.buffer().putInt(0, 42);
             mapping.buffer().putInt(60, 43);
         }
 
         //without length, the mapping spans from the offset to the end of the file
-        try (FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, 60)) {
+        try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 60)) {
             assertEquals(4, mapping.bytesAvailable());
             assertEquals(43, mapping.buffer().getInt(0));
         }
@@ -60,7 +60,7 @@ class QuickIntroTest {
         final File file = tempDir.resolve("data.map").toFile();
 
         //RegionMapping: exposes a whole region of the file and is moved region by region
-        try (RegionMapping mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE)) {
+        try (RegionMapping mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE)) {
             for (int region = 0; region < 3; region++) {
                 mapping.moveToRegion(region);
                 mapping.buffer().putInt(0, 100 * region);
@@ -69,7 +69,7 @@ class QuickIntroTest {
         }
 
         //ElasticMapping: can be moved to any position, its buffer spans to the end of the region
-        try (ElasticMapping mapping = Mappings.elasticMapping(file, AccessMode.READ_ONLY)) {
+        try (ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.READ_ONLY)) {
             mapping.moveTo(2L * mapping.regionSize());
             assertEquals(200, mapping.buffer().getInt(0));
             mapping.moveBy(4);
@@ -77,7 +77,7 @@ class QuickIntroTest {
         }
 
         //AdaptiveMapping: maps an arbitrary slice of the underlying file from one region
-        try (AdaptiveMapping mapping = Mappings.adaptiveMapping(file, AccessMode.READ_ONLY)) {
+        try (AdaptiveMapping mapping = Mappings.adaptiveMapping(file, OpenMode.READ_ONLY)) {
             int readLength = 8;
             mapping.moveTo(2L * mapping.regionSize(), readLength);//buffer capped at size 8
             assertEquals(200, mapping.buffer().getInt(0));
@@ -85,7 +85,7 @@ class QuickIntroTest {
         }
 
         //MappingPool: mappings from the same pool share mapped regions (one pool per thread)
-        try (MappingPool pool = Mappings.mappingPool(file, AccessMode.READ_ONLY)) {
+        try (MappingPool pool = Mappings.mappingPool(file, OpenMode.READ_ONLY)) {
             ElasticMapping elastic = pool.acquireElasticMapping();
             AdaptiveMapping adaptive = pool.acquireAdaptiveMapping();
             elastic.moveToFirstRegion();
@@ -105,13 +105,13 @@ class QuickIntroTest {
                 .mappingStrategy(cfg -> cfg.asyncMapping(true).regionSize(1 << 16));
         final File file = tempDir.resolve("rolling.map").toFile();//creates rolling_0.map, rolling_1.map, ...
 
-        try (var mapping = Mappings.regionMapping(file, AccessMode.READ_WRITE, config)) {
+        try (var mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, config)) {
             for (int region = 0; region < 64; region++) {
                 mapping.moveToRegion(region);
                 mapping.buffer().putInt(0, region);
             }
         }
-        try (var mapping = Mappings.regionMapping(file, AccessMode.READ_ONLY, config)) {
+        try (var mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY, config)) {
             mapping.moveToRegion(63);
             assertEquals(63, mapping.buffer().getInt(0));
         }

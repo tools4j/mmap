@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.impl.AtomicArray;
+import org.tools4j.mmap.mapping.impl.RollingFiles;
 import org.tools4j.mmap.mapping.impl.ConcurrentLruCache;
 
 import java.io.File;
@@ -172,17 +173,9 @@ public final class ConcurrentRollingFileMapper {
     }
 
     private File fileForIndex(final int index) {
-        return fileForIndex(baseFile, index);
+        return RollingFiles.fileForIndex(baseFile, index);
     }
 
-    private static File fileForIndex(final File baseFile, final int index) {
-        final String name = baseFile.getName();
-        final int dotIndex = name.lastIndexOf('.');
-        final int nameEnd = dotIndex < 0 ? name.length() : dotIndex;
-        final String ending = dotIndex < 0 ? "" : name.substring(dotIndex);
-        final String prefix = name.substring(0, nameEnd);
-        return new File(baseFile.getParentFile(), prefix + "_" + index + ending);
-    }
 
     private FileMapper fileMapperForIndex(final int index) {
         final File file = getOrCreateFile(index);

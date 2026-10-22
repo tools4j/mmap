@@ -25,10 +25,10 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 
 import static java.util.Objects.requireNonNull;
@@ -53,8 +53,8 @@ interface IndexMappings {
         final MappingConfig headerCfg = headerMappingConfig(
                 queueConfig.toImmutableQueueConfig(), indexReaderConfig.toImmutableIndexReaderConfig()
         );
-        return Mappings.elasticMapping(queueFiles.headerFile(), AccessMode.READ_ONLY,
-                FileInitialiser.zeroBytes(AccessMode.READ_ONLY, Headers.HEADER_LENGTH), headerCfg);
+        return Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY,
+                FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
     }
 
 }

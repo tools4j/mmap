@@ -30,57 +30,52 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 
-import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
 
 /**
- * File initialiser that ensures a minimum file length by appending or overwriting zero bytes, depending on the
- * access mode.
+ * File initialiser that ensures a minimum file length, by appending zero bytes for read/write access, or by validating
+ * the file length for read-only access. A minimum length of zero results in a no-op initialiser.
  *
- * @see FileInitialiser#zeroBytes(AccessMode, long, long)
+ * @see FileInitialiser#minLength(long)
  */
-public final class FileInitialiserImpl implements FileInitialiser {
-    private final AccessMode accessMode;
-    private final long start;
-    private final long end;
+public final class MinLengthFileInitialiser implements FileInitialiser {
+    public static final MinLengthFileInitialiser NONE = new MinLengthFileInitialiser(0);
 
-    public FileInitialiserImpl(final AccessMode accessMode, final long start, final long end) {
-        requireNonNull(accessMode);
-        validateNonNegative("start", start);
-        validateNonNegative("end", end);
-        this.accessMode = accessMode;
-        this.start = start;
-        this.end = end;
+    private final long length;
+
+    public MinLengthFileInitialiser(final long length) {
+        validateNonNegative("length", length);
+        this.length = length;
     }
 
     @Override
-    public void init(final String fileName, final FileChannel fileChannel) throws IOException {
-        if (end <= 0) {
+    public void init(final String fileName, final FileChannel fileChannel, final AccessMode accessMode)
+            throws IOException {
+        if (length <= 0) {
             return;
         }
         switch (accessMode) {
             case READ_ONLY -> validateMinSize(fileName, fileChannel);
             case READ_WRITE -> appendZeroBytes(fileChannel);
-            case READ_WRITE_CLEAR -> overwriteWithZeroBytes(fileChannel);
         }
     }
 
     private void validateMinSize(final String fileName, final FileChannel fileChannel) throws IOException {
         final long size = fileChannel.size();
-        if (size < end) {
-            throw new IllegalArgumentException("Invalid file, expected file of size at least " + end +
+        if (size < length) {
+            throw new IllegalArgumentException("Invalid file, expected file of size at least " + length +
                     " but found only " + size + ": " + fileName);
         }
     }
 
     private void appendZeroBytes(final FileChannel fileChannel) throws IOException {
-        if (fileChannel.size() >= end) {
+        if (fileChannel.size() >= length) {
             return;
         }
         final FileLock lock = FileLocks.acquireLock(fileChannel);
         try {
             final long position = fileChannel.size();
-            final long count = end - position;
+            final long count = length - position;
             if (count > 0) {
                 fileChannel.transferFrom(InitialBytes.ZERO, position, count);
                 fileChannel.force(true);
@@ -90,19 +85,8 @@ public final class FileInitialiserImpl implements FileInitialiser {
         }
     }
 
-    private void overwriteWithZeroBytes(final FileChannel fileChannel) throws IOException {
-        final FileLock lock = FileLocks.acquireLock(fileChannel);
-        try {
-            final long position = Math.min(start, fileChannel.size());
-            fileChannel.transferFrom(InitialBytes.ZERO, position, end - position);
-            fileChannel.force(true);
-        } finally {
-            lock.release();
-        }
-    }
-
     @Override
     public String toString() {
-        return "FileInitialiserImpl:accessMode=" + accessMode + "|start=" + start + "|end=" + end;
+        return "MinLengthFileInitialiser:length=" + length;
     }
 }

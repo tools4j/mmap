@@ -32,6 +32,7 @@ import org.tools4j.mmap.mapping.api.AdaptiveMapping;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.MappingPool;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -61,7 +62,7 @@ class MappingPoolImplTest {
                 .maxFileSize(4L * REGION_SIZE)
                 .mappingStrategy(MappingStrategyConfig.configure(MappingStrategyConfig.getDefaultSync())
                         .regionSize(REGION_SIZE));
-        pool = Mappings.mappingPool(tempDir.resolve("pool.map").toFile(), AccessMode.READ_WRITE, config, 4);
+        pool = Mappings.mappingPool(tempDir.resolve("pool.map").toFile(), OpenMode.OPEN_OR_CREATE, config, 4);
     }
 
     @AfterEach

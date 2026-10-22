@@ -51,8 +51,8 @@ class RollingFileMapperTest {
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final int REGIONS_PER_FILE = 2;
     private static final long MAX_FILE_SIZE = (long) REGIONS_PER_FILE * REGION_SIZE;
-    private static final FileInitialiser READ_WRITE_INITIALISER = FileInitialiser.zeroBytes(AccessMode.READ_WRITE, 0);
-    private static final FileInitialiser READ_ONLY_INITIALISER = FileInitialiser.zeroBytes(AccessMode.READ_ONLY, 0);
+    private static final FileInitialiser READ_WRITE_INITIALISER = FileInitialiser.none();
+    private static final FileInitialiser READ_ONLY_INITIALISER = FileInitialiser.none();
 
     @TempDir
     Path tempDir;

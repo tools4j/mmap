@@ -32,14 +32,12 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAccessMode;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
@@ -52,7 +50,6 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
-    private AccessMode accessMode;
     private int maxAppenders;
     private long minHeaderFileSize;
     private long maxHeaderFileSize;
@@ -79,7 +76,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator reset() {
-        accessMode = null;
         maxAppenders = 0;
         minHeaderFileSize = -1;
         maxHeaderFileSize = 0;
@@ -94,23 +90,6 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         entryReaderConfig = null;
         entryIteratorConfig = null;
         indexReaderConfig = null;
-        return this;
-    }
-
-    @Override
-    public AccessMode accessMode() {
-        if (accessMode == null) {
-            accessMode = defaults.accessMode();
-        }
-        if (accessMode == null) {
-            accessMode = defaultAccessMode();
-        }
-        return accessMode;
-    }
-
-    @Override
-    public QueueConfigurator accessMode(final AccessMode accessMode) {
-        this.accessMode = requireNonNull(accessMode);
         return this;
     }
 
@@ -482,8 +461,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     @Override
     public String toString() {
         return "QueueConfiguratorImpl" +
-                ":accessMode=" + accessMode +
-                "|maxAppenders=" + maxAppenders +
+                ":maxAppenders=" + maxAppenders +
                 "|minHeaderFileSize=" + minHeaderFileSize +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|minPayloadFileSize=" + minPayloadFileSize +

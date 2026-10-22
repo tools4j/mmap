@@ -29,6 +29,7 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
 import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
 
@@ -124,34 +125,56 @@ public interface Queue extends Closeable {
     void close();
 
     /**
-     * Creates or opens the queue stored in the given directory, using the {@link QueueConfig#getDefault() default}
-     * queue configuration.
+     * Opens the queue stored in the given directory, or creates it if it does not exist, using the
+     * {@link QueueConfig#getDefault() default} queue configuration.
      *
      * @param directory the queue directory
      * @return a new queue instance
-     * @throws IllegalArgumentException if the directory has to be created but its parent directory does not exist
-     * @see #create(File, QueueConfig)
+     * @throws IllegalArgumentException if the queue has to be created but the parent directory does not exist
+     * @see #open(File, OpenMode, QueueConfig)
      */
-    static Queue create(final File directory) {
-        return new QueueImpl(directory);
+    static Queue open(final File directory) {
+        return open(directory, OpenMode.OPEN_OR_CREATE);
     }
 
     /**
-     * Creates or opens the queue stored in the given directory, using the given queue configuration.
-     * <p>
-     * The queue files are created inside the directory and are named after it, e.g. {@code <dir>/<dir>_hdr.mmq}.
-     * Unless the configured {@link QueueConfig#accessMode() access mode} is
-     * {@link org.tools4j.mmap.mapping.api.AccessMode#READ_ONLY READ_ONLY}, the directory is created if it does not
-     * exist; its parent directory must exist. With
-     * {@link org.tools4j.mmap.mapping.api.AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}, existing queue files are
-     * deleted first.
+     * Opens or creates the queue stored in the given directory as defined by the open mode, using the
+     * {@link QueueConfig#getDefault() default} queue configuration.
      *
      * @param directory the queue directory
+     * @param openMode  the mode to open the queue with
+     * @return a new queue instance
+     * @throws IllegalArgumentException if the queue cannot be opened as defined by the open mode
+     * @see #open(File, OpenMode, QueueConfig)
+     */
+    static Queue open(final File directory, final OpenMode openMode) {
+        return open(directory, openMode, QueueConfig.getDefault());
+    }
+
+    /**
+     * Opens or creates the queue stored in the given directory as defined by the open mode, using the given queue
+     * configuration:
+     * <ul>
+     *     <li>{@link OpenMode#READ_ONLY READ_ONLY}, {@link OpenMode#READ_WRITE READ_WRITE}: the queue must exist</li>
+     *     <li>{@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}: the queue may not exist yet; readers see entries once
+     *         the queue is created and they are appended</li>
+     *     <li>{@link OpenMode#CREATE CREATE}: the queue must not exist, and is created</li>
+     *     <li>{@link OpenMode#OPEN_OR_CREATE OPEN_OR_CREATE}: the queue is opened if it exists, and created
+     *         otherwise</li>
+     *     <li>{@link OpenMode#RECREATE RECREATE}: the queue is deleted if it exists, and created again</li>
+     * </ul>
+     * A queue exists once it has been created, even if it is still empty. Creating a queue creates its directory if
+     * necessary, which requires the parent directory to exist. The queue files are stored inside the directory and are
+     * named after it, e.g. {@code <dir>/<dir>_hdr.mmq}.
+     *
+     * @param directory the queue directory
+     * @param openMode  the mode to open the queue with
      * @param config    the queue configuration
      * @return a new queue instance
-     * @throws IllegalArgumentException if the directory has to be created but its parent directory does not exist
+     * @throws IllegalArgumentException if the queue cannot be opened as defined by the open mode, for instance if it
+     *                                  must exist but does not, or if the parent directory does not exist
      */
-    static Queue create(final File directory, final QueueConfig config) {
-        return new QueueImpl(directory, config);
+    static Queue open(final File directory, final OpenMode openMode, final QueueConfig config) {
+        return new QueueImpl(directory, openMode, config);
     }
 }

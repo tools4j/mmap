@@ -25,9 +25,9 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FixedMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,26 +54,32 @@ class FixedMappingImplTest {
     void readOnlyFileTooShortThrowsIllegalArgumentException() throws IOException {
         final File file = Files.write(tempDir.resolve("short.dat"), new byte[4]).toFile();
         final IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-                () -> Mappings.fixedMapping(file, AccessMode.READ_ONLY, 0, 8));
+                () -> Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8));
         assertTrue(e.getMessage().contains("expected file of size at least 8"), e.getMessage());
     }
 
     @Test
     void readOnlyFileEmptyThrowsIllegalStateException() throws IOException {
         final File file = Files.write(tempDir.resolve("empty.dat"), new byte[0]).toFile();
-        assertThrows(IllegalStateException.class, () -> Mappings.fixedMapping(file, AccessMode.READ_ONLY, 0, 8));
+        assertThrows(IllegalStateException.class, () -> Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8));
     }
 
     @Test
-    void readOnlyFileMissingThrowsIllegalStateException() {
+    void readOnlyFileMissingThrowsIllegalArgumentException() {
         final File file = tempDir.resolve("missing.dat").toFile();
-        assertThrows(IllegalStateException.class, () -> Mappings.fixedMapping(file, AccessMode.READ_ONLY, 0, 8));
+        assertThrows(IllegalArgumentException.class, () -> Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8));
+    }
+
+    @Test
+    void readOnlyLazyFileMissingThrowsIllegalStateExceptionAsFixedMappingIsMappedImmediately() {
+        final File file = tempDir.resolve("missing.dat").toFile();
+        assertThrows(IllegalStateException.class, () -> Mappings.fixedMapping(file, OpenMode.READ_ONLY_LAZY, 0, 8));
     }
 
     @Test
     void readOnlyFileLongEnoughIsMapped() throws IOException {
         final File file = Files.write(tempDir.resolve("ok.dat"), new byte[]{1, 2, 3, 4, 5, 6, 7, 8}).toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, 0, 8)) {
+        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8)) {
             assertEquals(8, mapping.bytesAvailable());
             assertEquals(8, mapping.buffer().getByte(7));
         }
@@ -88,7 +94,7 @@ class FixedMappingImplTest {
         }
         final File file = Files.write(tempDir.resolve("unaligned.dat"), bytes).toFile();
         for (final int offset : new int[]{1, 7, granularity - 1, granularity + 3, 2 * granularity + 15}) {
-            try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_ONLY, offset, 1)) {
+            try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, offset, 1)) {
                 assertEquals(offset, mapping.position(), "offset=" + offset);
                 assertEquals(1, mapping.bytesAvailable(), "offset=" + offset);
                 assertEquals(bytes[offset], mapping.buffer().getByte(0), "offset=" + offset);
@@ -100,7 +106,7 @@ class FixedMappingImplTest {
     void readWriteAtUnalignedOffsetWritesToFilePosition() throws IOException {
         final int offset = (int) REGION_SIZE_GRANULARITY + 5;
         final File file = tempDir.resolve("unaligned.map").toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, AccessMode.READ_WRITE, offset, 8)) {
+        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, offset, 8)) {
             assertEquals(8, mapping.bytesAvailable());
             mapping.buffer().putLong(0, 0x0102030405060708L);
         }

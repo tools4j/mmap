@@ -183,7 +183,7 @@ final class FileChannelProvider implements Closeable {
     private FileChannel initChannel(final RandomAccessFile raf) {
         final FileChannel channel = raf.getChannel();
         try {
-            fileInitialiser.init(file.getName(), channel);
+            fileInitialiser.init(file.getName(), channel, accessMode);
         } catch (final IOException e) {
             close("channel", channel);
             close("raf", raf);

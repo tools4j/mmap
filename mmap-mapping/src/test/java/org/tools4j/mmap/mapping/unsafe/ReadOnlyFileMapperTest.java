@@ -49,7 +49,7 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 class ReadOnlyFileMapperTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
-    private static final FileInitialiser INITIALISER = FileInitialiser.zeroBytes(AccessMode.READ_ONLY, 0);
+    private static final FileInitialiser INITIALISER = FileInitialiser.none();
 
     @TempDir
     Path tempDir;

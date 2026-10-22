@@ -57,9 +57,9 @@ class DynamicMappingDefaultMethodsTest {
                 .rollFiles(false)
                 .maxFileSize((long) REGIONS * REGION_SIZE)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync());
-        region = Mappings.regionMapping(tempDir.resolve("region.map").toFile(), AccessMode.READ_WRITE, config);
-        elastic = Mappings.elasticMapping(tempDir.resolve("elastic.map").toFile(), AccessMode.READ_WRITE, config);
-        adaptive = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), AccessMode.READ_WRITE, config);
+        region = Mappings.regionMapping(tempDir.resolve("region.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
+        elastic = Mappings.elasticMapping(tempDir.resolve("elastic.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
+        adaptive = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
     }
 
     @AfterEach

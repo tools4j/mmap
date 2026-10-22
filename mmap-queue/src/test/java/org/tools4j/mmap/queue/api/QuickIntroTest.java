@@ -45,7 +45,7 @@ class QuickIntroTest {
     @SuppressWarnings({"ControlFlowStatementWithoutBraces", "StatementWithEmptyBody"})
     void appendAndRead(@TempDir final Path tempDir) {
         final File directory = tempDir.resolve("myQueue").toFile();
-        try (final Queue queue = Queue.create(directory)) {
+        try (final Queue queue = Queue.open(directory)) {
 
             //append: copy from a byte array or buffer, or encode in place (zero-copy) and commit
             final Appender appender = queue.createAppender();

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
@@ -79,7 +80,7 @@ public class QueueLatencyTest {
             tempDir = Files.createTempDirectory(QueueLatencyTest.class.getSimpleName());
             tempDir.toFile().deleteOnExit();
 
-            queue = Queue.create(new File(tempDir.toFile(), "mmap-queue"), config);
+            queue = Queue.open(new File(tempDir.toFile(), "mmap-queue"), OpenMode.OPEN_OR_CREATE, config);
 
             appender = queue.createAppender();
             poller = queue.createPoller();

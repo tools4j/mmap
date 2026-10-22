@@ -28,6 +28,7 @@ import net.openhft.affinity.AffinityThreadFactory;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -362,8 +363,8 @@ public class QueuePerf {
         final ThreadFactory threadFactory = Thread::new;
 //        final ThreadFactory threadFactory = new AffinityThreadFactory("affinity", AffinityStrategies.ANY);
 
-        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"), config)) {
-//        try (final Queue queue = Queue.create(new File(tempDir.toFile(), "perfQ"))) {
+        try (final Queue queue = Queue.open(new File(tempDir.toFile(), "perfQ"), OpenMode.OPEN_OR_CREATE, config)) {
+//        try (final Queue queue = Queue.open(new File(tempDir.toFile(), "perfQ"))) {
             LOGGER.info("Queue created: {}", queue);
 
             final Sender sender = new Sender((byte) 0, threadFactory, queue::createAppender, messagesPerSecond, messages, messageLength);

@@ -48,7 +48,6 @@ public enum FileMappers {
                 }
                 return new ReadOnlyFileMapper(file, fileInitialiser);
             case READ_WRITE:
-            case READ_WRITE_CLEAR:
                 if (config.rollFiles()) {
                     return isAsyncMapping(config)
                             ? ConcurrentRollingFileMapper.forReadWrite(file, accessMode, config, fileInitialiser)

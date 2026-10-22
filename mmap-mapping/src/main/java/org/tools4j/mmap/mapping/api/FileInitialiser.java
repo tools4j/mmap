@@ -23,60 +23,53 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.tools4j.mmap.mapping.impl.FileInitialiserImpl;
+import org.tools4j.mmap.mapping.impl.MinLengthFileInitialiser;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
 /**
- * File initialiser used to initialise a filechannel when a new file is
- * created for mapping.
+ * File initialiser invoked when a file is opened for mapping, before it is mapped, for instance to ensure or validate
+ * a minimum file length, or to write or validate a file header.
  */
 @FunctionalInterface
 public interface FileInitialiser {
 
     /**
-     * Initialise file channel
+     * Initialises the file channel, or validates the file if it is opened for reading only.
      *
-     * @param fileName file name for reference
+     * @param fileName    file name for reference
      * @param fileChannel file channel to initialise
+     * @param accessMode  the access mode the file is opened with
      * @throws IOException thrown when file channel could not be initialised.
      */
-    void init(String fileName, FileChannel fileChannel) throws IOException;
+    void init(String fileName, FileChannel fileChannel, AccessMode accessMode) throws IOException;
 
     /**
-     * Returns a file initialiser that ensures the file is at least the given length, equivalent to
-     * {@code zeroBytes(mode, 0, length)}.
+     * Returns a file initialiser that does nothing.
      *
-     * @param mode   the access mode the file is opened with
-     * @param length the minimum file length in bytes, or zero for no minimum length
-     * @return a file initialiser for the given access mode
-     * @see #zeroBytes(AccessMode, long, long)
+     * @return a no-op file initialiser
      */
-    static FileInitialiser zeroBytes(final AccessMode mode, final long length) {
-        return zeroBytes(mode, 0L, length);
+    static FileInitialiser none() {
+        return MinLengthFileInitialiser.NONE;
     }
 
     /**
-     * Returns a file initialiser that ensures the file is at least {@code end} bytes long, with behaviour depending
-     * on the access mode:
+     * Returns a file initialiser that ensures the file is at least the given length, with behaviour depending on the
+     * access mode the file is opened with:
      * <ul>
      *     <li>{@link AccessMode#READ_ONLY READ_ONLY}: throws an {@link IllegalArgumentException} if the file is
-     *         shorter than {@code end}</li>
-     *     <li>{@link AccessMode#READ_WRITE READ_WRITE}: appends zero bytes if the file is shorter than {@code end},
-     *         leaving existing content untouched</li>
-     *     <li>{@link AccessMode#READ_WRITE_CLEAR READ_WRITE_CLEAR}: overwrites the range {@code [start, end)} with zero
-     *         bytes</li>
+     *         shorter than {@code length}</li>
+     *     <li>{@link AccessMode#READ_WRITE READ_WRITE}: appends zero bytes if the file is shorter than
+     *         {@code length}, leaving existing content untouched</li>
      * </ul>
-     * File modifications are performed under a file lock. An {@code end} value of zero results in a no-op
-     * initialiser.
+     * File modifications are performed under a file lock.
      *
-     * @param mode  the access mode the file is opened with
-     * @param start the start position (inclusive) of the range to clear, only used for {@code READ_WRITE_CLEAR}
-     * @param end   the end position (exclusive), also the minimum file length in bytes
-     * @return a file initialiser for the given access mode
+     * @param length the minimum file length in bytes, or zero for no minimum length
+     * @return a file initialiser ensuring the given minimum length
+     * @throws IllegalArgumentException if length is negative
      */
-    static FileInitialiser zeroBytes(final AccessMode mode, final long start, final long end) {
-        return new FileInitialiserImpl(mode, start, end);
+    static FileInitialiser minLength(final long length) {
+        return length == 0 ? none() : new MinLengthFileInitialiser(length);
     }
 }

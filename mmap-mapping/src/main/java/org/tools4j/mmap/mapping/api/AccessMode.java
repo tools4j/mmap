@@ -29,7 +29,8 @@ import java.nio.channels.FileChannel;
 import java.util.Objects;
 
 /**
- * Defines the read/write file access mode.
+ * Defines the read/write file access mode of an open file or mapping; how a file is opened is defined by
+ * {@link OpenMode}.
  */
 public enum AccessMode {
     /**
@@ -39,11 +40,7 @@ public enum AccessMode {
     /**
      * Read/write file access.
      */
-    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE),
-    /**
-     * Same as {@link #READ_WRITE} but with re-initialization of all content on open.
-     */
-    READ_WRITE_CLEAR("rw", FileChannel.MapMode.READ_WRITE);
+    READ_WRITE("rw", FileChannel.MapMode.READ_WRITE);
 
     private final String randomAccessMode;
     private final FileChannel.MapMode mapMode;

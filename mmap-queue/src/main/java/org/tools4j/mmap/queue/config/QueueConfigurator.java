@@ -24,14 +24,12 @@
 package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
 public interface QueueConfigurator extends QueueConfig {
-    QueueConfigurator accessMode(AccessMode accessMode);
     QueueConfigurator maxAppenders(int maxAppenders);
     QueueConfigurator minHeaderFileSize(long minHeaderFileSize);
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);

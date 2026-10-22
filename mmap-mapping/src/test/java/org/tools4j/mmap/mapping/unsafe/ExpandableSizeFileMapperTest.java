@@ -48,7 +48,7 @@ class ExpandableSizeFileMapperTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final long MAX_FILE_SIZE = 8L * REGION_SIZE;
-    private static final FileInitialiser INITIALISER = FileInitialiser.zeroBytes(AccessMode.READ_WRITE, 0);
+    private static final FileInitialiser INITIALISER = FileInitialiser.none();
 
     @TempDir
     Path tempDir;

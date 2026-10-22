@@ -25,11 +25,11 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.impl.IdPool;
 
@@ -84,10 +84,10 @@ interface AppenderMappings extends Closeable {
             final int appenderId = idPool.acquire();
             final MappingConfig headerCfg = headerMappingConfig(queueCfg, appenderCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
-            final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), AccessMode.READ_WRITE,
-                    FileInitialiser.zeroBytes(AccessMode.READ_WRITE, Headers.HEADER_LENGTH), headerCfg);
+            final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.OPEN_OR_CREATE,
+                    FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
             final ElasticMapping payload = Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
-                    AccessMode.READ_WRITE, payloadCfg);
+                    OpenMode.OPEN_OR_CREATE, payloadCfg);
 
             @Override
             public int appenderId() {
