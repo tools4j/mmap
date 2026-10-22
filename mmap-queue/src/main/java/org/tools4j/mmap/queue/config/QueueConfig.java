@@ -30,6 +30,8 @@ public interface QueueConfig {
     long maxHeaderFileSize();
     long minPayloadFileSize();
     long maxPayloadFileSize();
+    int headerRegionSize();
+    int payloadRegionSize();
     boolean expandHeaderFile();
     boolean expandPayloadFiles();
     boolean rollHeaderFile();

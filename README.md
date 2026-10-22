@@ -107,7 +107,8 @@ MappingConfig config = MappingConfig.configure()
         .rollFiles(true)
         .maxFileSize(1 << 20)
         .maxOpenFiles(4)
-        .mappingStrategy(cfg -> cfg.asyncMapping(true).regionSize(1 << 16));
+        .regionSize(1 << 16)
+        .mappingStrategy(cfg -> cfg.asyncMapping(true));
 File file = new File("/tmp/rolling.map");//creates rolling_0.map, rolling_1.map, ...
 
 try (var mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, config)) {

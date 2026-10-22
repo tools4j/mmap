@@ -32,10 +32,9 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
-public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCacheSize, boolean deferUnmapping,
+public record MappingStrategyConfigImpl(int cacheSize, int lruCacheSize, boolean deferUnmapping,
                                         Optional<AsyncMappingConfig> asyncMapping,
                                         Optional<AsyncUnmappingConfig> asyncUnmapping) implements MappingStrategyConfig {
 
@@ -44,13 +43,12 @@ public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCa
     }
 
     public MappingStrategyConfigImpl(final MappingStrategyConfig toCopy) {
-        this(toCopy.regionSize(), toCopy.cacheSize(), toCopy.lruCacheSize(), toCopy.deferUnmapping(),
+        this(toCopy.cacheSize(), toCopy.lruCacheSize(), toCopy.deferUnmapping(),
                 toCopy.asyncMapping().map(AsyncMappingConfig::toImmutableConfig),
                 toCopy.asyncUnmapping().map(AsyncUnmappingConfig::toImmutableConfig));
     }
 
     public MappingStrategyConfigImpl {
-        validateRegionSize(regionSize);
         validateRegionCacheSize(cacheSize);
         validateRegionLruCacheSize(lruCacheSize);
         requireNonNull(asyncMapping);
@@ -69,8 +67,7 @@ public record MappingStrategyConfigImpl(int regionSize, int cacheSize, int lruCa
 
     public static String toString(final String name, final MappingStrategyConfig config) {
         return name +
-                ":regionSize=" + config.regionSize() +
-                "|cacheSize=" + config.cacheSize() +
+                ":cacheSize=" + config.cacheSize() +
                 "|lruCacheSize=" + config.lruCacheSize() +
                 "|deferUnmapping=" + config.deferUnmapping() +
                 "|asyncMapping=" + config.asyncMapping().map(Object::toString).orElse("n/a") +

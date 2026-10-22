@@ -32,6 +32,7 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultFiles
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxFileSize;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxOpenFiles;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMinFileSize;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionSize;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRollFiles;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
@@ -54,6 +55,11 @@ public enum MappingConfigDefaults implements MappingConfig {
     @Override
     public long maxFileSize() {
         return defaultMaxFileSize();
+    }
+
+    @Override
+    public int regionSize() {
+        return defaultRegionSize();
     }
 
     @Override

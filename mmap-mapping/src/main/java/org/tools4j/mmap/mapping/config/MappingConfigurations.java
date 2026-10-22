@@ -265,7 +265,7 @@ public enum MappingConfigurations {
      * @return the value of system property {@value #REGION_SIZE_PROPERTY} if set, and {@link #REGION_SIZE_DEFAULT}
      *         otherwise
      * @throws IllegalArgumentException if the system property value is invalid
-     * @see MappingStrategyConfig#regionSize()
+     * @see MappingConfig#regionSize()
      */
     public static int defaultRegionSize() {
         return getIntProperty(REGION_SIZE_PROPERTY, Constraints::validateRegionSize, REGION_SIZE_DEFAULT);

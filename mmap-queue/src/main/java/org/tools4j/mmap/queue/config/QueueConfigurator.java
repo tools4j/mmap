@@ -35,6 +35,8 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator maxHeaderFileSize(long maxHeaderFileSize);
     QueueConfigurator minPayloadFileSize(long minPayloadFileSize);
     QueueConfigurator maxPayloadFileSize(long maxPayloadFileSize);
+    QueueConfigurator headerRegionSize(int headerRegionSize);
+    QueueConfigurator payloadRegionSize(int payloadRegionSize);
     QueueConfigurator expandHeaderFile(boolean expandHeaderFile);
     QueueConfigurator expandPayloadFiles(boolean expandPayloadFiles);
     QueueConfigurator rollHeaderFile(boolean rollHeaderFile);

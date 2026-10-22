@@ -65,7 +65,9 @@ public class ConfigPrinter {
     }
 
     private static String regionSize(final QueueConfig config) {
-        return sizes(ints(config.appenderConfig(), config.pollerConfig(), MappingStrategyConfig::regionSize));
+        final int header = config.headerRegionSize();
+        final int payload = config.payloadRegionSize();
+        return header == payload ? size(header) : "[header / payload] = [" + size(header, payload) + ']';
     }
 
     private static String cacheSize(final QueueConfig config) {

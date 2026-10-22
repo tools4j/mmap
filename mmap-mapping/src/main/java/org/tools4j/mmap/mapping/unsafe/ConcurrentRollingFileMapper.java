@@ -123,7 +123,7 @@ public final class ConcurrentRollingFileMapper {
     public static FileMapper forReadOnly(final File baseFile,
                                          final MappingConfig config,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(baseFile, config.maxFileSize(), config.mappingStrategy().regionSize(), config.maxOpenFiles(),
+        return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.maxOpenFiles(),
                 fileInitialiser);
     }
 
@@ -142,7 +142,7 @@ public final class ConcurrentRollingFileMapper {
                                           final MappingConfig config,
                                           final FileInitialiser fileInitialiser) {
         return forReadWrite(baseFile, accessMode, config.expandFile(), config.minFileSize(), config.maxFileSize(),
-                config.mappingStrategy().regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
+                config.regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
                 fileInitialiser);
     }
 

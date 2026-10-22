@@ -42,7 +42,6 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.ASYNC_MAPPIN
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.ASYNC_UNMAPPING_PROPERTY;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
  * Unit test for {@link MappingStrategyConfiguratorImpl} value resolution: own value, then defaults, then system
@@ -50,16 +49,9 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
  */
 class MappingStrategyConfiguratorImplTest {
 
-    private static final int REGION_SIZE = 2 * (int) REGION_SIZE_GRANULARITY;
-
     /** Defaults returning the "unset" sentinel for every value, forcing fallback to system defaults */
     @SuppressWarnings("OptionalAssignedToNull")
     private static final MappingStrategyConfig UNSET_DEFAULTS = new MappingStrategyConfig() {
-        @Override
-        public int regionSize() {
-            return 0;
-        }
-
         @Override
         public int cacheSize() {
             return -1;
@@ -105,7 +97,6 @@ class MappingStrategyConfiguratorImplTest {
     @Test
     void unsetDefaultsFallBackToSystemDefaults() {
         final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(UNSET_DEFAULTS);
-        assertEquals(MappingConfigurations.defaultRegionSize(), config.regionSize());
         assertEquals(MappingConfigurations.defaultRegionCacheSize(), config.cacheSize());
         assertEquals(MappingConfigurations.defaultRegionLruCacheSize(), config.lruCacheSize());
         assertFalse(config.deferUnmapping());
@@ -132,9 +123,8 @@ class MappingStrategyConfiguratorImplTest {
     @Test
     void valuesAreResolvedFromDefaults() {
         final MappingStrategyConfig defaults = MappingStrategyConfigurator.configure()
-                .regionSize(REGION_SIZE).cacheSize(8).lruCacheSize(4).deferUnmapping(true);
+                .cacheSize(8).lruCacheSize(4).deferUnmapping(true);
         final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(defaults);
-        assertEquals(REGION_SIZE, config.regionSize());
         assertEquals(8, config.cacheSize());
         assertEquals(4, config.lruCacheSize());
         assertTrue(config.deferUnmapping());
@@ -143,10 +133,9 @@ class MappingStrategyConfiguratorImplTest {
     @Test
     void explicitValuesOverrideDefaults() {
         final MappingStrategyConfig defaults = MappingStrategyConfigurator.configure()
-                .regionSize(REGION_SIZE).lruCacheSize(4).deferUnmapping(true);
+                .lruCacheSize(4).deferUnmapping(true);
         final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(defaults)
-                .regionSize(2 * REGION_SIZE).lruCacheSize(0).deferUnmapping(false);
-        assertEquals(2 * REGION_SIZE, config.regionSize());
+                .lruCacheSize(0).deferUnmapping(false);
         assertEquals(0, config.lruCacheSize());
         assertFalse(config.deferUnmapping());
     }
@@ -173,7 +162,6 @@ class MappingStrategyConfiguratorImplTest {
     @Test
     void invalidValuesAreRejected() {
         final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
-        assertThrows(IllegalArgumentException.class, () -> config.regionSize(REGION_SIZE + 1));
         assertThrows(IllegalArgumentException.class, () -> config.cacheSize(0));
         assertThrows(IllegalArgumentException.class, () -> config.cacheSize(3));
         assertThrows(IllegalArgumentException.class, () -> config.lruCacheSize(-1));
@@ -182,11 +170,11 @@ class MappingStrategyConfiguratorImplTest {
     @Test
     void toStringShowsUnresolvedValuesAndDefaults() {
         final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(UNSET_DEFAULTS);
-        assertEquals("MappingStrategyConfiguratorImpl:regionSize=0|cacheSize=-1|lruCacheSize=-1" +
+        assertEquals("MappingStrategyConfiguratorImpl:cacheSize=-1|lruCacheSize=-1" +
                 "|deferUnmapping=null|asyncMapping=null|asyncUnmapping=null|defaults=UNSET_DEFAULTS", config.toString());
         config.asyncMapping(false).asyncUnmapping(new AsyncUnmappingConfigImpl(16,
                 MappingConfigurations.defaultUnmappingRuntimeSupplier()));
-        assertEquals("MappingStrategyConfiguratorImpl:regionSize=0|cacheSize=-1|lruCacheSize=-1" +
+        assertEquals("MappingStrategyConfiguratorImpl:cacheSize=-1|lruCacheSize=-1" +
                 "|deferUnmapping=null|asyncMapping=n/a|asyncUnmapping=AsyncUnmappingConfigImpl:unmappingCacheSize=16" +
                 "|defaults=UNSET_DEFAULTS", config.toString());
     }

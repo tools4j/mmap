@@ -49,6 +49,13 @@ public interface MappingConfig {
     long maxFileSize();
 
     /**
+     * Returns the size of the region mapped into memory when an actual mapping operation occurs.
+     *
+     * @return the region size in bytes, a power of two and a multiple of the OS page size
+     */
+    int regionSize();
+
+    /**
      * Returns whether files should be expanded as needed, or created at maximum size upfront.
      *
      * @return true if files should be expanded as needed, and false to create the max-size file on initiation

@@ -60,8 +60,8 @@ class MappingPoolImplTest {
         final MappingConfig config = MappingConfig.configure()
                 .rollFiles(false)
                 .maxFileSize(4L * REGION_SIZE)
-                .mappingStrategy(MappingStrategyConfig.configure(MappingStrategyConfig.getDefaultSync())
-                        .regionSize(REGION_SIZE));
+                .regionSize(REGION_SIZE)
+                .mappingStrategy(MappingStrategyConfig.getDefaultSync());
         pool = Mappings.mappingPool(tempDir.resolve("pool.map").toFile(), OpenMode.OPEN_OR_CREATE, config, 4);
     }
 

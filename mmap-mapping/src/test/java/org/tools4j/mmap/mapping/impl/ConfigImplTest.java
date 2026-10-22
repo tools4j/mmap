@@ -88,11 +88,11 @@ class ConfigImplTest {
 
     @Test
     void mappingStrategyConfigImpl() {
-        final MappingStrategyConfigImpl config = new MappingStrategyConfigImpl(REGION_SIZE, 4, 2, true,
+        final MappingStrategyConfigImpl config = new MappingStrategyConfigImpl(4, 2, true,
                 Optional.of(new AsyncMappingConfigImpl(3, 8, MAPPING_RUNTIME)), Optional.empty());
         assertSame(config, config.toImmutableConfig());
         assertEquals(config, new MappingStrategyConfigImpl(config));
-        assertEquals("MappingStrategyConfigImpl:regionSize=" + REGION_SIZE + "|cacheSize=4|lruCacheSize=2" +
+        assertEquals("MappingStrategyConfigImpl:cacheSize=4|lruCacheSize=2" +
                 "|deferUnmapping=true|asyncMapping=AsyncMappingConfigImpl:regionsToMapAhead=3|aheadMappingCacheSize=8" +
                 "|asyncUnmapping=n/a", config.toString());
     }
@@ -100,7 +100,6 @@ class ConfigImplTest {
     @Test
     void mappingStrategyConfigImplDefaults() {
         final MappingStrategyConfigImpl config = new MappingStrategyConfigImpl();
-        assertEquals(MappingConfigurations.defaultRegionSize(), config.regionSize());
         assertEquals(MappingConfigurations.defaultRegionCacheSize(), config.cacheSize());
         assertEquals(MappingConfigurations.defaultRegionLruCacheSize(), config.lruCacheSize());
         assertEquals(MappingConfigurations.defaultDeferUnmapping(), config.deferUnmapping());
@@ -112,10 +111,12 @@ class ConfigImplTest {
     @Test
     void mappingConfigImpl() {
         final MappingStrategyConfig strategy = MappingStrategyConfig.getDefaultSync().toImmutableConfig();
-        final MappingConfigImpl config = new MappingConfigImpl(0, 4L * REGION_SIZE, true, false, 5, 1, strategy);
+        final MappingConfigImpl config = new MappingConfigImpl(0, 4L * REGION_SIZE, REGION_SIZE, true, false, 5, 1,
+                strategy);
         assertSame(config, config.toImmutableConfig());
         assertEquals(config, new MappingConfigImpl(config));
-        assertEquals("MappingConfigImpl:minFileSize=0|maxFileSize=" + 4L * REGION_SIZE + "|expandFile=true" +
+        assertEquals("MappingConfigImpl:minFileSize=0|maxFileSize=" + 4L * REGION_SIZE + "|regionSize=" + REGION_SIZE +
+                "|expandFile=true" +
                 "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=1|mappingStrategy=" + strategy, config.toString());
     }
 

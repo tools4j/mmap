@@ -38,19 +38,16 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultAsync
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultAsyncUnmapping;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionCacheSize;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionSize;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigurator {
 
     private final MappingStrategyConfig defaults;
-    private int regionSize;
     private int cacheSize;
     private int lruCacheSize;
     private Boolean deferUnmapping;
@@ -69,24 +66,12 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     @Override
     @SuppressWarnings("OptionalAssignedToNull")
     public MappingStrategyConfigurator reset() {
-        regionSize = 0;
         cacheSize = -1;
         lruCacheSize = -1;
         deferUnmapping = null;
         asyncMapping = null;
         asyncUnmapping = null;
         return this;
-    }
-
-    @Override
-    public int regionSize() {
-        if (regionSize <= 0) {
-            regionSize = defaults.regionSize();
-        }
-        if (regionSize <= 0) {
-            regionSize = defaultRegionSize();
-        }
-        return regionSize;
     }
 
     @Override
@@ -141,13 +126,6 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
             asyncUnmapping = defaultAsyncUnmapping() ? Optional.of(ASYNC_UNMAPPING_CONFIG_DEFAULTS) : Optional.empty();
         }
         return asyncUnmapping;
-    }
-
-    @Override
-    public MappingStrategyConfigurator regionSize(final int regionSize) {
-        validateRegionSize(regionSize);
-        this.regionSize = regionSize;
-        return this;
     }
 
     @Override
@@ -225,8 +203,7 @@ public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigura
     @SuppressWarnings("OptionalAssignedToNull")
     public String toString() {
         return "MappingStrategyConfiguratorImpl" +
-                ":regionSize=" + regionSize +
-                "|cacheSize=" + cacheSize +
+                ":cacheSize=" + cacheSize +
                 "|lruCacheSize=" + lruCacheSize +
                 "|deferUnmapping=" + deferUnmapping +
                 "|asyncMapping=" + (asyncMapping == null ? null : asyncMapping.map(Object::toString).orElse("n/a")) +

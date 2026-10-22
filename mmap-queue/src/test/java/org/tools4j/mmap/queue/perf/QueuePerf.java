@@ -241,9 +241,10 @@ public class QueuePerf {
         //final SharingPolicy sharingPolicy = SharingPolicy.PER_THREAD;
         final SharingPolicy sharingPolicy = SharingPolicy.SHARED;
         final QueueConfig config = QueueConfig.configure()
+                .headerRegionSize(regionSize)
+                .payloadRegionSize(regionSize)
                 .appenderConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
@@ -255,7 +256,6 @@ public class QueuePerf {
                 )
                 .pollerConfig(conf -> conf
                         .headerMappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
@@ -265,7 +265,6 @@ public class QueuePerf {
                                 )
                         )
                         .payloadMappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(async -> async
@@ -288,7 +287,6 @@ public class QueuePerf {
                 )
                 .entryReaderConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(true)
                                 .asyncMapping(false)
@@ -297,7 +295,6 @@ public class QueuePerf {
                 )
                 .indexReaderConfig(conf -> conf
                         .headerMappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(true)
                                 .asyncMapping(false)
@@ -306,7 +303,6 @@ public class QueuePerf {
                 )
                 .entryIteratorConfig(conf -> conf
                         .mappingStrategy(cfg -> cfg
-                                .regionSize(regionSize)
                                 .cacheSize(cacheSize)
                                 .deferUnmapping(false)
                                 .asyncMapping(true)

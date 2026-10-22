@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Unit test for the region mapper decorator chains assembled by {@link RegionMappers#create(FileMapper,
+ * Unit test for the region mapper decorator chains assembled by {@link RegionMappers#create(FileMapper, int,
  * MappingStrategyConfig)}: every combination of sync/async mapping, sync/async unmapping, ring and LRU cache settings
  * writes
  * and reads back data, and is assembled from the expected mappers.
@@ -81,7 +81,6 @@ class RegionMapperChainTest {
                                                   final int lruCacheSize,
                                                   final boolean deferUnmapping) {
         final MappingStrategyConfigurator config = MappingStrategyConfig.configure()
-                .regionSize(REGION_SIZE)
                 .cacheSize(cacheSize)
                 .lruCacheSize(lruCacheSize)
                 .deferUnmapping(deferUnmapping)
@@ -133,7 +132,7 @@ class RegionMapperChainTest {
         final File file = tempDir.resolve("chain.map").toFile();
         final MappingStrategyConfig config = strategy(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
                 deferUnmapping);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper(file), config);
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper(file), REGION_SIZE, config);
         final String chain = regionMapper.toString();
         assertTrue(chain.startsWith(expectedChainStart(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
                 deferUnmapping)), chain);
@@ -152,8 +151,8 @@ class RegionMapperChainTest {
         }
         assertTrue(regionMapper.isClosed());
 
-        final RegionMapper syncMapper = RegionMappers.create(fileMapper(file), MappingStrategyConfig.configure(
-                MappingStrategyConfig.getDefaultSync()).regionSize(REGION_SIZE).toImmutableConfig());
+        final RegionMapper syncMapper = RegionMappers.create(fileMapper(file), REGION_SIZE,
+                MappingStrategyConfig.getDefaultSync());
         try (final ElasticMapping mapping = Mappings.elasticMapping(syncMapper, true)) {
             for (int region = 0; region < REGIONS; region++) {
                 assertTrue(mapping.moveToRegion(region), "region " + region);

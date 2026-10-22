@@ -66,6 +66,11 @@ enum QueueMappingConfigs {
             }
 
             @Override
+            public int regionSize() {
+                return queueConfig.headerRegionSize();
+            }
+
+            @Override
             public boolean expandFile() {
                 return queueConfig.expandHeaderFile();
             }
@@ -128,6 +133,11 @@ enum QueueMappingConfigs {
             @Override
             public long maxFileSize() {
                 return queueConfig.maxPayloadFileSize();
+            }
+
+            @Override
+            public int regionSize() {
+                return queueConfig.payloadRegionSize();
             }
 
             @Override

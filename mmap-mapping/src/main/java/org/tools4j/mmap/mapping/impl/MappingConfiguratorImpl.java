@@ -36,6 +36,7 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhe
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
@@ -43,6 +44,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     protected final MappingConfig defaults;
     protected long minFileSize;
     protected long maxFileSize;
+    protected int regionSize;
     protected Boolean expandFile;
     protected Boolean rollFiles;
     protected int maxOpenFiles;
@@ -62,6 +64,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     public MappingConfigurator reset() {
         this.minFileSize = -1;
         this.maxFileSize = 0;
+        this.regionSize = 0;
         this.expandFile = null;
         this.rollFiles = null;
         this.maxOpenFiles = -1;
@@ -95,6 +98,17 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
             maxFileSize = MappingConfigurations.defaultMaxFileSize();
         }
         return maxFileSize;
+    }
+
+    @Override
+    public int regionSize() {
+        if (regionSize <= 0) {
+            regionSize = defaults.regionSize();
+        }
+        if (regionSize <= 0) {
+            regionSize = MappingConfigurations.defaultRegionSize();
+        }
+        return regionSize;
     }
 
     @Override
@@ -161,6 +175,13 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public MappingConfigurator regionSize(final int regionSize) {
+        validateRegionSize(regionSize);
+        this.regionSize = regionSize;
+        return this;
+    }
+
+    @Override
     public MappingConfigurator expandFile(final boolean expandFile) {
         this.expandFile = expandFile;
         return this;
@@ -204,6 +225,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
         return "MappingConfiguratorImpl" +
                 ":minFileSize=" + minFileSize +
                 "|maxFileSize=" + maxFileSize +
+                "|regionSize=" + regionSize +
                 "|expandFile=" + expandFile +
                 "|rollFiles=" + rollFiles +
                 "|maxOpenFiles=" + maxOpenFiles +

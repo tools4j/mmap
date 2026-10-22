@@ -34,19 +34,6 @@ import java.util.function.Consumer;
  */
 public interface MappingStrategyConfigurator extends MappingStrategyConfig {
     /**
-     * Sets the size of the region mapped into memory when an actual mapping operation occurs. Region sizes must be a
-     * power of two and a multiple of the OS dependant
-     * {@linkplain org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY page size}.
-     * Typical OS page sizes are 4K (x86, ARM), 16K (Mac M1, ARM64) or 64K, and typical region sizes are between 4K
-     * and 4M.
-     *
-     * @param regionSize the region size in bytes
-     * @return this configurator for method chaining
-     * @throws IllegalArgumentException if region size is not a power of two or not a multiple of the OS page size
-     */
-    MappingStrategyConfigurator regionSize(int regionSize);
-
-    /**
      * Sets the size of the ring cache keeping the most recently used regions mapped. If an
      * {@linkplain #lruCacheSize(int) LRU cache} is also used, the ring cache is placed in front of it.
      *

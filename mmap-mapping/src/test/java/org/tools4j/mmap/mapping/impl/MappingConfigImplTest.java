@@ -40,7 +40,7 @@ class MappingConfigImplTest {
     private static final int REGION_SIZE = 4 * (int) REGION_SIZE_GRANULARITY;
 
     private static MappingConfigurator configure() {
-        return MappingConfig.configure().mappingStrategy(cfg -> cfg.regionSize(REGION_SIZE));
+        return MappingConfig.configure().regionSize(REGION_SIZE);
     }
 
     @Test
@@ -73,11 +73,12 @@ class MappingConfigImplTest {
 
     @Test
     void invalidIndividualValuesAreRejected() {
-        final MappingStrategyConfig strategy = MappingStrategyConfig.configure().regionSize(REGION_SIZE)
-                .toImmutableConfig();
-        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(3, REGION_SIZE, true, true, 1,
-                0, strategy));
-        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, true, true, 0,
-                0, strategy));
+        final MappingStrategyConfig strategy = MappingStrategyConfig.configure().toImmutableConfig();
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(3, REGION_SIZE, REGION_SIZE, true,
+                true, 1, 0, strategy));
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE, true,
+                true, 0, 0, strategy));
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE + 1,
+                true, true, 1, 0, strategy));
     }
 }

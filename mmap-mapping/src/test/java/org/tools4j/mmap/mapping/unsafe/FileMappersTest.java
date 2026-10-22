@@ -57,7 +57,8 @@ class FileMappersTest {
                 .rollFiles(true)
                 .maxFileSize(MAX_FILE_SIZE)
                 .maxOpenFiles(maxOpenFiles)
-                .mappingStrategy(MappingStrategyConfig.configure(strategy).regionSize(REGION_SIZE));
+                .regionSize(REGION_SIZE)
+                .mappingStrategy(strategy);
     }
 
     @Test

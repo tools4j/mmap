@@ -36,6 +36,8 @@ public class QueueConfigImpl implements QueueConfig {
     private final long maxHeaderFileSize;
     private final long minPayloadFileSize;
     private final long maxPayloadFileSize;
+    private final int headerRegionSize;
+    private final int payloadRegionSize;
     private final boolean expandHeaderFile;
     private final boolean expandPayloadFiles;
     private final boolean rollHeaderFile;
@@ -56,6 +58,8 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.maxHeaderFileSize(),
                 queueConfig.minPayloadFileSize(),
                 queueConfig.maxPayloadFileSize(),
+                queueConfig.headerRegionSize(),
+                queueConfig.payloadRegionSize(),
                 queueConfig.expandHeaderFile(),
                 queueConfig.expandPayloadFiles(),
                 queueConfig.rollHeaderFile(),
@@ -72,6 +76,8 @@ public class QueueConfigImpl implements QueueConfig {
                            final long maxHeaderFileSize,
                            final long minPayloadFileSize,
                            final long maxPayloadFileSize,
+                           final int headerRegionSize,
+                           final int payloadRegionSize,
                            final boolean expandHeaderFile,
                            final boolean expandPayloadFiles,
                            final boolean rollHeaderFile,
@@ -86,6 +92,8 @@ public class QueueConfigImpl implements QueueConfig {
         this.maxHeaderFileSize = maxHeaderFileSize;
         this.minPayloadFileSize = minPayloadFileSize;
         this.maxPayloadFileSize = maxPayloadFileSize;
+        this.headerRegionSize = headerRegionSize;
+        this.payloadRegionSize = payloadRegionSize;
         this.expandHeaderFile = expandHeaderFile;
         this.expandPayloadFiles = expandPayloadFiles;
         this.rollHeaderFile = rollHeaderFile;
@@ -120,6 +128,16 @@ public class QueueConfigImpl implements QueueConfig {
     @Override
     public long maxPayloadFileSize() {
         return maxPayloadFileSize;
+    }
+
+    @Override
+    public int headerRegionSize() {
+        return headerRegionSize;
+    }
+
+    @Override
+    public int payloadRegionSize() {
+        return payloadRegionSize;
     }
 
     @Override
@@ -180,6 +198,8 @@ public class QueueConfigImpl implements QueueConfig {
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|minPayloadFileSize=" + minPayloadFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
+                "|headerRegionSize=" + headerRegionSize +
+                "|payloadRegionSize=" + payloadRegionSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +

@@ -198,7 +198,8 @@ public enum Mappings {
                                               final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
+                config.mappingStrategy());
         return regionMapping(regionMapper, true);
     }
 
@@ -261,7 +262,8 @@ public enum Mappings {
                                                 final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
+                config.mappingStrategy());
         return elasticMapping(regionMapper, true);
     }
 
@@ -325,7 +327,8 @@ public enum Mappings {
                                                   final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
+                config.mappingStrategy());
         return adaptiveMapping(regionMapper, true);
     }
 
@@ -416,7 +419,8 @@ public enum Mappings {
                                           final int initialPoolSize) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
+                config.mappingStrategy());
         return mappingPool(regionMapper, initialPoolSize);
     }
 

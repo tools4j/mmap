@@ -102,7 +102,8 @@ class QuickIntroTest {
                 .rollFiles(true)
                 .maxFileSize(1 << 20)
                 .maxOpenFiles(4)
-                .mappingStrategy(cfg -> cfg.asyncMapping(true).regionSize(1 << 16));
+                .regionSize(1 << 16)
+                .mappingStrategy(cfg -> cfg.asyncMapping(true));
         final File file = tempDir.resolve("rolling.map").toFile();//creates rolling_0.map, rolling_1.map, ...
 
         try (var mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, config)) {

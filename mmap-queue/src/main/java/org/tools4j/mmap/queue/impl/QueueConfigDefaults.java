@@ -32,7 +32,9 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHea
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultRollHeaderFile;
@@ -69,6 +71,16 @@ public enum QueueConfigDefaults implements QueueConfig {
     @Override
     public long maxPayloadFileSize() {
         return defaultMaxPayloadFileSize();
+    }
+
+    @Override
+    public int headerRegionSize() {
+        return defaultHeaderRegionSize();
+    }
+
+    @Override
+    public int payloadRegionSize() {
+        return defaultPayloadRegionSize();
     }
 
     @Override
@@ -129,6 +141,8 @@ public enum QueueConfigDefaults implements QueueConfig {
                 "|maxHeaderFileSize=" + maxHeaderFileSize() +
                 "|minPayloadFileSize=" + minPayloadFileSize() +
                 "|maxPayloadFileSize=" + maxPayloadFileSize() +
+                "|headerRegionSize=" + headerRegionSize() +
+                "|payloadRegionSize=" + payloadRegionSize() +
                 "|expandHeaderFile=" + expandHeaderFile() +
                 "|expandPayloadFiles=" + expandPayloadFiles() +
                 "|rollHeaderFile=" + rollHeaderFile() +

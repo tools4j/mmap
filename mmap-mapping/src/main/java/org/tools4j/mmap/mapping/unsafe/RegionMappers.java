@@ -37,20 +37,30 @@ import java.util.function.UnaryOperator;
 @Unsafe
 public enum RegionMappers {
     ;
-    public static RegionMapper create(final FileMapper fileMapper, final MappingStrategyConfig config) {
+    /**
+     * Creates a region mapper for the given file mapper, region size and mapping strategy.
+     *
+     * @param fileMapper the file mapper to map and unmap regions of
+     * @param regionSize the region size in bytes, a power of two and a multiple of the OS page size
+     * @param config     the mapping strategy defining caching and async mapping and unmapping
+     * @return a new region mapper
+     */
+    public static RegionMapper create(final FileMapper fileMapper,
+                                      final int regionSize,
+                                      final MappingStrategyConfig config) {
         final AsyncMappingConfig asyncMappingConfig = config.asyncMapping().orElse(null);
         final AsyncUnmappingConfig asyncUnmappingConfig = config.asyncUnmapping().orElse(null);
         if (asyncMappingConfig == null) {
             return asyncUnmappingConfig == null
-                    ? createSyncRegionMapper(fileMapper, config.regionSize(), config.cacheSize(),
+                    ? createSyncRegionMapper(fileMapper, regionSize, config.cacheSize(),
                     config.lruCacheSize(), config.deferUnmapping())
-                    : createSyncRegionMapper(fileMapper, config.regionSize(), config.cacheSize(),
+                    : createSyncRegionMapper(fileMapper, regionSize, config.cacheSize(),
                     config.lruCacheSize(), config.deferUnmapping(), asyncUnmappingConfig);
         } else {
             return asyncUnmappingConfig == null
-                    ? createAsyncRunAheadRegionMapper(fileMapper, config.regionSize(), config.cacheSize(),
+                    ? createAsyncRunAheadRegionMapper(fileMapper, regionSize, config.cacheSize(),
                     config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig)
-                    : createAsyncRunAheadRegionMapper(fileMapper, config.regionSize(), config.cacheSize(),
+                    : createAsyncRunAheadRegionMapper(fileMapper, regionSize, config.cacheSize(),
                     config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig, asyncUnmappingConfig);
         }
     }

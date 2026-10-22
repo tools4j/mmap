@@ -32,27 +32,31 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhe
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 
 
-public record MappingConfigImpl(long minFileSize, long maxFileSize, boolean expandFile, boolean rollFiles,
-                                int maxOpenFiles, int filesToCreateAhead, MappingStrategyConfig mappingStrategy) implements MappingConfig {
+public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSize, boolean expandFile,
+                                boolean rollFiles, int maxOpenFiles, int filesToCreateAhead,
+                                MappingStrategyConfig mappingStrategy) implements MappingConfig {
     public MappingConfigImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
     }
 
     public MappingConfigImpl(final MappingConfig toCopy) {
-        this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.expandFile(), toCopy.rollFiles(), toCopy.maxOpenFiles(),
-                toCopy.filesToCreateAhead(), toCopy.mappingStrategy().toImmutableConfig());
+        this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.regionSize(), toCopy.expandFile(),
+                toCopy.rollFiles(), toCopy.maxOpenFiles(), toCopy.filesToCreateAhead(),
+                toCopy.mappingStrategy().toImmutableConfig());
     }
 
     public MappingConfigImpl {
         validateMinFileSize(minFileSize);
         validateMaxFileSize(maxFileSize);
+        validateRegionSize(regionSize);
         validateMaxOpenFiles(maxOpenFiles);
         validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(mappingStrategy);
-        validateFileSizes(minFileSize, maxFileSize, expandFile, mappingStrategy.regionSize());
+        validateFileSizes(minFileSize, maxFileSize, expandFile, regionSize);
     }
 
     @Override
@@ -69,6 +73,7 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, boolean expa
         return name +
                 ":minFileSize=" + config.minFileSize() +
                 "|maxFileSize=" + config.maxFileSize() +
+                "|regionSize=" + config.regionSize() +
                 "|expandFile=" + config.expandFile() +
                 "|rollFiles=" + config.rollFiles() +
                 "|maxOpenFiles=" + config.maxOpenFiles() +

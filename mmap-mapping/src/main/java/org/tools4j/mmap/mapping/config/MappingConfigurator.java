@@ -37,9 +37,8 @@ import java.util.function.Consumer;
 public interface MappingConfigurator extends MappingConfig {
     /**
      * Sets the minimum size (and incremental size) of the file, applicable only if
-     * {@linkplain #expandFile() expand-file} mode is in use. The minimum file size must be a multiple of the mapping
-     * strategy's {@linkplain MappingStrategyConfigurator#regionSize() region size}, or zero in which case the file is
-     * expanded in region-size increments.
+     * {@linkplain #expandFile() expand-file} mode is in use. The minimum file size must be a multiple of the
+     * {@linkplain #regionSize() region size}, or zero in which case the file is expanded in region-size increments.
      *
      * @param minFileSize the minimum file size in bytes, also used as minimum file size increments; minimum size zero
      *                    implies region-sized increments
@@ -53,9 +52,9 @@ public interface MappingConfigurator extends MappingConfig {
 
     /**
      * Sets the maximum size of a file newly created when mapped. The maximum file size must be a multiple of the
-     * mapping strategy's {@linkplain MappingStrategyConfigurator#regionSize() region size}. If
-     * {@linkplain #expandFile() expand-file} mode is in use, the maximum file size must also be a multiple of
-     * {@link #minFileSize() minimum file size} unless that is set to zero (which implies region-sized increments).
+     * {@linkplain #regionSize() region size}. If {@linkplain #expandFile() expand-file} mode is in use, the maximum
+     * file size must also be a multiple of {@link #minFileSize() minimum file size} unless that is set to zero (which
+     * implies region-sized increments).
      *
      * @param maxFileSize the maximum file size in bytes
      * @return this configurator for method chaining
@@ -64,6 +63,19 @@ public interface MappingConfigurator extends MappingConfig {
      * @see #expandFile(boolean)
      */
     MappingConfigurator maxFileSize(long maxFileSize);
+
+    /**
+     * Sets the size of the region mapped into memory when an actual mapping operation occurs. Region sizes must be a
+     * power of two and a multiple of the OS dependant
+     * {@linkplain org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY page size}.
+     * Typical OS page sizes are 4K (x86, ARM), 16K (Mac M1, ARM64) or 64K, and typical region sizes are between 4K
+     * and 4M.
+     *
+     * @param regionSize the region size in bytes
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if region size is not a power of two or not a multiple of the OS page size
+     */
+    MappingConfigurator regionSize(int regionSize);
 
     /**
      * Sets the expand-file option, true if files should be expanded as needed, and false to create the full-size file

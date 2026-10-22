@@ -35,7 +35,6 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultAsync
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultDeferUnmapping;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionCacheSize;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionSize;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
 
@@ -60,11 +59,6 @@ public enum MappingStrategyConfigDefaults implements MappingStrategyConfig {
     @Override
     public MappingStrategyConfig toImmutableConfig() {
         return new MappingStrategyConfigImpl(this);
-    }
-
-    @Override
-    public int regionSize() {
-        return defaultRegionSize();
     }
 
     @Override

@@ -38,15 +38,18 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadRegionSize;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
@@ -55,6 +58,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private long maxHeaderFileSize;
     private long minPayloadFileSize;
     private long maxPayloadFileSize;
+    private int headerRegionSize;
+    private int payloadRegionSize;
     private Boolean expandHeaderFile;
     private Boolean expandPayloadFiles;
     private Boolean rollHeaderFile;
@@ -81,6 +86,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         maxHeaderFileSize = 0;
         minPayloadFileSize = -1;
         maxPayloadFileSize = 0;
+        headerRegionSize = 0;
+        payloadRegionSize = 0;
         expandHeaderFile = null;
         expandPayloadFiles = null;
         rollHeaderFile = null;
@@ -180,6 +187,42 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator maxPayloadFileSize(final long maxPayloadFileSize) {
         validateMaxFileSize(maxPayloadFileSize);
         this.maxPayloadFileSize = maxPayloadFileSize;
+        return this;
+    }
+
+    @Override
+    public int headerRegionSize() {
+        if (headerRegionSize <= 0) {
+            headerRegionSize = defaults.headerRegionSize();
+        }
+        if (headerRegionSize <= 0) {
+            headerRegionSize = defaultHeaderRegionSize();
+        }
+        return headerRegionSize;
+    }
+
+    @Override
+    public QueueConfigurator headerRegionSize(final int headerRegionSize) {
+        validateRegionSize(headerRegionSize);
+        this.headerRegionSize = headerRegionSize;
+        return this;
+    }
+
+    @Override
+    public int payloadRegionSize() {
+        if (payloadRegionSize <= 0) {
+            payloadRegionSize = defaults.payloadRegionSize();
+        }
+        if (payloadRegionSize <= 0) {
+            payloadRegionSize = defaultPayloadRegionSize();
+        }
+        return payloadRegionSize;
+    }
+
+    @Override
+    public QueueConfigurator payloadRegionSize(final int payloadRegionSize) {
+        validateRegionSize(payloadRegionSize);
+        this.payloadRegionSize = payloadRegionSize;
         return this;
     }
 
@@ -466,6 +509,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|minPayloadFileSize=" + minPayloadFileSize +
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
+                "|headerRegionSize=" + headerRegionSize +
+                "|payloadRegionSize=" + payloadRegionSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +

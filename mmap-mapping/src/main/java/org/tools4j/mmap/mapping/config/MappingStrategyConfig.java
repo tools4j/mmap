@@ -37,13 +37,6 @@ import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPIN
  */
 public interface MappingStrategyConfig {
     /**
-     * Returns the size of the region mapped into memory when an actual mapping operation occurs.
-     *
-     * @return the region size in bytes, a power of two and a multiple of the OS page size
-     */
-    int regionSize();
-
-    /**
      * Returns the size of the ring cache keeping the most recently used regions mapped. If an
      * {@linkplain #lruCacheSize() LRU cache} is also used, the ring cache is placed in front of it.
      *
