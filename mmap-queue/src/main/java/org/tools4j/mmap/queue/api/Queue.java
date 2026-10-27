@@ -26,6 +26,7 @@ package org.tools4j.mmap.queue.api;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
 import org.tools4j.mmap.mapping.api.Closeable;
@@ -166,6 +167,10 @@ public interface Queue extends Closeable {
      * A queue exists once it has been created, even if it is still empty. Creating a queue creates its directory if
      * necessary, which requires the parent directory to exist. The queue files are stored inside the directory and are
      * named after it, e.g. {@code <dir>/<dir>_hdr.mmq}.
+     * <p>
+     * The {@link QueueLayoutConfig queue layout}, consisting of the settings that must be the same for all appenders
+     * and readers, is fixed when the queue is created and stored with the queue. When an existing queue is opened, its
+     * stored layout is used instead of the layout values of the given configuration.
      *
      * @param directory the queue directory
      * @param openMode  the mode to open the queue with
@@ -173,6 +178,7 @@ public interface Queue extends Closeable {
      * @return a new queue instance
      * @throws IllegalArgumentException if the queue cannot be opened as defined by the open mode, for instance if it
      *                                  must exist but does not, or if the parent directory does not exist
+     * @throws IllegalStateException    if the queue was created with an unsupported format version
      */
     static Queue open(final File directory, final OpenMode openMode, final QueueConfig config) {
         return new QueueImpl(directory, openMode, config);

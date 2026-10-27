@@ -26,6 +26,13 @@ package org.tools4j.mmap.queue.impl;
 import org.agrona.CloseHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.impl.IdPool;
+import org.tools4j.mmap.mapping.impl.IdPool256;
+import org.tools4j.mmap.mapping.impl.IdPool64;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -35,18 +42,16 @@ import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
-import org.tools4j.mmap.mapping.impl.IdPool;
-import org.tools4j.mmap.mapping.impl.IdPool256;
-import org.tools4j.mmap.mapping.impl.IdPool64;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Implementation of {@link Queue} that allows a multiple writing threads and
@@ -58,82 +63,127 @@ public final class QueueImpl implements Queue {
 
     private final QueueFiles files;
     private final QueueConfig config;
-    private final Function<ReaderConfig, Poller> pollerFactory;
-    private final Function<ReaderConfig, EntryReader> entryReaderFactory;
-    private final Function<ReaderConfig, EntryIterator> entryIteratorFactory;
-    private final Function<IndexReaderConfig, IndexReader> indexReaderFactory;
-    private final Function<AppenderConfig, Appender> appenderFactory;
+    /** Config in effect, with the queue layout from the meta file; null until the queue exists (lazy read-only only) */
+    private final AtomicReference<QueueConfig> effectiveConfig;
+    private final Factory<ReaderConfig, Poller> pollerFactory;
+    private final Factory<ReaderConfig, EntryReader> entryReaderFactory;
+    private final Factory<ReaderConfig, EntryIterator> entryIteratorFactory;
+    private final Factory<IndexReaderConfig, IndexReader> indexReaderFactory;
+    private final Factory<AppenderConfig, Appender> appenderFactory;
+    /** ID pool of appenders, null in read-only mode; closed last, after appenders have released their IDs */
+    private final IdPool idPool;
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final java.util.Queue<AutoCloseable> closeables = new ConcurrentLinkedQueue<>();
+    private final java.util.Queue<Registration> registrations = new ConcurrentLinkedQueue<>();
 
     public QueueImpl(final File file, final OpenMode openMode, final QueueConfig queueConfig) {
-        final int maxAppenders = queueConfig.maxAppenders();
-        this.files = new QueueFiles(file, maxAppenders);
+        this.files = new QueueFiles(file);
         this.config = queueConfig.toImmutableQueueConfig();
-        openQueueDir(file, openMode);
+        this.effectiveConfig = new AtomicReference<>(openQueue(openMode));
 
-        final IdPool idPool = openMode.accessMode() == AccessMode.READ_ONLY ? null : open(idPool(files, maxAppenders));
-        this.pollerFactory = pollerConfig -> open(new PollerImpl(
+        final Supplier<QueueConfig> effectiveConfigSupplier = this::effectiveConfig;
+        this.pollerFactory = factory((pollerConfig, onClose) -> new PollerImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, config, pollerConfig)
+                ReaderMappings.create(files, effectiveConfigSupplier, pollerConfig),
+                onClose
         ));
-        this.entryReaderFactory = readerConfig -> open(new EntryReaderImpl(
+        this.entryReaderFactory = factory((readerConfig, onClose) -> new EntryReaderImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, config, readerConfig)
+                ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
+                onClose
         ));
-        this.entryIteratorFactory = readerConfig -> open(new EntryIteratorImpl(
+        this.entryIteratorFactory = factory((readerConfig, onClose) -> new EntryIteratorImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, config, readerConfig)
+                ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
+                onClose
         ));
-        this.indexReaderFactory = indReaderConfig -> open(new IndexReaderImpl(
-                queueNameIfNotClosed(), IndexMappings.create(files, config, indReaderConfig)
+        this.indexReaderFactory = factory((indReaderConfig, onClose) -> new IndexReaderImpl(
+                queueNameIfNotClosed(),
+                IndexMappings.create(files, effectiveConfigSupplier, indReaderConfig),
+                onClose
         ));
-        this.appenderFactory = idPool == null ?
-                appenderConfig -> {throw new IllegalStateException(
-                        "Cannot open appender in read-only mode for queue " + queueNameIfNotClosed());
-                } :
-                appenderConfig -> open(new AppenderImpl(
-                        queueNameIfNotClosed(),
-                        AppenderMappings.create(files, idPool, config, appenderConfig),
-                        enableCopyFromPreviousRegion(appenderConfig)
-                ));
-    }
-
-    private void openQueueDir(final File file, final OpenMode openMode) {
-        final boolean exists = file.isDirectory();
-        switch (openMode) {
-            case READ_ONLY, READ_WRITE -> {
-                if (!exists) {
-                    throw new IllegalArgumentException("Queue does not exist: " + file);
-                }
-            }
-            case READ_ONLY_LAZY -> {}
-            case CREATE -> {
-                if (exists) {
-                    throw new IllegalArgumentException("Queue already exists: " + file);
-                }
-                createQueueDir(file);
-            }
-            case OPEN_OR_CREATE -> {
-                if (!exists) {
-                    createQueueDir(file);
-                }
-            }
-            case RECREATE -> {
-                if (exists) {
-                    deleteQueueFiles();
-                } else {
-                    createQueueDir(file);
-                }
-            }
-            default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
+        if (openMode.accessMode() == AccessMode.READ_ONLY) {
+            this.idPool = null;
+            this.appenderFactory = appenderConfig -> {
+                throw new IllegalStateException("Cannot open appender in read-only mode for queue " +
+                        queueNameIfNotClosed());
+            };
+        } else {
+            final QueueConfig writerConfig = effectiveConfig.get();
+            final IdPool pool = idPool(files, writerConfig.maxAppenders());
+            this.idPool = pool;
+            this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(
+                    queueNameIfNotClosed(),
+                    AppenderMappings.create(files, pool, writerConfig, appenderConfig),
+                    enableCopyFromPreviousRegion(appenderConfig),
+                    onClose
+            ));
         }
     }
 
-    private void deleteQueueFiles() {
+    /**
+     * Opens or creates the queue as defined by the open mode, and returns the config in effect.
+     *
+     * @param openMode the open mode
+     * @return the config in effect, or null if the queue does not exist yet (lazy read-only only)
+     */
+    private QueueConfig openQueue(final OpenMode openMode) {
+        final File metaFile = files.metaFile();
+        final QueueLayoutConfig layout = switch (openMode) {
+            case READ_ONLY -> {
+                final QueueLayoutConfig existing = QueueMetaFile.read(metaFile);
+                if (existing == null) {
+                    throw new IllegalArgumentException("Queue does not exist: " + metaFile.getParentFile());
+                }
+                yield existing;
+            }
+            case READ_ONLY_LAZY -> QueueMetaFile.read(metaFile);
+            case READ_WRITE -> QueueMetaFile.open(metaFile, openMode, () -> QueueLayoutConfigImpl.of(config), () -> {});
+            case CREATE, OPEN_OR_CREATE, RECREATE -> {
+                createQueueDir(metaFile.getParentFile());
+                yield QueueMetaFile.open(metaFile, openMode, () -> QueueLayoutConfigImpl.of(config),
+                        this::deleteOtherQueueFiles);
+            }
+        };
+        return layout == null ? null : applyLayout(layout);
+    }
+
+    private QueueConfig effectiveConfig() {
+        final QueueConfig cfg = effectiveConfig.get();
+        return cfg != null ? cfg : effectiveConfigIfQueueExists();
+    }
+
+    private QueueConfig effectiveConfigIfQueueExists() {
+        final QueueLayoutConfig layout = QueueMetaFile.read(files.metaFile());
+        if (layout == null) {
+            return null;
+        }
+        //NOTE: readers of several threads may read the meta file concurrently, the first to publish its config wins
+        final QueueConfig cfg = QueueLayoutConfigs.applyLayout(config, layout);
+        if (effectiveConfig.compareAndSet(null, cfg)) {
+            warnIfDifferent(layout);
+            return cfg;
+        }
+        return effectiveConfig.get();
+    }
+
+    private QueueConfig applyLayout(final QueueLayoutConfig layout) {
+        warnIfDifferent(layout);
+        return QueueLayoutConfigs.applyLayout(config, layout);
+    }
+
+    private void warnIfDifferent(final QueueLayoutConfig layout) {
+        final CharSequence differences = QueueLayoutConfigs.diff(layout, config);
+        if (differences != null) {
+            LOGGER.warn("Queue {} was created with a different layout, using: {}", files.queueName(), differences);
+        }
+    }
+
+    private void deleteOtherQueueFiles() {
         for (final File file : files.listFiles()) {
-            final boolean deleted = file.delete();
-            assert deleted : files.queueName();
+            if (!file.equals(files.metaFile())) {
+                final boolean deleted = file.delete();
+                assert deleted : files.queueName();
+            }
         }
     }
 
@@ -162,9 +212,52 @@ public final class QueueImpl implements Queue {
         throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
     }
 
-    private <T extends AutoCloseable> T open(final T closeable) {
-        closeables.add(closeable);
-        return closeable;
+    @FunctionalInterface
+    private interface Factory<C, T extends Closeable> {
+        T create(C config);
+    }
+
+    @FunctionalInterface
+    private interface CloseRunnerFactory<C, T extends Closeable> {
+        T create(C config, Runnable onClose);
+    }
+
+    /** Registration of an open element, which unregisters itself when run */
+    private final class Registration implements Runnable {
+        /** Plain field, published through adding the registration to the registrations queue */
+        Closeable closeable;
+
+        @Override
+        public void run() {
+            registrations.remove(this);
+        }
+    }
+
+    private <C, T extends Closeable> Factory<C, T> factory(final CloseRunnerFactory<C, T> closeRunnerFactory) {
+        requireNonNull(closeRunnerFactory);
+        return config -> {
+            final Registration registration = new Registration();
+            final T closeable = closeRunnerFactory.create(config, registration);
+            registration.closeable = closeable;
+            registrations.add(registration);
+            //NOTE: close() may have missed the registration if it ran concurrently, so we close the element ourselves;
+            //      as both register-then-check and set-closed-then-close use volatile accesses, at least one of us
+            //      closes it
+            if (isClosed()) {
+                CloseHelper.quietClose(closeable);
+                throw queueClosedException();
+            }
+            return closeable;
+        };
+    }
+
+    /**
+     * Returns the number of open elements registered with this queue, for testing.
+     *
+     * @return the number of open appenders, pollers, entry readers, entry iterators and index readers
+     */
+    int openElements() {
+        return registrations.size();
     }
 
     @Override
@@ -174,7 +267,7 @@ public final class QueueImpl implements Queue {
 
     @Override
     public Appender createAppender(final AppenderConfig config) {
-        return appenderFactory.apply(config);
+        return appenderFactory.create(config);
     }
 
     @Override
@@ -184,7 +277,7 @@ public final class QueueImpl implements Queue {
 
     @Override
     public Poller createPoller(final ReaderConfig config) {
-        return pollerFactory.apply(config);
+        return pollerFactory.create(config);
     }
 
     @Override
@@ -199,7 +292,7 @@ public final class QueueImpl implements Queue {
 
     @Override
     public EntryReader createEntryReader(final ReaderConfig config) {
-        return entryReaderFactory.apply(config);
+        return entryReaderFactory.create(config);
     }
 
     @Override
@@ -209,19 +302,23 @@ public final class QueueImpl implements Queue {
 
     @Override
     public EntryIterator createEntryIterator(final ReaderConfig config) {
-        return entryIteratorFactory.apply(config);
+        return entryIteratorFactory.create(config);
     }
 
     @Override
     public IndexReader createIndexReader(final IndexReaderConfig config) {
-        return indexReaderFactory.apply(config);
+        return indexReaderFactory.create(config);
     }
 
     private String queueNameIfNotClosed() {
         if (!isClosed()) {
             return files.queueName();
         }
-        throw new IllegalStateException("Queue is closed: " + files.queueName());
+        throw queueClosedException();
+    }
+
+    private IllegalStateException queueClosedException() {
+        return new IllegalStateException("Queue is closed: " + files.queueName());
     }
 
     @Override
@@ -232,8 +329,11 @@ public final class QueueImpl implements Queue {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            CloseHelper.quietCloseAll(closeables);
-            closeables.clear();
+            for (final Registration registration : registrations) {
+                CloseHelper.quietClose(registration.closeable);
+            }
+            registrations.clear();
+            CloseHelper.quietClose(idPool);
             LOGGER.info("Closed queue: {}", files.queueName());
         }
     }

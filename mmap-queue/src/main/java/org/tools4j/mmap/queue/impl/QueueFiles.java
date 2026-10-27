@@ -35,21 +35,27 @@ final class QueueFiles {
     public static final String FILE_ENDING = ".mmq";
 
     private final File queueFile;
+    private final File metaFile;
     private final File headerFile;
     private final File idPoolFile;
     private final File[] payloadFiles;
     private final IntFunction<File> payloadFileFactory;
 
-    public QueueFiles(final File queueFile, final int maxAppenders) {
+    public QueueFiles(final File queueFile) {
         this.queueFile = requireNonNull(queueFile);
+        this.metaFile = new File(queueFile, queueFile.getName() + "_met.mmq");
         this.headerFile = new File(queueFile, queueFile.getName() + "_hdr.mmq");
         this.idPoolFile = new File(queueFile, queueFile.getName() + "_ids.mmq");
-        this.payloadFiles = new File[maxAppenders];
+        this.payloadFiles = new File[Headers.MAX_APPENDERS];
         this.payloadFileFactory = appenderId -> new File(queueFile, queueFile.getName() + "_dat_" + appenderId + ".mmq");
     }
 
     public String queueName() {
         return queueFile.getName();
+    }
+
+    public File metaFile() {
+        return metaFile;
     }
 
     public File headerFile() {

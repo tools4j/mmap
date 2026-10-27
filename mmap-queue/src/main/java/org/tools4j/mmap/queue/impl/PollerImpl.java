@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,18 +43,25 @@ final class PollerImpl implements Poller {
     private final String queueName;
     private final ReaderMappings mappings;
     private final ElasticMapping header;
+    private final Runnable onClose;
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
     private int errorState = PENDING_OPEN;
 
-    PollerImpl(final String queueName, final ReaderMappings mappings) {
-        this.queueName = requireNonNull(queueName);
-        this.mappings = requireNonNull(mappings);
-        this.header = requireNonNull(mappings.header());
-        this.nextIndex = Index.FIRST;
-        this.currentIndex = Index.NULL;
-        this.currentHeader = NULL_HEADER;
+    PollerImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose) {
+        try {
+            this.queueName = requireNonNull(queueName);
+            this.mappings = requireNonNull(mappings);
+            this.header = requireNonNull(mappings.header());
+            this.onClose = requireNonNull(onClose);
+            this.nextIndex = Index.FIRST;
+            this.currentIndex = Index.NULL;
+            this.currentHeader = NULL_HEADER;
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(mappings);
+            throw t;
+        }
     }
 
     @Override
@@ -202,6 +210,7 @@ final class PollerImpl implements Poller {
             currentIndex = Index.NULL;
             currentHeader = NULL_HEADER;
             mappings.close();
+            onClose.run();
             LOGGER.info("Poller closed: {}", pollerName());
         }
     }

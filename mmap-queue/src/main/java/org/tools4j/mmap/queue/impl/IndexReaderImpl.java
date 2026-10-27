@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.CloseHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.queue.api.Index;
@@ -36,10 +37,17 @@ final class IndexReaderImpl implements IndexReader {
 
     private final String queueName;
     private final ElasticMapping header;
+    private final Runnable onClose;
 
-    IndexReaderImpl(final String queueName, final ElasticMapping header) {
-        this.queueName = requireNonNull(queueName);
-        this.header = requireNonNull(header);
+    IndexReaderImpl(final String queueName, final ElasticMapping header, final Runnable onClose) {
+        try {
+            this.queueName = requireNonNull(queueName);
+            this.header = requireNonNull(header);
+            this.onClose = requireNonNull(onClose);
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(header);
+            throw t;
+        }
     }
 
     @Override
@@ -69,6 +77,7 @@ final class IndexReaderImpl implements IndexReader {
     public void close() {
         if (!isClosed()) {
             header.close();
+            onClose.run();
             LOGGER.info("Index reader closed, queue={}", queueName);
         }
     }

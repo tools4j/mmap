@@ -26,10 +26,8 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.Mappings;
-import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.config.MappingConfig;
+
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
@@ -42,19 +40,17 @@ interface IndexMappings {
      * Factory method for reader mappings.
      *
      * @param queueFiles        the queue files
-     * @param queueConfig       the queue configuration settings
+     * @param queueConfig       supplies the queue configuration in effect, or null if the queue does not exist yet
      * @param indexReaderConfig configuration for index reader mappings
      * @return a new header mapping
      */
     static ElasticMapping create(final QueueFiles queueFiles,
-                                 final QueueConfig queueConfig,
+                                 final Supplier<? extends QueueConfig> queueConfig,
                                  final IndexReaderConfig indexReaderConfig) {
         requireNonNull(queueFiles);
-        final MappingConfig headerCfg = headerMappingConfig(
-                queueConfig.toImmutableQueueConfig(), indexReaderConfig.toImmutableIndexReaderConfig()
-        );
-        return Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY,
-                FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
+        final IndexReaderConfig indexReaderCfg = indexReaderConfig.toImmutableIndexReaderConfig();
+        return ReaderMappings.headerMapping(queueFiles, queueConfig,
+                queueCfg -> headerMappingConfig(queueCfg, indexReaderCfg));
     }
 
 }

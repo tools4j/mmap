@@ -28,21 +28,47 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 
-enum FileLocks {
+/**
+ * Acquires file locks, waiting until a lock is available or a timeout occurs. A lock held by another thread of the
+ * same JVM is waited for in the same way as one held by another process.
+ */
+public enum FileLocks {
     ;
     static final long DEFAULT_MAX_WAIT_MILLIS = 5000;
 
-    static FileLock acquireLock(final FileChannel fileChannel) {
-        return acquireLock(fileChannel, DEFAULT_MAX_WAIT_MILLIS);
+    /**
+     * Acquires an exclusive lock for the whole file, which requires a file channel open for writing.
+     *
+     * @param fileChannel the file channel to lock
+     * @return the acquired lock
+     * @throws IllegalStateException if the lock could not be acquired in time
+     */
+    public static FileLock acquireLock(final FileChannel fileChannel) {
+        return acquireLock(fileChannel, false, DEFAULT_MAX_WAIT_MILLIS);
+    }
+
+    /**
+     * Acquires a shared lock for the whole file, which requires a file channel open for reading.
+     *
+     * @param fileChannel the file channel to lock
+     * @return the acquired lock
+     * @throws IllegalStateException if the lock could not be acquired in time
+     */
+    public static FileLock acquireSharedLock(final FileChannel fileChannel) {
+        return acquireLock(fileChannel, true, DEFAULT_MAX_WAIT_MILLIS);
     }
 
     static FileLock acquireLock(final FileChannel fileChannel, final long maxWaitMillis) {
+        return acquireLock(fileChannel, false, maxWaitMillis);
+    }
+
+    static FileLock acquireLock(final FileChannel fileChannel, final boolean shared, final long maxWaitMillis) {
         final long endTime = System.currentTimeMillis() + maxWaitMillis;
         long remainingMillis = maxWaitMillis;
         FileLock fileLock = null;
         do {
             try {
-                fileLock = fileChannel.tryLock();
+                fileLock = fileChannel.tryLock(0, Long.MAX_VALUE, shared);
             } catch (final OverlappingFileLockException e) {
                 // ignore - sleep and try again
             } catch (final IOException e) {

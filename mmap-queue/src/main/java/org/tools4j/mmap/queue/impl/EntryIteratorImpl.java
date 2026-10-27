@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
@@ -48,13 +49,20 @@ final class EntryIteratorImpl implements EntryIterator {
     private final String queueName;
     private final ReaderMappings mappings;
     private final ElasticMapping header;
+    private final Runnable onClose;
     private final IterableContextImpl context;
 
-    EntryIteratorImpl(final String queueName, final ReaderMappings mappings) {
-        this.queueName = requireNonNull(queueName);
-        this.mappings = requireNonNull(mappings);
-        this.header = requireNonNull(mappings.header());
-        this.context = new IterableContextImpl(this);
+    EntryIteratorImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose) {
+        try {
+            this.queueName = requireNonNull(queueName);
+            this.mappings = requireNonNull(mappings);
+            this.header = requireNonNull(mappings.header());
+            this.onClose = requireNonNull(onClose);
+            this.context = new IterableContextImpl(this);
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(mappings);
+            throw t;
+        }
     }
 
     @Override
@@ -93,6 +101,7 @@ final class EntryIteratorImpl implements EntryIterator {
     public void close() {
         if (!isClosed()) {
             mappings.close();
+            onClose.run();
             LOGGER.info("Entry iterator closed, queue={}", queueName);
         }
     }

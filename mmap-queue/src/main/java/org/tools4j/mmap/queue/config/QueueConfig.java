@@ -24,19 +24,21 @@
 package org.tools4j.mmap.queue.config;
 
 
-public interface QueueConfig {
-    int maxAppenders();
-    long minHeaderFileSize();
-    long maxHeaderFileSize();
-    long minPayloadFileSize();
-    long maxPayloadFileSize();
-    int headerRegionSize();
-    int payloadRegionSize();
-    boolean expandHeaderFile();
-    boolean expandPayloadFiles();
-    boolean rollHeaderFile();
-    boolean rollPayloadFiles();
-
+/**
+ * Queue configuration, consisting of the {@link QueueLayoutConfig queue layout}, which is fixed when the queue is
+ * created, and of default settings applied to queue appenders and readers if no others are provided.
+ * <p>
+ * The {@link #getDefault() default} configuration is defined through system properties, see
+ * {@link QueueConfigurations}. Custom configurations are built with a {@link QueueConfigurator} obtained through
+ * {@link #configure()}, or through {@link #configure(QueueConfig)} to start from other defaults, for instance:
+ * <pre>{@code
+ * QueueConfig config = QueueConfig.configure()
+ *         .maxAppenders(1)
+ *         .payloadRegionSize(1 << 20)
+ *         .pollerConfig(cfg -> cfg.payloadMappingStrategy(MappingStrategy.AsyncMapAheadStrategy));
+ * }</pre>
+ */
+public interface QueueConfig extends QueueLayoutConfig {
     AppenderConfig appenderConfig();
     ReaderConfig pollerConfig();
     ReaderConfig entryReaderConfig();

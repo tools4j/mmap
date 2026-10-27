@@ -32,7 +32,6 @@ import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.io.File;
@@ -181,7 +180,7 @@ class PollerTest {
     }
 
     private void writeHeader(final long index, final long header) throws IOException {
-        final File headerFile = new QueueFiles(queueDir, QueueConfig.getDefault().maxAppenders()).headerFile();
+        final File headerFile = new QueueFiles(queueDir).headerFile();
         final File rolledHeaderFile = new File(queueDir, headerFile.getName().replace(".mmq", "_0.mmq"));
         final File file = rolledHeaderFile.exists() ? rolledHeaderFile : headerFile;
         assertThat(file).exists();
@@ -194,7 +193,7 @@ class PollerTest {
 
     private void pollReturnsPendingOpenForHeaderFileOfLength(final int length) throws IOException {
         try (final Queue queue = Queue.open(queueDir)) {
-            final File headerFile = new QueueFiles(queueDir, QueueConfig.getDefault().maxAppenders()).headerFile();
+            final File headerFile = new QueueFiles(queueDir).headerFile();
             //write both the plain and the first rolled header file, so the test works with or without file rolling
             final String rolledName = headerFile.getName().replace(".mmq", "_0.mmq");
             for (final File file : new File[]{headerFile, new File(queueDir, rolledName)}) {

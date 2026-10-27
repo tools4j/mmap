@@ -23,16 +23,17 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import java.nio.ByteBuffer;
 
@@ -53,23 +54,33 @@ final class AppenderImpl implements Appender {
     private final ElasticMapping payload;
     private final boolean enableCopyFromPreviousRegion;
     private final AppendingContextImpl context;
+    private final Runnable onClose;
     private long endIndex;
     private long lastOwnHeader;
     private int lastOwnPayloadLength;
     private boolean closed;
 
-    public AppenderImpl(final String queueName, final AppenderMappings mappings, final boolean enableCopyFromPreviousRegion) {
-        this.queueName = requireNonNull(queueName);
-        this.mappings = requireNonNull(mappings);
-        this.appenderId = mappings.appenderId();
-        this.header = requireNonNull(mappings.header());
-        this.payload = requireNonNull(mappings.payload());
-        this.enableCopyFromPreviousRegion = enableCopyFromPreviousRegion;
-        this.context = new AppendingContextImpl(this);
-        this.endIndex = Index.NULL;
-        this.lastOwnHeader = NULL_HEADER;
-        this.lastOwnPayloadLength = -1;
-        initialMoveToEnd();
+    public AppenderImpl(final String queueName,
+                        final AppenderMappings mappings,
+                        final boolean enableCopyFromPreviousRegion,
+                        final Runnable onClose) {
+        try {
+            this.queueName = requireNonNull(queueName);
+            this.mappings = requireNonNull(mappings);
+            this.appenderId = mappings.appenderId();
+            this.header = requireNonNull(mappings.header());
+            this.payload = requireNonNull(mappings.payload());
+            this.enableCopyFromPreviousRegion = enableCopyFromPreviousRegion;
+            this.context = new AppendingContextImpl(this);
+            this.onClose = requireNonNull(onClose);
+            this.endIndex = Index.NULL;
+            this.lastOwnHeader = NULL_HEADER;
+            this.lastOwnPayloadLength = -1;
+            initialMoveToEnd();
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(mappings);
+            throw t;
+        }
     }
 
     private void checkIndexNotExceedingMax(final long index) {
@@ -208,6 +219,7 @@ final class AppenderImpl implements Appender {
             lastOwnHeader = NULL_HEADER;
             lastOwnPayloadLength = -1;
             mappings.close();
+            onClose.run();
             LOGGER.info("Appender closed: {}", appenderName());
         }
     }

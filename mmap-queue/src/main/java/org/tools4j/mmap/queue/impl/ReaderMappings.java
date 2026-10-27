@@ -33,7 +33,10 @@ import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 
+import java.io.File;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
@@ -61,26 +64,25 @@ interface ReaderMappings extends Closeable {
     /**
      * Factory method for reader mappings.
      *
-     * @param queueFiles    the queue files
-     * @param queueConfig   the queue configuration settings
-     * @param readerConfig  configuration for reader mappings
+     * @param queueFiles   the queue files
+     * @param queueConfig  supplies the queue configuration in effect, or null if the queue does not exist yet
+     * @param readerConfig configuration for reader mappings
      * @return a new reader mappings instance
      */
     static ReaderMappings create(final QueueFiles queueFiles,
-                                 final QueueConfig queueConfig,
+                                 final Supplier<? extends QueueConfig> queueConfig,
                                  final ReaderConfig readerConfig) {
         requireNonNull(queueFiles);
-        final QueueConfig queueCfg = queueConfig.toImmutableQueueConfig();
+        requireNonNull(queueConfig);
         final ReaderConfig readerCfg = readerConfig.toImmutableReaderConfig();
 
         return new ReaderMappings() {
-            final MappingConfig headerCfg = headerMappingConfig(queueCfg, readerCfg);
-            final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, readerCfg);
-            final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY,
-                    FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
+            final ElasticMapping header = headerMapping(queueFiles, queueConfig,
+                    queueCfg -> headerMappingConfig(queueCfg, readerCfg));
             final Int2ObjectHashMap<ElasticMapping> payloadMappings = new Int2ObjectHashMap<>();
             final IntFunction<ElasticMapping> payloadMappingFactory = appenderId -> Mappings.elasticMapping(
-                queueFiles.payloadFile(appenderId), OpenMode.READ_ONLY_LAZY, payloadCfg);
+                    queueFiles.payloadFile(appenderId), OpenMode.READ_ONLY_LAZY,
+                    payloadMappingConfig(existingQueueConfig(queueConfig), readerCfg));
 
             @Override
             public ElasticMapping header() {
@@ -113,6 +115,38 @@ interface ReaderMappings extends Closeable {
                         "|closed=" + isClosed();
             }
         };
+    }
+
+    /**
+     * Creates a read-only header mapping; if the queue does not exist yet, the header file is mapped once it does.
+     *
+     * @param queueFiles   the queue files
+     * @param queueConfig  supplies the queue configuration in effect, or null if the queue does not exist yet
+     * @param headerConfig function returning the header mapping config given the queue configuration in effect
+     * @return a new header mapping
+     */
+    static ElasticMapping headerMapping(final QueueFiles queueFiles,
+                                        final Supplier<? extends QueueConfig> queueConfig,
+                                        final Function<? super QueueConfig, ? extends MappingConfig> headerConfig) {
+        final File headerFile = queueFiles.headerFile();
+        final FileInitialiser fileInitialiser = FileInitialiser.minLength(Headers.HEADER_LENGTH);
+        final QueueConfig queueCfg = queueConfig.get();
+        if (queueCfg != null) {
+            return Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
+                    headerConfig.apply(queueCfg));
+        }
+        return new LazyElasticMapping(() -> {
+            final QueueConfig cfg = queueConfig.get();
+            return cfg == null ? null : Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
+                    headerConfig.apply(cfg));
+        });
+    }
+
+    private static QueueConfig existingQueueConfig(final Supplier<? extends QueueConfig> queueConfig) {
+        //NOTE: payload is mapped only after reading a header, hence the queue exists
+        final QueueConfig queueCfg = queueConfig.get();
+        assert queueCfg != null : "queue must exist";
+        return queueCfg;
     }
 
 }

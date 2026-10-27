@@ -27,8 +27,6 @@ import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.impl.IdPool256;
 
-import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
-
 /**
  * Methods to encode and decode header values, and related methods.
  */
@@ -91,7 +89,9 @@ enum Headers {
      * <p>
      * NOTES: <pre>
      *    - StepBijection algorithm is used, inlined here to allow for compiler optimizations
-     *    - block size is 4096 bytes which is typically the size of a memory page
+     *    - block size is 4096 bytes which is typically the size of a memory page (64*64 bytes for a cache line
+     *      length of 64)
+     *    - all constants are part of the queue format (see QueueMetaFile) and must not depend on the platform
      *    - step size is 31 because
      *        (i) the compiler can multiply efficiently
      *        (ii) 31*HEADER_LENGTH is large enough to be false-sharing safe (i.e. at least 3*CACHE_LINE_LENGTH)
@@ -99,7 +99,7 @@ enum Headers {
      */
     static final int BIJECTION_STEP_FW = 31;
     static final int BIJECTION_STEP_BW = 479;
-    static final int BIJECTION_BLOCK_SIZE = CACHE_LINE_LENGTH*CACHE_LINE_LENGTH/HEADER_LENGTH;
+    static final int BIJECTION_BLOCK_SIZE = 4096/HEADER_LENGTH;
     private static final long BIJECTION_BLOCK_MASK_LO = BIJECTION_BLOCK_SIZE - 1;
     private static final long BIJECTION_BLOCK_MASK_HI = ~BIJECTION_BLOCK_MASK_LO;
     //private static final IndexBijection headerIndexBijection = new StepBijection(BIJECTION_BLOCK_MASK, BIJECTION_STEP_FW);
