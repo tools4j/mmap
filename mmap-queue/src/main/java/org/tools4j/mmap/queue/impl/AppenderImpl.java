@@ -95,7 +95,20 @@ final class AppenderImpl implements Appender {
         checkIndexNotExceedingMax(endIndex);
         this.endIndex = endIndex;
         this.lastOwnHeader = lastOwnHeader;
-        this.lastOwnPayloadLength = -1;
+        this.lastOwnPayloadLength = lastOwnHeader == NULL_HEADER ? -1 : payloadLength(lastOwnHeader);
+    }
+
+    /**
+     * Returns the payload length including length prefix of an entry previously appended with this appender's ID, for
+     * instance by a previous owner of the ID, so that new payload is appended after it.
+     */
+    private int payloadLength(final long ownHeader) {
+        final long payloadPosition = Headers.payloadPosition(ownHeader);
+        if (!payload.moveTo(payloadPosition)) {
+            throw payloadMoveException(this, payloadPosition);
+        }
+        //NOTE: plain read is safe, the length was written before the header, which we read with acquire semantics
+        return payload.buffer().getInt(0) + Integer.BYTES;
     }
 
     @Override
