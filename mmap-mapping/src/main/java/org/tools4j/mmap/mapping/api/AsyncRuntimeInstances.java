@@ -43,6 +43,17 @@ public enum AsyncRuntimeInstances {
             = ThreadLocal.withInitial(AsyncRuntimeInstances::newMappingRuntime);
     private static final ThreadLocal<AsyncRuntime> threadLocalUnmapper
             = ThreadLocal.withInitial(AsyncRuntimeInstances::newUnmappingRuntime);
+    private static final Supplier<AsyncRuntime> SHARED_MAPPING_RUNTIME_SUPPLIER =
+            AsyncRuntimeInstances::sharedMappingRuntime;
+    private static final Supplier<AsyncRuntime> SHARED_UNMAPPING_RUNTIME_SUPPLIER =
+            AsyncRuntimeInstances::sharedUnmappingRuntime;
+    private static final Supplier<AsyncRuntime> THREAD_LOCAL_MAPPING_RUNTIME_SUPPLIER =
+            AsyncRuntimeInstances::threadLocalMappingRuntime;
+    private static final Supplier<AsyncRuntime> THREAD_LOCAL_UNMAPPING_RUNTIME_SUPPLIER =
+            AsyncRuntimeInstances::threadLocalUnmappingRuntime;
+    private static final Supplier<AsyncRuntime> NEW_MAPPING_RUNTIME_SUPPLIER = AsyncRuntimeInstances::newMappingRuntime;
+    private static final Supplier<AsyncRuntime> NEW_UNMAPPING_RUNTIME_SUPPLIER =
+            AsyncRuntimeInstances::newUnmappingRuntime;
 
     /**
      * Creates a new mapping runtime instance that automatically stops after the last task de-registration and uses the
@@ -146,31 +157,31 @@ public enum AsyncRuntimeInstances {
 
     /**
      * Returns a mapping runtime supplier that returns either shared or newly created runtime instances when called,
-     * depending on the provided sharing policy.
+     * depending on the provided sharing policy. The same supplier instance is returned for the same sharing policy.
      *
      * @param sharingPolicy the policy defining if and how the retrieved runtime instances should be shared
      * @return a supplier for mapping runtime instances
      */
     public static Supplier<AsyncRuntime> mappingRuntimeSupplier(final SharingPolicy sharingPolicy) {
         return switch (sharingPolicy) {
-            case SHARED -> AsyncRuntimeInstances::sharedMappingRuntime;
-            case PER_THREAD -> AsyncRuntimeInstances::threadLocalMappingRuntime;
-            case INDIVIDUAL -> AsyncRuntimeInstances::newMappingRuntime;
+            case SHARED -> SHARED_MAPPING_RUNTIME_SUPPLIER;
+            case PER_THREAD -> THREAD_LOCAL_MAPPING_RUNTIME_SUPPLIER;
+            case INDIVIDUAL -> NEW_MAPPING_RUNTIME_SUPPLIER;
         };
     }
 
     /**
      * Returns an unmapping runtime supplier that returns either shared or newly created runtime instances when called,
-     * depending on the provided sharing policy.
+     * depending on the provided sharing policy. The same supplier instance is returned for the same sharing policy.
      *
      * @param sharingPolicy the policy defining if and how the retrieved runtime instances should be shared
      * @return a supplier for unmapping runtime instances
      */
     public static Supplier<AsyncRuntime> unmappingRuntimeSupplier(final SharingPolicy sharingPolicy) {
         return switch (sharingPolicy) {
-            case SHARED -> AsyncRuntimeInstances::sharedUnmappingRuntime;
-            case PER_THREAD -> AsyncRuntimeInstances::threadLocalUnmappingRuntime;
-            case INDIVIDUAL -> AsyncRuntimeInstances::newUnmappingRuntime;
+            case SHARED -> SHARED_UNMAPPING_RUNTIME_SUPPLIER;
+            case PER_THREAD -> THREAD_LOCAL_UNMAPPING_RUNTIME_SUPPLIER;
+            case INDIVIDUAL -> NEW_UNMAPPING_RUNTIME_SUPPLIER;
         };
     }
 

@@ -47,6 +47,16 @@ class AsyncRuntimeInstancesTest {
     private static final long POLL_INTERVAL_MILLIS = 10;
 
     @Test
+    void runtimeSuppliersAreTheSameInstanceForTheSamePolicy() {
+        for (final SharingPolicy policy : SharingPolicy.values()) {
+            assertSame(AsyncRuntimeInstances.mappingRuntimeSupplier(policy),
+                    AsyncRuntimeInstances.mappingRuntimeSupplier(policy));
+            assertSame(AsyncRuntimeInstances.unmappingRuntimeSupplier(policy),
+                    AsyncRuntimeInstances.unmappingRuntimeSupplier(policy));
+        }
+    }
+
+    @Test
     void sharedRuntimesAreRunningSingletons() {
         assertSame(AsyncRuntimeInstances.sharedMappingRuntime(), AsyncRuntimeInstances.sharedMappingRuntime());
         assertSame(AsyncRuntimeInstances.sharedUnmappingRuntime(), AsyncRuntimeInstances.sharedUnmappingRuntime());

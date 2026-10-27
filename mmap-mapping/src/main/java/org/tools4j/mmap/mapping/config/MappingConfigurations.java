@@ -31,7 +31,6 @@ import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.impl.Constraints;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
@@ -173,19 +172,6 @@ public enum MappingConfigurations {
     public static final String UNMAPPING_RUNTIME_SHARING_POLICY_PROPERTY = "mmap.mapping.async.unmappingRuntimeSharingPolicy";
     /** The default sharing policy of the unmapping runtime, used if the sharing policy property is not set. */
     public static final SharingPolicy UNMAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
-    /**
-     * Name of the system property to provide the default mapping runtime, with the class name of an
-     * {@link AsyncRuntime} or of a {@link Supplier} of runtimes (with a public no-arg constructor).
-     */
-    public static final String MAPPING_RUNTIME_PROPERTY = "mmap.mapping.async.mappingRuntime";
-    /**
-     * Name of the system property to provide the default unmapping runtime, with the class name of an
-     * {@link AsyncRuntime} or of a {@link Supplier} of runtimes (with a public no-arg constructor).
-     */
-    public static final String UNMAPPING_RUNTIME_PROPERTY = "mmap.mapping.async.unmappingRuntime";
-
-    private static Supplier<? extends AsyncRuntime> cachedDefaultMappingRuntimeSupplier;
-    private static Supplier<? extends AsyncRuntime> cachedDefaultUnmappingRuntimeSupplier;
 
     /**
      * Returns the default minimum file size (and file size increment) in expand-file mode.
@@ -434,56 +420,27 @@ public enum MappingConfigurations {
     }
 
     /**
-     * Returns the supplier of the default mapping runtime. If system property {@value #MAPPING_RUNTIME_PROPERTY} is
-     * set,
-     * runtimes are created from the class given by the property value, and shared according to the
-     * {@linkplain #defaultMappingRuntimeSharingPolicy() default sharing policy}. Otherwise the runtime is provided by
-     * {@link AsyncRuntimeInstances#mappingRuntimeSupplier(SharingPolicy)} for the default sharing policy.
-     * <p>
-     * The supplier is created on first invocation and the same supplier is returned subsequently, that is, changes
-     * to the system properties have no effect thereafter.
+     * Returns the supplier of the default mapping runtime, provided by
+     * {@link AsyncRuntimeInstances#mappingRuntimeSupplier(SharingPolicy)} for the
+     * {@linkplain #defaultMappingRuntimeSharingPolicy() default sharing policy}.
      *
      * @return the supplier of the default mapping runtime
-     * @throws IllegalArgumentException if a system property value is invalid
+     * @throws IllegalArgumentException if the sharing policy system property value is invalid
      */
-    public synchronized static Supplier<? extends AsyncRuntime> defaultMappingRuntimeSupplier() {
-        if (cachedDefaultMappingRuntimeSupplier == null) {
-            cachedDefaultMappingRuntimeSupplier = createDefaultRuntimeSupplier(MAPPING_RUNTIME_PROPERTY,
-                    defaultMappingRuntimeSharingPolicy(), AsyncRuntimeInstances::mappingRuntimeSupplier);
-        }
-        return cachedDefaultMappingRuntimeSupplier;
+    public static Supplier<? extends AsyncRuntime> defaultMappingRuntimeSupplier() {
+        return AsyncRuntimeInstances.mappingRuntimeSupplier(defaultMappingRuntimeSharingPolicy());
     }
 
     /**
-     * Returns the supplier of the default unmapping runtime. If system property {@value #UNMAPPING_RUNTIME_PROPERTY} is
-     * set,
-     * runtimes are created from the class given by the property value, and shared according to the
-     * {@linkplain #defaultUnmappingRuntimeSharingPolicy() default sharing policy}. Otherwise the runtime is provided by
-     * {@link AsyncRuntimeInstances#unmappingRuntimeSupplier(SharingPolicy)} for the default sharing policy.
-     * <p>
-     * The supplier is created on first invocation and the same supplier is returned subsequently, that is, changes
-     * to the system properties have no effect thereafter.
+     * Returns the supplier of the default unmapping runtime, provided by
+     * {@link AsyncRuntimeInstances#unmappingRuntimeSupplier(SharingPolicy)} for the
+     * {@linkplain #defaultUnmappingRuntimeSharingPolicy() default sharing policy}.
      *
      * @return the supplier of the default unmapping runtime
-     * @throws IllegalArgumentException if a system property value is invalid
+     * @throws IllegalArgumentException if the sharing policy system property value is invalid
      */
-    public synchronized static Supplier<? extends AsyncRuntime> defaultUnmappingRuntimeSupplier() {
-        if (cachedDefaultUnmappingRuntimeSupplier == null) {
-            cachedDefaultUnmappingRuntimeSupplier = createDefaultRuntimeSupplier(UNMAPPING_RUNTIME_PROPERTY,
-                    defaultUnmappingRuntimeSharingPolicy(), AsyncRuntimeInstances::unmappingRuntimeSupplier);
-        }
-        return cachedDefaultUnmappingRuntimeSupplier;
-    }
-
-    private static Supplier<? extends AsyncRuntime> createDefaultRuntimeSupplier(
-            final String runtimePropertyName,
-            final SharingPolicy sharingPolicy,
-            final Function<? super SharingPolicy, ? extends Supplier<? extends AsyncRuntime>> instancesSupplier) {
-        final String propVal = System.getProperty(runtimePropertyName, null);
-        if (propVal == null) {
-            return instancesSupplier.apply(sharingPolicy);
-        }
-        return share(sharingPolicy, newSupplier(runtimePropertyName, propVal, AsyncRuntime.class));
+    public static Supplier<? extends AsyncRuntime> defaultUnmappingRuntimeSupplier() {
+        return AsyncRuntimeInstances.unmappingRuntimeSupplier(defaultUnmappingRuntimeSharingPolicy());
     }
 
     private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {
@@ -544,6 +501,7 @@ public enum MappingConfigurations {
         }
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static <T> Supplier<T> getSupplierProperty(final String propertyName,
                                                        final Class<T> type,
                                                        final Supplier<T> defaultValueSupplier) {
@@ -584,23 +542,6 @@ public enum MappingConfigurations {
             } catch (final Exception e) {
                 throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal, e);
             }
-        };
-    }
-
-    private static <T> Supplier<T> share(final SharingPolicy sharingPolicy, final Supplier<T> supplier) {
-        return switch (sharingPolicy) {
-            case SHARED -> new Supplier<>() {
-                T instance;
-                @Override
-                public synchronized T get() {
-                    if (instance == null) {
-                        instance = supplier.get();
-                    }
-                    return instance;
-                }
-            };
-            case PER_THREAD -> ThreadLocal.withInitial(supplier)::get;
-            case INDIVIDUAL -> supplier;
         };
     }
 

@@ -96,6 +96,16 @@ class MappingConfigurationsTest {
     }
 
     @Test
+    void defaultMappingRuntimeSupplierFollowsSharingPolicyProperty() {
+        final SharingPolicy defaultPolicy = MappingConfigurations.MAPPING_RUNTIME_SHARING_POLICY_DEFAULT;
+        assertSame(AsyncRuntimeInstances.mappingRuntimeSupplier(defaultPolicy),
+                MappingConfigurations.defaultMappingRuntimeSupplier());
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_SHARING_POLICY_PROPERTY, "PER_THREAD");
+        assertSame(AsyncRuntimeInstances.mappingRuntimeSupplier(SharingPolicy.PER_THREAD),
+                MappingConfigurations.defaultMappingRuntimeSupplier());
+    }
+
+    @Test
     void defaultUnmappingIdleStrategySupplierReturnsNewInstances() {
         assertNotSame(MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get(),
                 MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get());
