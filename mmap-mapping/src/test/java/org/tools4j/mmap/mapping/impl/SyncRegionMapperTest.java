@@ -50,6 +50,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
+/**
+ * Unit test for {@link org.tools4j.mmap.mapping.unsafe.SyncRegionMapper SyncRegionMapper} with ring and LRU caches,
+ * created through {@link RegionMappers}.
+ */
 public class SyncRegionMapperTest {
     private static final int MAX_CACHE_SIZE = 4;//see parameterized test params
     private static final int MAX_DATA_LENGTH = (int)((1 + 2*MAX_CACHE_SIZE) * Constants.REGION_SIZE_GRANULARITY);

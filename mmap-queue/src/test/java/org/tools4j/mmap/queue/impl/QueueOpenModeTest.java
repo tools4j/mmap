@@ -37,6 +37,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.tools4j.mmap.queue.config.QueueConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,7 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests opening a queue with the different {@link OpenMode}s.
+ * Unit test for {@link Queue#open(File, OpenMode, QueueConfig)} and {@link QueueImpl} with the different
+ * {@link OpenMode}s.
  */
 class QueueOpenModeTest {
 

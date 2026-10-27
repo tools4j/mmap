@@ -53,6 +53,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit test for {@link Queue} and {@link QueueImpl}, appending and reading entries with all appender and reader types.
+ */
 class QueueTest {
 
     private static final int MAX_READ_ATTEMPTS = 256;

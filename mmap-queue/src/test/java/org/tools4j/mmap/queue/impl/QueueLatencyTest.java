@@ -51,6 +51,9 @@ import java.util.stream.Stream;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Latency test for {@link Queue} and {@link QueueImpl} with concurrent senders and receivers.
+ */
 public class QueueLatencyTest {
 
     private static final int REGION_CACHE_SIZE = 16;

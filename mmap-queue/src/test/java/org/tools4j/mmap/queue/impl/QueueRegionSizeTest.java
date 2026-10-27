@@ -33,13 +33,14 @@ import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.nio.file.Path;
+import org.tools4j.mmap.queue.config.QueueConfigurator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Tests the queue-level region sizes.
+ * Unit test for the queue region sizes of {@link QueueConfigurator} and {@link QueueConfiguratorImpl}.
  */
 class QueueRegionSizeTest {
 

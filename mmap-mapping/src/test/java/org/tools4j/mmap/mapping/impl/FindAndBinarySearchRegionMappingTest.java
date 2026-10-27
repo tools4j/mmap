@@ -26,10 +26,11 @@ package org.tools4j.mmap.mapping.impl;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 /**
- * {@link FindAndBinarySearchTest} for {@link ElasticMapping} and {@link ElasticMappingImpl}.
+ * {@link FindAndBinarySearchTest} for {@link RegionMapping} and {@link RegionMappingImpl}.
  */
 class FindAndBinarySearchRegionMappingTest extends FindAndBinarySearchTest {
     @Override

@@ -32,12 +32,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.tools4j.mmap.queue.impl.QueueImpl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Quick introduction to queues, used as example in the README.
+ * Quick introduction to queues, used as example in the README, see {@link Queue} and {@link QueueImpl}.
  */
 class QuickIntroTest {
 

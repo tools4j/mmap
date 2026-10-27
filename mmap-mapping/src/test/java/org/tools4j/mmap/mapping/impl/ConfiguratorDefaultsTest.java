@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test asserting that configurator methods customizing nested configurations start from the defaults the
- * configurator was created with.
+ * configurator was created with, see {@link MappingConfiguratorImpl} and {@link MappingStrategyConfiguratorImpl}.
  */
 class ConfiguratorDefaultsTest {
 

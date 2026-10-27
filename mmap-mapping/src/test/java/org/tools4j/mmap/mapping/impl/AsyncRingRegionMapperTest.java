@@ -57,6 +57,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
+/**
+ * Unit test for {@link org.tools4j.mmap.mapping.unsafe.AsyncRunAheadRegionMapper AsyncRunAheadRegionMapper}, created
+ * through {@link RegionMappers}.
+ */
 @SuppressWarnings("FieldCanBeLocal")
 public class AsyncRingRegionMapperTest {
     private static final int MAX_CACHE_SIZE = 4;//see parameterized test params
