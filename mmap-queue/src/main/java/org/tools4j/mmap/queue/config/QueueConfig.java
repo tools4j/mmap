@@ -26,7 +26,8 @@ package org.tools4j.mmap.queue.config;
 
 /**
  * Queue configuration, consisting of the {@link QueueLayoutConfig queue layout}, which is fixed when the queue is
- * created, and of default settings applied to queue appenders and readers if no others are provided.
+ * created, of the {@link #maxAppenders() max appenders} of whoever opens the queue, and of default settings applied
+ * to queue appenders and readers if no others are provided.
  * <p>
  * The {@link #getDefault() default} configuration is defined through system properties, see
  * {@link QueueConfigurations}. Custom configurations are built with a {@link QueueConfigurator} obtained through
@@ -39,6 +40,15 @@ package org.tools4j.mmap.queue.config;
  * }</pre>
  */
 public interface QueueConfig extends QueueLayoutConfig {
+    /**
+     * Returns the maximum number of appenders of this queue instance, that is, the appender IDs it acquires are below
+     * this value. It is not part of the queue layout: queue instances opened with different max appenders can append
+     * to the same queue concurrently, but none of them has exclusive access, not even with a single appender.
+     *
+     * @return the maximum number of appenders, between 1 and 256
+     */
+    int maxAppenders();
+
     AppenderConfig appenderConfig();
     ReaderConfig pollerConfig();
     ReaderConfig entryReaderConfig();

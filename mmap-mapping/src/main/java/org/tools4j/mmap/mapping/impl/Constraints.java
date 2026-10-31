@@ -217,10 +217,11 @@ public enum Constraints {
     }
 
     public static void validateMaxAppenders(final int maxAppenders) {
-        if (maxAppenders == 1 || maxAppenders == 64 || maxAppenders == 256) {
+        if (maxAppenders >= 1 && maxAppenders <= IdPool256.MAX_IDS) {
             return;
         }
-        throw new IllegalArgumentException("Max appenders must be one of [1, 64, 256]");
+        throw new IllegalArgumentException("Max appenders must be in [1, " + IdPool256.MAX_IDS + "] but was " +
+                maxAppenders);
     }
 
     public static void validatePowerOfTwo(final String name, final int value) {

@@ -64,7 +64,6 @@ class QueueMetaTest {
 
     /** Settings differing from the defaults, with small rolled files so that file indices depend on them */
     private static final QueueConfig CREATOR_CONFIG = QueueConfig.configure()
-            .maxAppenders(1)
             .headerRegionSize(REGION_SIZE)
             .payloadRegionSize(REGION_SIZE)
             .minHeaderFileSize(0)
@@ -97,8 +96,7 @@ class QueueMetaTest {
 
     @Test
     void layoutToStringListsAllValues() {
-        assertEquals("QueueLayoutConfigImpl:maxAppenders=1" +
-                        "|headerRegionSize=" + REGION_SIZE +
+        assertEquals("QueueLayoutConfigImpl:headerRegionSize=" + REGION_SIZE +
                         "|payloadRegionSize=" + REGION_SIZE +
                         "|minHeaderFileSize=0" +
                         "|maxHeaderFileSize=" + REGION_SIZE +
@@ -119,6 +117,20 @@ class QueueMetaTest {
         try (final Queue queue = Queue.open(dir, OpenMode.READ_ONLY)) {
             assertEquals(expectedEntries(0, 2 * ENTRIES), pollAll(queue.createPoller()));
             assertEquals(2 * ENTRIES, queue.createIndexReader().size());
+        }
+    }
+
+    @Test
+    void maxAppendersLimitsQueueInstanceAndIsNotPartOfLayout() {
+        final File dir = queueDir();
+        final QueueConfig singleAppenderConfig = QueueConfig.configure().maxAppenders(1).toImmutableQueueConfig();
+        try (final Queue single = Queue.open(dir, OpenMode.CREATE, singleAppenderConfig);
+             final Queue multi = Queue.open(dir, OpenMode.READ_WRITE)) {
+            assertEquals(QueueLayoutConfigImpl.of(QueueConfig.getDefault()), QueueMetaFile.read(metaFile()));
+            single.createAppender();
+            assertThrows(IllegalStateException.class, single::createAppender);
+            multi.createAppender();
+            multi.createAppender();
         }
     }
 

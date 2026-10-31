@@ -32,7 +32,6 @@ import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.IdPool;
 import org.tools4j.mmap.mapping.impl.IdPool256;
-import org.tools4j.mmap.mapping.impl.IdPool64;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -109,7 +108,7 @@ public final class QueueImpl implements Queue {
             };
         } else {
             final QueueConfig writerConfig = effectiveConfig.get();
-            final IdPool pool = idPool(files, writerConfig.maxAppenders());
+            final IdPool pool = new IdPool256(files.idPoolFile(), writerConfig.maxAppenders());
             this.idPool = pool;
             this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(
                     queueNameIfNotClosed(),
@@ -200,16 +199,6 @@ public final class QueueImpl implements Queue {
         final int mapAhead = mappingStrategy.asyncMapping().isPresent() ?
                 mappingStrategy.asyncMapping().get().regionsToMapAhead() : 0;
         return cacheSie > Math.max(1, mapAhead + 1);
-    }
-
-    private static IdPool idPool(final QueueFiles queueFiles, final int maxAppenders) {
-        if (maxAppenders <= IdPool64.MAX_IDS) {
-            return new IdPool64(queueFiles.idPoolFile());
-        }
-        if (maxAppenders <= IdPool256.MAX_IDS) {
-            return new IdPool256(queueFiles.idPoolFile());
-        }
-        throw new IllegalArgumentException("Invalid value for max appenders: " + maxAppenders);
     }
 
     @FunctionalInterface

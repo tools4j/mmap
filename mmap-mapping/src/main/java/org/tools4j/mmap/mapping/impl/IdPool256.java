@@ -36,10 +36,13 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 
 /**
- * A pool of 256 IDs based on a memory-mapped file.
+ * A pool of up to 256 IDs based on a memory-mapped file.
  * <p>
  * The mapped file is used as a bit set with each bit representing an ID. The file content is updated atomically in a
  * thread (and process) safe manner when {@link #acquire() acquiring} or {@link #release(int) releasing} IDs.
+ * <p>
+ * The file always has {@link #FILE_SIZE} bytes, independent of the max IDs of the pool. Pools with different max IDs
+ * can therefore share the same file, each acquiring only IDs below its own max IDs, lowest available ID first.
  */
 public class IdPool256 implements IdPool {
     private static final Logger LOGGER = LoggerFactory.getLogger(IdPool256.class);
@@ -48,18 +51,37 @@ public class IdPool256 implements IdPool {
     public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
+    private final int maxIds;
+    private final int lastWordIndex;
+    private final long lastWordMask;
 
     public IdPool256(final File file) {
-        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE));
+        this(file, MAX_IDS);
+    }
+
+    public IdPool256(final File file, final int maxIds) {
+        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE), maxIds);
     }
 
     public IdPool256(final String name, final Mapping mapping) {
+        this(name, mapping, MAX_IDS);
+    }
+
+    public IdPool256(final String name, final Mapping mapping, final int maxIds) {
+        if (maxIds < 1 || maxIds > MAX_IDS) {
+            throw new IllegalArgumentException("Max IDs must be in [1, " + MAX_IDS + "] but was " + maxIds +
+                    " for ID pool: " + name);
+        }
         if (mapping.bytesAvailable() != FILE_SIZE) {
             throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
                     + mapping.bytesAvailable() + " for ID pool: " + name);
         }
         this.name = requireNonNull(name);
         this.mapping = requireNonNull(mapping);
+        this.maxIds = maxIds;
+        this.lastWordIndex = (maxIds - 1) / Long.SIZE * Long.BYTES;
+        final int lastWordIds = maxIds - lastWordIndex / Long.BYTES * Long.SIZE;
+        this.lastWordMask = -1L >>> (Long.SIZE - lastWordIds);
         LOGGER.info("Opened ID pool: {} ({} acquired IDs)", name, acquired());
     }
 
@@ -68,12 +90,13 @@ public class IdPool256 implements IdPool {
         validateNotClosed(this);
         final AtomicBuffer buf = mapping.buffer();
 
-        for (int index = 0; index < FILE_SIZE; index += Long.BYTES) {
+        for (int index = 0; index <= lastWordIndex; index += Long.BYTES) {
+            final long idMask = index == lastWordIndex ? lastWordMask : -1L;
             long idBitSet;
             long idBit;
             do {
                 idBitSet = buf.getLongAcquire(index);
-                idBit = Long.lowestOneBit(~idBitSet);
+                idBit = Long.lowestOneBit(~idBitSet & idMask);
             } while (idBit != 0 && !buf.compareAndSetLong(index, idBitSet, idBitSet | idBit));
             if (idBit != 0) {
                 final int idBitValue = Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
@@ -82,13 +105,13 @@ public class IdPool256 implements IdPool {
                 return id;
             }
         }
-        throw new IllegalStateException("Exceeded max number of " + MAX_IDS + " IDs in pool: " + name);
+        throw new IllegalStateException("Exceeded max number of " + maxIds + " IDs in pool: " + name);
     }
 
     @Override
     public boolean release(final int id) {
         validateNotClosed(this);
-        if (id < 0 || id >= MAX_IDS) {
+        if (id < 0 || id >= maxIds) {
             throw new IllegalArgumentException("Invalid ID: " + id);
         }
         final AtomicBuffer buf = mapping.buffer();
@@ -140,6 +163,7 @@ public class IdPool256 implements IdPool {
     public String toString() {
         return "IdPool256" +
                 ":name='" + name + '\'' +
+                "|maxIds=" + maxIds +
                 "|acquired=" + acquired();
     }
 }

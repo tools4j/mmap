@@ -169,10 +169,10 @@ class ConstraintsTest {
         invalid(() -> validateFilesToCreateAhead(-1));
         valid(() -> validateRegionsToMapAhead(1));
         invalid(() -> validateRegionsToMapAhead(0));
-        for (final int maxAppenders : new int[]{1, 64, 256}) {
+        for (final int maxAppenders : new int[]{1, 2, 64, 100, 256}) {
             valid(() -> validateMaxAppenders(maxAppenders));
         }
-        for (final int maxAppenders : new int[]{0, 2, 128, 512}) {
+        for (final int maxAppenders : new int[]{-1, 0, 257, 512}) {
             invalid(() -> validateMaxAppenders(maxAppenders));
         }
     }

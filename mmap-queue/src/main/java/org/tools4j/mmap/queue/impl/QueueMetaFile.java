@@ -45,16 +45,15 @@ import java.util.function.Supplier;
  *     offset  size  field
  *          0     8  magic, the ASCII bytes "t4jmmapq"
  *          8     4  format version
- *         12     4  reserved, zero
- *         16     4  max appenders
- *         20     4  header region size
- *         24     4  payload region size
- *         28     4  flags: bit 0 expand header file, bit 1 expand payload files, bit 2 roll header file,
+ *         12     4  flags: bit 0 expand header file, bit 1 expand payload files, bit 2 roll header file,
  *                   bit 3 roll payload files
- *         32     8  min header file size
- *         40     8  max header file size
- *         48     8  min payload file size
- *         56     8  max payload file size
+ *         16     4  header region size
+ *         20     4  payload region size
+ *         24     8  min header file size
+ *         32     8  max header file size
+ *         40     8  min payload file size
+ *         48     8  max payload file size
+ *         56     8  reserved, zero
  * </pre>
  * The format version also covers the layout of the other queue files, such as the header encoding and the
  * index-to-header-position bijection defined in {@link Headers}.
@@ -71,14 +70,13 @@ enum QueueMetaFile {
     private static final byte[] MAGIC = "t4jmmapq".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] NO_MAGIC = new byte[MAGIC.length];
     private static final int VERSION_OFFSET = 8;
-    private static final int MAX_APPENDERS_OFFSET = 16;
-    private static final int HEADER_REGION_SIZE_OFFSET = 20;
-    private static final int PAYLOAD_REGION_SIZE_OFFSET = 24;
-    private static final int FLAGS_OFFSET = 28;
-    private static final int MIN_HEADER_FILE_SIZE_OFFSET = 32;
-    private static final int MAX_HEADER_FILE_SIZE_OFFSET = 40;
-    private static final int MIN_PAYLOAD_FILE_SIZE_OFFSET = 48;
-    private static final int MAX_PAYLOAD_FILE_SIZE_OFFSET = 56;
+    private static final int FLAGS_OFFSET = 12;
+    private static final int HEADER_REGION_SIZE_OFFSET = 16;
+    private static final int PAYLOAD_REGION_SIZE_OFFSET = 20;
+    private static final int MIN_HEADER_FILE_SIZE_OFFSET = 24;
+    private static final int MAX_HEADER_FILE_SIZE_OFFSET = 32;
+    private static final int MIN_PAYLOAD_FILE_SIZE_OFFSET = 40;
+    private static final int MAX_PAYLOAD_FILE_SIZE_OFFSET = 48;
     private static final int EXPAND_HEADER_FILE_FLAG = 1;
     private static final int EXPAND_PAYLOAD_FILES_FLAG = 1 << 1;
     private static final int ROLL_HEADER_FILE_FLAG = 1 << 2;
@@ -185,7 +183,6 @@ enum QueueMetaFile {
         }
         final int flags = buffer.getInt(FLAGS_OFFSET);
         return new QueueLayoutConfigImpl(
-                buffer.getInt(MAX_APPENDERS_OFFSET),
                 buffer.getInt(HEADER_REGION_SIZE_OFFSET),
                 buffer.getInt(PAYLOAD_REGION_SIZE_OFFSET),
                 buffer.getLong(MIN_HEADER_FILE_SIZE_OFFSET),
@@ -206,7 +203,6 @@ enum QueueMetaFile {
     private static void write(final FileChannel channel, final QueueLayoutConfig layout) throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(LENGTH).order(ByteOrder.LITTLE_ENDIAN);
         buffer.putInt(VERSION_OFFSET, VERSION);
-        buffer.putInt(MAX_APPENDERS_OFFSET, layout.maxAppenders());
         buffer.putInt(HEADER_REGION_SIZE_OFFSET, layout.headerRegionSize());
         buffer.putInt(PAYLOAD_REGION_SIZE_OFFSET, layout.payloadRegionSize());
         buffer.putInt(FLAGS_OFFSET, flags(layout));

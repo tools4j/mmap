@@ -30,13 +30,6 @@ package org.tools4j.mmap.queue.config;
  */
 public interface QueueLayoutConfig {
     /**
-     * Returns the maximum number of appenders, that is, of payload files and of concurrently open appenders.
-     *
-     * @return the maximum number of appenders, one of 1, 64 or 256
-     */
-    int maxAppenders();
-
-    /**
      * Returns the minimum header file size, and increment size if the header file is expanded.
      *
      * @return the minimum header file size in bytes, zero for region-sized increments

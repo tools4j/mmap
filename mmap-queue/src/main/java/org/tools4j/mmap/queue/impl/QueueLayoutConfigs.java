@@ -41,7 +41,7 @@ enum QueueLayoutConfigs {
      */
     static QueueConfig applyLayout(final QueueConfig config, final QueueLayoutConfig layout) {
         return new QueueConfigImpl(
-                layout.maxAppenders(),
+                config.maxAppenders(),
                 layout.minHeaderFileSize(),
                 layout.maxHeaderFileSize(),
                 layout.minPayloadFileSize(),
@@ -65,11 +65,11 @@ enum QueueLayoutConfigs {
      *
      * @param layout the current layout config
      * @param config the configuration to compare with
-     * @return the differing values, for instance {@code "maxAppenders=64 (configured 256)"}, or null if none differ
+     * @return the differing values, for instance {@code "payloadRegionSize=65536 (configured 1048576)"}, or null if none differ
      */
     static CharSequence diff(final QueueLayoutConfig layout, final QueueLayoutConfig config) {
         StringBuilder diffs = null;
-        diffs = appendDiff(diffs, "maxAppenders", layout.maxAppenders(), config.maxAppenders());
+        //noinspection ConstantValue
         diffs = appendDiff(diffs, "headerRegionSize", layout.headerRegionSize(), config.headerRegionSize());
         diffs = appendDiff(diffs, "payloadRegionSize", layout.payloadRegionSize(), config.payloadRegionSize());
         diffs = appendDiff(diffs, "minHeaderFileSize", layout.minHeaderFileSize(), config.minHeaderFileSize());

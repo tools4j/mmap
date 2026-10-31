@@ -27,7 +27,6 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
 import static org.tools4j.mmap.mapping.impl.Constraints.validateFileSizes;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
@@ -36,7 +35,6 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  * Immutable {@link QueueLayoutConfig queue layout}, as stored in the queue's {@link QueueMetaFile meta file}; it
  * overrides the corresponding values of the {@link QueueConfig} used to open an existing queue.
  *
- * @param maxAppenders       the maximum number of appenders, defining the ID pool and the number of payload files
  * @param headerRegionSize   the header region size, defining the increments of expanded header files if the minimum
  *                           header file size is zero
  * @param payloadRegionSize  the payload region size, defining where payload entries wrap to the next region
@@ -49,8 +47,7 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  * @param rollHeaderFile     true if the header file is rolled
  * @param rollPayloadFiles   true if payload files are rolled
  */
-record QueueLayoutConfigImpl(int maxAppenders,
-                             int headerRegionSize,
+record QueueLayoutConfigImpl(int headerRegionSize,
                              int payloadRegionSize,
                              long minHeaderFileSize,
                              long maxHeaderFileSize,
@@ -62,7 +59,6 @@ record QueueLayoutConfigImpl(int maxAppenders,
                              boolean rollPayloadFiles) implements QueueLayoutConfig {
 
     QueueLayoutConfigImpl {
-        validateMaxAppenders(maxAppenders);
         validateRegionSize(headerRegionSize);
         validateRegionSize(payloadRegionSize);
         validateMinFileSize(minHeaderFileSize);
@@ -75,7 +71,6 @@ record QueueLayoutConfigImpl(int maxAppenders,
 
     static QueueLayoutConfigImpl of(final QueueLayoutConfig config) {
         return new QueueLayoutConfigImpl(
-                config.maxAppenders(),
                 config.headerRegionSize(),
                 config.payloadRegionSize(),
                 config.minHeaderFileSize(),
@@ -91,8 +86,7 @@ record QueueLayoutConfigImpl(int maxAppenders,
     @Override
     public String toString() {
         return "QueueLayoutConfigImpl" +
-                ":maxAppenders=" + maxAppenders +
-                "|headerRegionSize=" + headerRegionSize +
+                ":headerRegionSize=" + headerRegionSize +
                 "|payloadRegionSize=" + payloadRegionSize +
                 "|minHeaderFileSize=" + minHeaderFileSize +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +

@@ -26,7 +26,6 @@ package org.tools4j.mmap.queue.config;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.Constraints;
-import org.tools4j.mmap.mapping.impl.IdPool64;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
@@ -50,7 +49,7 @@ public enum QueueConfigurations {
     public static final int MAX_OPEN_FILES_DEFAULT = 3;//up to 3 threads: requestor/async-mapper/async-unmapper
 
     public static final String MAX_APPENDERS_PROPERTY = "mmap.queue.maxAppenders";
-    public static final int MAX_APPENDERS_DEFAULT = IdPool64.MAX_IDS;
+    public static final int MAX_APPENDERS_DEFAULT = 64;
     public static final String MIN_HEADER_FILE_SIZE_PROPERTY = "mmap.queue.minHeaderFileSize";
     public static final long MIN_HEADER_FILE_SIZE_DEFAULT = 16*1024*1024L;
     public static final String MIN_PAYLOAD_FILE_SIZE_PROPERTY = "mmap.queue.minPayloadFileSize";

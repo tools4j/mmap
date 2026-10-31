@@ -28,7 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.impl.IdPool;
-import org.tools4j.mmap.mapping.impl.IdPool64;
+import org.tools4j.mmap.mapping.impl.IdPool256;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 
@@ -91,7 +91,7 @@ class QueueCloseTest {
         queue.createAppender();
         queue.createAppender();
         queue.close();
-        try (final IdPool idPool = new IdPool64(new QueueFiles(dir).idPoolFile())) {
+        try (final IdPool idPool = new IdPool256(new QueueFiles(dir).idPoolFile())) {
             assertEquals(0, idPool.acquired());
         }
     }
