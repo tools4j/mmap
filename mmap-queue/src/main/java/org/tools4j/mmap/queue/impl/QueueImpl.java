@@ -193,12 +193,16 @@ public final class QueueImpl implements Queue {
         }
     }
 
+    /**
+     * Returns true if the previous payload region is still mapped after moving to the next region: the region cache
+     * must defer unmapping, and be large enough that mapping the next and the map-ahead regions does not evict it.
+     */
     private static boolean enableCopyFromPreviousRegion(final AppenderConfig appenderConfig) {
         final MappingStrategyConfig mappingStrategy = appenderConfig.payloadMappingStrategy();
-        final int cacheSie = mappingStrategy.cacheSize();
+        final int cacheSize = mappingStrategy.cacheSize();
         final int mapAhead = mappingStrategy.asyncMapping().isPresent() ?
                 mappingStrategy.asyncMapping().get().regionsToMapAhead() : 0;
-        return cacheSie > Math.max(1, mapAhead + 1);
+        return mappingStrategy.deferUnmapping() && cacheSize > Math.max(1, mapAhead + 1);
     }
 
     @FunctionalInterface

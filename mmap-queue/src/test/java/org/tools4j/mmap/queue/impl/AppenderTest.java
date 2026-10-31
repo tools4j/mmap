@@ -26,6 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.api.OpenMode;
@@ -51,6 +52,7 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
@@ -236,6 +238,102 @@ class AppenderTest {
             }
             assertEquals(appenders * entriesPerAppender, queue.createIndexReader().size());
         }
+    }
+
+    @ParameterizedTest(name = "asyncMapping={0}")
+    @ValueSource(booleans = {false, true})
+    void ensureCapacityBeyondRegionEndMovesEncodedDataToNextRegion(final boolean asyncMapping) {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, payloadRegionCacheConfig(asyncMapping, 4, true))) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender = queue.createAppender()) {
+                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
+                final String head = filler(100, 1);
+                final String tail = filler(400, 2);
+                try (final AppendingContext context = appender.appending(head.length())) {
+                    context.buffer().putStringWithoutLengthAscii(0, head);
+                    context.ensureCapacity(head.length() + tail.length());
+                    context.buffer().putStringWithoutLengthAscii(head.length(), tail);
+                    context.commit(head.length() + tail.length());
+                }
+                expected.add(head + tail);
+                expected.add(append(appender, "last"));
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void ensureCapacityWithinRegionKeepsEncodedDataWithoutRegionCache() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, payloadRegionCacheConfig(false, 1, false))) {
+            try (final Appender appender = queue.createAppender()) {
+                try (final AppendingContext context = appender.appending(4)) {
+                    context.buffer().putStringWithoutLengthAscii(0, "head");
+                    context.ensureCapacity(2);
+                    context.ensureCapacity(8);
+                    context.buffer().putStringWithoutLengthAscii(4, "tail");
+                    context.commit(8);
+                }
+            }
+            assertEquals(List.of("headtail"), pollAll(queue.createPoller()));
+        }
+    }
+
+    @ParameterizedTest(name = "asyncMapping={0}, cacheSize={1}, deferUnmapping={2}")
+    @CsvSource({
+            "false, 1, true",   //no region cache
+            "false, 4, false",  //previous region unmapped when moving to the next one
+            "true, 2, true",    //previous region evicted by map-ahead regions
+            "true, 4, false"    //previous region unmapped when moving to the next one
+    })
+    void ensureCapacityBeyondRegionEndThrowsIfPreviousRegionIsNotKeptMapped(final boolean asyncMapping,
+                                                                            final int cacheSize,
+                                                                            final boolean deferUnmapping) {
+        final File dir = tempDir.resolve("queue").toFile();
+        final QueueConfig config = payloadRegionCacheConfig(asyncMapping, cacheSize, deferUnmapping);
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender = queue.createAppender()) {
+                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
+                try (final AppendingContext context = appender.appending(4)) {
+                    context.buffer().putStringWithoutLengthAscii(0, "head");
+                    assertThrows(IllegalStateException.class, () -> context.ensureCapacity(500));
+                    context.commit(4);
+                }
+                expected.add("head");
+                expected.add(append(appender, "last"));
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void ensureCapacityOfClosedContextThrows() {
+        try (final Queue queue = Queue.open(tempDir.resolve("queue").toFile())) {
+            try (final Appender appender = queue.createAppender()) {
+                final AppendingContext context = appender.appending(4);
+                context.abort();
+                assertThrows(IllegalStateException.class, () -> context.ensureCapacity(8));
+            }
+        }
+    }
+
+    /** Filler entry that leaves the given number of bytes in its payload region, including the next length prefix */
+    private static String fillerLeavingBytesInRegion(final int bytes) {
+        return filler(REGION_SIZE - bytes - Integer.BYTES, 0);
+    }
+
+    private static QueueConfig payloadRegionCacheConfig(final boolean asyncMapping,
+                                                        final int cacheSize,
+                                                        final boolean deferUnmapping) {
+        return QueueConfig.configure(smallConfig(false))
+                .appenderConfig(appender -> appender.payloadMappingStrategy(strategy -> strategy
+                        .asyncMapping(asyncMapping)
+                        .asyncUnmapping(false)
+                        .cacheSize(cacheSize)
+                        .deferUnmapping(deferUnmapping)))
+                .toImmutableQueueConfig();
     }
 
     /**

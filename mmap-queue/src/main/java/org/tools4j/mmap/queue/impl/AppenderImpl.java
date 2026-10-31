@@ -294,13 +294,13 @@ final class AppenderImpl implements Appender {
             final ElasticMapping pld = payload;
             if (pld.bytesAvailable() < minRequired) {
                 if (!appender.enableCopyFromPreviousRegion) {
-                    throw new IllegalStateException("Need to enable payload region cache (for async no less than map-ahead + 2) to fully support ensureCapacity(..)");
+                    throw new IllegalStateException("Need to enable payload region cache with deferred unmapping (for async no less than map-ahead + 2) to fully support ensureCapacity(..)");
                 }
                 moveToNextPayloadRegion(pld);
                 //NOTE: copy data from buffer to the mapping buffer
                 //      --> the buffer is still wrapped at old region address
-                //      --> old region address is still mapped because a region cache is in use
-                pld.buffer().getBytes(Integer.BYTES, buffer, 0, max);
+                //      --> old region address is still mapped because the region cache defers unmapping
+                buffer.getBytes(0, pld.buffer(), Integer.BYTES, max);
             }
             buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
             maxLength = capacity;
