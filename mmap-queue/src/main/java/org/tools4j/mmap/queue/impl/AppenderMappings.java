@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.queue.config.AppenderConfig;
-import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
@@ -32,6 +30,8 @@ import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.impl.IdPool;
+import org.tools4j.mmap.queue.config.AppenderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.headerMappingConfig;
@@ -62,6 +62,12 @@ interface AppenderMappings extends Closeable {
     ElasticMapping payload();
 
     /**
+     * Returns true if the previous payload region is still mapped after moving to the next region: the region cache
+     * must defer unmapping, and be large enough that mapping the next and the map-ahead regions does not evict it.
+     */
+    boolean keepsPreviousPayloadRegionMapped();
+
+    /**
      * Factory method for appender mappings.
      *
      * @param queueFiles        the queue files
@@ -88,6 +94,7 @@ interface AppenderMappings extends Closeable {
                     FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
             final ElasticMapping payload = Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
                     OpenMode.OPEN_OR_CREATE, payloadCfg);
+            final boolean keepsPreviousPayloadRegionMapped = QueueMappingConfigs.keepsPreviousRegionMapped(payloadCfg);
 
             @Override
             public int appenderId() {
@@ -102,6 +109,11 @@ interface AppenderMappings extends Closeable {
             @Override
             public ElasticMapping payload() {
                 return payload;
+            }
+
+            @Override
+            public boolean keepsPreviousPayloadRegionMapped() {
+                return keepsPreviousPayloadRegionMapped;
             }
 
             @Override

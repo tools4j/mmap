@@ -289,25 +289,49 @@ class AppenderTest {
             "true, 2, true",    //previous region evicted by map-ahead regions
             "true, 4, false"    //previous region unmapped when moving to the next one
     })
-    void ensureCapacityBeyondRegionEndThrowsIfPreviousRegionIsNotKeptMapped(final boolean asyncMapping,
-                                                                            final int cacheSize,
-                                                                            final boolean deferUnmapping) {
+    void ensureCapacityBeyondRegionEndCopiesEncodedDataIfPreviousRegionIsNotKeptMapped(final boolean asyncMapping,
+                                                                                      final int cacheSize,
+                                                                                      final boolean deferUnmapping) {
         final File dir = tempDir.resolve("queue").toFile();
         final QueueConfig config = payloadRegionCacheConfig(asyncMapping, cacheSize, deferUnmapping);
+        assertFalse(keepsPreviousPayloadRegionMapped(config));
         try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
             final List<String> expected = new ArrayList<>();
             try (final Appender appender = queue.createAppender()) {
                 expected.add(append(appender, fillerLeavingBytesInRegion(128)));
-                try (final AppendingContext context = appender.appending(4)) {
-                    context.buffer().putStringWithoutLengthAscii(0, "head");
-                    assertThrows(IllegalStateException.class, () -> context.ensureCapacity(500));
-                    context.commit(4);
-                }
-                expected.add("head");
+                expected.add(appendGrowingAcrossRegion(appender, filler(100, 1), filler(400, 2)));
+                //larger encoded data on the second crossing re-allocates the copy buffer if it exceeds its capacity
+                final String head = filler(MAX_ENTRY_LENGTH / 2, 3);
+                expected.add(append(appender, fillerLeavingBytesInRegion(head.length() + 64)));
+                expected.add(appendGrowingAcrossRegion(appender, head, filler(MAX_ENTRY_LENGTH / 4, 4)));
+                //nothing encoded yet: no data to copy
+                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
+                expected.add(appendGrowingAcrossRegion(appender, "", filler(400, 5)));
                 expected.add(append(appender, "last"));
             }
             assertEquals(expected, pollAll(queue.createPoller()));
         }
+    }
+
+    @Test
+    void defaultConfigCopiesEncodedDataDirectlyFromPreviousRegion() {
+        assertTrue(keepsPreviousPayloadRegionMapped(QueueConfig.getDefault()));
+    }
+
+    private static boolean keepsPreviousPayloadRegionMapped(final QueueConfig config) {
+        return QueueMappingConfigs.keepsPreviousRegionMapped(
+                QueueMappingConfigs.payloadMappingConfig(config, config.appenderConfig()));
+    }
+
+    /** Encodes head, then ensures capacity for head and tail, which must not fit into the current region */
+    private static String appendGrowingAcrossRegion(final Appender appender, final String head, final String tail) {
+        try (final AppendingContext context = appender.appending(head.length())) {
+            context.buffer().putStringWithoutLengthAscii(0, head);
+            context.ensureCapacity(head.length() + tail.length());
+            context.buffer().putStringWithoutLengthAscii(head.length(), tail);
+            context.commit(head.length() + tail.length());
+        }
+        return head + tail;
     }
 
     @Test
@@ -411,7 +435,7 @@ class AppenderTest {
     private static QueueConfig payloadRegionCacheConfig(final boolean asyncMapping,
                                                         final int cacheSize,
                                                         final boolean deferUnmapping) {
-        return QueueConfig.configure(smallConfig(false))
+        return QueueConfig.configure(smallConfig(true))
                 .appenderConfig(appender -> appender.payloadMappingStrategy(strategy -> strategy
                         .asyncMapping(asyncMapping)
                         .asyncUnmapping(false)

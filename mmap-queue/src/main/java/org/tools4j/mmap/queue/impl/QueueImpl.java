@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.IdPool;
 import org.tools4j.mmap.mapping.impl.IdPool256;
 import org.tools4j.mmap.queue.api.Appender;
@@ -113,7 +112,6 @@ public final class QueueImpl implements Queue {
             this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(
                     queueNameIfNotClosed(),
                     AppenderMappings.create(files, pool, writerConfig, appenderConfig),
-                    enableCopyFromPreviousRegion(appenderConfig),
                     onClose
             ));
         }
@@ -191,18 +189,6 @@ public final class QueueImpl implements Queue {
         if (!file.mkdir() && !file.isDirectory()) {
             throw new IllegalArgumentException("Parent directory does not exist: " + file);
         }
-    }
-
-    /**
-     * Returns true if the previous payload region is still mapped after moving to the next region: the region cache
-     * must defer unmapping, and be large enough that mapping the next and the map-ahead regions does not evict it.
-     */
-    private static boolean enableCopyFromPreviousRegion(final AppenderConfig appenderConfig) {
-        final MappingStrategyConfig mappingStrategy = appenderConfig.payloadMappingStrategy();
-        final int cacheSize = mappingStrategy.cacheSize();
-        final int mapAhead = mappingStrategy.asyncMapping().isPresent() ?
-                mappingStrategy.asyncMapping().get().regionsToMapAhead() : 0;
-        return mappingStrategy.deferUnmapping() && cacheSize > Math.max(1, mapAhead + 1);
     }
 
     @FunctionalInterface

@@ -39,16 +39,24 @@ public interface AppendingContext extends Closeable {
     MutableDirectBuffer buffer();
 
     /**
-     * Ensures that the {@link #buffer()} has at least the specified capacity in bytes.
+     * Ensures that the {@link #buffer()} has at least the specified capacity in bytes, up to the entry size limit.
+     * Data already encoded into the buffer is preserved, but the buffer may be re-wrapped at a new address.
      * <p>
-     * Note that while this is usually a fast operation, it may require copying of current buffer data to a new
-     * location in the worst case. It is therefore highly recommended to instead specify sufficient capacity when the
-     * appending context is {@linkplain Appender#appending(int) initialised}.
+     * This is a fast operation if the current payload region has enough space left. Otherwise, the encoded data is
+     * copied to the start of the next payload region:
+     * <ul>
+     *     <li>directly from the previous region, if the appender's payload mapping strategy keeps it mapped, which
+     *         requires deferred unmapping and a region cache larger than one plus the regions mapped ahead (as with
+     *         the default queue configuration)</li>
+     *     <li>via an intermediate copy buffer otherwise, which is allocated off-heap on first use (with a
+     *         power-of-two size of at least 4KB, up to the payload region size) and reused by the appender</li>
+     * </ul>
+     * It is therefore recommended to specify sufficient capacity when the appending context is
+     * {@linkplain Appender#appending(int) initialised} instead.
      *
      * @param capacity the capacity in bytes that determines the maximum length for the appended entry
      * @throws IllegalArgumentException if the specified capacity parameter exceeds the entry size limit
-     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed, or if capacity
-     *                                  extension is not possible with the current region cache settings
+     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
      */
     void ensureCapacity(int capacity);
 

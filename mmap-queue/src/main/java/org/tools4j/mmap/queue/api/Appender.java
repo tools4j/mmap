@@ -117,6 +117,11 @@ public interface Appender extends Closeable {
      * {@link AppendingContext#buffer() buffer}. The queue buffer is guaranteed to have capacity for at least the
      * specified number of bytes.
      * <p>
+     * Capacity can later be increased up to the entry size limit through
+     * {@link AppendingContext#ensureCapacity(int) ensureCapacity(..)}, but this may require copying the already encoded
+     * data to the next payload region, and with some payload mapping strategies the allocation of an off-heap copy
+     * buffer. Specifying sufficient capacity here avoids both.
+     * <p>
      * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a
      * try-resource block:
      * <pre>
