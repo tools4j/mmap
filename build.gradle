@@ -251,7 +251,9 @@ subprojects {
 project(':mmap-mapping') {
     dependencies {
         api "org.agrona:agrona:${agronaVersion}"
-        api "org.slf4j:slf4j-api:${slf4jVersion}"
+        //optional: logging listeners use SLF4J if present on the class path, and java.util.logging otherwise
+        compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+        testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
     }
 
@@ -266,6 +268,7 @@ project(':mmap-mapping') {
                 Implementation-Title:   mmap
                 Implementation-Vendor:  tools4j.org
                 Implementation-Version: ${projVersion}
+                Import-Package:         org.slf4j.*;resolution:=optional, *
                 -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
                 # Suppress headers that reduce reproducibility.
                 -reproducible: true
@@ -284,8 +287,9 @@ project(':mmap-mapping') {
 project(':mmap-queue') {
     dependencies {
         api "org.agrona:agrona:${agronaVersion}"
-        api "org.slf4j:slf4j-api:${slf4jVersion}"
         api project(':mmap-mapping')
+
+        testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
 
         testImplementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"

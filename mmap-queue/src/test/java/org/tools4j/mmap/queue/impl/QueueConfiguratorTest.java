@@ -24,6 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
@@ -56,6 +58,9 @@ class QueueConfiguratorTest {
     private static final int REGION_SIZE = 2 * (int) REGION_SIZE_GRANULARITY;
     private static final long FILE_SIZE = 4 * REGION_SIZE_GRANULARITY;
 
+    private static final LifecycleListener LIFECYCLE_LISTENER = new LifecycleListener() {};
+    private static final ErrorListener ERROR_LISTENER = new ErrorListener() {};
+
     /** Every value differs from the system defaults, and header from payload values */
     private static QueueConfig customDefaults() {
         return new QueueConfigImpl(5, FILE_SIZE, 2 * FILE_SIZE, 4 * FILE_SIZE, 8 * FILE_SIZE,
@@ -64,7 +69,8 @@ class QueueConfiguratorTest {
                 new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 21, 22),
                 new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 31, 32),
                 new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 41, 42),
-                new IndexReaderConfigImpl(STRATEGY_B, 51));
+                new IndexReaderConfigImpl(STRATEGY_B, 51),
+                LIFECYCLE_LISTENER, ERROR_LISTENER);
     }
 
     private static void assertQueueConfig(final QueueConfig expected, final QueueConfig actual) {
@@ -89,6 +95,8 @@ class QueueConfiguratorTest {
                 actual.entryIteratorConfig().toImmutableReaderConfig(), "entryIteratorConfig");
         assertEquals(expected.indexReaderConfig().toImmutableIndexReaderConfig(),
                 actual.indexReaderConfig().toImmutableIndexReaderConfig(), "indexReaderConfig");
+        assertSame(expected.lifecycleListener(), actual.lifecycleListener(), "lifecycleListener");
+        assertSame(expected.errorListener(), actual.errorListener(), "errorListener");
     }
 
     @Test
@@ -146,10 +154,13 @@ class QueueConfiguratorTest {
                 .pollerConfig(pollerConfig)
                 .entryReaderConfig(entryReaderConfig)
                 .entryIteratorConfig(entryIteratorConfig)
-                .indexReaderConfig(indexReaderConfig);
+                .indexReaderConfig(indexReaderConfig)
+                .lifecycleListener(LifecycleListener.NO_OP)
+                .errorListener(ErrorListener.NO_OP);
         assertQueueConfig(new QueueConfigImpl(7, 0, FILE_SIZE, 0, 2 * FILE_SIZE,
                 4 * REGION_SIZE, 8 * REGION_SIZE, false, true, true, false,
-                appenderConfig, pollerConfig, entryReaderConfig, entryIteratorConfig, indexReaderConfig), config);
+                appenderConfig, pollerConfig, entryReaderConfig, entryIteratorConfig, indexReaderConfig,
+                LifecycleListener.NO_OP, ErrorListener.NO_OP), config);
         config.reset();
         assertQueueConfig(customDefaults(), config);
     }

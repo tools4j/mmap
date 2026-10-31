@@ -36,6 +36,7 @@ import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -114,7 +115,8 @@ public class AsyncRingRegionMapperTest {
         }).when(fileMapper).close();
         regionMapper = new LoggingRegionMapper(RegionMappers.createAsyncRunAheadRegionMapper(
                 new LoggingFileMapper(fileMapper), regionSize, cacheSize, lruCacheSize, deferUnmap,
-                asyncRuntime, regionsToMapAhead, mapAheadCacheSize, asyncRuntime, unmapCacheSize
+                asyncRuntime, regionsToMapAhead, mapAheadCacheSize, asyncRuntime, unmapCacheSize,
+                LifecycleListener.NO_OP
         ));
         inOrder = Mockito.inOrder(asyncRuntime, fileMapper);
         assertEquals(2, asyncRecurringList.size());

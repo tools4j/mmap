@@ -23,11 +23,12 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,13 +42,13 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 
 final class FileChannelProvider implements Closeable {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileChannelProvider.class);
-
-    private final Logger infoLogger;
+    private final Describable owner;
     private final File file;
     private final FileInitialiser fileInitialiser;
     private final AccessMode accessMode;
     private final long minFileLength;
+    private final LifecycleListener lifecycleListener;
+    private final ErrorListener errorListener;
     private final AtomicReference<ChannelWithFile> channelWithFile = new AtomicReference<>();
 
     private record ChannelWithFile(RandomAccessFile randomAccessFile, FileChannel channel) {
@@ -60,19 +61,31 @@ final class FileChannelProvider implements Closeable {
         }
     }
 
-    FileChannelProvider(final FileMapper fileMapper, final File file, final FileInitialiser fileInitialiser) {
-        this(fileMapper, file, fileInitialiser, 0);
-    }
-
-    FileChannelProvider(final FileMapper fileMapper,
+    /**
+     * Constructor for a provider of the file channel of a file mapper.
+     *
+     * @param owner             the file mapper owning this provider, the resource passed to listeners
+     * @param accessMode        the access mode of the file mapper
+     * @param file              the file
+     * @param fileInitialiser   the initialiser invoked when the file is opened
+     * @param minFileLength     the min length to set for a writable file, or zero for none
+     * @param lifecycleListener the listener notified when the file is created and when it is opened and closed
+     * @param errorListener     the listener notified about errors when closing the file
+     */
+    FileChannelProvider(final Describable owner,
+                        final AccessMode accessMode,
                         final File file,
                         final FileInitialiser fileInitialiser,
-                        final long minFileLength) {
-        this.infoLogger = LoggerFactory.getLogger(fileMapper.getClass());
+                        final long minFileLength,
+                        final LifecycleListener lifecycleListener,
+                        final ErrorListener errorListener) {
+        this.owner = requireNonNull(owner);
         this.file = requireNonNull(file);
         this.fileInitialiser = requireNonNull(fileInitialiser);
-        this.accessMode = fileMapper.accessMode();
+        this.accessMode = requireNonNull(accessMode);
         this.minFileLength = minFileLength;
+        this.lifecycleListener = requireNonNull(lifecycleListener);
+        this.errorListener = requireNonNull(errorListener);
     }
 
     @Override
@@ -87,6 +100,7 @@ final class FileChannelProvider implements Closeable {
         }
         if (witness == channelWithFile.compareAndExchange(witness, ChannelWithFile.CLOSED)) {
             close(witness);
+            lifecycleListener.onClosed(owner);
             return true;
         }
         return false;
@@ -153,7 +167,7 @@ final class FileChannelProvider implements Closeable {
         assert accessMode != AccessMode.READ_ONLY;
         try {
             if (file.createNewFile()) {
-                infoLogger.info("Created new file {}", file);
+                lifecycleListener.onCreated(owner);
             } else if (!file.exists()) {
                 throw new IOException("File was not created");
             }
@@ -178,7 +192,7 @@ final class FileChannelProvider implements Closeable {
                     raf.setLength(minFileLength);
                 }
             } catch (final IOException e) {
-                close("raf", raf);
+                close(raf);
                 throw new UncheckedIOException("Failed to set min file length " + minFileLength + " for file " +
                         file, e);
             }
@@ -191,12 +205,12 @@ final class FileChannelProvider implements Closeable {
         try {
             fileInitialiser.init(file.getName(), channel, accessMode);
         } catch (final IOException e) {
-            close("channel", channel);
-            close("raf", raf);
+            close(channel);
+            close(raf);
             throw new UncheckedIOException("Failed to initialise file " + file, e);
         } catch (final RuntimeException e) {
-            close("channel", channel);
-            close("raf", raf);
+            close(channel);
+            close(raf);
             throw e;
         }
         assert channel != null : "channel cannot be null";
@@ -207,7 +221,7 @@ final class FileChannelProvider implements Closeable {
     private ChannelWithFile setOrGet(final ChannelWithFile value) {
         final ChannelWithFile witness = channelWithFile.compareAndExchange(null, value);
         if (witness == null) {
-            infoLogger.info("Opened file {}", file);
+            lifecycleListener.onOpened(owner);
             return value;
         }
         close(value);
@@ -216,17 +230,17 @@ final class FileChannelProvider implements Closeable {
 
     private void close(final ChannelWithFile value) {
         if (value != null) {
-            close("channelWithFile.channel", value.channel);
-            close("channelWithFile.randomAccessFile", value.randomAccessFile);
+            close(value.channel);
+            close(value.randomAccessFile);
         }
     }
 
-    private void close(final String name, final java.io.Closeable closeable) {
+    private void close(final java.io.Closeable closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
             } catch (final IOException ex) {
-                LOGGER.error("Failed to close {} for file : {}", name, file, ex);
+                errorListener.onError(owner, "Failed to close file", ex);
             }
         }
     }

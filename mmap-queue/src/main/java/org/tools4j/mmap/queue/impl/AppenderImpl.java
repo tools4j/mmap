@@ -29,9 +29,9 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
@@ -45,8 +45,7 @@ import static org.tools4j.mmap.queue.impl.Exceptions.payloadPositionExceedsMaxEx
 import static org.tools4j.mmap.queue.impl.Headers.MAX_PAYLOAD_POSITION;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
-final class AppenderImpl implements Appender {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AppenderImpl.class);
+final class AppenderImpl implements Appender, Describable {
 
     private final String queueName;
     private final AppenderMappings mappings;
@@ -55,12 +54,14 @@ final class AppenderImpl implements Appender {
     private final ElasticMapping payload;
     private final AppendingContextImpl context;
     private final Runnable onClose;
+    private final LifecycleListener lifecycleListener;
     private long endIndex;
     private long lastOwnHeader;
     private int lastOwnPayloadLength;
     private boolean closed;
 
-    public AppenderImpl(final String queueName, final AppenderMappings mappings, final Runnable onClose) {
+    public AppenderImpl(final String queueName, final AppenderMappings mappings, final Runnable onClose,
+                        final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
@@ -69,6 +70,7 @@ final class AppenderImpl implements Appender {
             this.payload = requireNonNull(mappings.payload());
             this.context = new AppendingContextImpl(this);
             this.onClose = requireNonNull(onClose);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
             this.endIndex = Index.NULL;
             this.lastOwnHeader = NULL_HEADER;
             this.lastOwnPayloadLength = -1;
@@ -77,6 +79,7 @@ final class AppenderImpl implements Appender {
             CloseHelper.quietClose(mappings);
             throw t;
         }
+        lifecycleListener.onOpened(this);
     }
 
     private void checkIndexNotExceedingMax(final long index) {
@@ -229,7 +232,7 @@ final class AppenderImpl implements Appender {
             lastOwnPayloadLength = -1;
             mappings.close();
             onClose.run();
-            LOGGER.info("Appender closed: {}", appenderName());
+            lifecycleListener.onClosed(this);
         }
     }
 
@@ -385,8 +388,16 @@ final class AppenderImpl implements Appender {
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("AppenderImpl")
+                .append(":queue=").append(queueName)
+                .append("|appenderId=").append(appenderId)
+                .append("|closed=").append(closed);
+    }
+
+    @Override
     public String toString() {
-        return "AppenderImpl:queue=" + queueName + "|appenderId=" + appenderId + "|closed=" + closed;
+        return Describable.describe(this);
     }
 
 }

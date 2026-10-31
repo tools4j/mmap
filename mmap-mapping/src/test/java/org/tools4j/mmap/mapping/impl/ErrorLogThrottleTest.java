@@ -25,7 +25,8 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.impl.ErrorLogThrottle.ErrorLog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -37,29 +38,24 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
  */
 class ErrorLogThrottleTest {
     private static final long INTERVAL = 1000;
-    private static final String FORMAT = "Error at {} of {}";
-    private static final String REPEATED_FORMAT = FORMAT + " [{} repetitions since last logged]";
+    private static final String MESSAGE = "Test error";
+    private static final Describable SOURCE = sb -> sb.append("source");
 
-    private final Logger logger = mock(Logger.class);
+    private final ErrorLog log = mock(ErrorLog.class);
     private long time;
     private ErrorLogThrottle throttle;
 
     @BeforeEach
     void setUp() {
         time = 0;
-        throttle = new ErrorLogThrottle(logger, () -> time, INTERVAL);
+        throttle = new ErrorLogThrottle(log, () -> time, INTERVAL);
     }
 
     private static RuntimeException error(final String message) {
         return new RuntimeException(message);
     }
 
-    /** Verifies the varargs overload, which a call with two arguments would not select */
-    private static Object[] args(final Object... args) {
-        return args;
-    }
-
-    /** Same class, message and stack trace as the previous invocation, but a different instance */
+    /** Same class, message and stack trace, but different instances */
     private static RuntimeException[] sameErrors(final int count) {
         final RuntimeException[] errors = new RuntimeException[count];
         for (int i = 0; i < count; i++) {
@@ -72,28 +68,31 @@ class ErrorLogThrottleTest {
     void repeatedErrorIsLoggedOnceUntilIntervalHasPassed() {
         final RuntimeException[] errors = sameErrors(4);
 
-        throttle.error(FORMAT, 7L, "q", errors[0]);
+        throttle.error(SOURCE, MESSAGE, errors[0]);
         time = INTERVAL - 1;
-        throttle.error(FORMAT, 7L, "q", errors[1]);
-        throttle.error(FORMAT, 7L, "q", errors[2]);
-        verify(logger).error(FORMAT, 7L, "q", errors[0]);
-        verifyNoMoreInteractions(logger);
+        throttle.error(SOURCE, MESSAGE, errors[1]);
+        throttle.error(SOURCE, MESSAGE, errors[2]);
+        verify(log).log(SOURCE, MESSAGE, errors[0], 0);
+        verifyNoMoreInteractions(log);
 
         time = INTERVAL;
-        throttle.error(FORMAT, 7L, "q", errors[3]);
-        verify(logger).error(REPEATED_FORMAT, 7L, "q", 3L, errors[0]);
-        verifyNoMoreInteractions(logger);
+        throttle.error(SOURCE, MESSAGE, errors[3]);
+        verify(log).log(SOURCE, MESSAGE, errors[0], 3);
+        verifyNoMoreInteractions(log);
     }
 
     @Test
-    void errorWithDifferentArgumentIsLogged() {
-        final RuntimeException[] errors = sameErrors(2);
+    void errorWithDifferentSourceOrMessageIsLogged() {
+        final RuntimeException[] errors = sameErrors(3);
+        final Describable otherSource = sb -> sb.append("other");
 
-        throttle.error(FORMAT, 7L, "q", errors[0]);
-        throttle.error(FORMAT, 8L, "q", errors[1]);
+        throttle.error(SOURCE, MESSAGE, errors[0]);
+        throttle.error(otherSource, MESSAGE, errors[1]);
+        throttle.error(SOURCE, "Other error", errors[2]);
 
-        verify(logger).error(FORMAT, 7L, "q", errors[0]);
-        verify(logger).error(FORMAT, 8L, "q", errors[1]);
+        verify(log).log(SOURCE, MESSAGE, errors[0], 0);
+        verify(log).log(otherSource, MESSAGE, errors[1], 0);
+        verify(log).log(SOURCE, "Other error", errors[2], 0);
     }
 
     @Test
@@ -103,15 +102,15 @@ class ErrorLogThrottleTest {
         final IllegalStateException otherClass = new IllegalStateException("first");
         final RuntimeException otherCause = new RuntimeException("first", error("cause"));
 
-        throttle.error(FORMAT, 7L, "q", first);
-        throttle.error(FORMAT, 7L, "q", otherMessage);
-        throttle.error(FORMAT, 7L, "q", otherClass);
-        throttle.error(FORMAT, 7L, "q", otherCause);
+        throttle.error(SOURCE, MESSAGE, first);
+        throttle.error(SOURCE, MESSAGE, otherMessage);
+        throttle.error(SOURCE, MESSAGE, otherClass);
+        throttle.error(SOURCE, MESSAGE, otherCause);
 
-        verify(logger).error(FORMAT, 7L, "q", first);
-        verify(logger).error(FORMAT, 7L, "q", otherMessage);
-        verify(logger).error(FORMAT, 7L, "q", otherClass);
-        verify(logger).error(FORMAT, 7L, "q", otherCause);
+        verify(log).log(SOURCE, MESSAGE, first, 0);
+        verify(log).log(SOURCE, MESSAGE, otherMessage, 0);
+        verify(log).log(SOURCE, MESSAGE, otherClass, 0);
+        verify(log).log(SOURCE, MESSAGE, otherCause, 0);
     }
 
     @Test
@@ -120,42 +119,48 @@ class ErrorLogThrottleTest {
         final RuntimeException otherStackTrace = error("same");
         otherStackTrace.setStackTrace(new StackTraceElement[0]);
 
-        throttle.error(FORMAT, 7L, "q", first);
-        throttle.error(FORMAT, 7L, "q", otherStackTrace);
+        throttle.error(SOURCE, MESSAGE, first);
+        throttle.error(SOURCE, MESSAGE, otherStackTrace);
 
-        verify(logger).error(FORMAT, 7L, "q", first);
-        verify(logger).error(FORMAT, 7L, "q", otherStackTrace);
+        verify(log).log(SOURCE, MESSAGE, first, 0);
+        verify(log).log(SOURCE, MESSAGE, otherStackTrace, 0);
     }
 
     @Test
     void alternatingErrorsAreEachLoggedOnce() {
+        final RuntimeException a = error("a");
+        final RuntimeException b = error("b");
         for (int i = 0; i < 10; i++) {
-            throttle.error(FORMAT, 1L, "q");
-            throttle.error(FORMAT, 2L, "q");
+            throttle.error(SOURCE, MESSAGE, a);
+            throttle.error(SOURCE, MESSAGE, b);
         }
 
-        verify(logger).error(FORMAT, args(1L, "q"));
-        verify(logger).error(FORMAT, args(2L, "q"));
-        verifyNoMoreInteractions(logger);
+        verify(log).log(SOURCE, MESSAGE, a, 0);
+        verify(log).log(SOURCE, MESSAGE, b, 0);
+        verifyNoMoreInteractions(log);
     }
 
     @Test
     void evictedErrorLogsItsRepetitions() {
-        throttle.error(FORMAT, 0L, "q");
-        throttle.error(FORMAT, 0L, "q");
-        for (long i = 1; i < ErrorLogThrottle.RECENT_ERRORS; i++) {
-            throttle.error(FORMAT, i, "q");
+        final RuntimeException[] errors = new RuntimeException[ErrorLogThrottle.RECENT_ERRORS + 1];
+        for (int i = 0; i < errors.length; i++) {
+            errors[i] = error("error-" + i);
         }
-        for (long i = 0; i < ErrorLogThrottle.RECENT_ERRORS; i++) {
-            verify(logger).error(FORMAT, args(i, "q"));
+        throttle.error(SOURCE, MESSAGE, errors[0]);
+        throttle.error(SOURCE, MESSAGE, errors[0]);
+        for (int i = 1; i < ErrorLogThrottle.RECENT_ERRORS; i++) {
+            throttle.error(SOURCE, MESSAGE, errors[i]);
         }
-        verifyNoMoreInteractions(logger);
+        for (int i = 0; i < ErrorLogThrottle.RECENT_ERRORS; i++) {
+            verify(log).log(SOURCE, MESSAGE, errors[i], 0);
+        }
+        verifyNoMoreInteractions(log);
 
-        throttle.error(FORMAT, (long) ErrorLogThrottle.RECENT_ERRORS, "q");
+        throttle.error(SOURCE, MESSAGE, errors[ErrorLogThrottle.RECENT_ERRORS]);
 
-        verify(logger).error(REPEATED_FORMAT, 0L, "q", 1L);
-        verify(logger).error(FORMAT, args((long) ErrorLogThrottle.RECENT_ERRORS, "q"));
-        verifyNoMoreInteractions(logger);
+        verify(log).log(SOURCE, MESSAGE, errors[0], 1);
+        verify(log).log(SOURCE, MESSAGE, errors[ErrorLogThrottle.RECENT_ERRORS], 0);
+        verifyNoMoreInteractions(log);
     }
 
     @Test

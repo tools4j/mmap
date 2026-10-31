@@ -23,11 +23,13 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Unsafe;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,8 +52,7 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  * multiple threads.
  */
 @Unsafe
-public class ExpandableSizeFileMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ExpandableSizeFileMapper.class);
+public class ExpandableSizeFileMapper implements FileMapper, Describable {
     private final File file;
     private final long minFileSize;
     private final long maxFileSize;
@@ -65,6 +66,17 @@ public class ExpandableSizeFileMapper implements FileMapper {
                                     final long maxFileSize,
                                     final int regionSize,
                                     final FileInitialiser fileInitialiser) {
+        this(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
+                MappingConfigurations.defaultLifecycleListener(), MappingConfigurations.defaultErrorListener());
+    }
+
+    public ExpandableSizeFileMapper(final File file,
+                                    final long minFileSize,
+                                    final long maxFileSize,
+                                    final int regionSize,
+                                    final FileInitialiser fileInitialiser,
+                                    final LifecycleListener lifecycleListener,
+                                    final ErrorListener errorListener) {
         this.file = Objects.requireNonNull(file);
         validateRegionSize(regionSize);
         validateMinFileSize(minFileSize);
@@ -88,7 +100,8 @@ public class ExpandableSizeFileMapper implements FileMapper {
             this.minFileSize = minFileSize;
             this.maxFileSize = maxFileSize;
         }
-        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser, minFileSize);
+        this.fileChannelProvider = new FileChannelProvider(this, AccessMode.READ_WRITE, file, fileInitialiser,
+                minFileSize, lifecycleListener, errorListener);
         this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
     }
 
@@ -199,17 +212,20 @@ public class ExpandableSizeFileMapper implements FileMapper {
     public void close() {
         if (fileChannelProvider.closeIfNeeded()) {
             preTouchHelper.reset();
-            LOGGER.info("Closed: {}", this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("ExpandableSizeFileMapper")
+                .append(":file=").append(file.getPath())
+                .append("|minFileSize=").append(minFileSize)
+                .append("|maxFileSize=").append(maxFileSize)
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "ExpandableSizeFileMapper" +
-                ":minFileSize=" + minFileSize +
-                "|maxFileSize=" + maxFileSize +
-                "|file=" + file +
-                "|size=" + file.length() +
-                "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

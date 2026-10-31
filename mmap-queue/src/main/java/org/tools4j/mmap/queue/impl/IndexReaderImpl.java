@@ -24,30 +24,33 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.CloseHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IndexReader;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 
-final class IndexReaderImpl implements IndexReader {
-    private static final Logger LOGGER = LoggerFactory.getLogger(IndexReaderImpl.class);
+final class IndexReaderImpl implements IndexReader, Describable {
 
     private final String queueName;
     private final ElasticMapping header;
     private final Runnable onClose;
+    private final LifecycleListener lifecycleListener;
 
-    IndexReaderImpl(final String queueName, final ElasticMapping header, final Runnable onClose) {
+    IndexReaderImpl(final String queueName, final ElasticMapping header, final Runnable onClose,
+                    final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.header = requireNonNull(header);
             this.onClose = requireNonNull(onClose);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
         } catch (final Throwable t) {
             CloseHelper.quietClose(header);
             throw t;
         }
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -78,12 +81,19 @@ final class IndexReaderImpl implements IndexReader {
         if (!isClosed()) {
             header.close();
             onClose.run();
-            LOGGER.info("Index reader closed, queue={}", queueName);
+            lifecycleListener.onClosed(this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("IndexReaderImpl")
+                .append(":queue=").append(queueName)
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "IndexReaderImpl:queue=" + queueName + "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

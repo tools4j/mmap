@@ -25,8 +25,6 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
@@ -50,7 +48,6 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
                                      FileMapper fileMapper,
                                      RegionMetrics regionMetrics,
                                      AsyncUnmapper asyncUnmapper) implements DirectRegionMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SyncRegionMapperAsyncUnmapper.class);
 
     public SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
                                          final FileMapper fileMapper,
@@ -122,7 +119,6 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
             asyncUnmapper.stopAndWait();
             asyncRuntime.deregister(asyncUnmapper);
             fileMapper.close();
-            LOGGER.info("Closed {}.", this);
         }
     }
 

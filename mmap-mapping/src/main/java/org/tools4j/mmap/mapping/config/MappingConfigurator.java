@@ -24,8 +24,9 @@
 package org.tools4j.mmap.mapping.config;
 
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
-import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.impl.MappingConfiguratorImpl;
 
 import java.util.function.Consumer;
@@ -140,6 +141,10 @@ public interface MappingConfigurator extends MappingConfig {
      * @return this configurator for method chaining
      */
     MappingConfigurator mappingStrategy(Consumer<? super MappingStrategyConfigurator> configurator);
+
+    MappingConfigurator lifecycleListener(LifecycleListener lifecycleListener);
+
+    MappingConfigurator errorListener(ErrorListener errorListener);
 
     /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this configurator

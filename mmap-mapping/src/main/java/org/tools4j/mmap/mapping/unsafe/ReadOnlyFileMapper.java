@@ -23,11 +23,13 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Unsafe;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,16 +48,24 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
  * multiple threads.
  */
 @Unsafe
-public class ReadOnlyFileMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReadOnlyFileMapper.class);
+public class ReadOnlyFileMapper implements FileMapper, Describable {
 
     private final File file;
     private final FileChannelProvider fileChannelProvider;
     private volatile long fileSizeCache;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
+        this(file, fileInitialiser, MappingConfigurations.defaultLifecycleListener(),
+                MappingConfigurations.defaultErrorListener());
+    }
+
+    public ReadOnlyFileMapper(final File file,
+                              final FileInitialiser fileInitialiser,
+                              final LifecycleListener lifecycleListener,
+                              final ErrorListener errorListener) {
         this.file = requireNonNull(file);
-        this.fileChannelProvider = new FileChannelProvider(this, file, fileInitialiser);
+        this.fileChannelProvider = new FileChannelProvider(this, AccessMode.READ_ONLY, file, fileInitialiser, 0,
+                lifecycleListener, errorListener);
     }
 
     public ReadOnlyFileMapper(final String fileName, final FileInitialiser fileInitialiser) {
@@ -114,15 +124,18 @@ public class ReadOnlyFileMapper implements FileMapper {
 
     @Override
     public void close() {
-        if (fileChannelProvider.closeIfNeeded()) {
-            LOGGER.info("Closed: {}", this);
-        }
+        fileChannelProvider.closeIfNeeded();
+    }
+
+    @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("ReadOnlyFileMapper")
+                .append(":file=").append(file.getPath())
+                .append("|closed=").append(isClosed());
     }
 
     @Override
     public String toString() {
-        return "ReadOnlyFileMapper" +
-                ":file=" + file +
-                "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

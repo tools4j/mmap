@@ -25,8 +25,6 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
@@ -56,7 +54,6 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * while in use and mapped again since), are always passed through to the underlying mapper.
  */
 class LruCacheRegionMapper implements RegionMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LruCacheRegionMapper.class);
     private static final long UNUSED_BIT = 0x8000000000000000L;
     private static final long USED_MASK = 0x7fffffffffffffffL;
 
@@ -291,7 +288,6 @@ class LruCacheRegionMapper implements RegionMapper {
                 mruIndex = -1;
                 lrfIndex = -1;
                 baseMapper.close();
-                LOGGER.info("Closed lru-cache region mapper: base={}", baseMapper);
             }
         }
     }

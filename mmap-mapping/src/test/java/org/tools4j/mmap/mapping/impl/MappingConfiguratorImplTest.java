@@ -24,6 +24,8 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
@@ -88,6 +90,16 @@ class MappingConfiguratorImplTest {
         }
 
         @Override
+        public LifecycleListener lifecycleListener() {
+            return null;
+        }
+
+        @Override
+        public ErrorListener errorListener() {
+            return null;
+        }
+
+        @Override
         public MappingConfig toImmutableConfig() {
             return this;
         }
@@ -107,6 +119,8 @@ class MappingConfiguratorImplTest {
         assertEquals(MappingConfigurations.defaultMaxOpenFiles(), config.maxOpenFiles());
         assertEquals(MappingConfigurations.defaultFilesToCreateAhead(), config.filesToCreateAhead());
         assertSame(MAPPING_STRATEGY_CONFIG_DEFAULTS, config.mappingStrategy());
+        assertSame(MappingConfigurations.defaultLifecycleListener(), config.lifecycleListener());
+        assertSame(MappingConfigurations.defaultErrorListener(), config.errorListener());
     }
 
     @Test
@@ -114,7 +128,8 @@ class MappingConfiguratorImplTest {
         final MappingConfig defaults = MappingConfigurator.configure()
                 .minFileSize(FILE_SIZE).maxFileSize(2 * FILE_SIZE).regionSize(REGION_SIZE).expandFile(true)
                 .rollFiles(false).maxOpenFiles(7).filesToCreateAhead(2)
-                .mappingStrategy(MappingStrategyConfig.getDefaultSync());
+                .mappingStrategy(MappingStrategyConfig.getDefaultSync())
+                .lifecycleListener(LifecycleListener.NO_OP).errorListener(ErrorListener.NO_OP);
         final MappingConfigurator config = MappingConfigurator.configure(defaults);
         assertEquals(FILE_SIZE, config.minFileSize());
         assertEquals(2 * FILE_SIZE, config.maxFileSize());
@@ -124,6 +139,8 @@ class MappingConfiguratorImplTest {
         assertEquals(7, config.maxOpenFiles());
         assertEquals(2, config.filesToCreateAhead());
         assertSame(MappingStrategyConfig.getDefaultSync(), config.mappingStrategy());
+        assertSame(LifecycleListener.NO_OP, config.lifecycleListener());
+        assertSame(ErrorListener.NO_OP, config.errorListener());
     }
 
     @Test
@@ -148,6 +165,8 @@ class MappingConfiguratorImplTest {
         assertThrows(IllegalArgumentException.class, () -> config.maxOpenFiles(0));
         assertThrows(IllegalArgumentException.class, () -> config.filesToCreateAhead(-1));
         assertThrows(NullPointerException.class, () -> config.mappingStrategy((MappingStrategyConfig) null));
+        assertThrows(NullPointerException.class, () -> config.lifecycleListener(null));
+        assertThrows(NullPointerException.class, () -> config.errorListener(null));
     }
 
     @Test
@@ -165,12 +184,12 @@ class MappingConfiguratorImplTest {
     void toStringShowsUnresolvedValuesAndDefaults() {
         final MappingConfigurator config = MappingConfigurator.configure(UNSET_DEFAULTS);
         assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=null|maxOpenFiles=-1|filesToCreateAhead=-1|mappingStrategy=null|defaults=UNSET_DEFAULTS",
+                "|rollFiles=null|maxOpenFiles=-1|filesToCreateAhead=-1|mappingStrategy=null|lifecycleListener=null|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());
         config.maxOpenFiles(5);
         config.rollFiles();
         assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|mappingStrategy=null|defaults=UNSET_DEFAULTS",
+                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|mappingStrategy=null|lifecycleListener=null|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());
     }
 }

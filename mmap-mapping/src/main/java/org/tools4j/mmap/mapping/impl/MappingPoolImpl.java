@@ -23,42 +23,54 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AdaptiveMapping;
+import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.MappingPool;
 import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.api.Unsafe;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 import static org.tools4j.mmap.mapping.unsafe.RegionMappers.createRefCountRegionMapper;
 
-public final class MappingPoolImpl implements MappingPool {
+public final class MappingPoolImpl implements MappingPool, Describable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MappingPoolImpl.class);
     private final RegionMapper regionMapper;
     private final List<DynamicMapping> mappings;
+    private final LifecycleListener lifecycleListener;
 
     @Unsafe
     public MappingPoolImpl(final RegionMapper baseMapper, final int initialPoolSize) {
-        this(baseMapper, Function.identity(), initialPoolSize);
+        this(baseMapper, initialPoolSize, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    @Unsafe
+    public MappingPoolImpl(final RegionMapper baseMapper,
+                           final int initialPoolSize,
+                           final LifecycleListener lifecycleListener) {
+        this(baseMapper, Function.identity(), initialPoolSize, lifecycleListener);
     }
 
     @Unsafe
     public MappingPoolImpl(final RegionMapper baseMapper,
                            final Function<? super RegionMapper, ? extends RegionMapper> cacheFactory,
-                           final int initialPoolSize) {
+                           final int initialPoolSize,
+                           final LifecycleListener lifecycleListener) {
         this.regionMapper = cacheFactory.apply(createRefCountRegionMapper(baseMapper, initialPoolSize));
         this.mappings = new ArrayList<>(initialPoolSize);
+        this.lifecycleListener = requireNonNull(lifecycleListener);
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -109,17 +121,22 @@ public final class MappingPoolImpl implements MappingPool {
             } finally {
                 mappings.clear();
                 regionMapper.close();
-                LOGGER.info("Closed mapping pool: regionMapper={}", regionMapper);
+                lifecycleListener.onClosed(this);
             }
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("MappingPoolImpl")
+                .append(":mappings=").append(mappings.size())
+                .append("|accessMode=").append(accessMode())
+                .append("|regionSize=").append(regionSize())
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "MappingPoolImpl" +
-                ":mappings=" + mappings.size() +
-                "|accessMode=" + accessMode() +
-                "|regionSize=" + regionSize() +
-                "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

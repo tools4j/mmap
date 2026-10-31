@@ -24,9 +24,11 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.concurrent.IdleStrategy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,11 +36,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Objects.requireNonNull;
 
 
-public class AsyncRuntimeImpl implements AsyncRuntime {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncRuntimeImpl.class);
+public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
     private static final Recurring[] EMPTY = {};
 
     private final String name;
+    private final String idleStrategyAlias;
     private final boolean autoStopOnLastDeregister;
     private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
 
@@ -52,13 +54,23 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
     public AsyncRuntimeImpl(final String name,
                             final IdleStrategy idleStrategy,
                             final boolean autoStopOnLastDeregister) {
+        this(name, idleStrategy, autoStopOnLastDeregister, MappingConfigurations.defaultLifecycleListener(),
+                MappingConfigurations.defaultErrorListener());
+    }
+
+    public AsyncRuntimeImpl(final String name,
+                            final IdleStrategy idleStrategy,
+                            final boolean autoStopOnLastDeregister,
+                            final LifecycleListener lifecycleListener,
+                            final ErrorListener errorListener) {
         this.name = requireNonNull(name);
+        this.idleStrategyAlias = idleStrategy.alias();
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
-        requireNonNull(idleStrategy);
+        requireNonNull(lifecycleListener);
+        requireNonNull(errorListener);
         final Thread thread = new Thread(() -> {
-            LOGGER.info("Started async runtime {} with {} idle strategy", name, idleStrategy.alias());
+            lifecycleListener.onOpened(this);
             idleStrategy.reset();
-            final ErrorLogThrottle errorLog = new ErrorLogThrottle(LOGGER);
             StopStatus stopSignal;
             int workCount = 0;
             while ((stopSignal = stop.get()) == null || (stopSignal == StopStatus.WHEN_IDLE && workCount != 0)) {
@@ -67,17 +79,17 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
                     try {
                         workCount += executable.execute();
                     } catch (final Exception ex) {
-                        errorLog.error("Uncaught error in async runtime {}", name, ex);
+                        errorListener.onError(this, "Uncaught error", ex);
                     }
                 }
                 idleStrategy.idle(workCount);
             }
             stop.set(StopStatus.STOPPED);
-            LOGGER.info("Stopped async runtime {}", name);
+            lifecycleListener.onClosed(this);
         });
         thread.setName(name);
         thread.setDaemon(true);
-        thread.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Async runtime failed with exception", e));
+        thread.setUncaughtExceptionHandler((t, e) -> errorListener.onError(this, "Async runtime failed", e));
         thread.start();
     }
 
@@ -145,10 +157,17 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
     }
 
     @Override
-    public String toString() {
+    public StringBuilder describeTo(final StringBuilder sb) {
         final StopStatus stopStatus = stop.get();
-        return "AsyncRuntimeImpl" +
-                ":thread=" + name +
-                "|status=" + (stopStatus == null ? "running" : stopStatus == StopStatus.STOPPED ? "stopped" : "stopping");
+        return sb.append("AsyncRuntimeImpl")
+                .append(":thread=").append(name)
+                .append("|idleStrategy=").append(idleStrategyAlias)
+                .append("|status=").append(stopStatus == null ? "running" :
+                        stopStatus == StopStatus.STOPPED ? "stopped" : "stopping");
+    }
+
+    @Override
+    public String toString() {
+        return Describable.describe(this);
     }
 }

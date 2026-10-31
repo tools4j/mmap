@@ -56,7 +56,9 @@ enum QueueLayoutConfigs {
                 config.pollerConfig(),
                 config.entryReaderConfig(),
                 config.entryIteratorConfig(),
-                config.indexReaderConfig());
+                config.indexReaderConfig(),
+                config.lifecycleListener(),
+                config.errorListener());
     }
 
     /**

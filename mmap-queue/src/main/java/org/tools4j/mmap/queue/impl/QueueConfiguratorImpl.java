@@ -23,6 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.AppenderConfigurator;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
@@ -32,12 +37,14 @@ import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
-import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
-import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
@@ -46,10 +53,6 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeader
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadRegionSize;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
@@ -69,6 +72,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private ReaderConfig entryReaderConfig;
     private ReaderConfig entryIteratorConfig;
     private IndexReaderConfig indexReaderConfig;
+    private LifecycleListener lifecycleListener;
+    private ErrorListener errorListener;
 
     public QueueConfiguratorImpl() {
         this(QUEUE_CONFIG_DEFAULTS);
@@ -97,6 +102,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         entryReaderConfig = null;
         entryIteratorConfig = null;
         indexReaderConfig = null;
+        lifecycleListener = null;
+        errorListener = null;
         return this;
     }
 
@@ -497,6 +504,40 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     }
 
     @Override
+    public LifecycleListener lifecycleListener() {
+        if (lifecycleListener == null) {
+            lifecycleListener = defaults.lifecycleListener();
+        }
+        if (lifecycleListener == null) {
+            lifecycleListener = MappingConfigurations.defaultLifecycleListener();
+        }
+        return lifecycleListener;
+    }
+
+    @Override
+    public QueueConfigurator lifecycleListener(final LifecycleListener lifecycleListener) {
+        this.lifecycleListener = requireNonNull(lifecycleListener);
+        return this;
+    }
+
+    @Override
+    public ErrorListener errorListener() {
+        if (errorListener == null) {
+            errorListener = defaults.errorListener();
+        }
+        if (errorListener == null) {
+            errorListener = MappingConfigurations.defaultErrorListener();
+        }
+        return errorListener;
+    }
+
+    @Override
+    public QueueConfigurator errorListener(final ErrorListener errorListener) {
+        this.errorListener = requireNonNull(errorListener);
+        return this;
+    }
+
+    @Override
     public QueueConfig toImmutableQueueConfig() {
         return new QueueConfigImpl(this);
     }
@@ -519,6 +560,8 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|pollerConfig={" + pollerConfig + "}" +
                 "|entryReaderConfig={" + entryReaderConfig + "}" +
                 "|entryIteratorConfig={" + entryIteratorConfig + "}" +
-                "|indexReaderConfig={" + indexReaderConfig + "}";
+                "|indexReaderConfig={" + indexReaderConfig + "}" +
+                "|lifecycleListener=" + lifecycleListener +
+                "|errorListener=" + errorListener;
     }
 }

@@ -71,6 +71,24 @@ public interface AsyncRuntime extends Closeable {
     }
 
     /**
+     * Creates an async runtime backed by a thread watching to execute registered mapping tasks.
+     *
+     * @param name                      the name for the runtime
+     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
+     * @param lifecycleListener         the listener notified when the runtime is started and stopped
+     * @param errorListener             the listener notified about errors thrown by registered tasks
+     * @return a new async runtime for the given idle strategy
+     */
+    static AsyncRuntime create(final String name,
+                               final IdleStrategy idleStrategy,
+                               final boolean autoStopOnLastDeregister,
+                               final LifecycleListener lifecycleListener,
+                               final ErrorListener errorListener) {
+        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister, lifecycleListener, errorListener);
+    }
+
+    /**
      * Closes the runtime, with or without first finishing jobs.
      * @param immediately stop occurs immediately if true, or when no more jobs are found to be executed otherwise
      */

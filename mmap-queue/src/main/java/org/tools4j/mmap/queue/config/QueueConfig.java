@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 
 /**
  * Queue configuration, consisting of the {@link QueueLayoutConfig queue layout}, which is fixed when the queue is
@@ -54,6 +56,24 @@ public interface QueueConfig extends QueueLayoutConfig {
     ReaderConfig entryReaderConfig();
     ReaderConfig entryIteratorConfig();
     IndexReaderConfig indexReaderConfig();
+
+    /**
+     * Returns the listener for lifecycle events of the queue, its appenders and readers, and of the files and other
+     * resources they use. It is not part of the queue layout. The default is defined by system property, see
+     * {@link org.tools4j.mmap.mapping.config.MappingConfigurations#defaultLifecycleListener()}.
+     *
+     * @return the lifecycle listener
+     */
+    LifecycleListener lifecycleListener();
+
+    /**
+     * Returns the listener for errors that cannot be thrown to the caller, such as exceptions thrown by entry handlers
+     * of pollers, and for warnings. It is not part of the queue layout. The default is defined by system property,
+     * see {@link org.tools4j.mmap.mapping.config.MappingConfigurations#defaultErrorListener()}.
+     *
+     * @return the error listener
+     */
+    ErrorListener errorListener();
 
     QueueConfig toImmutableQueueConfig();
 

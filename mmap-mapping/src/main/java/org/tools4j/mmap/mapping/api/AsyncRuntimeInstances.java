@@ -85,7 +85,7 @@ public enum AsyncRuntimeInstances {
      * @return a new mapping runtime instance
      */
     public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
-                                                         final boolean autoStopOnLastDeregister) {
+                                                 final boolean autoStopOnLastDeregister) {
         return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
     }
 
@@ -119,7 +119,7 @@ public enum AsyncRuntimeInstances {
      * @return a new unmapping runtime instance
      */
     public static AsyncRuntime newUnmappingRuntime(final IdleStrategy idleStrategy,
-                                                           final boolean autoStopOnLastDeregister) {
+                                                   final boolean autoStopOnLastDeregister) {
         return AsyncRuntime.create("unmapper-" + unmapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
     }
 

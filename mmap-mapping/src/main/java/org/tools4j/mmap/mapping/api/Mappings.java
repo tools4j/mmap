@@ -108,11 +108,36 @@ public enum Mappings {
                                             final OpenMode openMode,
                                             final long offset,
                                             final int length) {
+        return fixedMapping(file, openMode, offset, length, MappingConfigurations.defaultLifecycleListener(),
+                MappingConfigurations.defaultErrorListener());
+    }
+
+    /**
+     * Creates a fixed mapping over the specified slice of the given file, notifying the given listeners.
+     * <p>
+     * The file is mapped immediately, hence it must exist when opened for reading only, also with
+     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}.
+     *
+     * @param file              the file to map
+     * @param openMode          the mode to open the file with
+     * @param offset            the start offset in the file
+     * @param length            the length of the mapped slice, or -1 to map from offset to the actual end of the file
+     * @param lifecycleListener the listener notified when the file is created, opened and closed
+     * @param errorListener     the listener notified about errors that cannot be thrown, such as close errors
+     * @return a new fixed mapping for the specified file slice
+     */
+    public static FixedMapping fixedMapping(final File file,
+                                            final OpenMode openMode,
+                                            final long offset,
+                                            final int length,
+                                            final LifecycleListener lifecycleListener,
+                                            final ErrorListener errorListener) {
         OpenModes.apply(file, openMode, false);
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
         final FileInitialiser initialiser = FileInitialiser.minLength(fileSize);
-        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), initialiser);
+        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), initialiser,
+                lifecycleListener, errorListener);
         return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
@@ -198,8 +223,7 @@ public enum Mappings {
                                               final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
-                config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return regionMapping(regionMapper, true);
     }
 
@@ -262,8 +286,7 @@ public enum Mappings {
                                                 final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
-                config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return elasticMapping(regionMapper, true);
     }
 
@@ -327,8 +350,7 @@ public enum Mappings {
                                                   final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
-                config.mappingStrategy());
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return adaptiveMapping(regionMapper, true);
     }
 
@@ -419,9 +441,8 @@ public enum Mappings {
                                           final int initialPoolSize) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config.regionSize(),
-                config.mappingStrategy());
-        return mappingPool(regionMapper, initialPoolSize);
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
+        return new MappingPoolImpl(regionMapper, initialPoolSize, config.lifecycleListener());
     }
 
     /**

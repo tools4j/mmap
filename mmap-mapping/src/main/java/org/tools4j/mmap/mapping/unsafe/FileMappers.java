@@ -46,7 +46,7 @@ public enum FileMappers {
                             ? ConcurrentRollingFileMapper.forReadOnly(file, config, fileInitialiser)
                             : RollingFileMapper.forReadOnly(file, config, fileInitialiser);
                 }
-                return new ReadOnlyFileMapper(file, fileInitialiser);
+                return new ReadOnlyFileMapper(file, fileInitialiser, config.lifecycleListener(), config.errorListener());
             case READ_WRITE:
                 if (config.rollFiles()) {
                     return isAsyncMapping(config)
@@ -55,9 +55,10 @@ public enum FileMappers {
                 }
                 if (config.expandFile()) {
                     return new ExpandableSizeFileMapper(file, config.minFileSize(), config.maxFileSize(),
-                            config.regionSize(), fileInitialiser);
+                            config.regionSize(), fileInitialiser, config.lifecycleListener(), config.errorListener());
                 }
-                return new FixedSizeFileMapper(file, config.maxFileSize(), accessMode, fileInitialiser);
+                return new FixedSizeFileMapper(file, config.maxFileSize(), accessMode, fileInitialiser,
+                        config.lifecycleListener(), config.errorListener());
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }

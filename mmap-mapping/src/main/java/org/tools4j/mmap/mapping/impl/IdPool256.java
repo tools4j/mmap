@@ -25,11 +25,13 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
 
@@ -45,13 +47,14 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
  * The file always has {@link #FILE_SIZE} bytes, independent of the max IDs of the pool. Pools with different max IDs
  * can therefore share the same file, each acquiring only IDs below its own max IDs, lowest available ID first.
  */
-public class IdPool256 implements IdPool {
-    private static final Logger LOGGER = LoggerFactory.getLogger(IdPool256.class);
+public class IdPool256 implements IdPool, Describable {
 
     public static final int MAX_IDS = 1 << Byte.SIZE;
     public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
+    private final LifecycleListener lifecycleListener;
+    private int acquiredWhenClosed;
     private final int maxIds;
     private final int lastWordIndex;
     private final long lastWordMask;
@@ -61,7 +64,16 @@ public class IdPool256 implements IdPool {
     }
 
     public IdPool256(final File file, final int maxIds) {
-        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE), maxIds);
+        this(file, maxIds, MappingConfigurations.defaultLifecycleListener(),
+                MappingConfigurations.defaultErrorListener());
+    }
+
+    public IdPool256(final File file,
+                     final int maxIds,
+                     final LifecycleListener lifecycleListener,
+                     final ErrorListener errorListener) {
+        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE, lifecycleListener,
+                errorListener), maxIds, lifecycleListener);
     }
 
     public IdPool256(final String name, final Mapping mapping) {
@@ -77,6 +89,22 @@ public class IdPool256 implements IdPool {
      * @param maxIds    the max IDs of this pool, only IDs below this value are acquired
      */
     public IdPool256(final String name, final Mapping mapping, final int maxIds) {
+        this(name, mapping, maxIds, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    /**
+     * Constructor for an ID pool using the given mapping, which is closed when the pool is closed, or if construction
+     * fails.
+     *
+     * @param name              the pool name used in exceptions and descriptions
+     * @param mapping           the mapping of {@link #FILE_SIZE} bytes
+     * @param maxIds            the max IDs of this pool, only IDs below this value are acquired
+     * @param lifecycleListener the listener notified when the pool is opened and closed
+     */
+    public IdPool256(final String name,
+                     final Mapping mapping,
+                     final int maxIds,
+                     final LifecycleListener lifecycleListener) {
         this.mapping = requireNonNull(mapping);
         try {
             if (maxIds < 1 || maxIds > MAX_IDS) {
@@ -88,6 +116,7 @@ public class IdPool256 implements IdPool {
                         "found " + mapping.bytesAvailable() + " for ID pool: " + name);
             }
             this.name = requireNonNull(name);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
         } catch (final Throwable t) {
             CloseHelper.quietClose(mapping);
             throw t;
@@ -96,7 +125,7 @@ public class IdPool256 implements IdPool {
         this.lastWordIndex = (maxIds - 1) / Long.SIZE * Long.BYTES;
         final int lastWordIds = maxIds - lastWordIndex / Long.BYTES * Long.SIZE;
         this.lastWordMask = -1L >>> (Long.SIZE - lastWordIds);
-        LOGGER.info("Opened ID pool: {} ({} acquired IDs)", name, acquired());
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -114,9 +143,7 @@ public class IdPool256 implements IdPool {
             } while (idBit != 0 && !buf.compareAndSetLong(index, idBitSet, idBitSet | idBit));
             if (idBit != 0) {
                 final int idBitValue = Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
-                final int id = index / Long.BYTES * Long.SIZE + idBitValue;
-                LOGGER.info("Acquired ID {} from {} pool", id, name);
-                return id;
+                return index / Long.BYTES * Long.SIZE + idBitValue;
             }
         }
         throw new IllegalStateException("Exceeded max number of " + maxIds + " IDs in pool: " + name);
@@ -140,7 +167,6 @@ public class IdPool256 implements IdPool {
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(index, curBitSet, newBitSet));
         if (curBitSet != newBitSet) {
-            LOGGER.info("Released ID {} to {} pool", id, name);
             return true;
         }
         return false;
@@ -167,17 +193,23 @@ public class IdPool256 implements IdPool {
     @Override
     public void close() {
         if (!isClosed()) {
-            final int open = acquired();
+            acquiredWhenClosed = acquired();
             mapping.close();
-            LOGGER.info("Closed ID pool: {} ({} acquired IDs)", name, open);
+            lifecycleListener.onClosed(this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("IdPool256")
+                .append(":name=").append(name)
+                .append("|maxIds=").append(maxIds)
+                .append("|acquired=").append(isClosed() ? acquiredWhenClosed : acquired())
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "IdPool256" +
-                ":name='" + name + '\'' +
-                "|maxIds=" + maxIds +
-                "|acquired=" + acquired();
+        return Describable.describe(this);
     }
 }

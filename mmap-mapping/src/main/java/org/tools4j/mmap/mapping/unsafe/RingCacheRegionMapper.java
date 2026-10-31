@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.api.Unsafe;
@@ -52,7 +50,6 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  */
 @Unsafe
 final class RingCacheRegionMapper implements RegionMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RingCacheRegionMapper.class);
     private static final long POSITION_MASK = 0x7fffffffffffffffL;
     private static final long UNUSED_BIT = 0x8000000000000000L;
     private final RegionMapper baseMapper;
@@ -156,7 +153,6 @@ final class RingCacheRegionMapper implements RegionMapper {
                 addresses[cacheIndex] = NULL_ADDRESS;
             }
             baseMapper.close();
-            LOGGER.info("Closed {}.", this);
         }
     }
 

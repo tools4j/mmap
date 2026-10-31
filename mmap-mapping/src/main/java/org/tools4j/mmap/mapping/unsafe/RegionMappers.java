@@ -24,9 +24,12 @@
 package org.tools4j.mmap.mapping.unsafe;
 
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.AsyncMappingConfig;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import java.util.function.UnaryOperator;
@@ -48,6 +51,34 @@ public enum RegionMappers {
     public static RegionMapper create(final FileMapper fileMapper,
                                       final int regionSize,
                                       final MappingStrategyConfig config) {
+        return create(fileMapper, regionSize, config, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    /**
+     * Creates a region mapper for the given file mapper with region size, mapping strategy and lifecycle listener
+     * from the given mapping configuration.
+     *
+     * @param fileMapper the file mapper to map and unmap regions of
+     * @param config     the mapping configuration with region size, mapping strategy and lifecycle listener
+     * @return a new region mapper
+     */
+    public static RegionMapper create(final FileMapper fileMapper, final MappingConfig config) {
+        return create(fileMapper, config.regionSize(), config.mappingStrategy(), config.lifecycleListener());
+    }
+
+    /**
+     * Creates a region mapper for the given file mapper, region size and mapping strategy.
+     *
+     * @param fileMapper        the file mapper to map and unmap regions of
+     * @param regionSize        the region size in bytes, a power of two and a multiple of the OS page size
+     * @param config            the mapping strategy defining caching and async mapping and unmapping
+     * @param lifecycleListener the listener notified when an async run-ahead region mapper is opened and closed
+     * @return a new region mapper
+     */
+    public static RegionMapper create(final FileMapper fileMapper,
+                                      final int regionSize,
+                                      final MappingStrategyConfig config,
+                                      final LifecycleListener lifecycleListener) {
         final AsyncMappingConfig asyncMappingConfig = config.asyncMapping().orElse(null);
         final AsyncUnmappingConfig asyncUnmappingConfig = config.asyncUnmapping().orElse(null);
         if (asyncMappingConfig == null) {
@@ -59,9 +90,10 @@ public enum RegionMappers {
         } else {
             return asyncUnmappingConfig == null
                     ? createAsyncRunAheadRegionMapper(fileMapper, regionSize, config.cacheSize(),
-                    config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig)
+                    config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig, lifecycleListener)
                     : createAsyncRunAheadRegionMapper(fileMapper, regionSize, config.cacheSize(),
-                    config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig, asyncUnmappingConfig);
+                    config.lruCacheSize(), config.deferUnmapping(), asyncMappingConfig, asyncUnmappingConfig,
+                    lifecycleListener);
         }
     }
 
@@ -143,10 +175,11 @@ public enum RegionMappers {
                                                                final int cacheSize,
                                                                final int lruCacheSize,
                                                                final boolean deferUnmapping,
-                                                               final AsyncMappingConfig asyncMappingConfig) {
+                                                               final AsyncMappingConfig asyncMappingConfig,
+                                                               final LifecycleListener lifecycleListener) {
         return createAsyncRunAheadRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize, deferUnmapping,
                 asyncMappingConfig.mappingRuntimeSupplier().get(), asyncMappingConfig.regionsToMapAhead(),
-                asyncMappingConfig.aheadMappingCacheSize());
+                asyncMappingConfig.aheadMappingCacheSize(), lifecycleListener);
     }
 
     public static RegionMapper createAsyncRunAheadRegionMapper(final FileMapper fileMapper,
@@ -155,11 +188,12 @@ public enum RegionMappers {
                                                                final int lruCacheSize,
                                                                final boolean deferUnmapping,
                                                                final AsyncMappingConfig asyncMappingConfig,
-                                                               final AsyncUnmappingConfig asyncUnmappingConfig) {
+                                                               final AsyncUnmappingConfig asyncUnmappingConfig,
+                                                               final LifecycleListener lifecycleListener) {
         return createAsyncRunAheadRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize, deferUnmapping,
                 asyncMappingConfig.mappingRuntimeSupplier().get(), asyncMappingConfig.regionsToMapAhead(),
                 asyncMappingConfig.aheadMappingCacheSize(), asyncUnmappingConfig.unmappingRuntimeSupplier().get(),
-                asyncUnmappingConfig.unmappingCacheSize());
+                asyncUnmappingConfig.unmappingCacheSize(), lifecycleListener);
     }
 
     public static RegionMapper createAsyncRunAheadRegionMapper(final FileMapper fileMapper,
@@ -169,10 +203,11 @@ public enum RegionMappers {
                                                                final boolean deferUnmapping,
                                                                final AsyncRuntime mappingRuntime,
                                                                final int regionsToMapAhead,
-                                                               final int mapAheadCacheSize) {
+                                                               final int mapAheadCacheSize,
+                                                               final LifecycleListener lifecycleListener) {
         final DirectRegionMapper baseMapper = new SyncRegionMapper(fileMapper, regionSize);
         return createAsyncRunAheadRegionMapper(baseMapper, mappingRuntime, cacheSize, lruCacheSize, deferUnmapping,
-                regionsToMapAhead, mapAheadCacheSize);
+                regionsToMapAhead, mapAheadCacheSize, lifecycleListener);
     }
 
     public static RegionMapper createAsyncRunAheadRegionMapper(final FileMapper fileMapper,
@@ -184,11 +219,12 @@ public enum RegionMappers {
                                                                final int regionsToMapAhead,
                                                                final int mapAheadCacheSize,
                                                                final AsyncRuntime unmappingRuntime,
-                                                               final int unmapCacheSize) {
+                                                               final int unmapCacheSize,
+                                                               final LifecycleListener lifecycleListener) {
         final DirectRegionMapper baseMapper = new SyncRegionMapperAsyncUnmapper(unmappingRuntime, fileMapper, regionSize,
                 unmapCacheSize);
         return createAsyncRunAheadRegionMapper(baseMapper, mappingRuntime, cacheSize, lruCacheSize, deferUnmapping,
-                regionsToMapAhead, mapAheadCacheSize);
+                regionsToMapAhead, mapAheadCacheSize, lifecycleListener);
     }
 
     private static RegionMapper createAsyncRunAheadRegionMapper(final DirectRegionMapper baseMapper,
@@ -197,7 +233,8 @@ public enum RegionMappers {
                                                                 final int lruCacheSize,
                                                                 final boolean deferUnmapping,
                                                                 final int regionsToMapAhead,
-                                                                final int mapAheadCacheSize) {
+                                                                final int mapAheadCacheSize,
+                                                                final LifecycleListener lifecycleListener) {
         final UnaryOperator<RegionMapper> cacheFactory;
         if (cacheSize <= 0 && lruCacheSize <= 0 && !deferUnmapping) {
             //direct, no caches
@@ -215,6 +252,7 @@ public enum RegionMappers {
                     new LruCacheRegionMapper(mapper, lruCacheSize, deferUnmapping), cacheSize, deferUnmapping
             );
         }
-        return new AsyncRunAheadRegionMapper(mappingRuntime, baseMapper, cacheFactory, regionsToMapAhead, mapAheadCacheSize);
+        return new AsyncRunAheadRegionMapper(mappingRuntime, baseMapper, cacheFactory, regionsToMapAhead, mapAheadCacheSize,
+                lifecycleListener);
     }
 }

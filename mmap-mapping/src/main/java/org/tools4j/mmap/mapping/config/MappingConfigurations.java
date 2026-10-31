@@ -28,7 +28,11 @@ import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.impl.Constraints;
+import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
+import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntConsumer;
@@ -172,6 +176,29 @@ public enum MappingConfigurations {
     public static final String UNMAPPING_RUNTIME_SHARING_POLICY_PROPERTY = "mmap.mapping.async.unmappingRuntimeSharingPolicy";
     /** The default sharing policy of the unmapping runtime, used if the sharing policy property is not set. */
     public static final SharingPolicy UNMAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
+
+    /**
+     * Name of the system property to override the default lifecycle listener, with {@value #LOGGING_LISTENER},
+     * {@value #NO_OP_LISTENER} or the class name of a {@link LifecycleListener} with a public no-arg constructor.
+     */
+    public static final String LIFECYCLE_LISTENER_PROPERTY = "mmap.mapping.lifecycleListener";
+    /**
+     * Name of the system property to override the default error listener, with {@value #LOGGING_LISTENER},
+     * {@value #NO_OP_LISTENER} or the class name of an {@link ErrorListener} with a public no-arg constructor.
+     */
+    public static final String ERROR_LISTENER_PROPERTY = "mmap.mapping.errorListener";
+    /**
+     * Listener property value for listeners logging to SLF4J if present on the class path, and to
+     * {@link java.util.logging java.util.logging} otherwise; the default if the listener property is not set.
+     */
+    public static final String LOGGING_LISTENER = "LOGGING";
+    /** Listener property value for listeners ignoring all events. */
+    public static final String NO_OP_LISTENER = "NO_OP";
+
+    /** Listener instantiated for the class name given as property value, reused while the property value is unchanged */
+    private record ListenerInstance(String className, Object listener) {}
+    private static final AtomicReference<ListenerInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
+    private static final AtomicReference<ListenerInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
 
     /**
      * Returns the default minimum file size (and file size increment) in expand-file mode.
@@ -420,6 +447,38 @@ public enum MappingConfigurations {
     }
 
     /**
+     * Returns the default lifecycle listener, also used by the shared async runtimes. Unless overridden by system
+     * property, it logs lifecycle events to SLF4J if present on the class path, and to
+     * {@link java.util.logging java.util.logging} otherwise. A listener class given by system property is
+     * instantiated once and reused while the property value is unchanged.
+     *
+     * @return the listener given by system property {@value #LIFECYCLE_LISTENER_PROPERTY} if set, and the logging
+     *         lifecycle listener otherwise
+     * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
+     *                                  instantiated
+     */
+    public static LifecycleListener defaultLifecycleListener() {
+        return getListenerProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class,
+                LoggingLifecycleListener.INSTANCE, LifecycleListener.NO_OP, LIFECYCLE_LISTENER_INSTANCE);
+    }
+
+    /**
+     * Returns the default error listener, also used by the shared async runtimes. Unless overridden by system property,
+     * it logs errors and warnings to SLF4J if present on the class path, and to
+     * {@link java.util.logging java.util.logging} otherwise, suppressing repetitions of recently logged errors. A
+     * listener class given by system property is instantiated once and reused while the property value is unchanged.
+     *
+     * @return the listener given by system property {@value #ERROR_LISTENER_PROPERTY} if set, and the logging error
+     *         listener otherwise
+     * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
+     *                                  instantiated
+     */
+    public static ErrorListener defaultErrorListener() {
+        return getListenerProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class,
+                LoggingErrorListener.INSTANCE, ErrorListener.NO_OP, ERROR_LISTENER_INSTANCE);
+    }
+
+    /**
      * Returns the supplier of the default mapping runtime, provided by
      * {@link AsyncRuntimeInstances#mappingRuntimeSupplier(SharingPolicy)} for the
      * {@linkplain #defaultMappingRuntimeSharingPolicy() default sharing policy}.
@@ -543,6 +602,29 @@ public enum MappingConfigurations {
                 throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal, e);
             }
         };
+    }
+
+    private static <T> T getListenerProperty(final String propertyName,
+                                             final Class<T> type,
+                                             final T loggingListener,
+                                             final T noOpListener,
+                                             final AtomicReference<ListenerInstance> instance) {
+        final String propVal = System.getProperty(propertyName, LOGGING_LISTENER);
+        if (LOGGING_LISTENER.equals(propVal)) {
+            return loggingListener;
+        }
+        if (NO_OP_LISTENER.equals(propVal)) {
+            return noOpListener;
+        }
+        final ListenerInstance current = instance.get();
+        if (current != null && current.className().equals(propVal)) {
+            return type.cast(current.listener());
+        }
+        //NOTE: racing threads may each create an instance, the first to publish its instance wins
+        final ListenerInstance created = new ListenerInstance(propVal, newObjInstance(propertyName, propVal, type));
+        final ListenerInstance witness = instance.compareAndExchange(current, created);
+        final ListenerInstance winner = witness == current ? created : witness;
+        return type.cast(winner.className().equals(propVal) ? winner.listener() : created.listener());
     }
 
     private static <T> T newObjInstance(final String propName, final String propVal, final Class<T> type) {

@@ -26,8 +26,6 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongCounterMap;
 import org.agrona.collections.Long2LongHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
@@ -40,7 +38,6 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * reaches zero.  Actual mapping and unmapping operations are delegated to an underlying region mapper.
  */
 class RefCountRegionMapper implements RegionMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RefCountRegionMapper.class);
 
     private final RegionMapper baseMapper;
     private final Long2LongHashMap positionToAddress;
@@ -124,7 +121,6 @@ class RefCountRegionMapper implements RegionMapper {
                 positionToAddress.clear();
                 positionToRefCount.clear();
                 baseMapper.close();
-                LOGGER.info("Closed ref-count region mapper: base={}", baseMapper);
             }
         }
     }

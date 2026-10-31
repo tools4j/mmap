@@ -27,38 +27,41 @@ import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.ReadingContext;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
-final class EntryReaderImpl implements EntryReader {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EntryReaderImpl.class);
+final class EntryReaderImpl implements EntryReader, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
     private final ElasticMapping header;
     private final Runnable onClose;
+    private final LifecycleListener lifecycleListener;
     private final ReadingContextImpl context;
 
-    EntryReaderImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose) {
+    EntryReaderImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose,
+                    final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
             this.header = requireNonNull(mappings.header());
             this.onClose = requireNonNull(onClose);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new ReadingContextImpl(this);
         } catch (final Throwable t) {
             CloseHelper.quietClose(mappings);
             throw t;
         }
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -105,7 +108,7 @@ final class EntryReaderImpl implements EntryReader {
         if (!isClosed()) {
             mappings.close();
             onClose.run();
-            LOGGER.info("Entry reader closed, queue={}", queueName);
+            lifecycleListener.onClosed(this);
         }
     }
 
@@ -209,7 +212,14 @@ final class EntryReaderImpl implements EntryReader {
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("EntryReaderImpl")
+                .append(":queue=").append(queueName)
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "EntryReaderImpl:queue=" + queueName + "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

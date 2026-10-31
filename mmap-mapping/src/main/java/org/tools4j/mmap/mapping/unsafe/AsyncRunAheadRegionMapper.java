@@ -25,13 +25,14 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.api.Unsafe;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.util.function.Function;
 
@@ -53,14 +54,14 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validatePowerOfTwo;
  * {@link SyncRegionMapper} or a {@link SyncRegionMapperAsyncUnmapper}).  A cache is used to store mapped positions
  */
 @Unsafe
-final class AsyncRunAheadRegionMapper implements RegionMapper {
+final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncRunAheadRegionMapper.class);
     private static final long ADDRESS_UNAVAILABLE = NULL_ADDRESS - 1;
 
     private final AsyncRuntime asyncRuntime;
     private final RegionMapper baseMapper;
     private final RegionMapper cachingMapper;
+    private final LifecycleListener lifecycleListener;
     private final SharedState sharedState;
     private final AsyncMapper asyncMapper;
     private final int mapAhead;
@@ -88,6 +89,16 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
                                      final Function<? super RegionMapper, ? extends RegionMapper> cacheFactory,
                                      final int mapAhead,
                                      final int mapAheadCacheSize) {
+        this(asyncRuntime, baseMapper, cacheFactory, mapAhead, mapAheadCacheSize,
+                MappingConfigurations.defaultLifecycleListener());
+    }
+
+    public AsyncRunAheadRegionMapper(final AsyncRuntime asyncRuntime,
+                                     final DirectRegionMapper baseMapper,
+                                     final Function<? super RegionMapper, ? extends RegionMapper> cacheFactory,
+                                     final int mapAhead,
+                                     final int mapAheadCacheSize,
+                                     final LifecycleListener lifecycleListener) {
         requireNonNull(asyncRuntime);
         requireNonNull(baseMapper);
         requireNonNull(cacheFactory);
@@ -95,12 +106,14 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         final int cacheSize = mapAheadCacheSize(mapAhead, mapAheadCacheSize);
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.baseMapper = requireNonNull(baseMapper);
+        this.lifecycleListener = requireNonNull(lifecycleListener);
         this.maxAheadPosition = baseMapper.fileMapper().mappingLimit() - baseMapper.regionSize();
         this.cachingMapper = cacheFactory.apply(new AheadMapper());
         this.sharedState = new SharedState(cacheSize, baseMapper.regionSize());
         this.asyncMapper = startAsyncMapper(baseMapper);
         this.mapAhead = mapAhead;
         this.lastPositionMapped = NULL_POSITION;
+        lifecycleListener.onOpened(this);
     }
 
     private static int mapAheadCacheSize(final int mapAhead, final int mapAheadCacheSize) {
@@ -187,20 +200,24 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         if (!isClosed()) {
             cachingMapper.close();
             baseMapper.close();
-            LOGGER.info("Closed {}.", this);
+            lifecycleListener.onClosed(this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("AsyncRunAheadRegionMapper")
+                .append(":mapAhead=").append(mapAhead)
+                .append("|cachingMapper=").append(cachingMapper)
+                .append("|statistics=(async=").append(asyncStats)
+                .append("|sync=").append(syncStats)
+                .append("|busy=").append(busyStats)
+                .append(')');
+    }
+
+    @Override
     public String toString() {
-        return "AsyncRunAheadRegionMapper" +
-                ":mapAhead=" + mapAhead +
-                "|cachingMapper=" + cachingMapper +
-                "|statistics=" +
-                "(async=" + asyncStats +
-                "|sync=" + syncStats +
-                "|busy=" + busyStats +
-                ")";
+        return Describable.describe(this);
     }
 
     private final class AheadMapper implements RegionMapper {

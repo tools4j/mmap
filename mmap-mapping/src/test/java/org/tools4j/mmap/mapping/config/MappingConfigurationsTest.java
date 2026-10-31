@@ -29,6 +29,10 @@ import org.agrona.concurrent.YieldingIdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
+import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
 
 import java.util.function.Supplier;
 
@@ -53,6 +57,15 @@ class MappingConfigurationsTest {
         }
     }
 
+    /** Custom lifecycle listener, instantiated via the lifecycle listener property */
+    public static final class CustomLifecycleListener implements LifecycleListener {}
+
+    /** Another custom lifecycle listener, instantiated via the lifecycle listener property */
+    public static final class OtherLifecycleListener implements LifecycleListener {}
+
+    /** Custom error listener, instantiated via the error listener property */
+    public static final class CustomErrorListener implements ErrorListener {}
+
     @AfterEach
     void clearProperties() {
         System.clearProperty(MappingConfigurations.ROLL_FILES_PROPERTY);
@@ -61,6 +74,8 @@ class MappingConfigurationsTest {
         System.clearProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY);
         System.clearProperty(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_PROPERTY);
         System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY);
+        System.clearProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY);
+        System.clearProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY);
     }
 
     @Test
@@ -181,5 +196,46 @@ class MappingConfigurationsTest {
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, String.class.getName());
         assertThrows(IllegalArgumentException.class,
                 MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier()::get);
+    }
+
+    @Test
+    void listenerPropertiesDefaultToLoggingListeners() {
+        assertSame(LoggingLifecycleListener.INSTANCE, MappingConfigurations.defaultLifecycleListener());
+        assertSame(LoggingErrorListener.INSTANCE, MappingConfigurations.defaultErrorListener());
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOGGING_LISTENER);
+        System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, MappingConfigurations.LOGGING_LISTENER);
+        assertSame(LoggingLifecycleListener.INSTANCE, MappingConfigurations.defaultLifecycleListener());
+        assertSame(LoggingErrorListener.INSTANCE, MappingConfigurations.defaultErrorListener());
+    }
+
+    @Test
+    void listenerPropertiesAcceptNoOp() {
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.NO_OP_LISTENER);
+        System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, MappingConfigurations.NO_OP_LISTENER);
+        assertSame(LifecycleListener.NO_OP, MappingConfigurations.defaultLifecycleListener());
+        assertSame(ErrorListener.NO_OP, MappingConfigurations.defaultErrorListener());
+    }
+
+    @Test
+    void listenerPropertyWithClassNameCreatesOneInstancePerPropertyValue() {
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, CustomLifecycleListener.class.getName());
+        System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, CustomErrorListener.class.getName());
+        final LifecycleListener lifecycleListener = MappingConfigurations.defaultLifecycleListener();
+        final ErrorListener errorListener = MappingConfigurations.defaultErrorListener();
+        assertInstanceOf(CustomLifecycleListener.class, lifecycleListener);
+        assertInstanceOf(CustomErrorListener.class, errorListener);
+        assertSame(lifecycleListener, MappingConfigurations.defaultLifecycleListener());
+        assertSame(errorListener, MappingConfigurations.defaultErrorListener());
+
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, OtherLifecycleListener.class.getName());
+        assertInstanceOf(OtherLifecycleListener.class, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    @Test
+    void listenerPropertyWithInvalidClassIsRejected() {
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, "no.such.Listener");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultLifecycleListener);
+        System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, CustomLifecycleListener.class.getName());
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultErrorListener);
     }
 }

@@ -24,6 +24,8 @@
 package org.tools4j.mmap.mapping.config;
 
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
 
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
@@ -93,6 +95,20 @@ public interface MappingConfig {
      * @return the mapping strategy to use
      */
     MappingStrategyConfig mappingStrategy();
+
+    /**
+     * Returns the listener for lifecycle events such as files created, opened and closed.
+     *
+     * @return the lifecycle listener
+     */
+    LifecycleListener lifecycleListener();
+
+    /**
+     * Returns the listener for errors that cannot be thrown to the caller, and for warnings.
+     *
+     * @return the error listener
+     */
+    ErrorListener errorListener();
 
     /**
      * Returns an immutable version of this mapping config.

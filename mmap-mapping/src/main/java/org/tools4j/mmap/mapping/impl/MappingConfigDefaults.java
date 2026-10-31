@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -85,6 +87,16 @@ public enum MappingConfigDefaults implements MappingConfig {
     @Override
     public MappingStrategyConfig mappingStrategy() {
         return MAPPING_STRATEGY_CONFIG_DEFAULTS;
+    }
+
+    @Override
+    public LifecycleListener lifecycleListener() {
+        return MappingConfigurations.defaultLifecycleListener();
+    }
+
+    @Override
+    public ErrorListener errorListener() {
+        return MappingConfigurations.defaultErrorListener();
     }
 
     @Override

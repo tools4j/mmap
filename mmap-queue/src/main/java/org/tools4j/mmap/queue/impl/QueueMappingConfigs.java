@@ -23,13 +23,15 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.impl.MappingConfigImpl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
-import org.tools4j.mmap.mapping.config.MappingConfig;
-import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
-import org.tools4j.mmap.mapping.impl.MappingConfigImpl;
 
 import static java.util.Objects.requireNonNull;
 
@@ -93,6 +95,16 @@ enum QueueMappingConfigs {
             @Override
             public MappingStrategyConfig mappingStrategy() {
                 return mappingStrategy;
+            }
+
+            @Override
+            public LifecycleListener lifecycleListener() {
+                return queueConfig.lifecycleListener();
+            }
+
+            @Override
+            public ErrorListener errorListener() {
+                return queueConfig.errorListener();
             }
 
             @Override
@@ -163,6 +175,16 @@ enum QueueMappingConfigs {
             @Override
             public MappingStrategyConfig mappingStrategy() {
                 return mappingStrategy;
+            }
+
+            @Override
+            public LifecycleListener lifecycleListener() {
+                return queueConfig.lifecycleListener();
+            }
+
+            @Override
+            public ErrorListener errorListener() {
+                return queueConfig.errorListener();
             }
 
             @Override

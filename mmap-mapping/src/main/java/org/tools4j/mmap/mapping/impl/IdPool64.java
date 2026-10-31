@@ -25,11 +25,13 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
 
@@ -42,16 +44,22 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
  * The mapped file is used as a bit set with each bit representing an ID. The file content is updated atomically in a
  * thread (and process) safe manner when {@link #acquire() acquiring} or {@link #release(int) releasing} IDs.
  */
-public class IdPool64 implements IdPool {
-    private static final Logger LOGGER = LoggerFactory.getLogger(IdPool64.class);
+public class IdPool64 implements IdPool, Describable {
 
     public static final int MAX_IDS = Long.SIZE;
     public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
+    private final LifecycleListener lifecycleListener;
+    private int acquiredWhenClosed;
 
     public IdPool64(final File file) {
-        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE));
+        this(file, MappingConfigurations.defaultLifecycleListener(), MappingConfigurations.defaultErrorListener());
+    }
+
+    public IdPool64(final File file, final LifecycleListener lifecycleListener, final ErrorListener errorListener) {
+        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE, lifecycleListener,
+                errorListener), lifecycleListener);
     }
 
     /**
@@ -62,6 +70,18 @@ public class IdPool64 implements IdPool {
      * @param mapping   the mapping of {@link #FILE_SIZE} bytes
      */
     public IdPool64(final String name, final Mapping mapping) {
+        this(name, mapping, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    /**
+     * Constructor for an ID pool using the given mapping, which is closed when the pool is closed, or if construction
+     * fails.
+     *
+     * @param name              the pool name used in exceptions and descriptions
+     * @param mapping           the mapping of {@link #FILE_SIZE} bytes
+     * @param lifecycleListener the listener notified when the pool is opened and closed
+     */
+    public IdPool64(final String name, final Mapping mapping, final LifecycleListener lifecycleListener) {
         this.mapping = requireNonNull(mapping);
         try {
             if (mapping.bytesAvailable() != FILE_SIZE) {
@@ -69,11 +89,12 @@ public class IdPool64 implements IdPool {
                         "found " + mapping.bytesAvailable() + " for ID pool: " + name);
             }
             this.name = requireNonNull(name);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
         } catch (final Throwable t) {
             CloseHelper.quietClose(mapping);
             throw t;
         }
-        LOGGER.info("Opened ID pool: {} ({} acquired IDs)", name, acquired());
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -88,9 +109,7 @@ public class IdPool64 implements IdPool {
             idBit = Long.lowestOneBit(~idBitSet);
         } while (idBit != 0 && !buf.compareAndSetLong(0, idBitSet, idBitSet | idBit));
         if (idBit != 0) {
-            final int id = Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
-            LOGGER.info("Acquired ID {} from {} pool", id, name);
-            return id;
+            return Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
         }
         throw new IllegalStateException("Exceeded max number of " + MAX_IDS + " IDs in pool: " + name);
     }
@@ -111,7 +130,6 @@ public class IdPool64 implements IdPool {
             newBitSet = curBitSet & mask;
         } while (curBitSet != newBitSet && !buf.compareAndSetLong(0, curBitSet, newBitSet));
         if (curBitSet != newBitSet) {
-            LOGGER.info("Released ID {} to {} pool", id, name);
             return true;
         }
         return false;
@@ -133,16 +151,22 @@ public class IdPool64 implements IdPool {
     @Override
     public void close() {
         if (!isClosed()) {
-            final int open = acquired();
+            acquiredWhenClosed = acquired();
             mapping.close();
-            LOGGER.info("Closed ID pool: {} ({} acquired IDs)", name, open);
+            lifecycleListener.onClosed(this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("IdPool64")
+                .append(":name=").append(name)
+                .append("|acquired=").append(isClosed() ? acquiredWhenClosed : acquired())
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "IdPool64" +
-                ":name='" + name + '\'' +
-                "|acquired=" + acquired();
+        return Describable.describe(this);
     }
 }

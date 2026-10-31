@@ -23,9 +23,11 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
+import org.tools4j.mmap.queue.impl.QueueConfiguratorImpl;
 
 import java.util.function.Consumer;
 
@@ -64,6 +66,8 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator entryIteratorConfig(Consumer<? super ReaderConfigurator> configurator);
     QueueConfigurator indexReaderConfig(IndexReaderConfig config);
     QueueConfigurator indexReaderConfig(Consumer<? super IndexReaderConfigurator> configurator);
+    QueueConfigurator lifecycleListener(LifecycleListener lifecycleListener);
+    QueueConfigurator errorListener(ErrorListener errorListener);
     QueueConfigurator reset();
 
     static QueueConfigurator configure() {

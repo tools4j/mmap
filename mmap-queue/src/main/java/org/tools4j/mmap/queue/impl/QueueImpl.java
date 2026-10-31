@@ -24,10 +24,11 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.CloseHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.impl.IdPool;
 import org.tools4j.mmap.mapping.impl.IdPool256;
@@ -56,11 +57,11 @@ import static java.util.Objects.requireNonNull;
  * multiple reading threads, when each thread creates their own instances of
  * {@link #createAppender() appender}, {@link #createPoller() poller} etc.
  */
-public final class QueueImpl implements Queue {
-    private static final Logger LOGGER = LoggerFactory.getLogger(QueueImpl.class);
-
+public final class QueueImpl implements Queue, Describable {
     private final QueueFiles files;
     private final QueueConfig config;
+    private final LifecycleListener lifecycleListener;
+    private final ErrorListener errorListener;
     /** Config in effect, with the queue layout from the meta file; null until the queue exists (lazy read-only only) */
     private final AtomicReference<QueueConfig> effectiveConfig;
     private final Factory<ReaderConfig, Poller> pollerFactory;
@@ -76,28 +77,35 @@ public final class QueueImpl implements Queue {
     public QueueImpl(final File file, final OpenMode openMode, final QueueConfig queueConfig) {
         this.files = new QueueFiles(file);
         this.config = queueConfig.toImmutableQueueConfig();
+        this.lifecycleListener = config.lifecycleListener();
+        this.errorListener = config.errorListener();
         this.effectiveConfig = new AtomicReference<>(openQueue(openMode));
 
         final Supplier<QueueConfig> effectiveConfigSupplier = this::effectiveConfig;
         this.pollerFactory = factory((pollerConfig, onClose) -> new PollerImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, effectiveConfigSupplier, pollerConfig),
-                onClose
+                onClose,
+                lifecycleListener,
+                errorListener
         ));
         this.entryReaderFactory = factory((readerConfig, onClose) -> new EntryReaderImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
-                onClose
+                onClose,
+                lifecycleListener
         ));
         this.entryIteratorFactory = factory((readerConfig, onClose) -> new EntryIteratorImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
-                onClose
+                onClose,
+                lifecycleListener
         ));
         this.indexReaderFactory = factory((indReaderConfig, onClose) -> new IndexReaderImpl(
                 queueNameIfNotClosed(),
                 IndexMappings.create(files, effectiveConfigSupplier, indReaderConfig),
-                onClose
+                onClose,
+                lifecycleListener
         ));
         if (openMode.accessMode() == AccessMode.READ_ONLY) {
             this.idPool = null;
@@ -107,14 +115,17 @@ public final class QueueImpl implements Queue {
             };
         } else {
             final QueueConfig writerConfig = effectiveConfig.get();
-            final IdPool pool = new IdPool256(files.idPoolFile(), writerConfig.maxAppenders());
+            final IdPool pool = new IdPool256(files.idPoolFile(), writerConfig.maxAppenders(), lifecycleListener,
+                    errorListener);
             this.idPool = pool;
             this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(
                     queueNameIfNotClosed(),
                     AppenderMappings.create(files, pool, writerConfig, appenderConfig),
-                    onClose
+                    onClose,
+                    lifecycleListener
             ));
         }
+        lifecycleListener.onOpened(this);
     }
 
     /**
@@ -171,7 +182,7 @@ public final class QueueImpl implements Queue {
     private void warnIfDifferent(final QueueLayoutConfig layout) {
         final CharSequence differences = QueueLayoutConfigs.diff(layout, config);
         if (differences != null) {
-            LOGGER.warn("Queue {} was created with a different layout, using: {}", files.queueName(), differences);
+            errorListener.onWarning(this, "Queue was created with a different layout, using: " + differences);
         }
     }
 
@@ -313,14 +324,19 @@ public final class QueueImpl implements Queue {
             }
             registrations.clear();
             CloseHelper.quietClose(idPool);
-            LOGGER.info("Closed queue: {}", files.queueName());
+            lifecycleListener.onClosed(this);
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("QueueImpl")
+                .append(":queue=").append(files.queueName())
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "QueueImpl" +
-                ":queue=" + files.queueName() +
-                "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

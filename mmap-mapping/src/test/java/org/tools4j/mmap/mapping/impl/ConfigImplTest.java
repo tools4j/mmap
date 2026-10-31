@@ -26,6 +26,8 @@ package org.tools4j.mmap.mapping.impl;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.AsyncMappingConfig;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfig;
@@ -112,12 +114,13 @@ class ConfigImplTest {
     void mappingConfigImpl() {
         final MappingStrategyConfig strategy = MappingStrategyConfig.getDefaultSync().toImmutableConfig();
         final MappingConfigImpl config = new MappingConfigImpl(0, 4L * REGION_SIZE, REGION_SIZE, true, false, 5, 1,
-                strategy);
+                strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP);
         assertSame(config, config.toImmutableConfig());
         assertEquals(config, new MappingConfigImpl(config));
         assertEquals("MappingConfigImpl:minFileSize=0|maxFileSize=" + 4L * REGION_SIZE + "|regionSize=" + REGION_SIZE +
                 "|expandFile=true" +
-                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=1|mappingStrategy=" + strategy, config.toString());
+                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=1|mappingStrategy=" + strategy +
+                "|lifecycleListener=LifecycleListener.NO_OP|errorListener=ErrorListener.NO_OP", config.toString());
     }
 
     @Test
@@ -131,6 +134,8 @@ class ConfigImplTest {
         assertEquals(defaults.maxOpenFiles(), config.maxOpenFiles());
         assertEquals(defaults.filesToCreateAhead(), config.filesToCreateAhead());
         assertEquals(defaults.mappingStrategy().toImmutableConfig(), config.mappingStrategy());
+        assertSame(defaults.lifecycleListener(), config.lifecycleListener());
+        assertSame(defaults.errorListener(), config.errorListener());
         assertEquals(config, new MappingConfigImpl());
     }
 }

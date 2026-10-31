@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
@@ -50,6 +52,8 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     protected int maxOpenFiles;
     protected int filesToCreateAhead;
     protected MappingStrategyConfig mappingStrategy;
+    protected LifecycleListener lifecycleListener;
+    protected ErrorListener errorListener;
 
     public MappingConfiguratorImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
@@ -70,6 +74,8 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
         this.maxOpenFiles = -1;
         this.filesToCreateAhead = -1;
         this.mappingStrategy = null;
+        this.lifecycleListener = null;
+        this.errorListener = null;
         return this;
     }
 
@@ -161,6 +167,28 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public LifecycleListener lifecycleListener() {
+        if (lifecycleListener == null) {
+            lifecycleListener = defaults.lifecycleListener();
+        }
+        if (lifecycleListener == null) {
+            lifecycleListener = MappingConfigurations.defaultLifecycleListener();
+        }
+        return lifecycleListener;
+    }
+
+    @Override
+    public ErrorListener errorListener() {
+        if (errorListener == null) {
+            errorListener = defaults.errorListener();
+        }
+        if (errorListener == null) {
+            errorListener = MappingConfigurations.defaultErrorListener();
+        }
+        return errorListener;
+    }
+
+    @Override
     public MappingConfigurator minFileSize(final long minFileSize) {
         validateMinFileSize(minFileSize);
         this.minFileSize = minFileSize;
@@ -221,6 +249,18 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public MappingConfigurator lifecycleListener(final LifecycleListener lifecycleListener) {
+        this.lifecycleListener = requireNonNull(lifecycleListener);
+        return this;
+    }
+
+    @Override
+    public MappingConfigurator errorListener(final ErrorListener errorListener) {
+        this.errorListener = requireNonNull(errorListener);
+        return this;
+    }
+
+    @Override
     public String toString() {
         return "MappingConfiguratorImpl" +
                 ":minFileSize=" + minFileSize +
@@ -231,6 +271,8 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
                 "|maxOpenFiles=" + maxOpenFiles +
                 "|filesToCreateAhead=" + filesToCreateAhead +
                 "|mappingStrategy=" + mappingStrategy +
+                "|lifecycleListener=" + lifecycleListener +
+                "|errorListener=" + errorListener +
                 "|defaults=" + defaults;
     }
 }

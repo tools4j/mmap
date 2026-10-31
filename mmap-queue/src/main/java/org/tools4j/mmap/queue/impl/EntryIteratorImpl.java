@@ -27,13 +27,13 @@ import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -43,26 +43,29 @@ import static org.tools4j.mmap.queue.impl.Exceptions.invalidIndexException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Headers.NULL_HEADER;
 
-final class EntryIteratorImpl implements EntryIterator {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EntryIteratorImpl.class);
+final class EntryIteratorImpl implements EntryIterator, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
     private final ElasticMapping header;
     private final Runnable onClose;
+    private final LifecycleListener lifecycleListener;
     private final IterableContextImpl context;
 
-    EntryIteratorImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose) {
+    EntryIteratorImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose,
+                      final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
             this.header = requireNonNull(mappings.header());
             this.onClose = requireNonNull(onClose);
+            this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new IterableContextImpl(this);
         } catch (final Throwable t) {
             CloseHelper.quietClose(mappings);
             throw t;
         }
+        lifecycleListener.onOpened(this);
     }
 
     @Override
@@ -102,7 +105,7 @@ final class EntryIteratorImpl implements EntryIterator {
         if (!isClosed()) {
             mappings.close();
             onClose.run();
-            LOGGER.info("Entry iterator closed, queue={}", queueName);
+            lifecycleListener.onClosed(this);
         }
     }
 
@@ -276,8 +279,15 @@ final class EntryIteratorImpl implements EntryIterator {
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("EntryIteratorImpl")
+                .append(":queue=").append(queueName)
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "EntryIteratorImpl:queue=" + queueName + "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 
 }

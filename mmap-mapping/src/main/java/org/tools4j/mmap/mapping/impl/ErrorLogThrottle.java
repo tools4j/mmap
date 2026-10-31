@@ -25,7 +25,7 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.concurrent.EpochClock;
 import org.agrona.concurrent.SystemEpochClock;
-import org.slf4j.Logger;
+import org.tools4j.mmap.mapping.api.Describable;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -33,45 +33,67 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Logs errors like {@link Logger#error(String, Object...)}, but suppresses repetitions of recently logged errors so
- * that an error occurring on every invocation of a busy loop does not flood the log.
+ * Passes errors to an {@link ErrorLog}, but suppresses repetitions of recently logged errors so that an error
+ * occurring on every invocation of a busy loop does not flood the log.
  * <p>
- * An error repeats a recent one if format and arguments are equal, where a throwable argument equals another if both
- * have the same class, message, stack trace and causes. A repeated error is logged again at most once per repeat
- * interval, with the number of repetitions since it was last logged.
+ * An error repeats a recent one if it has the same source and message, and a throwable with the same class, message,
+ * stack trace and causes. A repeated error is logged again at most once per repeat interval, with the number of
+ * repetitions since it was last logged.
  * <p>
  * <b>Note:</b> This class is <b>not</b> thread safe.
  */
-public final class ErrorLogThrottle {
+final class ErrorLogThrottle {
     public static final long DEFAULT_REPEAT_INTERVAL_MILLIS = 10_000;
     static final int RECENT_ERRORS = 8;
-    private static final String REPETITIONS_SUFFIX = " [{} repetitions since last logged]";
 
-    private final Logger logger;
+    /**
+     * Log for errors passed through the throttle.
+     */
+    @FunctionalInterface
+    public interface ErrorLog {
+        /**
+         * Logs an error.
+         *
+         * @param source      the object where the error occurred
+         * @param message     the error message
+         * @param error       the error
+         * @param repetitions zero when the error is logged for the first time, and otherwise the number of
+         *                    repetitions since it was last logged
+         */
+        void log(Describable source, String message, Throwable error, long repetitions);
+    }
+
+    private final ErrorLog log;
     private final EpochClock clock;
     private final long repeatIntervalMillis;
     private final RecentError[] recentErrors = new RecentError[RECENT_ERRORS];
     private int nextIndex;
 
     private static final class RecentError {
-        final String format;
-        final Object[] arguments;
+        final Describable source;
+        final String message;
+        final Throwable error;
         long loggedTime;
         long repetitions;
 
-        RecentError(final String format, final Object[] arguments, final long loggedTime) {
-            this.format = format;
-            this.arguments = arguments;
+        RecentError(final Describable source, final String message, final Throwable error, final long loggedTime) {
+            this.source = source;
+            this.message = message;
+            this.error = error;
             this.loggedTime = loggedTime;
+        }
+
+        boolean matches(final Describable source, final String message, final Throwable error) {
+            return this.source == source && this.message.equals(message) && equalThrowables(this.error, error);
         }
     }
 
-    public ErrorLogThrottle(final Logger logger) {
-        this(logger, SystemEpochClock.INSTANCE, DEFAULT_REPEAT_INTERVAL_MILLIS);
+    public ErrorLogThrottle(final ErrorLog log) {
+        this(log, SystemEpochClock.INSTANCE, DEFAULT_REPEAT_INTERVAL_MILLIS);
     }
 
-    public ErrorLogThrottle(final Logger logger, final EpochClock clock, final long repeatIntervalMillis) {
-        this.logger = requireNonNull(logger);
+    public ErrorLogThrottle(final ErrorLog log, final EpochClock clock, final long repeatIntervalMillis) {
+        this.log = requireNonNull(log);
         this.clock = requireNonNull(clock);
         this.repeatIntervalMillis = repeatIntervalMillis;
     }
@@ -79,20 +101,21 @@ public final class ErrorLogThrottle {
     /**
      * Logs the error unless it repeats a recently logged error, see class documentation.
      *
-     * @param format    the message format with {@code {}} placeholders
-     * @param arguments the arguments, optionally followed by a throwable to log with its stack trace
+     * @param source  the object where the error occurred
+     * @param message the error message
+     * @param error   the error
      */
-    public void error(final String format, final Object... arguments) {
+    public void error(final Describable source, final String message, final Throwable error) {
         final long time = clock.time();
-        final RecentError recent = find(format, arguments);
+        final RecentError recent = find(source, message, error);
         if (recent == null) {
             final RecentError evicted = recentErrors[nextIndex];
             if (evicted != null && evicted.repetitions > 0) {
                 logRepetitions(evicted);
             }
-            recentErrors[nextIndex] = new RecentError(format, arguments, time);
+            recentErrors[nextIndex] = new RecentError(source, message, error, time);
             nextIndex = (nextIndex + 1) % RECENT_ERRORS;
-            logger.error(format, arguments);
+            log.log(source, message, error, 0);
             return;
         }
         recent.repetitions++;
@@ -103,41 +126,17 @@ public final class ErrorLogThrottle {
     }
 
     private void logRepetitions(final RecentError recent) {
-        final Object[] arguments = recent.arguments;
-        final int length = arguments.length;
-        final Object[] withRepetitions = Arrays.copyOf(arguments, length + 1);
-        if (length > 0 && arguments[length - 1] instanceof Throwable) {
-            withRepetitions[length - 1] = recent.repetitions;
-            withRepetitions[length] = arguments[length - 1];
-        } else {
-            withRepetitions[length] = recent.repetitions;
-        }
-        logger.error(recent.format + REPETITIONS_SUFFIX, withRepetitions);
+        log.log(recent.source, recent.message, recent.error, recent.repetitions);
         recent.repetitions = 0;
     }
 
-    private RecentError find(final String format, final Object[] arguments) {
+    private RecentError find(final Describable source, final String message, final Throwable error) {
         for (final RecentError recent : recentErrors) {
-            if (recent != null && recent.format.equals(format) && equalArguments(recent.arguments, arguments)) {
+            if (recent != null && recent.matches(source, message, error)) {
                 return recent;
             }
         }
         return null;
-    }
-
-    private static boolean equalArguments(final Object[] a, final Object[] b) {
-        if (a.length != b.length) {
-            return false;
-        }
-        for (int i = 0; i < a.length; i++) {
-            final boolean equal = a[i] instanceof Throwable && b[i] instanceof Throwable
-                    ? equalThrowables((Throwable) a[i], (Throwable) b[i])
-                    : Objects.equals(a[i], b[i]);
-            if (!equal) {
-                return false;
-            }
-        }
-        return true;
     }
 
     static boolean equalThrowables(Throwable a, Throwable b) {

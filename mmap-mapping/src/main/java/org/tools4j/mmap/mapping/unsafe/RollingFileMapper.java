@@ -25,12 +25,14 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.CloseHelper;
 import org.agrona.collections.LongArrayList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
+import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.RollingFiles;
 
 import java.io.File;
@@ -58,8 +60,7 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
  * alternative with thread-safe mapping, as required for async mapping.
  */
 @Unsafe
-public class RollingFileMapper implements FileMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RollingFileMapper.class);
+public class RollingFileMapper implements FileMapper, Describable {
     private static final int DEFAULT_CAPACITY = 1024;
 
     private final File baseFile;
@@ -69,6 +70,7 @@ public class RollingFileMapper implements FileMapper {
     private final int filesToCreateAhead;
     private final int maxOpenFiles;
     private final AccessMode accessMode;
+    private final LifecycleListener lifecycleListener;
     private final long positionInFileMask;
     private final int positionToFileIndexShift;
 
@@ -87,7 +89,8 @@ public class RollingFileMapper implements FileMapper {
                               final int regionSize,
                               final int filesToCreateAhead,
                               final int maxOpenFiles,
-                              final AccessMode accessMode) {
+                              final AccessMode accessMode,
+                              final LifecycleListener lifecycleListener) {
         requireNonNull(baseFile);
         requireNonNull(fileMapperFactory);
         validateMaxFileSize(maxFileSize);
@@ -110,15 +113,17 @@ public class RollingFileMapper implements FileMapper {
         this.filesToCreateAhead = filesToCreateAhead;
         this.maxOpenFiles = maxOpenFiles;
         this.accessMode = accessMode;
+        this.lifecycleListener = requireNonNull(lifecycleListener);
         this.positionInFileMask = maxFileSize - 1;
         this.positionToFileIndexShift = Long.SIZE - Long.numberOfLeadingZeros(maxFileSize - 1);
+        lifecycleListener.onOpened(this);
     }
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final MappingConfig config,
                                          final FileInitialiser fileInitialiser) {
         return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.maxOpenFiles(),
-                fileInitialiser);
+                fileInitialiser, config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
@@ -126,9 +131,23 @@ public class RollingFileMapper implements FileMapper {
                                          final int regionSize,
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser) {
+        return forReadOnly(baseFile, maxFileSize, regionSize, maxOpenFiles, fileInitialiser,
+                MappingConfigurations.defaultLifecycleListener(), MappingConfigurations.defaultErrorListener());
+    }
+
+    public static FileMapper forReadOnly(final File baseFile,
+                                         final long maxFileSize,
+                                         final int regionSize,
+                                         final int maxOpenFiles,
+                                         final FileInitialiser fileInitialiser,
+                                         final LifecycleListener lifecycleListener,
+                                         final ErrorListener errorListener) {
         requireNonNull(fileInitialiser);
-        return new RollingFileMapper(baseFile, file -> new ReadOnlyFileMapper(file, fileInitialiser),
-                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY);
+        requireNonNull(lifecycleListener);
+        requireNonNull(errorListener);
+        return new RollingFileMapper(baseFile,
+                file -> new ReadOnlyFileMapper(file, fileInitialiser, lifecycleListener, errorListener),
+                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY, lifecycleListener);
     }
 
     public static FileMapper forReadWrite(final File baseFile,
@@ -137,7 +156,7 @@ public class RollingFileMapper implements FileMapper {
                                           final FileInitialiser fileInitialiser) {
         return forReadWrite(baseFile, accessMode, config.expandFile(), config.minFileSize(), config.maxFileSize(),
                 config.regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
-                fileInitialiser);
+                fileInitialiser, config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadWrite(final File baseFile,
@@ -149,13 +168,33 @@ public class RollingFileMapper implements FileMapper {
                                           final int filesToCreateAhead,
                                           final int maxOpenFiles,
                                           final FileInitialiser fileInitialiser) {
+        return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize,
+                filesToCreateAhead, maxOpenFiles, fileInitialiser, MappingConfigurations.defaultLifecycleListener(),
+                MappingConfigurations.defaultErrorListener());
+    }
+
+    public static FileMapper forReadWrite(final File baseFile,
+                                          final AccessMode accessMode,
+                                          final boolean expandFile,
+                                          final long minFileSize,
+                                          final long maxFileSize,
+                                          final int regionSize,
+                                          final int filesToCreateAhead,
+                                          final int maxOpenFiles,
+                                          final FileInitialiser fileInitialiser,
+                                          final LifecycleListener lifecycleListener,
+                                          final ErrorListener errorListener) {
         requireNonNull(accessMode);
         requireNonNull(fileInitialiser);
+        requireNonNull(lifecycleListener);
+        requireNonNull(errorListener);
         final Function<File, FileMapper> fileMapperFactory = expandFile ?
-                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser) :
-                file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser);
+                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
+                        lifecycleListener, errorListener) :
+                file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser, lifecycleListener,
+                        errorListener);
         return new RollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
-                maxOpenFiles, accessMode);
+                maxOpenFiles, accessMode, lifecycleListener);
     }
 
     private File getOrCreateFile(final int fileIndex) {
@@ -321,27 +360,31 @@ public class RollingFileMapper implements FileMapper {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            final int openBeforeClosing = openFiles;
             try {
                 for (int fileIndex = 0; fileIndex < fileMappers.size(); fileIndex++) {
                     close(fileIndex);
                 }
             } finally {
-                LOGGER.info("Closed: {} ({} open files before closing)", this, openBeforeClosing);
+                lifecycleListener.onClosed(this);
             }
         }
     }
 
     @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("RollingFileMapper")
+                .append(":baseFile=").append(baseFile.getPath())
+                .append("|accessMode=").append(accessMode)
+                .append("|maxFileSize=").append(maxFileSize)
+                .append("|regionSize=").append(regionSize)
+                .append("|filesToCreateAhead=").append(filesToCreateAhead)
+                .append("|maxOpenFiles=").append(maxOpenFiles)
+                .append("|openFiles=").append(openFiles)
+                .append("|closed=").append(isClosed());
+    }
+
+    @Override
     public String toString() {
-        return "RollingFileMapper" +
-                ":accessMode=" + accessMode +
-                "|maxFileSize=" + maxFileSize +
-                "|regionSize=" + regionSize +
-                "|filesToCreateAhead=" + filesToCreateAhead +
-                "|maxOpenFiles=" + maxOpenFiles +
-                "|baseFile=" + baseFile +
-                "|openFiles=" + openFiles +
-                "|closed=" + isClosed();
+        return Describable.describe(this);
     }
 }

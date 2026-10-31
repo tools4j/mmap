@@ -23,11 +23,14 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 
+import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 
 public class QueueConfigImpl implements QueueConfig {
@@ -47,6 +50,8 @@ public class QueueConfigImpl implements QueueConfig {
     private final ReaderConfig entryReaderConfig;
     private final ReaderConfig entryIteratorConfig;
     private final IndexReaderConfig indexReaderConfig;
+    private final LifecycleListener lifecycleListener;
+    private final ErrorListener errorListener;
 
     public QueueConfigImpl() {
         this(QUEUE_CONFIG_DEFAULTS);
@@ -68,7 +73,9 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.pollerConfig(),
                 queueConfig.entryReaderConfig(),
                 queueConfig.entryIteratorConfig(),
-                queueConfig.indexReaderConfig());
+                queueConfig.indexReaderConfig(),
+                queueConfig.lifecycleListener(),
+                queueConfig.errorListener());
     }
 
     public QueueConfigImpl(final int maxAppenders,
@@ -86,7 +93,9 @@ public class QueueConfigImpl implements QueueConfig {
                            final ReaderConfig pollerConfig,
                            final ReaderConfig entryReaderConfig,
                            final ReaderConfig entryIteratorConfig,
-                           final IndexReaderConfig indexReaderConfig) {
+                           final IndexReaderConfig indexReaderConfig,
+                           final LifecycleListener lifecycleListener,
+                           final ErrorListener errorListener) {
         this.maxAppenders = maxAppenders;
         this.minHeaderFileSize = minHeaderFileSize;
         this.maxHeaderFileSize = maxHeaderFileSize;
@@ -103,6 +112,8 @@ public class QueueConfigImpl implements QueueConfig {
         this.entryReaderConfig = entryReaderConfig.toImmutableReaderConfig();
         this.entryIteratorConfig = entryIteratorConfig.toImmutableReaderConfig();
         this.indexReaderConfig = indexReaderConfig.toImmutableIndexReaderConfig();
+        this.lifecycleListener = requireNonNull(lifecycleListener);
+        this.errorListener = requireNonNull(errorListener);
     }
 
     @Override
@@ -186,6 +197,16 @@ public class QueueConfigImpl implements QueueConfig {
     }
 
     @Override
+    public LifecycleListener lifecycleListener() {
+        return lifecycleListener;
+    }
+
+    @Override
+    public ErrorListener errorListener() {
+        return errorListener;
+    }
+
+    @Override
     public QueueConfig toImmutableQueueConfig() {
         return this;
     }
@@ -208,6 +229,8 @@ public class QueueConfigImpl implements QueueConfig {
                 "|pollerConfig={" + pollerConfig + "}" +
                 "|entryReaderConfig={" + entryReaderConfig + "}" +
                 "|entryIteratorConfig={" + entryIteratorConfig + "}" +
-                "|indexReaderConfig={" + indexReaderConfig + "}";
+                "|indexReaderConfig={" + indexReaderConfig + "}" +
+                "|lifecycleListener=" + lifecycleListener +
+                "|errorListener=" + errorListener;
     }
 }

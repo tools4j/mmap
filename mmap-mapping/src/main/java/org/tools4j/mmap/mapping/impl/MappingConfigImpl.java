@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
@@ -38,7 +40,8 @@ import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG
 
 public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSize, boolean expandFile,
                                 boolean rollFiles, int maxOpenFiles, int filesToCreateAhead,
-                                MappingStrategyConfig mappingStrategy) implements MappingConfig {
+                                MappingStrategyConfig mappingStrategy, LifecycleListener lifecycleListener,
+                                ErrorListener errorListener) implements MappingConfig {
     public MappingConfigImpl() {
         this(MAPPING_CONFIG_DEFAULTS);
     }
@@ -46,7 +49,7 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
     public MappingConfigImpl(final MappingConfig toCopy) {
         this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.regionSize(), toCopy.expandFile(),
                 toCopy.rollFiles(), toCopy.maxOpenFiles(), toCopy.filesToCreateAhead(),
-                toCopy.mappingStrategy().toImmutableConfig());
+                toCopy.mappingStrategy().toImmutableConfig(), toCopy.lifecycleListener(), toCopy.errorListener());
     }
 
     public MappingConfigImpl {
@@ -56,6 +59,8 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
         validateMaxOpenFiles(maxOpenFiles);
         validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(mappingStrategy);
+        requireNonNull(lifecycleListener);
+        requireNonNull(errorListener);
         validateFileSizes(minFileSize, maxFileSize, expandFile, regionSize);
     }
 
@@ -78,6 +83,8 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
                 "|rollFiles=" + config.rollFiles() +
                 "|maxOpenFiles=" + config.maxOpenFiles() +
                 "|filesToCreateAhead=" + config.filesToCreateAhead() +
-                "|mappingStrategy=" + config.mappingStrategy();
+                "|mappingStrategy=" + config.mappingStrategy() +
+                "|lifecycleListener=" + config.lifecycleListener() +
+                "|errorListener=" + config.errorListener();
     }
 }
