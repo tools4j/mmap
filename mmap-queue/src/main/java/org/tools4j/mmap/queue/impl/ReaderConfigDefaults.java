@@ -111,7 +111,7 @@ public enum ReaderConfigDefaults implements ReaderConfig {
 
     @Override
     public String toString() {
-        return "ReaderConfigDefaults:" +
+        return "ReaderConfigDefaults" +
                 ":name=" + name() +
                 "|headerMappingStrategy=" + headerMappingStrategy() +
                 "|payloadMappingStrategy=" + payloadMappingStrategy() +

@@ -81,7 +81,7 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     @Override
     public IndexReaderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(headerMappingStrategy());
         configurator.accept(config);
         return headerMappingStrategy(config);
     }

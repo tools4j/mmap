@@ -481,7 +481,7 @@ public enum QueueConfigurations {
                 .cacheSize(regionCacheSizeSupplier.getAsInt())
                 .deferUnmapping(true)
                 .asyncMapping(async -> async.regionsToMapAhead(regionsToMapAheadSupplier.getAsInt()))
-                ;
+                .toImmutableConfig();
         //FIXME make this nicer and consider supporting generic strategies
 //        final String strategy = System.getProperty(mappingStrategyProperty, null);
 //        switch (strategy) {
@@ -542,7 +542,17 @@ public enum QueueConfigurations {
 
     private static boolean getBooleanProperty(final String propertyName, final boolean defaultValue) {
         final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValue : Boolean.parseBoolean(propVal);
+        if (propVal == null) {
+            return defaultValue;
+        }
+        if ("true".equalsIgnoreCase(propVal)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(propVal)) {
+            return false;
+        }
+        throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal +
+                " (expected true or false)");
     }
 
     private static <E extends Enum<E>> E getEnumProperty(final String propertyName,

@@ -65,8 +65,8 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
         payloadMappingStrategy = null;
         maxOpenHeaderFiles = 0;
         maxOpenPayloadFiles = 0;
-        headerFilesToCreateAhead = 0;
-        payloadFilesToCreateAhead = 0;
+        headerFilesToCreateAhead = -1;
+        payloadFilesToCreateAhead = -1;
         return this;
     }
 
@@ -109,8 +109,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = headerMappingStrategy != null ?
-                MappingStrategyConfigurator.configure(headerMappingStrategy) : MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(headerMappingStrategy());
         configurator.accept(config);
         return headerMappingStrategy(config);
     }
@@ -139,8 +138,7 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = payloadMappingStrategy != null ?
-                MappingStrategyConfigurator.configure(payloadMappingStrategy) : MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(payloadMappingStrategy());
         configurator.accept(config);
         return payloadMappingStrategy(config);
     }

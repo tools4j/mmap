@@ -331,9 +331,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
-        configurator.accept(config);
-        return mappingStrategy(config);
+        return headerMappingStrategy(configurator).payloadMappingStrategy(configurator);
     }
 
     @Override
@@ -354,9 +352,13 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
-        configurator.accept(config);
-        return headerMappingStrategy(config);
+        requireNonNull(configurator);
+        appenderConfig(cfg -> cfg.headerMappingStrategy(configurator));
+        pollerConfig(cfg -> cfg.headerMappingStrategy(configurator));
+        entryReaderConfig(cfg -> cfg.headerMappingStrategy(configurator));
+        entryIteratorConfig(cfg -> cfg.headerMappingStrategy(configurator));
+        indexReaderConfig(cfg -> cfg.headerMappingStrategy(configurator));
+        return this;
     }
 
     @Override
@@ -376,9 +378,12 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
-        configurator.accept(config);
-        return payloadMappingStrategy(config);
+        requireNonNull(configurator);
+        appenderConfig(cfg -> cfg.payloadMappingStrategy(configurator));
+        pollerConfig(cfg -> cfg.payloadMappingStrategy(configurator));
+        entryReaderConfig(cfg -> cfg.payloadMappingStrategy(configurator));
+        entryIteratorConfig(cfg -> cfg.payloadMappingStrategy(configurator));
+        return this;
     }
 
     @Override
@@ -397,8 +402,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator appenderConfig(final Consumer<? super AppenderConfigurator> configurator) {
-        final AppenderConfigurator config = appenderConfig != null ?
-                AppenderConfigurator.configure(appenderConfig) : AppenderConfigurator.configure();
+        final AppenderConfigurator config = AppenderConfigurator.configure(appenderConfig());
         configurator.accept(config);
         this.appenderConfig = config;
         return this;
@@ -420,8 +424,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator pollerConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = pollerConfig != null ?
-                ReaderConfigurator.configure(pollerConfig) : ReaderConfigurator.configurePoller();
+        final ReaderConfigurator config = ReaderConfigurator.configure(pollerConfig());
         configurator.accept(config);
         this.pollerConfig = config;
         return this;
@@ -443,8 +446,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator entryReaderConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = entryReaderConfig != null ?
-                ReaderConfigurator.configure(entryReaderConfig) : ReaderConfigurator.configureEntryReader();
+        final ReaderConfigurator config = ReaderConfigurator.configure(entryReaderConfig());
         configurator.accept(config);
         this.entryReaderConfig = config;
         return this;
@@ -466,8 +468,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator entryIteratorConfig(final Consumer<? super ReaderConfigurator> configurator) {
-        final ReaderConfigurator config = entryIteratorConfig != null ?
-                ReaderConfigurator.configure(entryIteratorConfig) : ReaderConfigurator.configureEntryIterator();
+        final ReaderConfigurator config = ReaderConfigurator.configure(entryIteratorConfig());
         configurator.accept(config);
         this.entryIteratorConfig = config;
         return this;
@@ -489,8 +490,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
 
     @Override
     public QueueConfigurator indexReaderConfig(final Consumer<? super IndexReaderConfigurator> configurator) {
-        final IndexReaderConfigurator config = indexReaderConfig != null ?
-                IndexReaderConfigurator.configure(indexReaderConfig) : IndexReaderConfigurator.configure();
+        final IndexReaderConfigurator config = IndexReaderConfigurator.configure(indexReaderConfig());
         configurator.accept(config);
         this.indexReaderConfig = config;
         return this;

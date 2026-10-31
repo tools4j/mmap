@@ -89,9 +89,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator mappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
-        configurator.accept(config);
-        return headerMappingStrategy(config).payloadMappingStrategy(config);
+        return headerMappingStrategy(configurator).payloadMappingStrategy(configurator);
     }
 
     @Override
@@ -118,7 +116,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator headerMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(headerMappingStrategy());
         configurator.accept(config);
         return headerMappingStrategy(config);
     }
@@ -147,7 +145,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator payloadMappingStrategy(final Consumer<? super MappingStrategyConfigurator> configurator) {
-        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure();
+        final MappingStrategyConfigurator config = MappingStrategyConfigurator.configure(payloadMappingStrategy());
         configurator.accept(config);
         return payloadMappingStrategy(config);
     }
