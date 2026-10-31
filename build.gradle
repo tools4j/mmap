@@ -19,7 +19,7 @@ defaultTasks 'clean', 'build'
 def projGroup = 'org.tools4j'
 def projVersion = file('version.txt').text.trim()
 
-def agronaVersion = '2.6.1'
+def agronaVersion = '2.7.0'
 def slf4jVersion = '2.0.20'
 def junitVersion = '6.1.3'
 def mockitoVersion = '5.24.0'
