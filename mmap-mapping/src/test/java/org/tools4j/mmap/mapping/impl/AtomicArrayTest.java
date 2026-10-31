@@ -30,12 +30,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -349,6 +353,185 @@ class AtomicArrayTest {
         assertEquals(n - 1, array.lastIndexOf((index, value) -> value != null));
         final int nextPow2 = BitUtil.isPowerOfTwo(n) ? n : (Integer.highestOneBit(n) << 1);
         assertEquals(nextPow2 - 1, array.lastIndexOf((index, value) -> value == null));
+    }
+
+    @ParameterizedTest(name = "initial length: {0}")
+    @ValueSource(ints = {1, 2, 4, 8, 64, 256, 4096})
+    void indexOfMinAndMax(final int initialLength) {
+        //given
+        final int n = 1000;
+        final Comparator<Integer> nullsLast = Comparator.nullsLast(Comparator.naturalOrder());
+        final Comparator<Integer> nullsFirst = Comparator.nullsFirst(Comparator.naturalOrder());
+        final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
+
+        //when + then: only nulls
+        assertIndexOfMinAndMax(array, nullsLast);
+        assertIndexOfMinAndMax(array, nullsFirst);
+
+        //when: duplicates in all blocks, unique min and max in later blocks
+        for (int i = 0; i < n; i++) {
+            array.set(i, i % 7);
+        }
+        array.set(n - 3, -1);
+        array.set(n / 2 + 1, 100);
+
+        //then
+        assertIndexOfMinAndMax(array, nullsLast);
+        assertIndexOfMinAndMax(array, nullsFirst);
+    }
+
+    /** Asserts min/max index methods against a brute force scan over all elements, nulls included */
+    private static void assertIndexOfMinAndMax(final AtomicArray<Integer> array, final Comparator<Integer> comparator) {
+        int firstMin = -1, lastMin = -1, firstMax = -1, lastMax = -1;
+        for (int i = 0; i < array.length(); i++) {
+            final Integer value = array.get(i);
+            if (firstMin < 0 || comparator.compare(value, array.get(firstMin)) < 0) firstMin = i;
+            if (lastMin < 0 || comparator.compare(value, array.get(lastMin)) <= 0) lastMin = i;
+            if (firstMax < 0 || comparator.compare(value, array.get(firstMax)) > 0) firstMax = i;
+            if (lastMax < 0 || comparator.compare(value, array.get(lastMax)) >= 0) lastMax = i;
+        }
+        assertEquals(firstMin, array.indexOfMin(comparator), "indexOfMin");
+        assertEquals(lastMin, array.lastIndexOfMin(comparator), "lastIndexOfMin");
+        assertEquals(firstMax, array.indexOfMax(comparator), "indexOfMax");
+        assertEquals(lastMax, array.lastIndexOfMax(comparator), "lastIndexOfMax");
+    }
+
+    @ParameterizedTest(name = "initial length: {0}")
+    @ValueSource(ints = {1, 2, 4, 8, 64})
+    void allocationAndAcquireReads(final int initialLength) {
+        //given
+        final int far = 4 * initialLength + 1;
+        final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
+
+        //when + then
+        assertTrue(array.isAllocated(0));
+        assertFalse(array.isAllocated(far));
+        assertNull(array.getAcquire(0));
+        assertNull(array.getAcquire(far));
+
+        //when
+        array.set(far, 7);
+
+        //then
+        assertTrue(array.isAllocated(far));
+        assertEquals(7, array.getAcquire(far));
+    }
+
+    @ParameterizedTest(name = "initial length: {0}")
+    @ValueSource(ints = {1, 2, 4, 8, 64})
+    void setIfAbsentAndSetIfPresent(final int initialLength) {
+        //given
+        final int far = 4 * initialLength + 1;
+        final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
+
+        //when + then: unallocated block
+        assertFalse(array.setIfPresent(far, 1));
+        assertFalse(array.isAllocated(far));
+
+        //when + then: absent
+        assertNull(array.setIfAbsent(far, null));
+        assertTrue(array.isAllocated(far));
+        assertFalse(array.setIfPresent(far, 1));
+        assertNull(array.get(far));
+        assertEquals(5, array.setIfAbsent(far, 5));
+
+        //when + then: present
+        assertEquals(5, array.setIfAbsent(far, 6));
+        assertTrue(array.setIfPresent(far, 8));
+        assertEquals(8, array.get(far));
+    }
+
+    @ParameterizedTest(name = "initial length: {0}")
+    @ValueSource(ints = {1, 2, 4, 8, 64})
+    void computeIfPresentPassesArrayIndex(final int initialLength) {
+        //given
+        final int far = 4 * initialLength + 1;
+        final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
+        final List<Integer> indices = new ArrayList<>();
+
+        //when + then: unallocated block and absent value
+        assertNull(array.computeIfPresent(far, (index, value) -> value + 1));
+        array.set(far + 1, 0);
+        assertNull(array.computeIfPresent(far, (index, value) -> value + 1));
+        assertNull(array.get(far));
+
+        //when
+        array.set(far, 10);
+        final Integer result = array.computeIfPresent(far, (index, value) -> {
+            indices.add(index);
+            return value + 1;
+        });
+
+        //then
+        assertEquals(11, result);
+        assertEquals(11, array.get(far));
+        assertEquals(List.of(far), indices);
+    }
+
+    @ParameterizedTest(name = "initial length: {0}")
+    @ValueSource(ints = {1, 2, 4, 8, 64})
+    void compareAndExchange(final int initialLength) {
+        //given
+        final int far = 4 * initialLength + 1;
+        final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
+
+        //when + then: non-null expected value does not allocate a block
+        assertNull(array.compareAndExchange(far, 1, 2));
+        assertFalse(array.isAllocated(far));
+
+        //when + then: success returns expected value as witness
+        assertNull(array.compareAndExchange(far, null, 3));
+        assertEquals(3, array.get(far));
+        assertEquals(3, array.compareAndExchange(far, 3, 5));
+        assertEquals(5, array.get(far));
+
+        //when + then: failure returns current value as witness
+        assertEquals(5, array.compareAndExchange(far, 4, 6));
+        assertEquals(5, array.get(far));
+    }
+
+    @Test
+    void concurrentComputeIfPresentAndBlockAllocation() throws InterruptedException {
+        //given
+        final int nThreads = 8;
+        final int increments = 10_000;
+        final int far = 1 << 16;
+        final AtomicArray<Integer> array = new AtomicArray<>(1);
+        array.set(0, 0);
+        final CountDownLatch start = new CountDownLatch(1);
+        final Thread[] threads = new Thread[nThreads];
+        for (int t = 0; t < nThreads; t++) {
+            final int threadIndex = t;
+            threads[t] = new Thread(() -> {
+                await(start);
+                //all threads allocate the same far blocks concurrently
+                array.set(far + threadIndex, threadIndex);
+                for (int i = 0; i < increments; i++) {
+                    array.computeIfPresent(0, (index, value) -> value + 1);
+                }
+            }, "computing-" + t);
+            threads[t].start();
+        }
+
+        //when
+        start.countDown();
+        for (final Thread thread : threads) {
+            thread.join(10_000);
+        }
+
+        //then
+        assertEquals(nThreads * increments, array.get(0));
+        for (int t = 0; t < nThreads; t++) {
+            assertEquals(t, array.get(far + t));
+        }
+    }
+
+    private static void await(final CountDownLatch latch) {
+        try {
+            assertTrue(latch.await(10, TimeUnit.SECONDS));
+        } catch (final InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Test

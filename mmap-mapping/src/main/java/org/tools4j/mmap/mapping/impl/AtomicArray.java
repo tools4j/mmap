@@ -180,7 +180,7 @@ public class AtomicArray<E> {
         final int block = blockIndex(index);
         final int offset = blockOffset(index, block);
         final AtomicReferenceArray<E> blockData = blocks.get(block);
-        return blockData == null ? null : computeIfPresent(blockData, offset, valueAccumulator);
+        return blockData == null ? null : computeIfPresent(blockData, index, offset, valueAccumulator);
     }
 
     private static <E> E setIfAbsent(final AtomicReferenceArray<E> block, final int offset, final E defaultValue) {
@@ -202,10 +202,10 @@ public class AtomicArray<E> {
         return block.getAndAccumulate(offset, newValue, (vOld, vNew) -> vOld == null ? null : vNew) != null;
     }
 
-    private static <E> E computeIfPresent(final AtomicReferenceArray<E> block, final int offset, final IntObjectToObjectFunction<? super E, ? extends E> valueAccumulator) {
+    private static <E> E computeIfPresent(final AtomicReferenceArray<E> block, final int index, final int offset, final IntObjectToObjectFunction<? super E, ? extends E> valueAccumulator) {
         E vOld = block.getAcquire(offset);
         while (vOld != null) {
-            final E vNew = valueAccumulator.apply(offset, vOld);
+            final E vNew = valueAccumulator.apply(index, vOld);
             final E witness = block.compareAndExchange(offset, vOld, vNew);
             if (witness == vOld) {
                 return vNew;
@@ -308,23 +308,24 @@ public class AtomicArray<E> {
 
     private int indexOfComparison(final Comparator<? super E> comparator, final IntPredicate matcher) {
         final int nBlocks = blocks.length();
-        int index = -1;
+        int index = 0;
+        int bestIndex = -1;
         E bestValue = null;
         int block = 0;
         AtomicReferenceArray<E> data = blocks.get(block);
         while (data != null) {
             final int n = data.length();
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n; i++, index++) {
                 final E value = data.get(i);
-                if (index < 0 || matcher.test(comparator.compare(value, bestValue))) {
-                    index = i;
+                if (bestIndex < 0 || matcher.test(comparator.compare(value, bestValue))) {
+                    bestIndex = index;
                     bestValue = value;
                 }
             }
             block++;
             data = block < nBlocks ? blocks.get(block) : null;
         }
-        return index;
+        return bestIndex;
     }
 
     public int forEachWhile(final IntObjPredicate<? super E> predicate) {

@@ -54,8 +54,8 @@ public class FixedMappingImpl implements FixedMapping {
         this(fileMapper, offset, mappingLength(offset, fileMapper.fileSize()), true);
     }
 
-    public FixedMappingImpl(final FileMapper fileMapper, final int length) {
-        this(fileMapper, 0L, length, true);
+    public FixedMappingImpl(final FileMapper fileMapper, final long offset, final int length) {
+        this(fileMapper, offset, length, true);
     }
 
     public FixedMappingImpl(final FileMapper fileMapper,

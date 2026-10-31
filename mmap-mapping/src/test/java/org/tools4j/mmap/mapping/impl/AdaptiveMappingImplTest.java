@@ -94,6 +94,58 @@ class AdaptiveMappingImplTest {
     }
 
     @Test
+    void moveByPreservesLengthOrTruncatesItAtRegionEnd() {
+        assertThrows(IllegalStateException.class, () -> mapping.moveBy(10));
+        assertTrue(mapping.moveTo(100, 10));
+
+        assertTrue(mapping.moveBy(50));
+        assertEquals(150, mapping.position());
+        assertEquals(10, mapping.length());
+
+        assertTrue(mapping.moveBy(regionSize - 155));
+        assertEquals(regionSize - 5, mapping.position());
+        assertEquals(5, mapping.length());
+
+        assertTrue(mapping.moveBy(5));
+        assertEquals(regionSize, mapping.position());
+        assertEquals(5, mapping.length());
+
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-regionSize - 1));
+    }
+
+    @Test
+    void moveToPreservesLengthOrTruncatesItAtRegionEnd() {
+        assertTrue(mapping.moveTo(100));
+        assertEquals(regionSize - 100, mapping.length());
+
+        assertTrue(mapping.moveTo(100, 10));
+        assertTrue(mapping.moveTo(200));
+        assertEquals(10, mapping.length());
+        assertTrue(mapping.moveTo(regionSize - 3));
+        assertEquals(3, mapping.length());
+    }
+
+    @Test
+    void moveToSamePositionOnlyAdjustsLength() {
+        assertTrue(mapping.moveTo(100, 10));
+        final long address = mapping.address();
+        assertTrue(mapping.moveTo(100, 10));
+        assertEquals(10, mapping.length());
+        assertTrue(mapping.moveTo(100, 20));
+        assertEquals(20, mapping.length());
+        assertEquals(address, mapping.address());
+    }
+
+    @Test
+    void closeIsIdempotent() {
+        assertTrue(mapping.moveTo(100, 10));
+        mapping.close();
+        assertTrue(mapping.isClosed());
+        mapping.close();
+        assertTrue(mapping.isClosed());
+    }
+
+    @Test
     void invalidLengthThrows() {
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, -2));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, regionSize - 99));

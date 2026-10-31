@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.mapping.api.Mapping;
+import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -39,6 +42,7 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -177,6 +181,31 @@ class IdPoolTest {
             //when + then: released ID below maxIds is acquired again
             assertTrue(limited.release(maxIds - 1));
             assertEquals(maxIds - 1, limited.acquire());
+        }
+    }
+
+    @Test
+    void releasingIdNotAcquiredReturnsFalseAndCloseIsIdempotent() throws Exception {
+        final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
+        final File file = new File(tmpDir.toFile(), "test.ids");
+        final IdPool pool = new IdPool256(file.getPath(),
+                Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE));
+        assertFalse(pool.release(70));
+        assertEquals(0, pool.acquire());
+        assertTrue(pool.release(0));
+        assertFalse(pool.release(0));
+        pool.close();
+        assertTrue(pool.isClosed());
+        pool.close();
+        assertTrue(pool.isClosed());
+    }
+
+    @Test
+    void mappingOfWrongSizeIsRejected() throws Exception {
+        final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
+        final File file = new File(tmpDir.toFile(), "test.ids");
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool64.FILE_SIZE)) {
+            assertThrows(IllegalArgumentException.class, () -> new IdPool256(file.getPath(), mapping));
         }
     }
 

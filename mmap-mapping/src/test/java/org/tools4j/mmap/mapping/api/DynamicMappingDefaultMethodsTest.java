@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.agrona.concurrent.AtomicBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -194,5 +195,82 @@ class DynamicMappingDefaultMethodsTest {
         assertTrue(adaptive.moveToFirstRegion());
         assertEquals(0, adaptive.position());
         assertEquals(20, adaptive.length());
+    }
+
+    @Test
+    void adaptiveDefaultMoveMethodsPreserveOrTruncateLength() {
+        //the implementation overrides these defaults, so they are exercised through a delegate that does not
+        final AdaptiveMapping mapping = new AbstractMethodsOnlyAdaptiveMapping(adaptive);
+        assertThrows(IllegalStateException.class, () -> mapping.moveBy(10));
+        assertThrows(IllegalStateException.class, () -> mapping.moveBy(10, 5));
+
+        assertTrue(mapping.moveTo(100));
+        assertEquals(REGION_SIZE - 100, mapping.length());
+        assertTrue(mapping.moveTo(100, 10));
+        assertTrue(mapping.moveTo(200));
+        assertEquals(10, mapping.length());
+
+        assertTrue(mapping.moveBy(REGION_SIZE - 205));
+        assertEquals(REGION_SIZE - 5, mapping.position());
+        assertEquals(5, mapping.length());
+        assertTrue(mapping.moveBy(5, 20));
+        assertEquals(REGION_SIZE, mapping.position());
+        assertEquals(20, mapping.length());
+
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-REGION_SIZE - 1));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-REGION_SIZE - 1, 5));
+    }
+
+    /** Delegates only the abstract methods, so that all default methods of {@link AdaptiveMapping} are used */
+    private record AbstractMethodsOnlyAdaptiveMapping(AdaptiveMapping delegate) implements AdaptiveMapping {
+        @Override
+        public boolean moveTo(final long position, final int length) {
+            return delegate.moveTo(position, length);
+        }
+
+        @Override
+        public int regionOffset() {
+            return delegate.regionOffset();
+        }
+
+        @Override
+        public int positionStepSize() {
+            return delegate.positionStepSize();
+        }
+
+        @Override
+        public RegionMetrics regionMetrics() {
+            return delegate.regionMetrics();
+        }
+
+        @Override
+        public AccessMode accessMode() {
+            return delegate.accessMode();
+        }
+
+        @Override
+        public long position() {
+            return delegate.position();
+        }
+
+        @Override
+        public long address() {
+            return delegate.address();
+        }
+
+        @Override
+        public AtomicBuffer buffer() {
+            return delegate.buffer();
+        }
+
+        @Override
+        public boolean isClosed() {
+            return delegate.isClosed();
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
     }
 }

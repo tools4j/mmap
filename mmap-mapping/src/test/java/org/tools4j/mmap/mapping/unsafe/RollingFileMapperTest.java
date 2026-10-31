@@ -225,6 +225,48 @@ class RollingFileMapperTest {
     }
 
     @Test
+    void fileCreatedAheadIsReusedWhenMappingAnEarlierFile() {
+        final File baseFile = baseFile("reuse.map");
+        try (final FileMapper mapper = readWrite(baseFile, false, 1, 3)) {
+            final long address = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE);
+            assertNotEquals(NULL_ADDRESS, address);
+            mapper.unmap(position(REGIONS_PER_FILE), address, REGION_SIZE);
+            assertTrue(mapper.toString().contains("|openFiles=2|"), mapper.toString());
+            //file 0 is new, file 1 is already open and reused when creating ahead
+            writeRegions(mapper, 1);
+            assertTrue(mapper.toString().contains("|openFiles=3|"), mapper.toString());
+        }
+    }
+
+    @Test
+    void readOnlyMapperMapsFileCreatedAfterFailedAttempt() {
+        final File baseFile = baseFile("later.map");
+        try (final FileMapper reader = readOnly(baseFile, 2)) {
+            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE));
+            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE));
+            try (final FileMapper writer = readWrite(baseFile, false, 0, 2)) {
+                writeRegions(writer, 1);
+            }
+            assertRegions(reader, 1);
+        }
+    }
+
+    @Test
+    void positionBeyondMaxFileIndexIsRejected() {
+        try (final FileMapper mapper = readWrite(baseFile("max.map"), false, 0, 2)) {
+            final long position = (Integer.MAX_VALUE + 1L) * MAX_FILE_SIZE;
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE));
+        }
+    }
+
+    @Test
+    void maxFileSizeNotMultipleOfRegionSizeIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile("invalid.map"),
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 2,
+                READ_WRITE_INITIALISER));
+    }
+
+    @Test
     void invalidConfigurationIsRejected() {
         final File baseFile = baseFile("invalid.map");
         assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile,

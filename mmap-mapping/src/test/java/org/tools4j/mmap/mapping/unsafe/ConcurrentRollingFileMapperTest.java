@@ -294,4 +294,34 @@ class ConcurrentRollingFileMapperTest {
             }
         }
     }
+    @Test
+    void expandableFilesGrowOnDemand() {
+        final File baseFile = baseFile("grow.map");
+        try (final FileMapper mapper = ConcurrentRollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE,
+                true, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 2, READ_WRITE_INITIALISER)) {
+            writeRegion(mapper, 0, 0);
+            assertEquals(REGION_SIZE, baseFile("grow_0.map").length());
+            writeRegion(mapper, REGIONS_PER_FILE + 1, 0);
+            assertEquals(MAX_FILE_SIZE, baseFile("grow_1.map").length());
+            assertEquals(valueFor(0), readRegion(mapper, 0, 0));
+        }
+    }
+
+    @Test
+    void positionBeyondMaxFileIndexIsRejected() {
+        try (final FileMapper mapper = readWrite(baseFile("max.map"), 0, 2)) {
+            final long position = (Integer.MAX_VALUE + 1L) * MAX_FILE_SIZE;
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE));
+        }
+    }
+
+    @Test
+    void invalidConfigurationIsRejected() {
+        final File baseFile = baseFile("invalid.map");
+        assertThrows(IllegalArgumentException.class, () -> ConcurrentRollingFileMapper.forReadWrite(baseFile,
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 2,
+                READ_WRITE_INITIALISER));
+        assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, 2, 2),
+                "filesToCreateAhead must be smaller than maxOpenFiles");
+    }
 }
