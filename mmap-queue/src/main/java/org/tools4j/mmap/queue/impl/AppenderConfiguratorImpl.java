@@ -40,6 +40,7 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAp
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderPayloadFiles;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 public class AppenderConfiguratorImpl implements AppenderConfigurator {
     private final AppenderConfig defaults;
@@ -156,6 +157,9 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        if (maxOpenHeaderFiles != 0) {
+            validateMaxOpenFiles(maxOpenHeaderFiles);
+        }
         this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }
@@ -173,6 +177,9 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
 
     @Override
     public AppenderConfigurator maxOpenPayloadFiles(final int maxOpenPayloadFiles) {
+        if (maxOpenPayloadFiles != 0) {
+            validateMaxOpenFiles(maxOpenPayloadFiles);
+        }
         this.maxOpenPayloadFiles = maxOpenPayloadFiles;
         return this;
     }

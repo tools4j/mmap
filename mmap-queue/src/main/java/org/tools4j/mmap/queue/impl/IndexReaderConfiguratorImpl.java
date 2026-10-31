@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultIndexReaderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenIndexReaderHeaderFiles;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
     private final IndexReaderConfig defaults;
@@ -99,6 +100,9 @@ public class IndexReaderConfiguratorImpl implements IndexReaderConfigurator {
 
     @Override
     public IndexReaderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        if (maxOpenHeaderFiles != 0) {
+            validateMaxOpenFiles(maxOpenHeaderFiles);
+        }
         this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }

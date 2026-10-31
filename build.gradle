@@ -231,7 +231,15 @@ subprojects {
         options.charSet = 'UTF-8'
         if (JavaVersion.current().isJava10Compatible()) {
             options.addBooleanOption 'html5', true
-            options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")        }
+            options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")
+        }
+        //doclint checks only the public api and config packages, which application code uses
+        def basePackage = 'org.tools4j.' + project.name.replace('-', '.')
+        options.addBooleanOption('Xdoclint:all', true)
+        options.addBooleanOption("Xdoclint/package:${basePackage}.api,${basePackage}.config", true)
+        options.addStringOption('Xmaxwarns', '10000')
+        //fail on any doclint warning, i.e. on missing or broken documentation in the api and config packages
+        options.addBooleanOption('Werror', true)
     }
 
     task testJar(type: Jar, dependsOn: testClasses) {

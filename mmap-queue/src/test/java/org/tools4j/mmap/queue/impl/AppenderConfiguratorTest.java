@@ -133,12 +133,14 @@ class AppenderConfiguratorTest {
     }
 
     @Test
-    void nonPositiveMaxOpenFilesResetToDefault() {
+    void zeroMaxOpenFilesResetsToDefaultAndNegativeIsRejected() {
         final AppenderConfigurator config = AppenderConfigurator.configure(customDefaults())
                 .maxOpenHeaderFiles(7).maxOpenPayloadFiles(8);
-        config.maxOpenHeaderFiles(0).maxOpenPayloadFiles(-1);
+        config.maxOpenHeaderFiles(0).maxOpenPayloadFiles(0);
         assertEquals(5, config.maxOpenHeaderFiles());
         assertEquals(6, config.maxOpenPayloadFiles());
+        assertThrows(IllegalArgumentException.class, () -> config.maxOpenHeaderFiles(-1));
+        assertThrows(IllegalArgumentException.class, () -> config.maxOpenPayloadFiles(-1));
     }
 
     @Test

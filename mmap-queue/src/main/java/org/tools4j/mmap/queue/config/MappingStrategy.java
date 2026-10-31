@@ -25,11 +25,36 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
+/**
+ * Predefined mapping strategies for queue files, each corresponding to a system default
+ * {@link MappingStrategyConfig}.
+ */
 public enum MappingStrategy {
+    /**
+     * Regions are mapped and unmapped synchronously by the accessing thread.
+     *
+     * @see MappingStrategyConfig#getDefaultSync()
+     */
     SyncMappingStrategy,
+    /**
+     * Regions are mapped synchronously by the accessing thread, and unmapped asynchronously by an unmapping thread.
+     *
+     * @see MappingStrategyConfig#getDefaultSyncWithAsyncUnmapping()
+     */
     SyncMappingStrategyWithAsyncUnmapping,
+    /**
+     * Regions are mapped ahead asynchronously by a mapping thread when sequential access is detected, and unmapped
+     * asynchronously by an unmapping thread.
+     *
+     * @see MappingStrategyConfig#getDefaultAsyncMapAhead()
+     */
     AsyncMapAheadStrategy;
 
+    /**
+     * Returns the system default mapping strategy configuration for this strategy.
+     *
+     * @return the mapping strategy configuration
+     */
     public MappingStrategyConfig mappingStrategyConfig() {
         return switch (this) {
             case SyncMappingStrategy -> MappingStrategyConfig.getDefaultSync();

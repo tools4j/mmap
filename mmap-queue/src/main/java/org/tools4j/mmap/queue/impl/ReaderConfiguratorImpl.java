@@ -39,6 +39,7 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEn
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private final ReaderConfig defaults;
@@ -163,6 +164,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator maxOpenHeaderFiles(final int maxOpenHeaderFiles) {
+        if (maxOpenHeaderFiles != 0) {
+            validateMaxOpenFiles(maxOpenHeaderFiles);
+        }
         this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         return this;
     }
@@ -180,6 +184,9 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
 
     @Override
     public ReaderConfigurator maxOpenPayloadFiles(final int maxOpenPayloadFiles) {
+        if (maxOpenPayloadFiles != 0) {
+            validateMaxOpenFiles(maxOpenPayloadFiles);
+        }
         this.maxOpenPayloadFiles = maxOpenPayloadFiles;
         return this;
     }

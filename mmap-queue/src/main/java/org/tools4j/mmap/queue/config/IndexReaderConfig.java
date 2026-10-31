@@ -25,15 +25,54 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
+/**
+ * Configuration of a queue {@link org.tools4j.mmap.queue.api.IndexReader IndexReader}, with mapping strategy and file
+ * settings for the header file; index readers access no payload files.
+ * <p>
+ * The {@link #getDefault() default} configuration is defined through system properties, see
+ * {@link QueueConfigurations}. Custom configurations are built with an {@link IndexReaderConfigurator} obtained
+ * through {@link #configure()}.
+ */
 public interface IndexReaderConfig {
+    /**
+     * Returns the mapping strategy for the header file.
+     *
+     * @return the header mapping strategy
+     */
     MappingStrategyConfig headerMappingStrategy();
+
+    /**
+     * Returns the maximum number of header files kept open at once if header files are rolled; files are closed on a
+     * least-recently-used basis. The value must be no less than the number of threads mapping files, that is, one
+     * plus one each for async mapping and async unmapping if used by the header mapping strategy.
+     *
+     * @return the maximum number of header files kept open, at least one
+     */
     int maxOpenHeaderFiles();
+
+    /**
+     * Returns an immutable snapshot of this configuration, or this configuration itself if it is immutable already.
+     *
+     * @return an immutable index reader configuration with the values of this configuration
+     */
     IndexReaderConfig toImmutableIndexReaderConfig();
 
+    /**
+     * Returns a new configurator to build an index reader configuration, with values not set explicitly taken from
+     * the {@link #getDefault() default} configuration.
+     *
+     * @return a new index reader configurator
+     */
     static IndexReaderConfigurator configure() {
         return IndexReaderConfigurator.configure();
     }
 
+    /**
+     * Returns the default index reader configuration, with values defined through system properties.
+     *
+     * @return the default index reader configuration
+     * @see QueueConfigurations
+     */
     static IndexReaderConfig getDefault() {
         return QueueConfigurations.defaultIndexReaderConfig();
     }

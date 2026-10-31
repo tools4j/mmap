@@ -51,10 +51,39 @@ public interface QueueConfig extends QueueLayoutConfig {
      */
     int maxAppenders();
 
+    /**
+     * Returns the configuration used for appenders created without an explicit configuration.
+     *
+     * @return the default appender configuration of this queue
+     */
     AppenderConfig appenderConfig();
+
+    /**
+     * Returns the configuration used for pollers created without an explicit configuration.
+     *
+     * @return the default poller configuration of this queue
+     */
     ReaderConfig pollerConfig();
+
+    /**
+     * Returns the configuration used for entry readers created without an explicit configuration.
+     *
+     * @return the default entry reader configuration of this queue
+     */
     ReaderConfig entryReaderConfig();
+
+    /**
+     * Returns the configuration used for entry iterators created without an explicit configuration.
+     *
+     * @return the default entry iterator configuration of this queue
+     */
     ReaderConfig entryIteratorConfig();
+
+    /**
+     * Returns the configuration used for index readers created without an explicit configuration.
+     *
+     * @return the default index reader configuration of this queue
+     */
     IndexReaderConfig indexReaderConfig();
 
     /**
@@ -75,16 +104,40 @@ public interface QueueConfig extends QueueLayoutConfig {
      */
     ErrorListener errorListener();
 
+    /**
+     * Returns an immutable snapshot of this configuration, or this configuration itself if it is immutable already.
+     *
+     * @return an immutable queue configuration with the values of this configuration
+     */
     QueueConfig toImmutableQueueConfig();
 
+    /**
+     * Returns a new configurator to build a queue configuration, with values not set explicitly taken from the
+     * {@link #getDefault() default} configuration.
+     *
+     * @return a new queue configurator
+     */
     static QueueConfigurator configure() {
         return QueueConfigurator.configure();
     }
 
+    /**
+     * Returns a new configurator to build a queue configuration, with values not set explicitly taken from the given
+     * defaults.
+     *
+     * @param defaults the configuration providing values not set explicitly
+     * @return a new queue configurator
+     */
     static QueueConfigurator configure(final QueueConfig defaults) {
         return QueueConfigurator.configure(defaults);
     }
 
+    /**
+     * Returns the default queue configuration, with values defined through system properties.
+     *
+     * @return the default queue configuration
+     * @see QueueConfigurations
+     */
     static QueueConfig getDefault() {
         return QueueConfigurations.defaultQueueConfig();
     }

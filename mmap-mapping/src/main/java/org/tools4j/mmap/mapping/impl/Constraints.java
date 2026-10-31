@@ -185,7 +185,7 @@ public enum Constraints {
 
     public static void validateMaxOpenFiles(final int maxOpenFiles) {
         if (maxOpenFiles <= 0) {
-            throw new IllegalArgumentException("Max open files must be be at least one but was " +  maxOpenFiles);
+            throw new IllegalArgumentException("Max open files must be at least one but was " +  maxOpenFiles);
         }
     }
 

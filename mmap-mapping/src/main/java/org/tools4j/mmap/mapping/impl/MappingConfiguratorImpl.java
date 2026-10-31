@@ -71,7 +71,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
         this.regionSize = 0;
         this.expandFile = null;
         this.rollFiles = null;
-        this.maxOpenFiles = -1;
+        this.maxOpenFiles = 0;
         this.filesToCreateAhead = -1;
         this.mappingStrategy = null;
         this.lifecycleListener = null;
@@ -135,10 +135,10 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
 
     @Override
     public int maxOpenFiles() {
-        if (maxOpenFiles < 0) {
+        if (maxOpenFiles <= 0) {
             maxOpenFiles = defaults.maxOpenFiles();
         }
-        if (maxOpenFiles < 0) {
+        if (maxOpenFiles <= 0) {
             maxOpenFiles = MappingConfigurations.defaultMaxOpenFiles();
         }
         return maxOpenFiles;
@@ -223,7 +223,9 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
 
     @Override
     public MappingConfigurator maxOpenFiles(final int maxOpenFiles) {
-        validateMaxOpenFiles(maxOpenFiles);
+        if (maxOpenFiles != 0) {
+            validateMaxOpenFiles(maxOpenFiles);
+        }
         this.maxOpenFiles = maxOpenFiles;
         return this;
     }

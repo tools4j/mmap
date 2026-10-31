@@ -97,6 +97,7 @@ class IndexReaderConfiguratorTest {
         assertEquals(new IndexReaderConfigImpl(STRATEGY_B, 7), config.toImmutableIndexReaderConfig());
         config.maxOpenHeaderFiles(0);
         assertEquals(5, config.maxOpenHeaderFiles());
+        assertThrows(IllegalArgumentException.class, () -> config.maxOpenHeaderFiles(-1));
         config.reset();
         assertEquals(customDefaults(), config.toImmutableIndexReaderConfig());
     }
