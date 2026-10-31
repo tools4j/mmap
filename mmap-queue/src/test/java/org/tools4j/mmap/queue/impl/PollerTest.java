@@ -108,17 +108,18 @@ class PollerTest {
 
     @Test
     void pollReturnsPendingOpenForEmptyHeaderFile() throws IOException {
-        pollReturnsPendingOpenForHeaderFileOfLength(0);
+        pollHeaderFileOfLength(0, Poller.PENDING_OPEN);
     }
 
     @Test
-    void pollReturnsPendingOpenForTruncatedHeaderFile() throws IOException {
-        pollReturnsPendingOpenForHeaderFileOfLength(Long.BYTES / 2);
+    void pollReturnsUnknownErrorForTruncatedHeaderFile() throws IOException {
+        //writers set the length of a new file at once, so a non-empty file shorter than a header is corrupt
+        pollHeaderFileOfLength(Long.BYTES / 2, Poller.UNKNOWN_ERROR);
     }
 
     @Test
     void pollReturnsPendingOpenForHeaderFileShorterThanRegion() throws IOException {
-        pollReturnsPendingOpenForHeaderFileOfLength(1024);
+        pollHeaderFileOfLength(1024, Poller.PENDING_OPEN);
     }
 
     @Test
@@ -304,7 +305,7 @@ class PollerTest {
         }
     }
 
-    private void pollReturnsPendingOpenForHeaderFileOfLength(final int length) throws IOException {
+    private void pollHeaderFileOfLength(final int length, final int expectedResult) throws IOException {
         try (final Queue queue = Queue.open(queueDir)) {
             final File headerFile = new QueueFiles(queueDir).headerFile();
             //write both the plain and the first rolled header file, so the test works with or without file rolling
@@ -313,8 +314,8 @@ class PollerTest {
                 Files.write(file.toPath(), new byte[length]);
             }
             try (final Poller poller = queue.createPoller()) {
-                assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(Poller.PENDING_OPEN);
-                assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(Poller.PENDING_OPEN);
+                assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(expectedResult);
+                assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(expectedResult);
             }
         }
     }

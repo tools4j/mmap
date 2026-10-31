@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -106,18 +107,16 @@ final class FileChannelProvider implements Closeable {
         return cwf != null ? cwf.channel : null;
     }
 
-    public boolean setSize(final long size) {
+    public void setSize(final long size) {
         final ChannelWithFile cwf = getChannelWithFile();
-        if (cwf != null) {
-            try {
-                cwf.randomAccessFile.setLength(size);
-                return true;
-            } catch (final IOException e) {
-                LOGGER.error("Failed to set size to {} for file {}", size, file, e);
-                return false;
-            }
+        if (cwf == null) {
+            throw new IllegalStateException("No file channel to set size " + size + " for file " + file);
         }
-        return false;
+        try {
+            cwf.randomAccessFile.setLength(size);
+        } catch (final IOException e) {
+            throw new UncheckedIOException("Failed to set size " + size + " for file " + file, e);
+        }
     }
 
     private ChannelWithFile getChannelWithFile() {
@@ -129,34 +128,38 @@ final class FileChannelProvider implements Closeable {
         return open();
     }
 
+    /**
+     * Opens the file, creating it first unless in read-only mode.
+     *
+     * @return the channel with file, or null if in read-only mode and the file does not exist or is empty
+     * @throws UncheckedIOException if creating or opening the file fails
+     */
     private ChannelWithFile open() {
         if (accessMode == AccessMode.READ_ONLY && file.length() == 0L) {
             return null;
         }
-        if (accessMode != AccessMode.READ_ONLY && !file.exists() && !createNewFile()) {
-            return null;
+        if (accessMode != AccessMode.READ_ONLY && !file.exists()) {
+            createNewFile();
         }
         final RandomAccessFile raf = initRandomAccessFile();
-        final FileChannel channel = raf == null ? null : initChannel(raf);
-        return channel == null ? null : setOrGet(new ChannelWithFile(raf, channel));
+        if (raf == null) {
+            return null;
+        }
+        final FileChannel channel = initChannel(raf);
+        return setOrGet(new ChannelWithFile(raf, channel));
     }
 
-    private boolean createNewFile() {
+    private void createNewFile() {
         assert accessMode != AccessMode.READ_ONLY;
         try {
-            if (!file.createNewFile()) {
-                if (!file.exists()) {
-                    LOGGER.error("Could not create new file {}", file);
-                    return false;
-                }
-            } else {
+            if (file.createNewFile()) {
                 infoLogger.info("Created new file {}", file);
+            } else if (!file.exists()) {
+                throw new IOException("File was not created");
             }
         } catch (final IOException e) {
-            LOGGER.error("Failed to create new file {}", file, e);
-            return false;
+            throw new UncheckedIOException("Failed to create new file " + file, e);
         }
-        return true;
     }
 
     private RandomAccessFile initRandomAccessFile() {
@@ -164,8 +167,10 @@ final class FileChannelProvider implements Closeable {
         try {
             raf = new RandomAccessFile(file, accessMode.randomAccessMode());
         } catch (final FileNotFoundException e) {
-            LOGGER.error("Failed to create new random access file: {}", file, e);
-            return null;
+            if (accessMode == AccessMode.READ_ONLY && !file.exists()) {
+                return null;
+            }
+            throw new UncheckedIOException("Failed to open file " + file, e);
         }
         if (accessMode != AccessMode.READ_ONLY && minFileLength > 0) {
             try {
@@ -173,8 +178,9 @@ final class FileChannelProvider implements Closeable {
                     raf.setLength(minFileLength);
                 }
             } catch (final IOException e) {
-                LOGGER.error("Failed to set min file length {} for file: {}", minFileLength, file, e);
-                return null;
+                close("raf", raf);
+                throw new UncheckedIOException("Failed to set min file length " + minFileLength + " for file " +
+                        file, e);
             }
         }
         return raf;
@@ -187,7 +193,7 @@ final class FileChannelProvider implements Closeable {
         } catch (final IOException e) {
             close("channel", channel);
             close("raf", raf);
-            return null;
+            throw new UncheckedIOException("Failed to initialise file " + file, e);
         } catch (final RuntimeException e) {
             close("channel", channel);
             close("raf", raf);

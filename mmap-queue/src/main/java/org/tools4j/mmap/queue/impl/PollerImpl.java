@@ -27,6 +27,7 @@ import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tools4j.mmap.mapping.impl.ErrorLogThrottle;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Poller;
@@ -44,6 +45,7 @@ final class PollerImpl implements Poller {
     private final ReaderMappings mappings;
     private final ElasticMapping header;
     private final Runnable onClose;
+    private final ErrorLogThrottle errorLog = new ErrorLogThrottle(LOGGER);
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
@@ -118,14 +120,13 @@ final class PollerImpl implements Poller {
             result = HANDLER_ERROR;
             moveNext = entryHandler.onEntry(index, buffer, Integer.BYTES, length);
         } catch (final Exception e) {
-            //TODO consider throttling of error logging inside poll method
             if (result == HANDLER_ERROR) {
-                LOGGER.error("Unexpected exception thrown by entry handler for message entry {} of queue {}", index,
+                errorLog.error("Unexpected exception thrown by entry handler for message entry {} of queue {}", index,
                         queueName, e);
                 return HANDLER_ERROR;
             } else {
                 final long ix = result == ENTRY_POLLED ? index : nextIndex;
-                LOGGER.error("Unexpected exception occurred when polling entry {} of queue {}", ix, queueName, e);
+                errorLog.error("Unexpected exception occurred when polling entry {} of queue {}", ix, queueName, e);
                 return UNKNOWN_ERROR;
             }
         }

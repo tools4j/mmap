@@ -30,6 +30,8 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
@@ -109,6 +112,36 @@ class ExpandableSizeFileMapperTest {
             assertEquals(0x0102030405060708L, new UnsafeBuffer(address, REGION_SIZE).getLong(0));
             mapper.unmap(5L * REGION_SIZE, address, REGION_SIZE);
             assertEquals(6L * REGION_SIZE, file.length());
+        }
+    }
+
+    @Test
+    void fileCreationErrorIsThrownOnEveryMap() throws IOException {
+        final File notADirectory = tempDir.resolve("not-a-directory").toFile();
+        assertTrue(notADirectory.createNewFile());
+        file = new File(notADirectory, "expandable.map");
+        try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
+                INITIALISER)) {
+            for (int i = 0; i < 2; i++) {
+                final UncheckedIOException error = assertThrows(UncheckedIOException.class,
+                        () -> mapper.map(0, REGION_SIZE));
+                assertTrue(error.getMessage().contains(file.getPath()), error.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void fileInitialiserErrorIsThrownOnEveryMap() {
+        final IOException cause = new IOException("test initialiser error");
+        file = tempDir.resolve("expandable.map").toFile();
+        try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
+                (fileName, fileChannel, accessMode) -> {
+                    throw cause;
+                })) {
+            for (int i = 0; i < 2; i++) {
+                assertSame(cause, assertThrows(UncheckedIOException.class, () -> mapper.map(0, REGION_SIZE))
+                        .getCause());
+            }
         }
     }
 

@@ -27,6 +27,8 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.Unsafe;
 
+import java.io.UncheckedIOException;
+
 /**
  * Maps a file to specified position and length.
  * Various implementations may work with single of multiple files
@@ -47,7 +49,13 @@ public interface FileMapper extends Closeable {
      * @param position absolute position, a multiple of
      *                 {@link org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY REGION_SIZE_GRANULARITY}
      * @param length region length
-     * @return positive value if address has been mapped, or {@code NULL_ADDRESS} otherwise
+     * @return positive value if address has been mapped, or {@code NULL_ADDRESS} if the region is not available yet,
+     *         for instance because a read-only file does not exist or is not long enough yet
+     * @throws IllegalArgumentException if the region exceeds the {@link #mappingLimit() mapping limit}, or if the
+     *                                  length is invalid for this mapper
+     * @throws IllegalStateException if this mapper is closed, or if the file cannot be opened or extended
+     * @throws UncheckedIOException if creating, opening, initialising, extending or mapping the file fails
+     *                                      with an I/O error
      */
     long map(long position, int length);
 
@@ -65,6 +73,9 @@ public interface FileMapper extends Closeable {
      * @param position absolute position
      * @param address  previously mapped address
      * @param length   region length
+     * @throws IllegalArgumentException if the length is invalid for this mapper
+     * @throws IllegalStateException if this mapper is closed
+     * @throws UncheckedIOException if unmapping fails with an I/O error
      */
     void unmap(long position, long address, int length);
 

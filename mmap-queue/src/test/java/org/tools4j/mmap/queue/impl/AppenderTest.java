@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
@@ -332,6 +333,36 @@ class AppenderTest {
             context.commit(head.length() + tail.length());
         }
         return head + tail;
+    }
+
+    @Test
+    void appendingLastEntryOfFullHeaderFileReturnsItsIndexAndNextAppendThrows() {
+        final QueueConfig config = QueueConfig.configure(smallConfig(false))
+                .maxHeaderFileSize(REGION_SIZE)
+                .rollHeaderFile(false)
+                .toImmutableQueueConfig();
+        final int capacity = REGION_SIZE / Headers.HEADER_LENGTH;
+        try (final Queue queue = Queue.open(tempDir.resolve("queue").toFile(), OpenMode.CREATE, config);
+             final Appender appender = queue.createAppender()) {
+            //the last append fails to pre-position the header beyond the full file, after committing its entry
+            for (int i = 0; i < capacity; i++) {
+                assertEquals(i, appender.append(new byte[]{(byte) i}));
+            }
+            assertThrows(IllegalArgumentException.class, () -> appender.append(new byte[]{1}));
+            assertThrows(IllegalArgumentException.class, () -> appender.append(new byte[]{1}));
+
+            try (final Poller poller = queue.createPoller()) {
+                final AtomicLong polled = new AtomicLong();
+                while (poller.poll((index, buffer, offset, length) -> {
+                    assertEquals(polled.getAndIncrement(), index);
+                    assertEquals((byte) index, buffer.getByte(offset));
+                    return Move.NEXT;
+                }) == Poller.ENTRY_POLLED) {
+                    //poll all
+                }
+                assertEquals(capacity, polled.get());
+            }
+        }
     }
 
     @Test

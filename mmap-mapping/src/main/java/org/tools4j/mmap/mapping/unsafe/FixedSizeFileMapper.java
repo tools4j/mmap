@@ -109,10 +109,7 @@ public class FixedSizeFileMapper implements FileMapper {
     }
 
     private void init() {
-        final FileChannel channel = fileChannelProvider.get();
-        if (channel == null) {
-            LOGGER.error("Failed to open file channel for file {}", file);
-        }
+        fileChannelProvider.get();
     }
 
     public boolean isClosed() {

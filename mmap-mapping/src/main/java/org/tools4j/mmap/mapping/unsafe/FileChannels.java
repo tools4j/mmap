@@ -28,6 +28,8 @@ import org.agrona.UnsafeApi;
 import org.tools4j.mmap.mapping.api.Unsafe;
 
 import java.io.FileDescriptor;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
@@ -53,6 +55,7 @@ public enum FileChannels {
      * @param offset      within the file the mapped region should start.
      * @param length      of the mapped region.
      * @return the address at which the mapping starts.
+     * @throws UncheckedIOException if mapping fails with an I/O error
      */
     public static long map(final FileChannel fileChannel,
                            final FileChannel.MapMode mode,
@@ -67,6 +70,9 @@ public enum FileChannels {
                 return (long)MappingMethods.MAP_WITH_SYNC_ADDRESS.invoke(
                         fileChannel, getMode(mode), offset, length, false);
             }
+        } catch (final IOException ex) {
+            throw new UncheckedIOException("Failed to map " + length + " bytes at offset " + offset + " with mode " +
+                    mode, ex);
         } catch (final Throwable ex) {
             LangUtil.rethrowUnchecked(ex);
         }
@@ -77,6 +83,7 @@ public enum FileChannels {
      *
      * @param address     at which the mapping begins.
      * @param length      of the mapped region.
+     * @throws UncheckedIOException if unmapping fails with an I/O error
      */
     public static void unmap(final long address, final long length) {
         try {
@@ -85,6 +92,8 @@ public enum FileChannels {
             } else {
                 MappingMethods.UNMAP_ADDRESS.invoke(address, length);
             }
+        } catch (final IOException ex) {
+            throw new UncheckedIOException("Failed to unmap " + length + " bytes at address " + address, ex);
         } catch (final Throwable ex) {
             LangUtil.rethrowUnchecked(ex);
         }

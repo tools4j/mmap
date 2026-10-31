@@ -58,6 +58,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
         final Thread thread = new Thread(() -> {
             LOGGER.info("Started async runtime {} with {} idle strategy", name, idleStrategy.alias());
             idleStrategy.reset();
+            final ErrorLogThrottle errorLog = new ErrorLogThrottle(LOGGER);
             StopStatus stopSignal;
             int workCount = 0;
             while ((stopSignal = stop.get()) == null || (stopSignal == StopStatus.WHEN_IDLE && workCount != 0)) {
@@ -66,7 +67,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime {
                     try {
                         workCount += executable.execute();
                     } catch (final Exception ex) {
-                        LOGGER.error("Uncaught error: {}", ex, ex);
+                        errorLog.error("Uncaught error in async runtime {}", name, ex);
                     }
                 }
                 idleStrategy.idle(workCount);

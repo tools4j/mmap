@@ -176,15 +176,16 @@ final class AppenderImpl implements Appender {
         while (!buf.compareAndSetLong(0, NULL_HEADER, headerValue)) {
             do {
                 index++;
-                endIndex = index;
                 checkIndexNotExceedingMax(index);
                 if (!Headers.moveToHeaderIndex(hdr, index)) {
                     throw headerMoveException(this, Headers.headerPositionForIndex(index));
                 }
+                //NOTE: only after a successful move, endIndex must always be where hdr is mapped
+                endIndex = index;
             } while (buf.getLongAcquire(0) != NULL_HEADER);
         }
         final long nextIndex = index + 1;
-        if (nextIndex <= Index.MAX && Headers.moveToHeaderIndex(hdr, nextIndex)) {
+        if (nextIndex <= Index.MAX && tryMoveToHeaderIndexAfterCommit(hdr, nextIndex)) {
             endIndex = nextIndex;
         }
         //else: leave endIndex at `index` (already durably claimed) and hdr mapped there too - the next append's own
@@ -194,6 +195,18 @@ final class AppenderImpl implements Appender {
         lastOwnHeader = headerValue;
         lastOwnPayloadLength = payloadLength;
         return index;
+    }
+
+    /**
+     * Pre-positions the header after the entry has been committed, which must not throw: a failed move leaves the
+     * header where it is, and the next append repeats the move and gets the error.
+     */
+    private static boolean tryMoveToHeaderIndexAfterCommit(final ElasticMapping hdr, final long index) {
+        try {
+            return Headers.moveToHeaderIndex(hdr, index);
+        } catch (final RuntimeException e) {
+            return false;
+        }
     }
 
     private void checkNotClosed() {

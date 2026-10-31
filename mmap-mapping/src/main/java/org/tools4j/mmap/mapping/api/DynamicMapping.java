@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-
 import org.tools4j.mmap.mapping.impl.DynamicMappings;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
+import java.io.UncheckedIOException;
 import java.util.function.Predicate;
 
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
@@ -77,12 +77,19 @@ public interface DynamicMapping extends Mapping, RegionAware {
     int positionStepSize();
 
     /**
-     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary
+     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary.
+     * <p>
+     * Returns false if the region is not available yet, for instance because a read-only file has not been extended
+     * to this position yet; a later move to the same position may succeed. If mapping fails with an error, the
+     * exception is thrown. Either way, the mapping remains at its previous position.
      *
      * @param position  the position to move to, must be a multiple of {@linkplain #regionSize() region size} unless
      *                  this is an {@link ElasticMapping} or an {@link AdaptiveMapping}
-     * @return true if the region is ready for data access, and false otherwise
-     * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping
+     * @return true if the region is ready for data access, and false if it is not available yet
+     * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping,
+     *                                  or beyond the max file size of a non-rolling file
+     * @throws IllegalStateException if mapping fails, for instance if the max file size is exceeded
+     * @throws UncheckedIOException if mapping fails with an I/O error
      */
     boolean moveTo(long position);
 

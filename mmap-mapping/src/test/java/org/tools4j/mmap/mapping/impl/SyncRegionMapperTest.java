@@ -43,9 +43,13 @@ import org.tools4j.mmap.mapping.unsafe.RegionMappers;
 import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
@@ -83,6 +87,42 @@ public class SyncRegionMapperTest {
     @AfterEach
     public void cleanup() {
         regionMapper.close();
+    }
+
+    @ParameterizedTest(name = "cacheSize={0}, lruCacheSize={1}, deferUnmapping={2}")
+    @CsvSource(delimiter = '|', value = {
+            //cacheSize | lruCacheSize | deferUnmapping
+            "     1     |      0       |      false     ",
+            "     4     |      0       |      true      ",
+            "     1     |      2       |      false     ",
+            "     4     |      2       |      true      "
+    })
+    public void mappingErrorPropagatesAndKeepsPreviousPosition(final int cacheSize,
+                                                               final int lruCacheSize,
+                                                               final boolean deferUnmapping) {
+        //given
+        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize,
+                deferUnmapping);
+        final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
+        final long failingRegionPosition = 2L * regionSize;
+        final IllegalStateException error = new IllegalStateException("test mapping error");
+        doThrow(error).when(fileMapper).map(failingRegionPosition, regionSize);
+        region.moveTo(8);
+        region.buffer().putLong(0, 42);
+
+        //when + then
+        for (int i = 0; i < 2; i++) {
+            assertSame(error, assertThrows(IllegalStateException.class,
+                    () -> region.moveTo(failingRegionPosition + 8)));
+            assertEquals(8, region.position());
+            assertEquals(42, region.buffer().getLong(0));
+        }
+
+        //when - moving elsewhere still works
+        assertTrue(region.moveTo(regionSize));
+
+        //then
+        assertEquals(regionSize, region.position());
     }
 
     @ParameterizedTest(name = "cacheSize={0}, deferUnmapping={1}")

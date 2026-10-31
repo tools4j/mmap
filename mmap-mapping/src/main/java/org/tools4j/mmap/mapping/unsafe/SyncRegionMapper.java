@@ -51,13 +51,8 @@ record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) impl
 
     @Override
     public long mapInternal(final long position, final int regionSize) {
-        try {
-            final long addr = fileMapper.map(position, regionSize);
-            return addr > 0 ? addr : NULL_ADDRESS;
-        } catch (final Exception exception) {
-            LOGGER.error("Failed to map position {} with region size {}: {}", position, regionSize, exception, exception);
-            return NULL_ADDRESS;
-        }
+        final long addr = fileMapper.map(position, regionSize);
+        return addr > 0 ? addr : NULL_ADDRESS;
     }
 
     @Override

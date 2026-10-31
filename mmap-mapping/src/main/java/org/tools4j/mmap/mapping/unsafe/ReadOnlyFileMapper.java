@@ -31,6 +31,7 @@ import org.tools4j.mmap.mapping.api.Unsafe;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 
 import static java.util.Objects.requireNonNull;
@@ -82,9 +83,9 @@ public class ReadOnlyFileMapper implements FileMapper {
             }
             return FileChannels.map(channel, AccessMode.READ_ONLY.mapMode(), position, length);
         } catch (final IOException e) {
-            LOGGER.error("Failed to map file {}", file, e);
+            throw new UncheckedIOException("Failed to map position " + position + " with length " + length +
+                    " of file " + file, e);
         }
-        return NULL_ADDRESS;
     }
 
     /**
