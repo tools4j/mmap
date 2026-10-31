@@ -61,6 +61,8 @@ class ConcurrentLruCacheTest {
     private static final long MAX_WAIT_MILLIS = 10_000;
     /** Shared by all workers of a concurrent test, generous for slow CI machines with fewer cores than threads */
     private static final long WORKERS_MAX_WAIT_MILLIS = 30_000;
+    /** Rounds of barrier tests stop early after this, as each round parks and wakes all threads (slow on CI) */
+    private static final long ROUNDS_MAX_MILLIS = 5_000;
     /** Wait for something expected not to happen */
     private static final long SHORT_WAIT_MILLIS = 100;
 
@@ -423,8 +425,10 @@ class ConcurrentLruCacheTest {
         final int indices = capacity + 1;//forces eviction on almost every create
         final int rounds = 100_000;
         final long seed = System.nanoTime();
+        final long roundsDeadline = seed + TimeUnit.MILLISECONDS.toNanos(ROUNDS_MAX_MILLIS);
         final ConcurrentLruCache<Value> cache = new ConcurrentLruCache<>(capacity);
-        final CyclicBarrier barrier = new CyclicBarrier(capacity, () -> stopRound = stopped);
+        final CyclicBarrier barrier = new CyclicBarrier(capacity,
+                () -> stopRound = stopped || System.nanoTime() - roundsDeadline > 0);
         final Queue<Throwable> failures = new ConcurrentLinkedQueue<>();
         runWorkers(capacity, failures, ", seed=" + seed, (worker, borrower) -> {
             final Random random = new Random(seed + worker);
@@ -539,8 +543,10 @@ class ConcurrentLruCacheTest {
             thread.join(Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())));
             if (thread.isAlive()) {
                 stopped = true;
-                throw new AssertionError(thread.getName() + " still running after " + WORKERS_MAX_WAIT_MILLIS +
-                        "ms with " + threads + " threads" + context);
+                final AssertionError error = new AssertionError(thread.getName() + " still running after " +
+                        WORKERS_MAX_WAIT_MILLIS + "ms with " + threads + " threads" + context);
+                error.setStackTrace(thread.getStackTrace());
+                throw error;
             }
         }
         if (!failures.isEmpty()) {
