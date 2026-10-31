@@ -50,23 +50,29 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_PAYLOAD_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_HEADER_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.EXPAND_HEADER_FILE_DEFAULT;
@@ -75,6 +81,7 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.EXPAND_PAYLOAD_F
 import static org.tools4j.mmap.queue.config.QueueConfigurations.EXPAND_PAYLOAD_FILES_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.HEADER_REGION_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.MAX_APPENDERS_DEFAULT;
@@ -107,9 +114,11 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.MIN_PAYLOAD_FILE
 import static org.tools4j.mmap.queue.config.QueueConfigurations.MIN_PAYLOAD_FILE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.PAYLOAD_REGION_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_HEADER_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.POLLER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ROLL_HEADER_FILE_DEFAULT;
@@ -301,49 +310,106 @@ class QueueConfigurationsTest {
         assertThrows(IllegalArgumentException.class, getter::getAsBoolean);
     }
 
+    private static Arguments mappingStrategy(final String name,
+                                             final Supplier<MappingStrategyConfig> getter,
+                                             final String strategyProperty,
+                                             final MappingStrategy strategyDefault,
+                                             final String cacheSizeProperty,
+                                             final String regionsToMapAheadProperty) {
+        return Arguments.of(name, getter, strategyProperty, strategyDefault, cacheSizeProperty,
+                regionsToMapAheadProperty);
+    }
+
     static Stream<Arguments> mappingStrategies() {
         return Stream.of(
-                Arguments.of("poller header", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultPollerHeaderMappingStrategy,
-                        POLLER_HEADER_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("poller payload", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultPollerPayloadMappingStrategy,
-                        POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("entry reader header", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultEntryReaderHeaderMappingStrategy,
-                        ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("entry reader payload", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultEntryReaderPayloadMappingStrategy,
-                        ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("entry iterator header", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultEntryIteratorHeaderMappingStrategy,
-                        ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("entry iterator payload", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultEntryIteratorPayloadMappingStrategy,
-                        ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("index reader header", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultIndexReaderHeaderMappingStrategy,
-                        INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("appender header", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultAppenderHeaderMappingStrategy,
-                        APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT),
-                Arguments.of("appender payload", (Supplier<MappingStrategyConfig>)
-                        QueueConfigurations::defaultAppenderPayloadMappingStrategy,
-                        APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT)
+                mappingStrategy("poller header", QueueConfigurations::defaultPollerHeaderMappingStrategy,
+                        POLLER_HEADER_MAPPING_STRATEGY_PROPERTY, POLLER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                        POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY, POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("poller payload", QueueConfigurations::defaultPollerPayloadMappingStrategy,
+                        POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY, POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                        POLLER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, POLLER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("entry reader header", QueueConfigurations::defaultEntryReaderHeaderMappingStrategy,
+                        ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY, ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                        ENTRY_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, ENTRY_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("entry reader payload", QueueConfigurations::defaultEntryReaderPayloadMappingStrategy,
+                        ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY, ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                        ENTRY_READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, ENTRY_READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("entry iterator header", QueueConfigurations::defaultEntryIteratorHeaderMappingStrategy,
+                        ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY, ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT,
+                        ENTRY_ITERATOR_HEADER_REGION_CACHE_SIZE_PROPERTY, ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("entry iterator payload", QueueConfigurations::defaultEntryIteratorPayloadMappingStrategy,
+                        ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY, ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                        ENTRY_ITERATOR_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, ENTRY_ITERATOR_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("index reader header", QueueConfigurations::defaultIndexReaderHeaderMappingStrategy,
+                        INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY, INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                        INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("appender header", QueueConfigurations::defaultAppenderHeaderMappingStrategy,
+                        APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY, APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                        APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY, APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY),
+                mappingStrategy("appender payload", QueueConfigurations::defaultAppenderPayloadMappingStrategy,
+                        APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY, APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                        APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY)
         );
+    }
+
+    private static void assertStrategy(final MappingStrategy expected, final MappingStrategyConfig actual) {
+        assertInstanceOf(MappingStrategyConfigImpl.class, actual);
+        assertTrue(actual.deferUnmapping(), "deferUnmapping");
+        assertEquals(expected.mappingStrategyConfig().asyncMapping().isPresent(), actual.asyncMapping().isPresent(),
+                "asyncMapping");
+        assertEquals(expected.mappingStrategyConfig().asyncUnmapping().isPresent(),
+                actual.asyncUnmapping().isPresent(), "asyncUnmapping");
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("mappingStrategies")
-    void defaultMappingStrategyIsImmutableAndBasedOnStrategyDefault(final String name,
-                                                                    final Supplier<MappingStrategyConfig> getter,
-                                                                    final MappingStrategy strategyDefault) {
+    void defaultMappingStrategyIsBasedOnStrategyDefault(final String name,
+                                                        final Supplier<MappingStrategyConfig> getter,
+                                                        final String strategyProperty,
+                                                        final MappingStrategy strategyDefault,
+                                                        final String cacheSizeProperty,
+                                                        final String regionsToMapAheadProperty) {
         final MappingStrategyConfig config = getter.get();
-        assertInstanceOf(MappingStrategyConfigImpl.class, config);
-        assertSame(config, getter.get());
-        assertTrue(config.deferUnmapping());
-        assertEquals(strategyDefault.mappingStrategyConfig().asyncUnmapping().isPresent(),
-                config.asyncUnmapping().isPresent());
+        assertStrategy(strategyDefault, config);
+        assertEquals(MappingConfigurations.defaultRegionCacheSize(), config.cacheSize());
+        assertEquals(config, getter.get());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("mappingStrategies")
+    void mappingStrategyPropertySelectsStrategy(final String name,
+                                                final Supplier<MappingStrategyConfig> getter,
+                                                final String strategyProperty,
+                                                final MappingStrategy strategyDefault,
+                                                final String cacheSizeProperty,
+                                                final String regionsToMapAheadProperty) {
+        for (final MappingStrategy strategy : MappingStrategy.values()) {
+            setProperty(strategyProperty, strategy.name());
+            assertStrategy(strategy, getter.get());
+        }
+        setProperty(strategyProperty, "AsyncMapAhead");
+        assertThrows(IllegalArgumentException.class, getter::get);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("mappingStrategies")
+    void cacheSizeAndRegionsToMapAheadPropertiesAreApplied(final String name,
+                                                           final Supplier<MappingStrategyConfig> getter,
+                                                           final String strategyProperty,
+                                                           final MappingStrategy strategyDefault,
+                                                           final String cacheSizeProperty,
+                                                           final String regionsToMapAheadProperty) {
+        setProperty(cacheSizeProperty, 64);
+        setProperty(regionsToMapAheadProperty, 7);
+        setProperty(strategyProperty, MappingStrategy.AsyncMapAheadStrategy.name());
+        final MappingStrategyConfig async = getter.get();
+        assertEquals(64, async.cacheSize());
+        assertEquals(7, async.asyncMapping().orElseThrow().regionsToMapAhead());
+
+        setProperty(strategyProperty, MappingStrategy.SyncMappingStrategyWithAsyncUnmapping.name());
+        final MappingStrategyConfig sync = getter.get();
+        assertEquals(64, sync.cacheSize());
+        assertFalse(sync.asyncMapping().isPresent(), "regions to map ahead ignored for sync mapping");
     }
 
     @Test

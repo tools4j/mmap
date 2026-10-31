@@ -25,12 +25,12 @@ package org.tools4j.mmap.queue.config;
 
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.Constraints;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongConsumer;
-import java.util.function.Supplier;
 
 import static org.tools4j.mmap.queue.config.MappingStrategy.AsyncMapAheadStrategy;
 import static org.tools4j.mmap.queue.config.MappingStrategy.SyncMappingStrategyWithAsyncUnmapping;
@@ -133,16 +133,6 @@ public enum QueueConfigurations {
     public static final String APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY = "mmap.queue.appenderPayloadRegionsToMapAhead";
     public static final String APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY = "mmap.queue.appenderPayloadMappingStrategy";
     public static final MappingStrategy APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT = AsyncMapAheadStrategy;
-
-    private static MappingStrategyConfig POLLER_HEADER_MAPPING_STRATEGY;
-    private static MappingStrategyConfig POLLER_PAYLOAD_MAPPING_STRATEGY;
-    private static MappingStrategyConfig ENTRY_READER_HEADER_MAPPING_STRATEGY;
-    private static MappingStrategyConfig ENTRY_READER_PAYLOAD_MAPPING_STRATEGY;
-    private static MappingStrategyConfig ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY;
-    private static MappingStrategyConfig ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY;
-    private static MappingStrategyConfig INDEX_READER_HEADER_MAPPING_STRATEGY;
-    private static MappingStrategyConfig APPENDER_HEADER_MAPPING_STRATEGY;
-    private static MappingStrategyConfig APPENDER_PAYLOAD_MAPPING_STRATEGY;
 
     public static int defaultMaxAppenders() {
         return getIntProperty(MAX_APPENDERS_PROPERTY, Constraints::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
@@ -253,16 +243,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultPollerHeaderMappingStrategy() {
-        if (POLLER_HEADER_MAPPING_STRATEGY == null) {
-            POLLER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    POLLER_HEADER_MAPPING_STRATEGY_PROPERTY,
-                    POLLER_HEADER_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultPollerHeaderRegionCacheSize,
-                    QueueConfigurations::defaultPollerHeaderRegionsToMapAhead
-            );
-            assert POLLER_HEADER_MAPPING_STRATEGY != null;
-        }
-        return POLLER_HEADER_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                POLLER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                POLLER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultPollerHeaderRegionCacheSize,
+                QueueConfigurations::defaultPollerHeaderRegionsToMapAhead
+        );
     }
 
     // POLLER_PAYLOAD_MAPPING_STRATEGY
@@ -276,16 +262,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultPollerPayloadMappingStrategy() {
-        if (POLLER_PAYLOAD_MAPPING_STRATEGY == null) {
-            POLLER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
-                    POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultPollerPayloadRegionCacheSize,
-                    QueueConfigurations::defaultPollerPayloadRegionsToMapAhead
-            );
-            assert POLLER_PAYLOAD_MAPPING_STRATEGY != null;
-        }
-        return POLLER_PAYLOAD_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                POLLER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                POLLER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultPollerPayloadRegionCacheSize,
+                QueueConfigurations::defaultPollerPayloadRegionsToMapAhead
+        );
     }
 
     // ENTRY_READER_HEADER_MAPPING_STRATEGY
@@ -299,16 +281,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultEntryReaderHeaderMappingStrategy() {
-        if (ENTRY_READER_HEADER_MAPPING_STRATEGY == null) {
-            ENTRY_READER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
-                    ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultEntryReaderHeaderRegionCacheSize,
-                    QueueConfigurations::defaultEntryReaderHeaderRegionsToMapAhead
-            );
-            assert ENTRY_READER_HEADER_MAPPING_STRATEGY != null;
-        }
-        return ENTRY_READER_HEADER_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                ENTRY_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                ENTRY_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultEntryReaderHeaderRegionCacheSize,
+                QueueConfigurations::defaultEntryReaderHeaderRegionsToMapAhead
+        );
     }
 
     // ENTRY_READER_PAYLOAD_MAPPING_STRATEGY
@@ -322,16 +300,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultEntryReaderPayloadMappingStrategy() {
-        if (ENTRY_READER_PAYLOAD_MAPPING_STRATEGY == null) {
-            ENTRY_READER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
-                    ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultEntryReaderPayloadRegionCacheSize,
-                    QueueConfigurations::defaultEntryReaderPayloadRegionsToMapAhead
-            );
-            assert ENTRY_READER_PAYLOAD_MAPPING_STRATEGY != null;
-        }
-        return ENTRY_READER_PAYLOAD_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                ENTRY_READER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultEntryReaderPayloadRegionCacheSize,
+                QueueConfigurations::defaultEntryReaderPayloadRegionsToMapAhead
+        );
     }
 
     // ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY
@@ -345,16 +319,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultEntryIteratorHeaderMappingStrategy() {
-        if (ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY == null) {
-            ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY,
-                    ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultEntryIteratorHeaderRegionCacheSize,
-                    QueueConfigurations::defaultEntryIteratorHeaderRegionsToMapAhead
-            );
-            assert ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY != null;
-        }
-        return ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY,
+                ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultEntryIteratorHeaderRegionCacheSize,
+                QueueConfigurations::defaultEntryIteratorHeaderRegionsToMapAhead
+        );
     }
 
     // ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY
@@ -368,16 +338,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultEntryIteratorPayloadMappingStrategy() {
-        if (ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY == null) {
-            ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
-                    ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultEntryIteratorPayloadRegionCacheSize,
-                    QueueConfigurations::defaultEntryIteratorPayloadRegionsToMapAhead
-            );
-            assert ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY != null;
-        }
-        return ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                ENTRY_ITERATOR_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultEntryIteratorPayloadRegionCacheSize,
+                QueueConfigurations::defaultEntryIteratorPayloadRegionsToMapAhead
+        );
     }
 
     // INDEX_READER_HEADER_MAPPING_STRATEGY
@@ -391,16 +357,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultIndexReaderHeaderMappingStrategy() {
-        if (INDEX_READER_HEADER_MAPPING_STRATEGY == null) {
-            INDEX_READER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
-                    INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultIndexReaderHeaderRegionCacheSize,
-                    QueueConfigurations::defaultIndexReaderHeaderRegionsToMapAhead
-            );
-            assert INDEX_READER_HEADER_MAPPING_STRATEGY != null;
-        }
-        return INDEX_READER_HEADER_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                INDEX_READER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                INDEX_READER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultIndexReaderHeaderRegionCacheSize,
+                QueueConfigurations::defaultIndexReaderHeaderRegionsToMapAhead
+        );
     }
 
     // APPENDER_HEADER_MAPPING_STRATEGY
@@ -414,16 +376,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultAppenderHeaderMappingStrategy() {
-        if (APPENDER_HEADER_MAPPING_STRATEGY == null) {
-            APPENDER_HEADER_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY,
-                    APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultAppenderHeaderRegionCacheSize,
-                    QueueConfigurations::defaultAppenderHeaderRegionsToMapAhead
-            );
-            assert APPENDER_HEADER_MAPPING_STRATEGY != null;
-        }
-        return APPENDER_HEADER_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                APPENDER_HEADER_MAPPING_STRATEGY_PROPERTY,
+                APPENDER_HEADER_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultAppenderHeaderRegionCacheSize,
+                QueueConfigurations::defaultAppenderHeaderRegionsToMapAhead
+        );
     }
 
     // APPENDER_PAYLOAD_MAPPING_STRATEGY
@@ -437,16 +395,12 @@ public enum QueueConfigurations {
     }
 
     public static MappingStrategyConfig defaultAppenderPayloadMappingStrategy() {
-        if (APPENDER_PAYLOAD_MAPPING_STRATEGY == null) {
-            APPENDER_PAYLOAD_MAPPING_STRATEGY = getMappingStrategyProperty(
-                    APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
-                    APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
-                    QueueConfigurations::defaultAppenderPayloadRegionCacheSize,
-                    QueueConfigurations::defaultAppenderPayloadRegionsToMapAhead
-            );
-            assert APPENDER_PAYLOAD_MAPPING_STRATEGY != null;
-        }
-        return APPENDER_PAYLOAD_MAPPING_STRATEGY;
+        return getMappingStrategyProperty(
+                APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY,
+                APPENDER_PAYLOAD_MAPPING_STRATEGY_DEFAULT,
+                QueueConfigurations::defaultAppenderPayloadRegionCacheSize,
+                QueueConfigurations::defaultAppenderPayloadRegionsToMapAhead
+        );
     }
 
     public static QueueConfig defaultQueueConfig() {
@@ -477,25 +431,15 @@ public enum QueueConfigurations {
                                                                     final MappingStrategy mappingStrategyDefault,
                                                                     final IntSupplier regionCacheSizeSupplier,
                                                                     final IntSupplier regionsToMapAheadSupplier) {
-        return MappingStrategyConfig.configure(mappingStrategyDefault.mappingStrategyConfig())
+        final MappingStrategyConfig strategy = getEnumProperty(mappingStrategyProperty, MappingStrategy.class,
+                mappingStrategyDefault).mappingStrategyConfig();
+        final MappingStrategyConfigurator config = MappingStrategyConfig.configure(strategy)
                 .cacheSize(regionCacheSizeSupplier.getAsInt())
-                .deferUnmapping(true)
-                .asyncMapping(async -> async.regionsToMapAhead(regionsToMapAheadSupplier.getAsInt()))
-                .toImmutableConfig();
-        //FIXME make this nicer and consider supporting generic strategies
-//        final String strategy = System.getProperty(mappingStrategyProperty, null);
-//        switch (strategy) {
-//            case SyncMappingStrategy:
-//                return new SyncMappingStrategy(regionSizeSupplier.getAsInt(), regionCacheSizeSupplier.getAsInt());
-//            case SyncMappingStrategyWithAsyncUnmapping:
-//                return new SyncMappingStrategy(regionSizeSupplier.getAsInt(), regionCacheSizeSupplier.getAsInt());
-//            case AsyncMapAheadStrategy:
-//                return new AheadMappingStrategy(regionSizeSupplier.getAsInt(), regionCacheSizeSupplier.getAsInt(),
-//                        regionsToMapAheadSupplier.getAsInt());
-//            default:
-//                return getObjProperty(mappingStrategyProperty, MappingStrategy.class,
-//                        (Supplier<? extends MappingStrategy>) MappingConfigurations::defaultAheadMappingStrategy);
-//        }
+                .deferUnmapping(true);
+        if (strategy.asyncMapping().isPresent()) {
+            config.asyncMapping(async -> async.regionsToMapAhead(regionsToMapAheadSupplier.getAsInt()));
+        }
+        return config.toImmutableConfig();
     }
 
     private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {
@@ -565,24 +509,7 @@ public enum QueueConfigurations {
         try {
             return Enum.valueOf(enumType, propVal);
         } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
-        }
-    }
-
-    private static <T> T getObjProperty(final String propertyName,
-                                        final Class<T> type,
-                                        final Supplier<? extends T> defaultValueSupplier) {
-        final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValueSupplier.get() : newObjInstance(propertyName, type);
-    }
-
-    private static <T> T newObjInstance(final String propVal, final Class<T> type) {
-        try {
-            final Class<?> clazz = Class.forName(propVal);
-            final Object value = clazz.getDeclaredConstructor().newInstance();
-            return type.cast(value);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propVal + "=" + propVal, e);
+            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
         }
     }
 }

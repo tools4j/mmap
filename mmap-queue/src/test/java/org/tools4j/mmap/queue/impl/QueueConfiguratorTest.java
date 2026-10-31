@@ -287,15 +287,15 @@ class QueueConfiguratorTest {
         assertEquals(63, config.entryReaderConfig().maxOpenHeaderFiles());
         assertEquals(64, config.entryIteratorConfig().maxOpenHeaderFiles());
         assertEquals(65, config.indexReaderConfig().maxOpenHeaderFiles());
-        assertSame(QueueConfigurations.defaultAppenderPayloadMappingStrategy(),
+        assertEquals(QueueConfigurations.defaultAppenderPayloadMappingStrategy(),
                 config.appenderConfig().payloadMappingStrategy());
-        assertSame(QueueConfigurations.defaultPollerPayloadMappingStrategy(),
+        assertEquals(QueueConfigurations.defaultPollerPayloadMappingStrategy(),
                 config.pollerConfig().payloadMappingStrategy());
-        assertSame(QueueConfigurations.defaultEntryReaderPayloadMappingStrategy(),
+        assertEquals(QueueConfigurations.defaultEntryReaderPayloadMappingStrategy(),
                 config.entryReaderConfig().payloadMappingStrategy());
-        assertSame(QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy(),
+        assertEquals(QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy(),
                 config.entryIteratorConfig().payloadMappingStrategy());
-        assertSame(QueueConfigurations.defaultIndexReaderHeaderMappingStrategy(),
+        assertEquals(QueueConfigurations.defaultIndexReaderHeaderMappingStrategy(),
                 config.indexReaderConfig().headerMappingStrategy());
     }
 

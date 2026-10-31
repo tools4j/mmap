@@ -93,8 +93,8 @@ class AppenderConfiguratorTest {
     @Test
     void unsetDefaultsFallBackToSystemDefaults() {
         final AppenderConfig config = AppenderConfigurator.configure(unsetDefaults());
-        assertSame(QueueConfigurations.defaultAppenderHeaderMappingStrategy(), config.headerMappingStrategy());
-        assertSame(QueueConfigurations.defaultAppenderPayloadMappingStrategy(), config.payloadMappingStrategy());
+        assertEquals(QueueConfigurations.defaultAppenderHeaderMappingStrategy(), config.headerMappingStrategy());
+        assertEquals(QueueConfigurations.defaultAppenderPayloadMappingStrategy(), config.payloadMappingStrategy());
         assertEquals(QueueConfigurations.defaultMaxOpenAppenderHeaderFiles(), config.maxOpenHeaderFiles());
         assertEquals(QueueConfigurations.defaultMaxOpenAppenderPayloadFiles(), config.maxOpenPayloadFiles());
         assertEquals(QueueConfigurations.defaultAppenderHeaderFilesToCreateAhead(), config.headerFilesToCreateAhead());
