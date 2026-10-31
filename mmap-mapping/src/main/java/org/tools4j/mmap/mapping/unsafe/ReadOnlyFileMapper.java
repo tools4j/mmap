@@ -87,6 +87,17 @@ public class ReadOnlyFileMapper implements FileMapper {
         return NULL_ADDRESS;
     }
 
+    /**
+     * Returns {@link Long#MAX_VALUE}: mapping beyond the current end of the file is legal and yields
+     * {@code NULL_ADDRESS} until the file has been extended by a writer.
+     *
+     * @return {@link Long#MAX_VALUE}
+     */
+    @Override
+    public long mappingLimit() {
+        return Long.MAX_VALUE;
+    }
+
     @Override
     public void unmap(long position, long address, int length) {
         assert address > NULL_ADDRESS;

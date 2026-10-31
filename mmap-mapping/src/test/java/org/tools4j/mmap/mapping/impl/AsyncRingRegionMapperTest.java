@@ -105,6 +105,7 @@ public class AsyncRingRegionMapperTest {
             }
             return data.addressOffset() + position;
         });
+        when(fileMapper.mappingLimit()).thenReturn(Long.MAX_VALUE);
         final AtomicBoolean closed = new AtomicBoolean();
         when(fileMapper.isClosed()).thenAnswer(invocation -> closed.get());
         doAnswer(invocation -> {

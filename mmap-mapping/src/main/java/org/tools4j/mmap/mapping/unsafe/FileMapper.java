@@ -52,6 +52,14 @@ public interface FileMapper extends Closeable {
     long map(long position, int length);
 
     /**
+     * Returns the mapping limit, the maximum end position (exclusive) of any mapping: {@link #map(long, int) mapping}
+     * a region whose position plus length exceeds this limit is illegal.
+     *
+     * @return the mapping limit, or {@link Long#MAX_VALUE} if mapping positions are not limited
+     */
+    long mappingLimit();
+
+    /**
      * Unmaps previously mapped address of the region starting at absolute position with length.
      *
      * @param position absolute position

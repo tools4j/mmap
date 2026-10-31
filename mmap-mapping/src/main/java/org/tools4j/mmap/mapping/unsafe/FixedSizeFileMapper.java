@@ -73,6 +73,11 @@ public class FixedSizeFileMapper implements FileMapper {
     }
 
     @Override
+    public long mappingLimit() {
+        return fileSize;
+    }
+
+    @Override
     public AccessMode accessMode() {
         return accessMode;
     }

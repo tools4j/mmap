@@ -235,6 +235,11 @@ public class RollingFileMapper implements FileMapper {
     }
 
     @Override
+    public long mappingLimit() {
+        return Long.MAX_VALUE;
+    }
+
+    @Override
     public long map(final long position, final int length) {
         validateNotClosed(this);
         if (position < 0) {

@@ -33,6 +33,7 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import java.io.File;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -80,6 +81,35 @@ class FileMappersTest {
         try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
                 rollingConfig(MappingStrategyConfig.getDefaultSync(), 1))) {
             assertInstanceOf(RollingFileMapper.class, mapper);
+        }
+    }
+
+    @Test
+    void mappingLimitIsMaxFileSizeUnlessRollingOrReadOnly() {
+        final File file = tempDir.resolve("limit.map").toFile();
+        final MappingConfig expandable = MappingConfig.configure()
+                .rollFiles(false).expandFile(true).minFileSize(0).maxFileSize(MAX_FILE_SIZE).regionSize(REGION_SIZE);
+        final MappingConfig fixed = MappingConfig.configure(expandable).expandFile(false);
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER, expandable)) {
+            assertInstanceOf(ExpandableSizeFileMapper.class, mapper);
+            assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
+        }
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER, fixed)) {
+            assertInstanceOf(FixedSizeFileMapper.class, mapper);
+            assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
+        }
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, INITIALISER, fixed)) {
+            assertInstanceOf(ReadOnlyFileMapper.class, mapper);
+            assertEquals(Long.MAX_VALUE, mapper.mappingLimit());
+        }
+        for (final MappingStrategyConfig strategy : new MappingStrategyConfig[] {
+                MappingStrategyConfig.getDefaultSync(), MappingStrategyConfig.getDefaultAsyncMapAhead()}) {
+            for (final AccessMode accessMode : AccessMode.values()) {
+                try (final FileMapper mapper = FileMappers.create(file, accessMode, INITIALISER,
+                        rollingConfig(strategy, 2))) {
+                    assertEquals(Long.MAX_VALUE, mapper.mappingLimit(), mapper.toString());
+                }
+            }
         }
     }
 

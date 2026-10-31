@@ -117,6 +117,11 @@ public class ExpandableSizeFileMapper implements FileMapper {
     }
 
     @Override
+    public long mappingLimit() {
+        return maxFileSize;
+    }
+
+    @Override
     public void unmap(final long position, final long address, final int length) {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;

@@ -264,6 +264,11 @@ public final class ConcurrentRollingFileMapper {
         }
 
         @Override
+        public long mappingLimit() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
         public long map(final long position, final int length) {
             if (position < 0) {
                 return NULL_ADDRESS;

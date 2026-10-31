@@ -64,6 +64,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
     private final SharedState sharedState;
     private final AsyncMapper asyncMapper;
     private final int mapAhead;
+    /** Last region position that may be mapped ahead without exceeding the file mapper's mapping limit */
+    private final long maxAheadPosition;
     private long lastPositionMapped;
     private long asyncStats;
     private long syncStats;
@@ -93,6 +95,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
         final int cacheSize = mapAheadCacheSize(mapAhead, mapAheadCacheSize);
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.baseMapper = requireNonNull(baseMapper);
+        this.maxAheadPosition = baseMapper.fileMapper().mappingLimit() - baseMapper.regionSize();
         this.cachingMapper = cacheFactory.apply(new AheadMapper());
         this.sharedState = new SharedState(cacheSize, baseMapper.regionSize());
         this.asyncMapper = startAsyncMapper(baseMapper);
@@ -161,7 +164,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
             //noinspection UnnecessaryLocalVariable
             final SharedState shared = sharedState;
             long nextPosition = position;
-            for (int i = 0; i < mapAhead && (nextPosition += increment) >= 0; i++) {
+            for (int i = 0; i < mapAhead && (nextPosition += increment) >= 0 && nextPosition <= maxAheadPosition; i++) {
                 if (!isMappedInCache(nextPosition) && !shared.requestMapping(nextPosition)) {
                     busyStats++;
                 }
@@ -429,7 +432,14 @@ final class AsyncRunAheadRegionMapper implements RegionMapper {
                     assert pos == NULL_POSITION;
                 }
                 if (req != NULL_POSITION) {
-                    final long mappedAddr = fileMapper.map(req, regionSize);
+                    long mappedAddr;
+                    try {
+                        mappedAddr = fileMapper.map(req, regionSize);
+                    } catch (final RuntimeException e) {
+                        //NOTE: mapping ahead is speculative, the requester maps synchronously when needed and gets
+                        //      the error then; the slot must be handed back to the requester in any case
+                        mappedAddr = NULL_ADDRESS;
+                    }
                     recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] = Math.max(mappedAddr, NULL_ADDRESS);
                     recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = req;
                 }
