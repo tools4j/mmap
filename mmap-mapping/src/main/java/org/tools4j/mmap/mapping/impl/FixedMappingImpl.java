@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
@@ -51,7 +52,7 @@ public class FixedMappingImpl implements FixedMapping {
     }
 
     public FixedMappingImpl(final FixedSizeFileMapper fileMapper, final long offset) {
-        this(fileMapper, offset, mappingLength(offset, fileMapper.fileSize()), true);
+        this(fileMapper, offset, mappingLength(fileMapper, offset), true);
     }
 
     public FixedMappingImpl(final FileMapper fileMapper, final long offset, final int length) {
@@ -63,24 +64,38 @@ public class FixedMappingImpl implements FixedMapping {
                             final int length,
                             final boolean closeFileMapperOnClose) {
         requireNonNull(fileMapper);
-        validateNonNegative("offset", offset);
-        validateNonNegative("length", length);
-        this.fileMapper = fileMapper;
-        this.closeFileMapperOnClose = closeFileMapperOnClose;
-        this.fileSize = length;
-        this.pageOffset = (int) (offset & (REGION_SIZE_GRANULARITY - 1));
-        if (length > Integer.MAX_VALUE - pageOffset) {
-            throw new IllegalArgumentException("Mapping length " + length + " exceeds integer limit when aligned " +
-                    "to granularity " + REGION_SIZE_GRANULARITY + " for offset " + offset);
+        try {
+            validateNonNegative("offset", offset);
+            validateNonNegative("length", length);
+            this.fileMapper = fileMapper;
+            this.closeFileMapperOnClose = closeFileMapperOnClose;
+            this.fileSize = length;
+            this.pageOffset = (int) (offset & (REGION_SIZE_GRANULARITY - 1));
+            if (length > Integer.MAX_VALUE - pageOffset) {
+                throw new IllegalArgumentException("Mapping length " + length + " exceeds integer limit when aligned " +
+                        "to granularity " + REGION_SIZE_GRANULARITY + " for offset " + offset);
+            }
+            final long pageAddress = map(fileMapper, offset - pageOffset, length + pageOffset);
+            this.buffer = new UnsafeBuffer(pageAddress + pageOffset, length);
+            this.mappedPosition = offset;
+        } catch (final Throwable t) {
+            if (closeFileMapperOnClose) {
+                CloseHelper.quietClose(fileMapper);
+            }
+            throw t;
         }
-        final long pageAddress = map(fileMapper, offset - pageOffset, length + pageOffset);
-        this.buffer = new UnsafeBuffer(pageAddress + pageOffset, length);
-        this.mappedPosition = offset;
     }
 
-    private static int mappingLength(final long offset, final long fileSize) {
-        validateFixedMappingLength(offset, fileSize);
-        return (int)(fileSize - offset);
+    /** Returns the length from offset to the end of the file, closing the file mapper if the offset is invalid */
+    private static int mappingLength(final FixedSizeFileMapper fileMapper, final long offset) {
+        try {
+            final long fileSize = fileMapper.fileSize();
+            validateFixedMappingLength(offset, fileSize);
+            return (int) (fileSize - offset);
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(fileMapper);
+            throw t;
+        }
     }
 
     private static long map(final FileMapper fileMapper, final long position, final int length) {

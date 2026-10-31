@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,13 +54,25 @@ public class IdPool64 implements IdPool {
         this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE));
     }
 
+    /**
+     * Constructor for an ID pool using the given mapping, which is closed when the pool is closed, or if construction
+     * fails.
+     *
+     * @param name      the pool name used in logging and exceptions
+     * @param mapping   the mapping of {@link #FILE_SIZE} bytes
+     */
     public IdPool64(final String name, final Mapping mapping) {
-        if (mapping.bytesAvailable() != FILE_SIZE) {
-            throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
-                    + mapping.bytesAvailable() + " for ID pool: " + name);
-        }
-        this.name = requireNonNull(name);
         this.mapping = requireNonNull(mapping);
+        try {
+            if (mapping.bytesAvailable() != FILE_SIZE) {
+                throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but " +
+                        "found " + mapping.bytesAvailable() + " for ID pool: " + name);
+            }
+            this.name = requireNonNull(name);
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(mapping);
+            throw t;
+        }
         LOGGER.info("Opened ID pool: {} ({} acquired IDs)", name, acquired());
     }
 

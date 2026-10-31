@@ -47,6 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
@@ -150,7 +152,9 @@ class FixedMappingImplTest {
             assertEquals(16, mapping.bytesAvailable());
             assertEquals(42, mapping.buffer().getLong(0));
         }
-        assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(fixedSizeFileMapper(file, 64), 65));
+        final FixedSizeFileMapper fileMapper = fixedSizeFileMapper(file, 64);
+        assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(fileMapper, 65));
+        assertTrue(fileMapper.isClosed(), "owned file mapper must be closed if construction fails");
     }
 
     @Test
@@ -175,10 +179,16 @@ class FixedMappingImplTest {
     }
 
     @Test
-    void failedMappingThrows() {
-        final FileMapper fileMapper = mock(FileMapper.class);
-        when(fileMapper.map(anyLong(), anyInt())).thenReturn(NULL_ADDRESS);
-        assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(fileMapper, 0, 64, false));
+    void failedMappingThrowsAndClosesOnlyOwnedFileMapper() {
+        final FileMapper notOwned = mock(FileMapper.class);
+        when(notOwned.map(anyLong(), anyInt())).thenReturn(NULL_ADDRESS);
+        assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(notOwned, 0, 64, false));
+        verify(notOwned, never()).close();
+
+        final FileMapper owned = mock(FileMapper.class);
+        when(owned.map(anyLong(), anyInt())).thenReturn(NULL_ADDRESS);
+        assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(owned, 0, 64));
+        verify(owned).close();
     }
 
     @Test

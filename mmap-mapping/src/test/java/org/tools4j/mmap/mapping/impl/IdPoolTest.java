@@ -206,7 +206,18 @@ class IdPoolTest {
         final File file = new File(tmpDir.toFile(), "test.ids");
         try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool64.FILE_SIZE)) {
             assertThrows(IllegalArgumentException.class, () -> new IdPool256(file.getPath(), mapping));
+            assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
         }
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE)) {
+            assertThrows(IllegalArgumentException.class, () -> new IdPool64(file.getPath(), mapping));
+            assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
+        }
+        final Mapping mapping64 = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool64.FILE_SIZE);
+        assertThrows(NullPointerException.class, () -> new IdPool64(null, mapping64));
+        assertTrue(mapping64.isClosed(), "owned mapping must be closed if name is null");
+        final Mapping mapping256 = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE);
+        assertThrows(NullPointerException.class, () -> new IdPool256(null, mapping256));
+        assertTrue(mapping256.isClosed(), "owned mapping must be closed if name is null");
     }
 
     @Test
@@ -215,6 +226,9 @@ class IdPoolTest {
         final File file = new File(tmpDir.toFile(), "test.ids");
         assertThrows(IllegalArgumentException.class, () -> new IdPool256(file, 0));
         assertThrows(IllegalArgumentException.class, () -> new IdPool256(file, IdPool256.MAX_IDS + 1));
+        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE);
+        assertThrows(IllegalArgumentException.class, () -> new IdPool256(file.getPath(), mapping, 0));
+        assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
     }
 
     private void runConcurrentTest(final PoolFactory poolFactory,

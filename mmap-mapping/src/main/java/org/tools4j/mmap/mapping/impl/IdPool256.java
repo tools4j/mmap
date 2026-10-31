@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,17 +68,30 @@ public class IdPool256 implements IdPool {
         this(name, mapping, MAX_IDS);
     }
 
+    /**
+     * Constructor for an ID pool using the given mapping, which is closed when the pool is closed, or if construction
+     * fails.
+     *
+     * @param name      the pool name used in logging and exceptions
+     * @param mapping   the mapping of {@link #FILE_SIZE} bytes
+     * @param maxIds    the max IDs of this pool, only IDs below this value are acquired
+     */
     public IdPool256(final String name, final Mapping mapping, final int maxIds) {
-        if (maxIds < 1 || maxIds > MAX_IDS) {
-            throw new IllegalArgumentException("Max IDs must be in [1, " + MAX_IDS + "] but was " + maxIds +
-                    " for ID pool: " + name);
-        }
-        if (mapping.bytesAvailable() != FILE_SIZE) {
-            throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but found "
-                    + mapping.bytesAvailable() + " for ID pool: " + name);
-        }
-        this.name = requireNonNull(name);
         this.mapping = requireNonNull(mapping);
+        try {
+            if (maxIds < 1 || maxIds > MAX_IDS) {
+                throw new IllegalArgumentException("Max IDs must be in [1, " + MAX_IDS + "] but was " + maxIds +
+                        " for ID pool: " + name);
+            }
+            if (mapping.bytesAvailable() != FILE_SIZE) {
+                throw new IllegalArgumentException("Invalid mapping, expected " + FILE_SIZE + " bytes available but " +
+                        "found " + mapping.bytesAvailable() + " for ID pool: " + name);
+            }
+            this.name = requireNonNull(name);
+        } catch (final Throwable t) {
+            CloseHelper.quietClose(mapping);
+            throw t;
+        }
         this.maxIds = maxIds;
         this.lastWordIndex = (maxIds - 1) / Long.SIZE * Long.BYTES;
         final int lastWordIds = maxIds - lastWordIndex / Long.BYTES * Long.SIZE;
