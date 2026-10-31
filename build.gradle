@@ -11,7 +11,7 @@ plugins {
     id 'java-library'
     id 'com.diffplug.spotless' version '8.10.4' apply false
     id 'biz.aQute.bnd.builder' version '7.4.0' apply false
-    id 'com.vanniktech.maven.publish' version '0.34.0' apply false
+    id 'com.vanniktech.maven.publish' version '0.37.0' apply false
 }
 
 defaultTasks 'clean', 'build'
@@ -194,6 +194,10 @@ subprojects {
         }
     }
 
+    jacoco {
+        toolVersion = '0.8.16'
+    }
+
     jacocoTestReport {
         dependsOn test
         reports {
@@ -322,6 +326,6 @@ tasks.register('testReport', TestReport) {
 }
 
 wrapper {
-    gradleVersion = '9.8.1'
+    gradleVersion = '9.8.2'
     distributionType = 'ALL'
 }
