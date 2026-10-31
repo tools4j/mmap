@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,6 +39,7 @@ import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -316,6 +318,88 @@ class AppenderTest {
                 context.abort();
                 assertThrows(IllegalStateException.class, () -> context.ensureCapacity(8));
             }
+        }
+    }
+
+    @Test
+    void appendOverloadsAppendTheGivenBytes() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir);
+             final Appender appender = queue.createAppender()) {
+            final byte[] bytes = "xxabcdexx".getBytes(StandardCharsets.US_ASCII);
+            assertEquals(0, appender.append(bytes));
+            assertEquals(1, appender.append(bytes, 2, 5));
+            assertEquals(2, appender.append(ByteBuffer.wrap(bytes, 2, 5)));
+            assertEquals(3, appender.append(ByteBuffer.wrap(bytes, 2, 5), 3));
+            assertEquals(4, appender.append(ByteBuffer.wrap(bytes), 2, 5));
+            assertEquals(5, appender.append(new UnsafeBuffer(bytes), 2, 5));
+            assertEquals(List.of("xxabcdexx", "abcde", "abcde", "abc", "abcde", "abcde"),
+                    pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void invalidCommitLengthThrowsAndClosesContext() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir);
+             final Appender appender = queue.createAppender()) {
+            final AppendingContext negative = appender.appending(4);
+            assertThrows(IllegalArgumentException.class, () -> negative.commit(-1));
+            assertTrue(negative.isClosed());
+
+            final AppendingContext tooLong = appender.appending(4);
+            assertThrows(IllegalArgumentException.class, () -> tooLong.commit(5));
+            assertTrue(tooLong.isClosed());
+
+            final AppendingContext aborted = appender.appending(4);
+            aborted.abort();
+            assertThrows(IllegalStateException.class, () -> aborted.commit(4));
+
+            append(appender, "ok");
+            assertEquals(List.of("ok"), pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void appendingWithUnclosedContextAbortsItAndThrows() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir);
+             final Appender appender = queue.createAppender()) {
+            final AppendingContext context = appender.appending(4);
+            context.buffer().putStringWithoutLengthAscii(0, "lost");
+            assertThrows(IllegalStateException.class, () -> appender.appending(4));
+            assertTrue(context.isClosed());
+            append(appender, "ok");
+            assertEquals(List.of("ok"), pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void capacityExceedingMaxEntrySizeIsRejected() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, smallConfig(false));
+             final Appender appender = queue.createAppender()) {
+            assertThrows(IllegalArgumentException.class, () -> appender.appending(MAX_ENTRY_LENGTH + 1));
+            assertThrows(IllegalArgumentException.class, () -> appender.append(new byte[MAX_ENTRY_LENGTH + 1]));
+            try (final AppendingContext context = appender.appending(4)) {
+                assertThrows(IllegalArgumentException.class, () -> context.ensureCapacity(MAX_ENTRY_LENGTH + 1));
+            }
+            append(appender, filler(MAX_ENTRY_LENGTH, 0));
+            assertEquals(1, queue.createIndexReader().size());
+        }
+    }
+
+    @Test
+    void closedAppenderRejectsAppending() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir)) {
+            final Appender appender = queue.createAppender();
+            appender.close();
+            assertTrue(appender.isClosed());
+            assertThrows(IllegalStateException.class, () -> appender.appending(4));
+            assertThrows(IllegalStateException.class, () -> appender.append(new byte[]{1}));
+            appender.close();
+            assertTrue(appender.isClosed());
         }
     }
 

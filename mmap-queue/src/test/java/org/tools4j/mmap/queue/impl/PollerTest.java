@@ -179,6 +179,119 @@ class PollerTest {
         }
     }
 
+    @Test
+    void handlerMovesSetNextIndex() {
+        try (final Queue queue = Queue.open(queueDir);
+             final Appender appender = queue.createAppender();
+             final Poller poller = queue.createPoller()) {
+            for (int i = 0; i < 5; i++) {
+                appender.append(new byte[]{(byte) i});
+            }
+            assertThat(pollWithMove(poller, Move.NONE)).isEqualTo(0);
+            assertThat(poller.nextIndex()).isEqualTo(0);
+            assertThat(pollWithMove(poller, 3)).isEqualTo(0);
+            assertThat(poller.nextIndex()).isEqualTo(3);
+            assertThat(pollWithMove(poller, Move.PREVIOUS)).isEqualTo(3);
+            assertThat(pollWithMove(poller, Move.FIRST)).isEqualTo(2);
+            assertThat(poller.nextIndex()).isEqualTo(Index.FIRST);
+            assertThat(pollWithMove(poller, Move.PREVIOUS)).isEqualTo(0);
+            assertThat(poller.nextIndex()).isEqualTo(Index.NULL);
+            assertThat(poller.poll(failingHandler())).isEqualTo(Poller.BEFORE_FIRST);
+
+            poller.seekFirst();
+            assertThat(pollWithMove(poller, Move.LAST)).isEqualTo(0);
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(4);
+            assertThat(poller.poll(failingHandler())).isEqualTo(Poller.PENDING_NEXT);
+        }
+    }
+
+    @Test
+    void handlerMoveToEndOrOverflowingMovePollsEntriesAppendedLater() {
+        try (final Queue queue = Queue.open(queueDir);
+             final Appender appender = queue.createAppender();
+             final Poller poller = queue.createPoller()) {
+            for (int i = 0; i < 5; i++) {
+                appender.append(new byte[]{(byte) i});
+            }
+            assertThat(pollWithMove(poller, Move.END)).isEqualTo(0);
+            assertThat(pollUntilPolled(poller, Move.NEXT, 64)).isEqualTo(Poller.PENDING_NEXT);
+            appender.append(new byte[]{5});
+            assertThat(pollWithMove(poller, Move.PREVIOUS)).isEqualTo(5);
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(4);
+
+            //a forward move overflowing the index range moves to the end
+            assertThat(pollWithMove(poller, Index.MAX)).isEqualTo(5);
+            assertThat(poller.nextIndex()).isEqualTo(Index.END);
+            assertThat(pollUntilPolled(poller, Move.NEXT, 64)).isEqualTo(Poller.PENDING_NEXT);
+            appender.append(new byte[]{6});
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(6);
+        }
+    }
+
+    @Test
+    void seekFirstRestartsPollingAtFirstEntry() {
+        try (final Queue queue = Queue.open(queueDir);
+             final Appender appender = queue.createAppender();
+             final Poller poller = queue.createPoller()) {
+            appender.append(new byte[]{0});
+            appender.append(new byte[]{1});
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(0);
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(1);
+            poller.seekFirst();
+            assertThat(poller.nextIndex()).isEqualTo(Index.FIRST);
+            assertThat(pollWithMove(poller, Move.NEXT)).isEqualTo(0);
+        }
+    }
+
+    @Test
+    void closedPollerReturnsClosedAndRejectsSeeking() {
+        try (final Queue queue = Queue.open(queueDir);
+             final Appender appender = queue.createAppender()) {
+            appender.append(new byte[]{0});
+            final Poller poller = queue.createPoller();
+            poller.close();
+            assertThat(poller.isClosed()).isTrue();
+            assertThat(poller.poll(failingHandler())).isEqualTo(Poller.CLOSED);
+            assertThatThrownBy(poller::seekFirst).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(poller::seekLast).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(poller::seekEnd).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> poller.seek(0)).isInstanceOf(IllegalStateException.class);
+            poller.close();
+            assertThat(poller.isClosed()).isTrue();
+        }
+    }
+
+    /** Polls until an entry is polled, which the handler moves by the given move; returns the polled index */
+    private static long pollWithMove(final Poller poller, final long move) {
+        final long[] polledIndex = {Index.NULL};
+        final int result = pollUntilPolled(poller, (index, buffer, offset, length) -> {
+            assertThat(buffer.getByte(offset)).isEqualTo((byte) index);
+            polledIndex[0] = index;
+            return move;
+        }, 64);
+        assertThat(result).isEqualTo(Poller.ENTRY_POLLED);
+        return polledIndex[0];
+    }
+
+    /** Polls until an entry is polled or attempts are exhausted; returns the last poll result */
+    private static int pollUntilPolled(final Poller poller, final long move, final int attempts) {
+        return pollUntilPolled(poller, (index, buffer, offset, length) -> move, attempts);
+    }
+
+    private static int pollUntilPolled(final Poller poller, final EntryHandler handler, final int attempts) {
+        int result = Poller.PENDING_NEXT;
+        for (int i = 0; i < attempts && result != Poller.ENTRY_POLLED; i++) {
+            result = poller.poll(handler);
+        }
+        return result;
+    }
+
+    private static EntryHandler failingHandler() {
+        return (index, buffer, offset, length) -> {
+            throw new AssertionError("unexpected entry " + index);
+        };
+    }
+
     private void writeHeader(final long index, final long header) throws IOException {
         final File headerFile = new QueueFiles(queueDir).headerFile();
         final File rolledHeaderFile = new File(queueDir, headerFile.getName().replace(".mmq", "_0.mmq"));

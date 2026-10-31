@@ -195,8 +195,7 @@ final class EntryIteratorImpl implements EntryIterator {
                 nextHeader = hdr;
                 return true;
             }
-            nextIndex = Index.NULL;
-            nextHeader = NULL_HEADER;
+            //NOTE: nextIndex is kept so that an entry appended later at this index is returned by the next call
             return false;
         }
 
