@@ -35,6 +35,7 @@ import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
@@ -177,23 +178,37 @@ public enum MappingConfigurations {
     /** The default sharing policy of the unmapping runtime, used if the sharing policy property is not set. */
     public static final SharingPolicy UNMAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
 
+    /** Listener property value for listeners ignoring all events. */
+    public static final String NO_OP_LISTENER = "NO_OP";
     /**
-     * Name of the system property to override the default lifecycle listener, with {@value #LOGGING_LISTENER},
-     * {@value #NO_OP_LISTENER} or the class name of a {@link LifecycleListener} with a public no-arg constructor.
+     * Lifecycle listener property value for a listener logging lifecycle events at debug level to SLF4J if present on
+     * the class path, and to {@link java.util.logging java.util.logging} otherwise.
+     */
+    public static final String LOG_DEBUG_LISTENER = "LOG_DEBUG";
+    /** As {@link #LOG_DEBUG_LISTENER}, but logging at info level (internal resources still at debug level). */
+    public static final String LOG_INFO_LISTENER = "LOG_INFO";
+    /** As {@link #LOG_DEBUG_LISTENER}, but logging at warn level (internal resources still at debug level). */
+    public static final String LOG_WARN_LISTENER = "LOG_WARN";
+    /**
+     * Error listener property value for a listener logging errors and warnings to SLF4J if present on the class path,
+     * and to {@link java.util.logging java.util.logging} otherwise.
+     */
+    public static final String LOGGING_LISTENER = "LOGGING";
+    /**
+     * Name of the system property to override the default lifecycle listener, with {@value #LOG_DEBUG_LISTENER},
+     * {@value #LOG_INFO_LISTENER}, {@value #LOG_WARN_LISTENER}, {@value #NO_OP_LISTENER} or the class name of a
+     * {@link LifecycleListener} with a public no-arg constructor.
      */
     public static final String LIFECYCLE_LISTENER_PROPERTY = "mmap.mapping.lifecycleListener";
+    /** The default lifecycle listener, used if the lifecycle listener property is not set. */
+    public static final String LIFECYCLE_LISTENER_DEFAULT = LOG_DEBUG_LISTENER;
     /**
      * Name of the system property to override the default error listener, with {@value #LOGGING_LISTENER},
      * {@value #NO_OP_LISTENER} or the class name of an {@link ErrorListener} with a public no-arg constructor.
      */
     public static final String ERROR_LISTENER_PROPERTY = "mmap.mapping.errorListener";
-    /**
-     * Listener property value for listeners logging to SLF4J if present on the class path, and to
-     * {@link java.util.logging java.util.logging} otherwise; the default if the listener property is not set.
-     */
-    public static final String LOGGING_LISTENER = "LOGGING";
-    /** Listener property value for listeners ignoring all events. */
-    public static final String NO_OP_LISTENER = "NO_OP";
+    /** The default error listener, used if the error listener property is not set. */
+    public static final String ERROR_LISTENER_DEFAULT = LOGGING_LISTENER;
 
     /** Listener instantiated for the class name given as property value, reused while the property value is unchanged */
     private record ListenerInstance(String className, Object listener) {}
@@ -447,35 +462,35 @@ public enum MappingConfigurations {
     }
 
     /**
-     * Returns the default lifecycle listener, also used by the shared async runtimes. Unless overridden by system
-     * property, it logs lifecycle events to SLF4J if present on the class path, and to
-     * {@link java.util.logging java.util.logging} otherwise. A listener class given by system property is
-     * instantiated once and reused while the property value is unchanged.
+     * Returns the default lifecycle listener, also used by the shared async runtimes. The logging listeners log
+     * lifecycle events at the given level to SLF4J if present on the class path, and to
+     * {@link java.util.logging java.util.logging} otherwise. A listener class given by system property is instantiated
+     * once and reused while the property value is unchanged.
      *
-     * @return the listener given by system property {@value #LIFECYCLE_LISTENER_PROPERTY} if set, and the logging
-     *         lifecycle listener otherwise
+     * @return the listener given by system property {@value #LIFECYCLE_LISTENER_PROPERTY} if set, and by
+     *         {@link #LIFECYCLE_LISTENER_DEFAULT} otherwise
      * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
      *                                  instantiated
      */
     public static LifecycleListener defaultLifecycleListener() {
-        return getListenerProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class,
-                LoggingLifecycleListener.INSTANCE, LifecycleListener.NO_OP, LIFECYCLE_LISTENER_INSTANCE);
+        return getListenerProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class, LIFECYCLE_LISTENER_DEFAULT,
+                MappingConfigurations::lifecycleListenerByName, LIFECYCLE_LISTENER_INSTANCE);
     }
 
     /**
-     * Returns the default error listener, also used by the shared async runtimes. Unless overridden by system property,
-     * it logs errors and warnings to SLF4J if present on the class path, and to
-     * {@link java.util.logging java.util.logging} otherwise, suppressing repetitions of recently logged errors. A
-     * listener class given by system property is instantiated once and reused while the property value is unchanged.
+     * Returns the default error listener, also used by the shared async runtimes. The logging listener logs errors and
+     * warnings to SLF4J if present on the class path, and to {@link java.util.logging java.util.logging} otherwise,
+     * suppressing repetitions of recently logged errors. A listener class given by system property is instantiated
+     * once and reused while the property value is unchanged.
      *
-     * @return the listener given by system property {@value #ERROR_LISTENER_PROPERTY} if set, and the logging error
-     *         listener otherwise
+     * @return the listener given by system property {@value #ERROR_LISTENER_PROPERTY} if set, and by
+     *         {@link #ERROR_LISTENER_DEFAULT} otherwise
      * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
      *                                  instantiated
      */
     public static ErrorListener defaultErrorListener() {
-        return getListenerProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class,
-                LoggingErrorListener.INSTANCE, ErrorListener.NO_OP, ERROR_LISTENER_INSTANCE);
+        return getListenerProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class, ERROR_LISTENER_DEFAULT,
+                MappingConfigurations::errorListenerByName, ERROR_LISTENER_INSTANCE);
     }
 
     /**
@@ -604,17 +619,35 @@ public enum MappingConfigurations {
         };
     }
 
+    /** Returns the lifecycle listener for the given property value, or null if it is not one of the named values */
+    private static LifecycleListener lifecycleListenerByName(final String name) {
+        return switch (name) {
+            case LOG_DEBUG_LISTENER -> LoggingLifecycleListener.DEBUG;
+            case LOG_INFO_LISTENER -> LoggingLifecycleListener.INFO;
+            case LOG_WARN_LISTENER -> LoggingLifecycleListener.WARN;
+            case NO_OP_LISTENER -> LifecycleListener.NO_OP;
+            default -> null;
+        };
+    }
+
+    /** Returns the error listener for the given property value, or null if it is not one of the named values */
+    private static ErrorListener errorListenerByName(final String name) {
+        return switch (name) {
+            case LOGGING_LISTENER -> LoggingErrorListener.INSTANCE;
+            case NO_OP_LISTENER -> ErrorListener.NO_OP;
+            default -> null;
+        };
+    }
+
     private static <T> T getListenerProperty(final String propertyName,
                                              final Class<T> type,
-                                             final T loggingListener,
-                                             final T noOpListener,
+                                             final String defaultValue,
+                                             final Function<? super String, ? extends T> listenersByName,
                                              final AtomicReference<ListenerInstance> instance) {
-        final String propVal = System.getProperty(propertyName, LOGGING_LISTENER);
-        if (LOGGING_LISTENER.equals(propVal)) {
-            return loggingListener;
-        }
-        if (NO_OP_LISTENER.equals(propVal)) {
-            return noOpListener;
+        final String propVal = System.getProperty(propertyName, defaultValue);
+        final T namedListener = listenersByName.apply(propVal);
+        if (namedListener != null) {
+            return namedListener;
         }
         final ListenerInstance current = instance.get();
         if (current != null && current.className().equals(propVal)) {

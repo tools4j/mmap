@@ -200,12 +200,20 @@ class MappingConfigurationsTest {
 
     @Test
     void listenerPropertiesDefaultToLoggingListeners() {
-        assertSame(LoggingLifecycleListener.INSTANCE, MappingConfigurations.defaultLifecycleListener());
+        assertSame(LoggingLifecycleListener.DEBUG, MappingConfigurations.defaultLifecycleListener());
         assertSame(LoggingErrorListener.INSTANCE, MappingConfigurations.defaultErrorListener());
-        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOGGING_LISTENER);
         System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, MappingConfigurations.LOGGING_LISTENER);
-        assertSame(LoggingLifecycleListener.INSTANCE, MappingConfigurations.defaultLifecycleListener());
         assertSame(LoggingErrorListener.INSTANCE, MappingConfigurations.defaultErrorListener());
+    }
+
+    @Test
+    void lifecycleListenerPropertyAcceptsLogLevels() {
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOG_DEBUG_LISTENER);
+        assertSame(LoggingLifecycleListener.DEBUG, MappingConfigurations.defaultLifecycleListener());
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOG_INFO_LISTENER);
+        assertSame(LoggingLifecycleListener.INFO, MappingConfigurations.defaultLifecycleListener());
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOG_WARN_LISTENER);
+        assertSame(LoggingLifecycleListener.WARN, MappingConfigurations.defaultLifecycleListener());
     }
 
     @Test
@@ -234,6 +242,8 @@ class MappingConfigurationsTest {
     @Test
     void listenerPropertyWithInvalidClassIsRejected() {
         System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, "no.such.Listener");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultLifecycleListener);
+        System.setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOGGING_LISTENER);
         assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultLifecycleListener);
         System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, CustomLifecycleListener.class.getName());
         assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultErrorListener);

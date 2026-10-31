@@ -38,16 +38,19 @@ class LoggingListenersTest {
 
     @Test
     void loggingListenersAreTheDefaults() {
-        assertThat(MappingConfigurations.defaultLifecycleListener()).isSameAs(LoggingLifecycleListener.INSTANCE);
+        assertThat(MappingConfigurations.defaultLifecycleListener()).isSameAs(LoggingLifecycleListener.DEBUG);
         assertThat(MappingConfigurations.defaultErrorListener()).isSameAs(LoggingErrorListener.INSTANCE);
     }
 
     @Test
     void lifecycleEventsAreLogged() {
         assertThatCode(() -> {
-            LoggingLifecycleListener.INSTANCE.onCreated(RESOURCE);
-            LoggingLifecycleListener.INSTANCE.onOpened(RESOURCE);
-            LoggingLifecycleListener.INSTANCE.onClosed(RESOURCE);
+            for (final LoggingLifecycleListener listener : new LoggingLifecycleListener[] {
+                    LoggingLifecycleListener.DEBUG, LoggingLifecycleListener.INFO, LoggingLifecycleListener.WARN}) {
+                listener.onCreated(RESOURCE);
+                listener.onOpened(RESOURCE);
+                listener.onClosed(RESOURCE);
+            }
         }).doesNotThrowAnyException();
     }
 

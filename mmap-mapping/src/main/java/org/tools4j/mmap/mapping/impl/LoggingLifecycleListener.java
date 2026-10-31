@@ -29,20 +29,27 @@ import org.tools4j.mmap.mapping.unsafe.ConcurrentRollingFileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RollingFileMapper;
 
-import static org.tools4j.mmap.mapping.impl.LogTarget.Level.DEBUG;
-import static org.tools4j.mmap.mapping.impl.LogTarget.Level.INFO;
 
 /**
  * Lifecycle listener logging events to SLF4J if present on the class path, and to
  * {@link java.util.logging java.util.logging} otherwise, using a logger named after the resource class.
  * <p>
- * Events of internal resources (region mappers, and rolling file mappers whose individual files are logged as well)
- * are logged at debug level, all other events at info level.
+ * Events are logged at the level of the listener, except for events of internal resources (region mappers, and
+ * rolling file mappers whose individual files are logged as well), which are always logged at debug level.
  */
 public final class LoggingLifecycleListener implements LifecycleListener {
-    public static final LoggingLifecycleListener INSTANCE = new LoggingLifecycleListener();
+    /** Listener logging events at debug level */
+    public static final LoggingLifecycleListener DEBUG = new LoggingLifecycleListener(LogTarget.Level.DEBUG);
+    /** Listener logging events at info level */
+    public static final LoggingLifecycleListener INFO = new LoggingLifecycleListener(LogTarget.Level.INFO);
+    /** Listener logging events at warn level */
+    public static final LoggingLifecycleListener WARN = new LoggingLifecycleListener(LogTarget.Level.WARN);
 
-    private LoggingLifecycleListener() {}
+    private final LogTarget.Level level;
+
+    private LoggingLifecycleListener(final LogTarget.Level level) {
+        this.level = level;
+    }
 
     @Override
     public void onCreated(final Describable resource) {
@@ -59,9 +66,9 @@ public final class LoggingLifecycleListener implements LifecycleListener {
         log("Closed", resource);
     }
 
-    private static void log(final String event, final Describable resource) {
+    private void log(final String event, final Describable resource) {
         final LogTarget target = LogTarget.forClass(resource.getClass());
-        final LogTarget.Level level = isInternal(resource) ? DEBUG : INFO;
+        final LogTarget.Level level = isInternal(resource) ? LogTarget.Level.DEBUG : this.level;
         if (target.isEnabled(level)) {
             target.log(level, LogTarget.message(event, " ", resource, ""), null);
         }
@@ -74,6 +81,6 @@ public final class LoggingLifecycleListener implements LifecycleListener {
 
     @Override
     public String toString() {
-        return "LoggingLifecycleListener";
+        return "LoggingLifecycleListener:level=" + level;
     }
 }
