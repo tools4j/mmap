@@ -224,14 +224,14 @@ enum Headers {
         long highIndex = Index.NULL;
 
         //2) find low + high
-        while (highIndex == Index.NULL && lowIndex + 1 >= 0) {
+        while (highIndex == Index.NULL && lowIndex < Index.MAX) {
             long increment = 1L;
             do {
                 if (highIndex != Index.NULL) {
                     lowIndex = highIndex;
                 }
                 highIndex = lowIndex + increment;
-                if (increment <= 0 || highIndex < 0) {
+                if (increment <= 0 || highIndex < 0 || highIndex > Index.MAX) {
                     highIndex = Index.NULL;
                     break;
                 }

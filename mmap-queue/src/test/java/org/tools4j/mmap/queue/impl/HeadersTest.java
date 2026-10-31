@@ -23,13 +23,25 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.impl.StepBijection;
+import org.tools4j.mmap.queue.api.Index;
+
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_BLOCK_SIZE;
 import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_STEP_BW;
 import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_STEP_FW;
@@ -183,4 +195,94 @@ public class HeadersTest {
         assertEquals(BIJECTION_BLOCK_SIZE, bijection.block());
     }
 
+    @Test
+    public void validateAppenderIdAndPayloadPosition() {
+        assertEquals(0, Headers.validateAppenderId(0));
+        assertEquals(Headers.MAX_APPENDER_ID, Headers.validateAppenderId(Headers.MAX_APPENDER_ID));
+        assertThrows(IllegalArgumentException.class, () -> Headers.validateAppenderId(Headers.MAX_APPENDER_ID + 1));
+        assertThrows(IllegalArgumentException.class, () -> Headers.validateAppenderId(-1));
+
+        assertEquals(0, Headers.validatePayloadPosition(0));
+        assertEquals(8, Headers.validatePayloadPosition(8));
+        assertEquals(Headers.MAX_PAYLOAD_POSITION, Headers.validatePayloadPosition(Headers.MAX_PAYLOAD_POSITION));
+        assertThrows(IllegalArgumentException.class,
+                () -> Headers.validatePayloadPosition(Headers.MAX_PAYLOAD_POSITION + Headers.PAYLOAD_GRANULARITY));
+        assertThrows(IllegalArgumentException.class, () -> Headers.validatePayloadPosition(3));
+        assertThrows(IllegalArgumentException.class, () -> Headers.validatePayloadPosition(-8));
+    }
+
+    @Test
+    public void validIndexAndHeaderPosition() {
+        assertTrue(Headers.validIndex(Index.FIRST));
+        assertTrue(Headers.validIndex(Index.MAX));
+        assertFalse(Headers.validIndex(Index.NULL));
+        assertFalse(Headers.validIndex(Index.LAST));
+        assertFalse(Headers.validIndex(Index.END));
+
+        assertTrue(Headers.validHeaderPosition(0));
+        assertTrue(Headers.validHeaderPosition(Headers.HEADER_LENGTH));
+        assertFalse(Headers.validHeaderPosition(Headers.HEADER_LENGTH / 2));
+        assertFalse(Headers.validHeaderPosition(-Headers.HEADER_LENGTH));
+    }
+
+    @Test
+    public void hasNonEmptyHeaderAtInvalidIndexIsFalseWithoutMoving() {
+        final ElasticMapping header = mock(ElasticMapping.class);
+        assertFalse(Headers.hasNonEmptyHeaderAt(header, Index.NULL));
+        assertFalse(Headers.hasNonEmptyHeaderAt(header, Index.LAST));
+        verifyNoInteractions(header);
+    }
+
+    @Test
+    public void binarySearchLastIndexRejectsInvalidStartIndex() {
+        final ElasticMapping header = mock(ElasticMapping.class);
+        assertThrows(IllegalArgumentException.class, () -> Headers.binarySearchLastIndex(header, Index.NULL));
+        assertThrows(IllegalArgumentException.class, () -> Headers.binarySearchLastIndex(header, Index.LAST));
+    }
+
+    @ParameterizedTest(name = "[{index}]: lastIndex={0}, startIndex={1}")
+    @CsvSource(delimiter = '|', value = {
+            "-1            | 0",
+            "0             | 0",
+            "1             | 0",
+            "2             | 1",
+            "511           | 0",
+            "512           | 3",
+            "1000          | 999",
+            "1000          | 1000",
+            "1000          | 1001",
+            "1099511627776 | 7",
+    })
+    public void binarySearchLastIndexFindsLastHeader(final long lastIndex, final long startIndex) {
+        final ElasticMapping header = headersUpToIndex(lastIndex);
+        final long expected = startIndex <= lastIndex ? lastIndex : Index.NULL;
+        assertEquals(expected, Headers.binarySearchLastIndex(header, startIndex));
+    }
+
+    @Test
+    public void binarySearchLastIndexEndsAtMaxIndexIfAllHeadersArePresent() {
+        //not reachable with a real header file, but probing must neither exceed Index.MAX nor loop forever
+        final ElasticMapping header = mock(ElasticMapping.class);
+        final UnsafeBuffer buffer = new UnsafeBuffer(new byte[Headers.HEADER_LENGTH]);
+        buffer.putLong(0, Headers.header(0, 0));
+        when(header.moveTo(anyLong())).thenReturn(true);
+        when(header.buffer()).thenReturn(buffer);
+        assertTimeoutPreemptively(Duration.ofSeconds(10),
+                () -> assertEquals(Index.MAX, Headers.binarySearchLastIndex(header, Index.FIRST)));
+        assertTimeoutPreemptively(Duration.ofSeconds(10),
+                () -> assertEquals(Index.MAX, Headers.binarySearchLastIndex(header, Index.MAX - 1)));
+    }
+
+    /** Header mapping with non-empty headers for indices up to and including lastIndex */
+    private static ElasticMapping headersUpToIndex(final long lastIndex) {
+        final ElasticMapping header = mock(ElasticMapping.class);
+        final UnsafeBuffer buffer = new UnsafeBuffer(new byte[Headers.HEADER_LENGTH]);
+        when(header.moveTo(anyLong())).thenAnswer(invocation -> {
+            final long index = Headers.indexForHeaderPosition(invocation.getArgument(0));
+            buffer.putLong(0, index <= lastIndex ? Headers.header(0, 0) : Headers.NULL_HEADER);
+            return true;
+        });
+        when(header.buffer()).thenReturn(buffer);
+        return header;
+    }
 }

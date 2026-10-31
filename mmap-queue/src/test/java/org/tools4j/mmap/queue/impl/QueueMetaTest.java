@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Move;
@@ -50,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
@@ -187,6 +189,47 @@ class QueueMetaTest {
         final IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> Queue.open(queueDir(), openMode));
         assertNotNull(exception.getMessage());
+    }
+
+    @ParameterizedTest(name = "length={0}")
+    @ValueSource(ints = {8, 11, 12, QueueMetaFile.LENGTH - 1})
+    void truncatedMetaFileWithMagicIsRejected(final int length) throws IOException {
+        Queue.open(queueDir(), OpenMode.CREATE).close();
+        try (final RandomAccessFile file = new RandomAccessFile(metaFile(), "rw")) {
+            file.setLength(length);
+        }
+        final IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> QueueMetaFile.read(metaFile()));
+        assertTrue(exception.getMessage().contains("Invalid queue meta file of length " + length),
+                exception.getMessage());
+    }
+
+    @Test
+    void allFlagCombinationsRoundTrip() {
+        for (int flags = 0; flags < 16; flags++) {
+            final QueueLayoutConfigImpl layout = new QueueLayoutConfigImpl(REGION_SIZE, 2 * REGION_SIZE,
+                    REGION_SIZE, 4L * REGION_SIZE, 2L * REGION_SIZE, 8L * REGION_SIZE,
+                    (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0);
+            final File file = tempDir.resolve("meta_" + flags + ".mmq").toFile();
+            assertEquals(layout, QueueMetaFile.open(file, OpenMode.CREATE, () -> layout, () -> {}));
+            assertEquals(layout, QueueMetaFile.read(file), "flags=" + flags);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY"})
+    void openingMetaFileForWritingWithReadOnlyModeIsRejected(final OpenMode openMode) {
+        final File file = tempDir.resolve("meta.mmq").toFile();
+        final QueueLayoutConfigImpl layout = QueueLayoutConfigImpl.of(QueueConfig.getDefault());
+        QueueMetaFile.open(file, OpenMode.CREATE, () -> layout, () -> {});
+        assertThrows(IllegalArgumentException.class, () -> QueueMetaFile.open(file, openMode, () -> layout, () -> {}));
+        assertEquals(layout, QueueMetaFile.read(file));
+    }
+
+    @Test
+    void readingMissingMetaFileReturnsNull() {
+        assertNull(QueueMetaFile.read(tempDir.resolve("missing.mmq").toFile()));
+        assertNull(QueueMetaFile.read(tempDir.toFile()));
     }
 
     private File queueDir() {
