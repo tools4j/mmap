@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
  * @param timeout     the max seconds to wait for senders and receivers to complete
  * @param strategy    the mmap mapping strategy, or null for the system default
  * @param regionSize  the mmap region size, or zero for the system default
+ * @param mapAhead    the mmap regions to map ahead by accessors with async mapping, or zero for the system default
  * @param readBack    true to measure reading back the mmap queue with entry reader, iterator and index reader
  */
 public record PerfOptions(QueueType queue,
@@ -59,6 +60,7 @@ public record PerfOptions(QueueType queue,
                           long timeout,
                           MappingStrategy strategy,
                           int regionSize,
+                          int mapAhead,
                           boolean readBack) {
 
     /** The queue implementations */
@@ -89,6 +91,8 @@ public record PerfOptions(QueueType queue,
               --strategy <name>          mapping strategy for all accessors: %s
                                          (default: system default per accessor)
               --region-size <n>          header and payload region size, power of two (default: system default)
+              --map-ahead <n>            regions to map ahead by accessors with async mapping, the ahead-mapping
+                                         cache size is raised to fit (default: system default)
               --read-back                also measure reading back by index, iterating and checking indices
             """.formatted(MessageCodec.MIN_MESSAGE_LENGTH, Arrays.stream(MappingStrategy.values())
                     .map(Enum::name).collect(Collectors.joining(", ")));
@@ -113,6 +117,7 @@ public record PerfOptions(QueueType queue,
         long timeout = 300;
         MappingStrategy strategy = null;
         int regionSize = 0;
+        int mapAhead = 0;
         boolean readBack = false;
         for (int i = 0; i < args.length; i++) {
             final String option = args[i];
@@ -139,13 +144,14 @@ public record PerfOptions(QueueType queue,
                         case "--timeout" -> timeout = number(option, value);
                         case "--strategy" -> strategy = enumValue(MappingStrategy.class, option, value);
                         case "--region-size" -> regionSize = intSize(option, value);
+                        case "--map-ahead" -> mapAhead = intNumber(option, value);
                         default -> throw new IllegalArgumentException("Unknown option: " + option);
                     }
                 }
             }
         }
         return new PerfOptions(queue, messages, warmup, rate, length, senders, receivers, dir, keep, timeout,
-                strategy, regionSize, readBack).validate();
+                strategy, regionSize, mapAhead, readBack).validate();
     }
 
     private PerfOptions validate() {
@@ -158,10 +164,13 @@ public record PerfOptions(QueueType queue,
         check(receivers >= 1, "--receivers must be positive");
         check(timeout > 0, "--timeout must be positive");
         check(dir.isDirectory(), "--dir must be an existing directory: " + dir);
+        check(mapAhead >= 0, "--map-ahead must not be negative");
         if (queue != QueueType.MMAP) {
-            check(strategy == null && regionSize == 0 && !readBack,
-                    "--strategy, --region-size and --read-back are only supported for --queue mmap");
+            check(strategy == null && regionSize == 0 && mapAhead == 0 && !readBack,
+                    "--strategy, --region-size, --map-ahead and --read-back are only supported for --queue mmap");
         }
+        check(mapAhead == 0 || strategy == null || strategy.mappingStrategyConfig().asyncMapping().isPresent(),
+                "--map-ahead requires a strategy with async mapping, e.g. " + MappingStrategy.AsyncMapAheadStrategy);
         check(!readBack || senders == 1, "--read-back requires --senders 1");
         return this;
     }

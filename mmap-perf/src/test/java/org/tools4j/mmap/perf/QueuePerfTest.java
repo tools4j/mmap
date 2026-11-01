@@ -48,6 +48,7 @@ public class QueuePerfTest {
             "--queue mmap --senders 2 --receivers 2",
             "--queue mmap --strategy SyncMappingStrategy --region-size 64k --read-back",
             "--queue mmap --strategy AsyncMapAheadStrategy --rate 0 --read-back",
+            "--queue mmap --map-ahead 5 --region-size 64k",
             "--queue chronicle --senders 2 --receivers 2"
     })
     public void runCompletesAndDeletesQueueFiles(final String args) throws Throwable {
@@ -98,5 +99,7 @@ public class QueuePerfTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("--warmup");
         assertThatThrownBy(() -> PerfOptions.parse("--queue", "chronicle", "--read-back"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("only supported");
+        assertThatThrownBy(() -> PerfOptions.parse("--strategy", "SyncMappingStrategy", "--map-ahead", "4"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("async mapping");
     }
 }

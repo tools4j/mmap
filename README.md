@@ -192,6 +192,50 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
 The full example is in
 [QuickIntroTest](mmap-queue/src/test/java/org/tools4j/mmap/queue/api/QuickIntroTest.java).
 
+### Benchmarks
+The `mmap-perf` module is a command line benchmark measuring the latency from appending an entry to polling it, with
+concurrent senders and receivers. It runs the mmap queue or [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue)
+through the same harness, so you can compare them on your own machine.
+
+Build it (from the project root):
+```
+./gradlew :mmap-perf:installDist
+```
+This puts `mmap-perf.jar` and its dependencies into `mmap-perf/build/install/mmap-perf/lib`; the directory can be
+copied to another machine. Run it with Java 17 or later:
+```
+java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --help
+java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap
+java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue chronicle
+```
+Alternatively use the start script `mmap-perf/build/install/mmap-perf/bin/mmap-perf` (`mmap-perf.bat` on Windows), or
+`./gradlew :mmap-perf:run --args='--queue mmap'`.
+
+By default, one sender sends 11 million messages of 100 bytes at 1 million messages per second to two receivers, and
+the latency percentiles of each receiver are printed after the first million (warmup) messages. Main options:
+
+| Option                          | Description                                                  | Default            |
+|---------------------------------|--------------------------------------------------------------|--------------------|
+| `--queue mmap\|chronicle`       | queue implementation                                         | `mmap`             |
+| `--messages <n>`                | messages per sender, including warmup                        | `11m`              |
+| `--warmup <n>`                  | warmup messages per sender, not measured                     | `1m`               |
+| `--rate <n>`                    | messages per second per sender, `0` for max speed            | `1m`               |
+| `--length <n>`                  | message length in bytes                                      | `100`              |
+| `--senders <n>`                 | sender threads                                               | `1`                |
+| `--receivers <n>`               | receiver threads, each receiving all messages                | `2`                |
+| `--dir <path>`                  | parent directory of the temporary queue files                | `java.io.tmpdir`   |
+| `--strategy <name>`             | mmap mapping strategy, e.g. `AsyncMapAheadStrategy`          | per accessor kind  |
+| `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `2`                |
+| `--read-back`                   | mmap only: also measure reading back by index and iterating  | off                |
+
+Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`),
+e.g. `java -Dmmap.queue.pollerHeaderRegionCacheSize=16 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar`.
+
+Notes:
+* The Chronicle Queue version used (5.21) runs on Java 17 only; use Java 17 when comparing the two queues.
+* Results depend heavily on the machine: for stable numbers use a quiet machine (or isolated cores), a fast local disk
+  or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
+
 ### Maven/Gradle
 
 Requires Java 17 or later, and the following JVM options:

@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.perf;
 
+import org.agrona.BitUtil;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.perf.PerfOptions.QueueType;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
@@ -45,11 +47,17 @@ import java.util.stream.Stream;
 @SuppressWarnings("JavaPrintToLogpoint")
 public final class QueuePerf {
 
+    private static final String SLF4J_LOG_LEVEL_PROPERTY = "org.slf4j.simpleLogger.defaultLogLevel";
+
     private QueuePerf() {
         throw new IllegalStateException("No QueuePerf for you");
     }
 
     public static void main(final String... args) throws Throwable {
+        //unless set on the command line, e.g. when started with java -jar
+        if (System.getProperty(SLF4J_LOG_LEVEL_PROPERTY) == null) {
+            System.setProperty(SLF4J_LOG_LEVEL_PROPERTY, "warn");
+        }
         final PerfOptions options;
         try {
             options = PerfOptions.parse(args);
@@ -126,7 +134,18 @@ public final class QueuePerf {
         if (options.regionSize() != 0) {
             config.headerRegionSize(options.regionSize()).payloadRegionSize(options.regionSize());
         }
+        if (options.mapAhead() != 0) {
+            config.mappingStrategy(strategy -> mapAhead(strategy, options.mapAhead()));
+        }
         return new MmapPerfQueue(dir, config.toImmutableQueueConfig());
+    }
+
+    private static void mapAhead(final MappingStrategyConfigurator strategy, final int regionsToMapAhead) {
+        strategy.asyncMapping().ifPresent(current -> strategy.asyncMapping(async -> async
+                .regionsToMapAhead(regionsToMapAhead)
+                .aheadMappingCacheSize(Math.max(current.aheadMappingCacheSize(),
+                        BitUtil.findNextPositivePowerOfTwo(regionsToMapAhead)))
+        ));
     }
 
     private static void printSettings(final PerfOptions options, final PerfQueue queue, final Path dir) {

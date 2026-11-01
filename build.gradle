@@ -378,6 +378,27 @@ project(':mmap-perf') {
         enableAssertions = false
     }
 
+    //executable with java -jar from the lib directory of installDist, see README
+    jar {
+        archiveVersion = ''
+        def modulePackages = { option ->
+            (0..<perfJvmArgs.size()).findAll { perfJvmArgs[it] == option }
+                    .collect { perfJvmArgs[it + 1] - '=ALL-UNNAMED' }
+                    .join(' ')
+        }
+        manifest {
+            attributes(
+                    'Main-Class': 'org.tools4j.mmap.perf.QueuePerf',
+                    'Add-Opens': modulePackages('--add-opens'),
+                    'Add-Exports': modulePackages('--add-exports'),
+                    'Enable-Native-Access': 'ALL-UNNAMED'
+            )
+        }
+        doFirst {
+            manifest.attributes('Class-Path': configurations.runtimeClasspath.files*.name.join(' '))
+        }
+    }
+
     javadoc.enabled = false
 }
 
