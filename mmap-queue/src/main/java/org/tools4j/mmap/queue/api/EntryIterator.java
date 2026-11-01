@@ -27,6 +27,12 @@ import org.tools4j.mmap.mapping.api.Closeable;
 
 /**
  * API for sequential read access of entries from a {@link Queue}.
+ * <p>
+ * The {@code reading..} methods return an {@link IterableContext} to iterate over entries from a start index. By
+ * default it iterates {@linkplain IterableContext#forward() forward} and its iterators end once
+ * {@link java.util.Iterator#hasNext() hasNext()} returns false. It can also iterate
+ * {@linkplain IterableContext#backward() backward}, or {@linkplain IterableContext#continuous() continuously},
+ * returning entries appended later like a continuous query; see {@link IterationMode}.
  */
 public interface EntryIterator extends Closeable {
     /**
@@ -43,8 +49,9 @@ public interface EntryIterator extends Closeable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
-     * entries are subsequently appended to the queue in the background.
+     * Note that the returned iterable can still be used if the queue was empty when calling this method: entries
+     * appended later are returned by iterators obtained after appending, or by a
+     * {@linkplain IterableContext#continuous() continuous} iterator.
      *
      * @param index zero-based entry index from which to start, or {@link Index#LAST} or {@link Index#END} to start
      *              from the last entry or from the end of the queue, respectively
@@ -66,8 +73,9 @@ public interface EntryIterator extends Closeable {
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
-     * entries are subsequently appended to the queue in the background.
+     * Note that the returned iterable can still be used if the queue was empty when calling this method: entries
+     * appended later are returned by iterators obtained after appending, or by a
+     * {@linkplain IterableContext#continuous() continuous} iterator.
      *
      * @return an entry iterable that can be used in a for-loop
      */
@@ -79,15 +87,16 @@ public interface EntryIterator extends Closeable {
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (IterableContext iterable = entryIterator.readingFromLast().reverse()) {
+     * try (IterableContext iterable = entryIterator.readingFromLast().backward()) {
      *     for (Entry entry : iterable) {
      *         byte byte0 = entry.buffer().get(0);
      *         ...
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if
-     * entries are subsequently appended to the queue in the background.
+     * Note that the returned iterable can still be used if the queue was empty when calling this method: entries
+     * appended later are returned by iterators obtained after appending, or by a
+     * {@linkplain IterableContext#continuous() continuous} iterator.
      * <p>
      * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
      *
@@ -97,20 +106,26 @@ public interface EntryIterator extends Closeable {
 
     /**
      * Returns the reading context to iterate over the entries of the queue starting from the end of the queue
-     * <i>after</i> the last entry.
+     * <i>after</i> the last entry, that is, over entries appended later. This is typically used with a
+     * {@linkplain IterableContext#continuous() continuous} iterator, as in the example below.
      * <p>
      * The returned iterable should be closed after using, and it is recommended to use a try-resource statement like
      * in the following example:
      * <pre>
-     * try (IterableContext iterable = entryIterator.readingFromEnd()) {
-     *     for (Entry entry : iterable) {
-     *         byte byte0 = entry.buffer().get(0);
-     *         ...
+     * try (IterableContext iterable = entryIterator.readingFromEnd().continuous()) {
+     *     Iterator&lt;Entry&gt; entries = iterable.iterator();
+     *     while (running) {
+     *         while (entries.hasNext()) {
+     *             byte byte0 = entries.next().buffer().get(0);
+     *             ...
+     *         }
+     *         //no new entry yet, idle and try again
      *     }
      * }
      * </pre>
-     * Note that the returned iterable can still be used even if the queue was empty when calling this method if entries
-     * are subsequently appended to the queue in the background.
+     * Note that the returned iterable can still be used if the queue was empty when calling this method: entries
+     * appended later are returned by iterators obtained after appending, or by a
+     * {@linkplain IterableContext#continuous() continuous} iterator.
      * <p>
      * Note that this is not an instant operation and the method should not be called from a latency sensitive context.
      *

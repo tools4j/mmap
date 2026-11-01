@@ -33,6 +33,7 @@ import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
+import org.tools4j.mmap.queue.api.IterationMode;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
@@ -72,7 +73,7 @@ class EntryIteratorTest {
             assertIterates(iterator.readingFromFirst(), 0);
             assertIterates(iterator.readingFromLast(), 0);
             assertIterates(iterator.readingFromEnd(), 0);
-            assertIterates(iterator.readingFromLast().reverse(), 0);
+            assertIterates(iterator.readingFromLast().backward(), 0);
         }
     }
 
@@ -86,15 +87,15 @@ class EntryIteratorTest {
             assertIterates(iterator.readingFrom(ENTRIES - 10), ENTRIES - 10, range(ENTRIES - 10, ENTRIES - 1));
             assertIterates(iterator.readingFromLast(), ENTRIES - 1, List.of(ENTRIES - 1L));
             assertIterates(iterator.readingFromEnd(), ENTRIES);
-            assertIterates(iterator.readingFromLast().reverse(), ENTRIES - 1, range(ENTRIES - 1, 0));
-            assertIterates(iterator.readingFrom(10).reverse(), 10, range(10, 0));
-            assertIterates(iterator.readingFrom(10).reverse().reverse(), 10, range(10, ENTRIES - 1));
+            assertIterates(iterator.readingFromLast().backward(), ENTRIES - 1, range(ENTRIES - 1, 0));
+            assertIterates(iterator.readingFrom(10).backward(), 10, range(10, 0));
+            assertIterates(iterator.readingFrom(10).backward().forward(), 10, range(10, ENTRIES - 1));
             assertIterates(iterator.readingFrom(ENTRIES + 5), ENTRIES + 5);
         }
     }
 
     @Test
-    void iteratorReturnsEntriesAppendedAfterHasNextReturnedFalse() {
+    void iteratorEndsOnceHasNextReturnedFalseAndNewIteratorSeesAppendedEntries() {
         try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
              final EntryIterator entryIterator = queue.createEntryIterator()) {
             appendEntries(queue, 0, 2);
@@ -103,13 +104,15 @@ class EntryIteratorTest {
                 assertEquals(List.of(0L, 1L), drain(iterator));
                 assertFalse(iterator.hasNext());
                 appendEntries(queue, 2, 4);
-                assertEquals(List.of(2L, 3L), drain(iterator));
+                assertFalse(iterator.hasNext());
+                assertThrows(NoSuchElementException.class, iterator::next);
+                assertEquals(List.of(0L, 1L, 2L, 3L), drain(context.iterator()));
             }
         }
     }
 
     @Test
-    void iteratorFromEndReturnsEntriesAppendedLater() {
+    void newIteratorFromEndReturnsEntriesAppendedLater() {
         try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
              final EntryIterator entryIterator = queue.createEntryIterator()) {
             appendEntries(queue, 0, 2);
@@ -118,7 +121,81 @@ class EntryIteratorTest {
                 final Iterator<Entry> iterator = context.iterator();
                 assertFalse(iterator.hasNext());
                 appendEntries(queue, 2, 3);
+                assertFalse(iterator.hasNext());
+                assertEquals(List.of(2L), drain(context.iterator()));
+            }
+        }
+    }
+
+    @Test
+    void continuousIteratorReturnsEntriesAppendedAfterHasNextReturnedFalse() {
+        try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
+             final EntryIterator entryIterator = queue.createEntryIterator()) {
+            appendEntries(queue, 0, 2);
+            try (final IterableContext context = entryIterator.readingFromFirst().continuous()) {
+                final Iterator<Entry> iterator = context.iterator();
+                assertEquals(List.of(0L, 1L), drain(iterator));
+                assertFalse(iterator.hasNext());
+                appendEntries(queue, 2, 4);
+                assertEquals(List.of(2L, 3L), drain(iterator));
+                assertFalse(iterator.hasNext());
+            }
+        }
+    }
+
+    @Test
+    void continuousIteratorFromEndReturnsEntriesAppendedLater() {
+        try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
+             final EntryIterator entryIterator = queue.createEntryIterator()) {
+            appendEntries(queue, 0, 2);
+            try (final IterableContext context = entryIterator.readingFromEnd().continuous()) {
+                final Iterator<Entry> iterator = context.iterator();
+                assertFalse(iterator.hasNext());
+                appendEntries(queue, 2, 3);
                 assertEquals(List.of(2L), drain(iterator));
+            }
+        }
+    }
+
+    @Test
+    void modeIsSetNotToggledAndResetForNextContext() {
+        try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
+             final EntryIterator entryIterator = queue.createEntryIterator()) {
+            appendEntries(queue, 0, 3);
+            try (final IterableContext context = entryIterator.readingFromLast()) {
+                assertEquals(IterationMode.FORWARD, context.mode());
+                assertEquals(IterationMode.BACKWARD, context.backward().backward().mode());
+                assertEquals(List.of(2L, 1L, 0L), drain(context.iterator()));
+                assertEquals(IterationMode.CONTINUOUS, context.continuous().mode());
+                assertEquals(IterationMode.FORWARD, context.forward().mode());
+            }
+            final IterableContext closed;
+            try (final IterableContext context = entryIterator.readingFromFirst()) {
+                closed = context;
+                assertEquals(IterationMode.FORWARD, context.mode());
+                context.continuous();
+            }
+            try (final IterableContext context = entryIterator.readingFromFirst()) {
+                assertEquals(IterationMode.FORWARD, context.mode());
+            }
+            assertThrows(IllegalStateException.class, closed::forward);
+            assertThrows(IllegalStateException.class, closed::backward);
+            assertThrows(IllegalStateException.class, closed::continuous);
+        }
+    }
+
+    @Test
+    void endedForwardIteratorRemainsEndedWhenSwitchingToContinuous() {
+        try (final Queue queue = open(MappingStrategy.SyncMappingStrategy);
+             final EntryIterator entryIterator = queue.createEntryIterator()) {
+            appendEntries(queue, 0, 1);
+            try (final IterableContext context = entryIterator.readingFromFirst()) {
+                final Iterator<Entry> iterator = context.iterator();
+                assertEquals(List.of(0L), drain(iterator));
+                context.continuous();
+                appendEntries(queue, 1, 2);
+                assertFalse(iterator.hasNext());
+                assertEquals(List.of(0L, 1L), drain(context.iterator()));
             }
         }
     }

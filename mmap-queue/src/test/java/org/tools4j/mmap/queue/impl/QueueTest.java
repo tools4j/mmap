@@ -295,7 +295,7 @@ class QueueTest {
 
                 //when
                 try (final IterableContext fwd = iterator1.readingFrom(Index.END);
-                     final IterableContext bwd = iterator2.readingFrom(Index.END).reverse()) {
+                     final IterableContext bwd = iterator2.readingFrom(Index.END).backward()) {
                     assertThat(iterateAndCount(fwd)).isEqualTo(0);
                     assertThat(iterateAndCount(bwd)).isEqualTo(0);
                     append(appender, "1 more");
@@ -391,7 +391,7 @@ class QueueTest {
     private String iterateAndGetFirst(final EntryIterator iterator, final boolean forward, final long index) {
         for (int i = 0; i < MAX_READ_ATTEMPTS; i++) {
             try (final IterableContext context = iterator.readingFrom(index)) {
-                for (final Entry entry : (forward ? context : context.reverse())) {
+                for (final Entry entry : (forward ? context : context.backward())) {
                     return entry.buffer().getStringUtf8(0);
                 }
             }
@@ -403,7 +403,7 @@ class QueueTest {
         for (int i = 0; i < MAX_READ_ATTEMPTS; i++) {
             try (final IterableContext context = iterator.readingFrom(index)) {
                 String value = null;
-                for (final Entry entry : (forward ? context : context.reverse())) {
+                for (final Entry entry : (forward ? context : context.backward())) {
                     if (entry.buffer().capacity() >= Integer.BYTES) {
                         value = entry.buffer().getStringUtf8(0);
                     }
@@ -420,7 +420,7 @@ class QueueTest {
         for (int i = 0; i < MAX_READ_ATTEMPTS; i++) {
             try (final IterableContext context = iterator.readingFrom(index)) {
                 int count = 0;
-                for (final Entry ignored : (forward ? context : context.reverse())) {
+                for (final Entry ignored : (forward ? context : context.backward())) {
                     count++;
                 }
                 if (count > 0) {

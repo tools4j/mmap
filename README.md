@@ -137,7 +137,8 @@ Main classes:
 * `Poller`: sequential retrieval of entries via `EntryHandler` callback, which returns how to move to the next entry
   (see `Move`)
 * `EntryReader`: random access to entries by index
-* `EntryIterator`: iteration over entries, forward or in reverse, from a start index
+* `EntryIterator`: iteration over entries from a start index, forward, backward or continuously (also returning
+  entries appended later, like a continuous query)
 * `IndexReader`: first and last index, and number of entries
 * `QueueConfig`, `AppenderConfig`, `ReaderConfig` and `IndexReaderConfig`: configuration of the queue, appenders and
   readers; defaults can be set via system properties
@@ -174,9 +175,9 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
         }
     }
 
-    //iterate: forward or reverse from a start index
+    //iterate: forward, backward or continuously from a start index
     EntryIterator iterator = queue.createEntryIterator();
-    try (IterableContext entries = iterator.readingFromLast().reverse()) {
+    try (IterableContext entries = iterator.readingFromLast().backward()) {
         for (Entry entry : entries) {
             DirectBuffer buffer = entry.buffer();//World, Hello
         }

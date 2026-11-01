@@ -34,6 +34,7 @@ import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IterableContext;
+import org.tools4j.mmap.queue.api.IterationMode;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -111,6 +112,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
     private static final class IterableContextImpl implements IterableContext, Iterator<Entry>, Entry {
         static final int FORWARD = 1;
+        static final int BACKWARD = -1;
         static final int CLOSED = 0;
         final EntryIteratorImpl iterator;
         final ElasticMapping header;
@@ -118,6 +120,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long startIndex;
         int increment;
+        boolean continuous;
         long index;
         long nextIndex;
         long nextHeader;
@@ -142,6 +145,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             }
             this.startIndex = actualStartIndex(index);
             this.increment = FORWARD;
+            this.continuous = false;
             this.index = Index.NULL;
             this.nextIndex = Index.NULL;
             this.nextHeader = NULL_HEADER;
@@ -177,9 +181,33 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         }
 
         @Override
-        public IterableContext reverse() {
-            increment = -increment;
+        public IterableContext forward() {
+            return mode(FORWARD, false);
+        }
+
+        @Override
+        public IterableContext backward() {
+            return mode(BACKWARD, false);
+        }
+
+        @Override
+        public IterableContext continuous() {
+            return mode(FORWARD, true);
+        }
+
+        private IterableContext mode(final int increment, final boolean continuous) {
+            if (isClosed()) {
+                throw new IllegalStateException("Iterable context is closed");
+            }
+            this.increment = increment;
+            this.continuous = continuous;
             return this;
+        }
+
+        @Override
+        public IterationMode mode() {
+            return continuous ? IterationMode.CONTINUOUS : increment < 0 ? IterationMode.BACKWARD :
+                    IterationMode.FORWARD;
         }
 
         @Override
@@ -198,7 +226,10 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
                 nextHeader = hdr;
                 return true;
             }
-            //NOTE: nextIndex is kept so that an entry appended later at this index is returned by the next call
+            if (!continuous) {
+                //like Java collection iterators: once hasNext() returned false, it keeps returning false
+                nextIndex = Index.NULL;
+            }
             return false;
         }
 
@@ -260,6 +291,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
                 startIndex = Index.NULL;
                 nextIndex = Index.NULL;
                 increment = CLOSED;
+                continuous = false;
             }
         }
 
@@ -269,7 +301,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
                     ":queue=" + iterator.queueName +
                     "|startIndex=" + startIndex +
                     "|index=" + index +
-                    "|reverse=" + (increment < 0) +
+                    "|mode=" + mode() +
                     "|closed=" + isClosed();
         }
     }

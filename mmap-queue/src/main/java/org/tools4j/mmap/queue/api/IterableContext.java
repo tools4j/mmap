@@ -39,23 +39,57 @@ public interface IterableContext extends Iterable<Entry>, Closeable {
     long startIndex();
 
     /**
-     * Returns an iterator for queue entries starting at {@link #startIndex()}.
+     * Returns an iterator for queue entries starting at {@link #startIndex()}, iterating as defined by the
+     * {@linkplain #mode() iteration mode}. Every invocation returns an iterator starting again at
+     * {@link #startIndex()}; since iterators are flyweights, the previously returned iterator must no longer be used.
      * <p>
-     * Note that the iterator continues to function if queue entries are appended in the background, and new entries are
-     * returned even if {@link Iterator#hasNext()} has previously returned false at some point.
+     * In {@link IterationMode#FORWARD FORWARD} and {@link IterationMode#BACKWARD BACKWARD} mode the iterator ends at
+     * the first index without an entry: once {@link Iterator#hasNext()} returns false, it keeps returning false, even
+     * if entries are appended to the queue later. In {@link IterationMode#CONTINUOUS CONTINUOUS} mode, entries
+     * appended later are returned even if {@code hasNext()} previously returned false.
      *
      * @return an iterator for queue entries
+     * @throws IllegalStateException if this context is closed
      */
     @Override
     Iterator<Entry> iterator();
 
     /**
-     * Returns an iterable for queue entries starting at {@link #startIndex()} returning entries in reverse order
+     * Sets the iteration mode to {@link IterationMode#FORWARD FORWARD}, the default: iterators return entries in
+     * queue order and end once {@link Iterator#hasNext()} returns false.
+     *
+     * @return this iterable context for method chaining
+     * @throws IllegalStateException if this context is closed
+     */
+    IterableContext forward();
+
+    /**
+     * Sets the iteration mode to {@link IterationMode#BACKWARD BACKWARD}: iterators return entries in reverse order
      * finishing with the first queue entry.
      *
-     * @return an iterator for queue entries in reverse order
+     * @return this iterable context for method chaining
+     * @throws IllegalStateException if this context is closed
      */
-    IterableContext reverse();
+    IterableContext backward();
+
+    /**
+     * Sets the iteration mode to {@link IterationMode#CONTINUOUS CONTINUOUS}: iterators return entries in queue order
+     * like a continuous query, including entries appended after {@link Iterator#hasNext()} returned false, unlike
+     * iterators of Java collections.
+     *
+     * @return this iterable context for method chaining
+     * @throws IllegalStateException if this context is closed
+     */
+    IterableContext continuous();
+
+    /**
+     * Returns the iteration mode, applying to iterators of this context from their next {@link Iterator#hasNext()} or
+     * {@link Iterator#next()} invocation; an iterator that ended in {@code FORWARD} or {@code BACKWARD} mode remains
+     * ended.
+     *
+     * @return the iteration mode
+     */
+    IterationMode mode();
 
     /**
      * Closes this iterable context: iterators obtained from it return no further entries, and the current entry's

@@ -72,10 +72,10 @@ class QuickIntroTest {
                 assertEquals("World", text(entry.buffer()));
             }
 
-            //iterate: forward or reverse from a start index
+            //iterate: forward, backward or continuously from a start index
             final EntryIterator iterator = queue.createEntryIterator();
             final List<String> iterated = new ArrayList<>();
-            try (final IterableContext entries = iterator.readingFromLast().reverse()) {
+            try (final IterableContext entries = iterator.readingFromLast().backward()) {
                 for (final Entry entry : entries) {
                     iterated.add(text(entry.buffer()));
                 }

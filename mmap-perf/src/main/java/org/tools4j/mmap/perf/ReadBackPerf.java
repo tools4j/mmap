@@ -101,7 +101,7 @@ final class ReadBackPerf {
         final Histogram histogram = new Histogram(1, MAX_VALUE, 3);
         long n = 0;
         try (final EntryIterator iterator = queue.createEntryIterator();
-             final IterableContext context = forward ? iterator.readingFromFirst() : iterator.readingFromLast().reverse()) {
+             final IterableContext context = forward ? iterator.readingFromFirst() : iterator.readingFromLast().backward()) {
             long time = System.nanoTime();
             for (final Entry entry : context) {
                 codec.wrap(entry.buffer(), 0, entry.buffer().capacity()).getPayload(payload);
