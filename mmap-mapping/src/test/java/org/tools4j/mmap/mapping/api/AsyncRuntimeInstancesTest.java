@@ -25,20 +25,26 @@ package org.tools4j.mmap.mapping.api;
 
 import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
+import org.tools4j.mmap.mapping.impl.ThreadAffinities;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Unit test for {@link AsyncRuntimeInstances}: shared, per-thread and individual runtimes.
@@ -190,6 +196,43 @@ class AsyncRuntimeInstancesTest {
             assertTrue(thread.getName().startsWith("mapper-"), thread.getName());
             assertTrue(thread.isDaemon());
             assertTrue(runtime.toString().contains("threadFactory=RecordingThreadFactory"), runtime.toString());
+        } finally {
+            runtime.stop(true);
+            awaitStopped(runtime);
+        }
+    }
+
+    @Test
+    void newMappingRuntimeThreadIsPinnedToCpuOfSystemProperty() throws InterruptedException {
+        //given
+        assumeTrue(CpuPinning.isSupported(), "CPU affinity is not supported");
+        final int cpu = ThreadAffinities.currentThreadAffinity()[0];
+        final AsyncRuntime runtime;
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, String.valueOf(cpu));
+        try {
+            runtime = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), false);
+        } finally {
+            System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
+        }
+
+        //when
+        final CountDownLatch executed = new CountDownLatch(1);
+        final AtomicReference<String> threadName = new AtomicReference<>();
+        final AtomicReference<int[]> affinity = new AtomicReference<>();
+        try {
+            runtime.register(() -> {
+                if (executed.getCount() > 0) {
+                    threadName.set(Thread.currentThread().getName());
+                    affinity.set(ThreadAffinities.currentThreadAffinity());
+                    executed.countDown();
+                }
+                return 0;
+            });
+
+            //then
+            assertTrue(executed.await(10, TimeUnit.SECONDS));
+            assertTrue(threadName.get().startsWith("mapper-"), threadName.get());
+            assertArrayEquals(new int[]{cpu}, affinity.get());
         } finally {
             runtime.stop(true);
             awaitStopped(runtime);
