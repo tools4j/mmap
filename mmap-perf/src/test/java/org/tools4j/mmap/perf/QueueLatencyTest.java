@@ -126,7 +126,7 @@ public class QueueLatencyTest {
         final int hot = 200_000;
         final int messages = warmup + hot;
 
-        try (final MmapPerfQueue queue = new MmapPerfQueue(tempDir.toFile(), config)) {
+        try (final MmapPerfQueue queue = new MmapPerfQueue(tempDir.toFile(), config, PerfOptions.ReaderType.POLLER)) {
             final StringBuilder sb = new StringBuilder(1024);
             queue.describeSettings(sb);
             sb.append(getClass().getSimpleName()).append(" (").append(type).append("):\n")

@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
  * @param strategy    the mmap mapping strategy, or null for the system default
  * @param regionSize  the mmap region size, or zero for the system default
  * @param mapAhead    the mmap regions to map ahead by accessors with async mapping, or zero for the system default
- * @param readBack    true to measure reading back the mmap queue with entry reader, iterator and index reader
+ * @param reader      the mmap reader used by receivers
  * @param pinCpus     the CPUs to pin threads to, assigned in order to senders, receivers and then mmap mapping
  *                    runtime threads, or null to not pin threads
  */
@@ -64,13 +64,21 @@ public record PerfOptions(QueueType queue,
                           MappingStrategy strategy,
                           int regionSize,
                           int mapAhead,
-                          boolean readBack,
+                          ReaderType reader,
                           int[] pinCpus) {
 
     /** The queue implementations */
     public enum QueueType {
         MMAP,
         CHRONICLE
+    }
+
+    /** The mmap readers used by receivers */
+    public enum ReaderType {
+        /** Reading with a {@link org.tools4j.mmap.queue.api.Poller Poller} */
+        POLLER,
+        /** Reading with a continuous {@link org.tools4j.mmap.queue.api.EntryIterator EntryIterator} */
+        ITERATOR
     }
 
     /** CPU list used by {@code --pin} without CPUs: from CPU 2 up to the highest online CPU */
@@ -103,7 +111,8 @@ public record PerfOptions(QueueType queue,
               --region-size <n>          header and payload region size, power of two (default: system default)
               --map-ahead <n>            regions to map ahead by accessors with async mapping, the ahead-mapping
                                          cache size is raised to fit (default: system default)
-              --read-back                also measure reading back by index, iterating and checking indices
+              --reader <poller|iterator> receivers read with a poller or a continuous entry iterator
+                                         (default: poller)
             """.formatted(MessageCodec.MIN_MESSAGE_LENGTH, DEFAULT_PIN_CPUS, Arrays.stream(MappingStrategy.values())
                     .map(Enum::name).collect(Collectors.joining(", ")));
 
@@ -128,7 +137,7 @@ public record PerfOptions(QueueType queue,
         MappingStrategy strategy = null;
         int regionSize = 0;
         int mapAhead = 0;
-        boolean readBack = false;
+        ReaderType reader = ReaderType.POLLER;
         int[] pinCpus = null;
         for (int i = 0; i < args.length; i++) {
             final String option = args[i];
@@ -137,7 +146,6 @@ public record PerfOptions(QueueType queue,
                     return null;
                 }
                 case "--keep" -> keep = true;
-                case "--read-back" -> readBack = true;
                 case "--pin" -> {
                     //the CPU list is optional
                     final boolean hasCpus = i + 1 < args.length && !args[i + 1].startsWith("--");
@@ -161,13 +169,14 @@ public record PerfOptions(QueueType queue,
                         case "--strategy" -> strategy = enumValue(MappingStrategy.class, option, value);
                         case "--region-size" -> regionSize = intSize(option, value);
                         case "--map-ahead" -> mapAhead = intNumber(option, value);
+                        case "--reader" -> reader = enumValue(ReaderType.class, option, value);
                         default -> throw new IllegalArgumentException("Unknown option: " + option);
                     }
                 }
             }
         }
         return new PerfOptions(queue, messages, warmup, rate, length, senders, receivers, dir, keep, timeout,
-                strategy, regionSize, mapAhead, readBack, pinCpus).validate();
+                strategy, regionSize, mapAhead, reader, pinCpus).validate();
     }
 
     private PerfOptions validate() {
@@ -182,8 +191,8 @@ public record PerfOptions(QueueType queue,
         check(dir.isDirectory(), "--dir must be an existing directory: " + dir);
         check(mapAhead >= 0, "--map-ahead must not be negative");
         if (queue != QueueType.MMAP) {
-            check(strategy == null && regionSize == 0 && mapAhead == 0 && !readBack,
-                    "--strategy, --region-size, --map-ahead and --read-back are only supported for --queue mmap");
+            check(strategy == null && regionSize == 0 && mapAhead == 0 && reader == ReaderType.POLLER,
+                    "--strategy, --region-size, --map-ahead and --reader are only supported for --queue mmap");
         }
         check(mapAhead == 0 || strategy == null || strategy.mappingStrategyConfig().asyncMapping().isPresent(),
                 "--map-ahead requires a strategy with async mapping, e.g. " + MappingStrategy.AsyncMapAheadStrategy);

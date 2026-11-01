@@ -26,34 +26,37 @@ package org.tools4j.mmap.perf;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.perf.PerfOptions.ReaderType;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
+import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryHandler;
+import org.tools4j.mmap.queue.api.EntryIterator;
+import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.File;
+import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * {@link PerfQueue} for an mmap {@link Queue}, writing through an {@link Appender} and reading through a
- * {@link Poller}.
+ * {@link Poller} or a {@linkplain IterableContext#continuous() continuous} {@link EntryIterator}.
  */
 public final class MmapPerfQueue implements PerfQueue {
 
     private final QueueConfig config;
+    private final ReaderType readerType;
     private final Queue queue;
 
-    public MmapPerfQueue(final File directory, final QueueConfig config) {
+    public MmapPerfQueue(final File directory, final QueueConfig config, final ReaderType readerType) {
         this.config = requireNonNull(config);
+        this.readerType = requireNonNull(readerType);
         this.queue = Queue.open(directory, OpenMode.OPEN_OR_CREATE, config);
-    }
-
-    public Queue queue() {
-        return queue;
     }
 
     @Override
@@ -63,12 +66,17 @@ public final class MmapPerfQueue implements PerfQueue {
 
     @Override
     public Reader createReader() {
-        return new MmapReader(queue.createPoller());
+        return switch (readerType) {
+            case POLLER -> new PollerReader(queue.createPoller());
+            case ITERATOR -> new IteratorReader(queue.createEntryIterator());
+        };
     }
 
     @Override
     public void describeSettings(final StringBuilder sb) {
         sb.append("queue                 : mmap\n");
+        sb.append("reader                : ").append(readerType == ReaderType.POLLER ? "poller" :
+                "continuous iterator").append('\n');
         ConfigPrinter.describeConfig(config, sb);
     }
 
@@ -106,11 +114,11 @@ public final class MmapPerfQueue implements PerfQueue {
         }
     }
 
-    private static final class MmapReader implements Reader, EntryHandler {
+    private static final class PollerReader implements Reader, EntryHandler {
         final Poller poller;
         MessageHandler handler;
 
-        MmapReader(final Poller poller) {
+        PollerReader(final Poller poller) {
             this.poller = requireNonNull(poller);
         }
 
@@ -133,6 +141,34 @@ public final class MmapPerfQueue implements PerfQueue {
         @Override
         public void close() {
             poller.close();
+        }
+    }
+
+    private static final class IteratorReader implements Reader {
+        final EntryIterator entryIterator;
+        final IterableContext context;
+        final Iterator<Entry> entries;
+
+        IteratorReader(final EntryIterator entryIterator) {
+            this.entryIterator = requireNonNull(entryIterator);
+            this.context = entryIterator.readingFromFirst().continuous();
+            this.entries = context.iterator();
+        }
+
+        @Override
+        public boolean poll(final MessageHandler handler) {
+            if (entries.hasNext()) {
+                final DirectBuffer buffer = entries.next().buffer();
+                handler.onMessage(buffer, 0, buffer.capacity());
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void close() {
+            context.close();
+            entryIterator.close();
         }
     }
 }

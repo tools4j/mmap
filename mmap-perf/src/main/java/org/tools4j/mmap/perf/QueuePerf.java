@@ -127,10 +127,6 @@ public enum QueuePerf {
                 }
                 senders.forEach(Sender::printResult);
                 receivers.forEach(Receiver::printHistogram);
-                if (options.readBack()) {
-                    new ReadBackPerf(((MmapPerfQueue) queue).queue(), options.messages() * options.senders(),
-                            options.warmup() * options.senders(), options.length()).run();
-                }
             }
         } finally {
             if (options.keep()) {
@@ -159,7 +155,7 @@ public enum QueuePerf {
         if (options.mapAhead() != 0) {
             config.mappingStrategy(strategy -> mapAhead(strategy, options.mapAhead()));
         }
-        return new MmapPerfQueue(dir, config.toImmutableQueueConfig());
+        return new MmapPerfQueue(dir, config.toImmutableQueueConfig(), options.reader());
     }
 
     private static void mapAhead(final MappingStrategyConfigurator strategy, final int regionsToMapAhead) {
