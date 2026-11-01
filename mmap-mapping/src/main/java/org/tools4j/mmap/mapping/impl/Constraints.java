@@ -216,14 +216,6 @@ public enum Constraints {
         validateNonNegative("Files to create ahead", filesToCreateAhead);
     }
 
-    public static void validateMaxAppenders(final int maxAppenders) {
-        if (maxAppenders >= 1 && maxAppenders <= IdPool256.MAX_IDS) {
-            return;
-        }
-        throw new IllegalArgumentException("Max appenders must be in [1, " + IdPool256.MAX_IDS + "] but was " +
-                maxAppenders);
-    }
-
     public static void validatePowerOfTwo(final String name, final int value) {
         if (!BitUtil.isPowerOfTwo(value)) {
             throw new IllegalArgumentException(name + " must be a power of two but was " + value);

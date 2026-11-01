@@ -49,6 +49,8 @@ public class QueuePerfTest {
             "--queue mmap --strategy SyncMappingStrategy --region-size 64k --read-back",
             "--queue mmap --strategy AsyncMapAheadStrategy --rate 0 --read-back",
             "--queue mmap --map-ahead 5 --region-size 64k",
+            "--queue mmap --senders 2 --pin 0-3",
+            "--queue mmap --pin --receivers 1",
             "--queue chronicle --senders 2 --receivers 2"
     })
     public void runCompletesAndDeletesQueueFiles(final String args) throws Throwable {
@@ -83,6 +85,14 @@ public class QueuePerfTest {
         assertThat(options.rate()).isZero();
         assertThat(options.senders()).isEqualTo(3);
         assertThat(options.keep()).isTrue();
+        assertThat(defaults.pinCpus()).isNull();
+
+        final PerfOptions pinned = Objects.requireNonNull(PerfOptions.parse("--pin", "6,2,4", "--keep"));
+        assertThat(pinned.pinCpus()).containsExactly(6, 2, 4);
+        assertThat(pinned.keep()).isTrue();
+        final PerfOptions pinDefault = Objects.requireNonNull(PerfOptions.parse("--pin", "--keep"));
+        assertThat(pinDefault.pinCpus()).startsWith(2);
+        assertThat(pinDefault.keep()).isTrue();
     }
 
     @Test
@@ -101,5 +111,9 @@ public class QueuePerfTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("only supported");
         assertThatThrownBy(() -> PerfOptions.parse("--strategy", "SyncMappingStrategy", "--map-ahead", "4"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("async mapping");
+        assertThatThrownBy(() -> PerfOptions.parse("--pin", "1,x"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid CPU list");
+        assertThatThrownBy(() -> PerfOptions.parse("--pin", "1,1"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid CPU list");
     }
 }

@@ -40,14 +40,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * Linux and {@code lsof} on macOS. The mapping outlives the file channel it was created from, so this observes
  * whether munmap actually happened. Aborts the calling test as skipped on other platforms.
  */
-final class OsMappings {
-
+enum OsMappings {
+    ;
     private static final Path PROC_SELF_MAPS = Paths.get("/proc/self/maps");
     private static final boolean MAC_OS = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
-
-    private OsMappings() {
-        throw new IllegalStateException("No OsMappings for you");
-    }
 
     /** Call while the file exists: resolves the real path, as the OS reports it (e.g. /private/var vs /var on macOS) */
     static Path realPath(final File file) {

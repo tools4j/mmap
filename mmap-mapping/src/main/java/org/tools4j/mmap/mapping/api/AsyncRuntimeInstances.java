@@ -26,10 +26,14 @@ package org.tools4j.mmap.mapping.api;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultErrorListener;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultLifecycleListener;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeThreadFactory;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier;
 
 /**
@@ -78,7 +82,9 @@ public enum AsyncRuntimeInstances {
     }
 
     /**
-     * Creates a new mapping runtime instance with the specified idle strategy and auto-stop behavior.
+     * Creates a new mapping runtime instance with the specified idle strategy and auto-stop behavior, and a thread
+     * pinned to CPUs as defined by the
+     * {@linkplain org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeThreadFactory() default}.
      *
      * @param idleStrategy the idle strategy used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
@@ -86,7 +92,24 @@ public enum AsyncRuntimeInstances {
      */
     public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
                                                  final boolean autoStopOnLastDeregister) {
-        return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
+        return newMappingRuntime(idleStrategy, autoStopOnLastDeregister, defaultMappingRuntimeThreadFactory());
+    }
+
+    /**
+     * Creates a new mapping runtime instance with the specified idle strategy, auto-stop behavior and thread factory,
+     * for instance a {@linkplain CpuPinning#threadFactory(String, boolean, int[]) pinned thread factory} to pin the
+     * runtime thread to a CPU.
+     *
+     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
+     * @param threadFactory the factory creating the runtime thread
+     * @return a new mapping runtime instance
+     */
+    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
+                                                 final boolean autoStopOnLastDeregister,
+                                                 final ThreadFactory threadFactory) {
+        return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister,
+                threadFactory, defaultLifecycleListener(), defaultErrorListener());
     }
 
     /**
@@ -124,7 +147,10 @@ public enum AsyncRuntimeInstances {
     }
 
     /**
-     * Returns the shared mapping runtime instance, a singleton instance in the virtual machine.
+     * Returns the shared mapping runtime instance, a singleton instance in the virtual machine. Its thread is pinned
+     * to CPUs as defined by the
+     * {@linkplain org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeThreadFactory() default}
+     * when this method is first invoked.
      * @return the shared mapping runtime instance
      */
     public static AsyncRuntime sharedMappingRuntime() {
@@ -188,7 +214,8 @@ public enum AsyncRuntimeInstances {
     //lazy init through nested class which is only loaded when needed
     private static class MappingInstance {
         static final AsyncRuntime SHARED = AsyncRuntime.create("mapper-shared",
-                defaultMappingRuntimeIdleStrategySupplier().get(), false);
+                defaultMappingRuntimeIdleStrategySupplier().get(), false, defaultMappingRuntimeThreadFactory(),
+                defaultLifecycleListener(), defaultErrorListener());
     }
 
     //lazy init through nested class which is only loaded when needed

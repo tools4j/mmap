@@ -35,12 +35,9 @@ import java.util.stream.Collectors;
 /**
  * Describes the queue config settings relevant for appender and poller performance.
  */
-public final class ConfigPrinter {
+public enum ConfigPrinter {
+    ;
     private static final String[] NAMES = {"a.hdr", "a.pld", "p.hdr", "p.pld"};
-
-    private ConfigPrinter() {
-        throw new IllegalStateException("No ConfigPrinter for you");
-    }
 
     public static void describeConfig(final QueueConfig config, final StringBuilder sb) {
         sb.append("regionSize            : ").append(regionSize(config)).append('\n');

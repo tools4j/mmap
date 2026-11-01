@@ -42,7 +42,6 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLeng
 import static org.tools4j.mmap.mapping.impl.Constraints.validateGreaterThanZero;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateInitialPoolSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateLimit;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
@@ -169,12 +168,6 @@ class ConstraintsTest {
         invalid(() -> validateFilesToCreateAhead(-1));
         valid(() -> validateRegionsToMapAhead(1));
         invalid(() -> validateRegionsToMapAhead(0));
-        for (final int maxAppenders : new int[]{1, 2, 64, 100, 256}) {
-            valid(() -> validateMaxAppenders(maxAppenders));
-        }
-        for (final int maxAppenders : new int[]{-1, 0, 257, 512}) {
-            invalid(() -> validateMaxAppenders(maxAppenders));
-        }
     }
 
     @Test

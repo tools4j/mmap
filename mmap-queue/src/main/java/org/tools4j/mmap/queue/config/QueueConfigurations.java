@@ -27,6 +27,7 @@ import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.Constraints;
+import org.tools4j.mmap.queue.impl.AppenderIdPool;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
@@ -67,7 +68,7 @@ public enum QueueConfigurations {
      * The default {@linkplain QueueConfig#maxAppenders() maximum number of appenders}, used if system property
      * {@value #MAX_APPENDERS_PROPERTY} is not set.
      */
-    public static final int MAX_APPENDERS_DEFAULT = 64;
+    public static final int MAX_APPENDERS_DEFAULT = AppenderIdPool.MAX_IDS;
     /**
      * Name of the system property to override the default
      * {@linkplain QueueLayoutConfig#minHeaderFileSize() minimum header file size}.
@@ -471,7 +472,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxAppenders() {
-        return getIntProperty(MAX_APPENDERS_PROPERTY, Constraints::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
+        return getIntProperty(MAX_APPENDERS_PROPERTY, AppenderIdPool::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
     }
 
     /**

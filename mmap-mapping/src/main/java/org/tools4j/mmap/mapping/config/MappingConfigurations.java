@@ -28,12 +28,16 @@ import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
+import org.tools4j.mmap.mapping.api.CpuPinning;
 import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
+import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.mapping.impl.Constraints;
 import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
 
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -161,6 +165,18 @@ public enum MappingConfigurations {
     public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.mapping.async.mappingRuntimeIdleStrategy";
     /** Supplier of the default idle strategy of mapping runtimes, used if the idle strategy property is not set. */
     public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = () -> BusySpinIdleStrategy.INSTANCE;
+    /**
+     * Name of the system property to pin the threads of mapping runtimes created by default to CPUs, with a CPU list
+     * in Linux cpulist format such as {@code 4-7}, {@code 0,2,4,6}, {@code 4-} for CPU 4 up to the highest online
+     * CPU, or {@code 4} for CPU 4 only; every mapping runtime thread is pinned to a different CPU of the list, the
+     * first one free in list order, see {@link CpuPinning#threadFactory(String, boolean, int[])}. Unmapping
+     * runtime threads are never pinned.
+     */
+    public static final String MAPPING_RUNTIME_CPUS_PROPERTY = "mmap.mapping.async.mappingRuntimeCpus";
+    /** Value of the mapping runtime CPUs property for unpinned mapping runtime threads */
+    public static final String MAPPING_RUNTIME_CPUS_NONE = "NONE";
+    /** The default CPUs of mapping runtime threads, used if the CPUs property is not set: unpinned. */
+    public static final String MAPPING_RUNTIME_CPUS_DEFAULT = MAPPING_RUNTIME_CPUS_NONE;
     /** Name of the system property to override the {@link SharingPolicy} of the default mapping runtime. */
     public static final String MAPPING_RUNTIME_SHARING_POLICY_PROPERTY = "mmap.mapping.async.mappingRuntimeSharingPolicy";
     /** The default sharing policy of the mapping runtime, used if the sharing policy property is not set. */
@@ -210,10 +226,13 @@ public enum MappingConfigurations {
     /** The default error listener, used if the error listener property is not set. */
     public static final String ERROR_LISTENER_DEFAULT = LOGGING_LISTENER;
 
-    /** Listener instantiated for the class name given as property value, reused while the property value is unchanged */
-    private record ListenerInstance(String className, Object listener) {}
-    private static final AtomicReference<ListenerInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
-    private static final AtomicReference<ListenerInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
+    /** Instance created for a property value, reused while the property value is unchanged */
+    private record PropertyInstance(String value, Object instance) {}
+    private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
+    private static final AtomicReference<PropertyInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
+    private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE =
+            new AtomicReference<>();
+    private static final String MAPPING_RUNTIME_THREAD_NAME_PREFIX = "mapper";
 
     /**
      * Returns the default minimum file size (and file size increment) in expand-file mode.
@@ -438,6 +457,35 @@ public enum MappingConfigurations {
     }
 
     /**
+     * Returns the factory for threads of mapping runtimes created by default, pinning them to CPUs if configured. The
+     * thread factory is created once and reused while the property value is unchanged, so that every new mapping
+     * runtime thread is pinned to a CPU not in use by another one.
+     *
+     * @return the thread factory for the CPUs given by system property {@value #MAPPING_RUNTIME_CPUS_PROPERTY} if
+     *         set, and {@value #MAPPING_RUNTIME_CPUS_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid
+     * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
+     */
+    public static ThreadFactory defaultMappingRuntimeThreadFactory() {
+        final String propVal = System.getProperty(MAPPING_RUNTIME_CPUS_PROPERTY, MAPPING_RUNTIME_CPUS_DEFAULT).trim();
+        if (propVal.equalsIgnoreCase(MAPPING_RUNTIME_CPUS_NONE)) {
+            return AsyncRuntimeImpl.DEFAULT_THREAD_FACTORY;
+        }
+        return getInstanceProperty(propVal, ThreadFactory.class, MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE,
+                value -> mappingRuntimeThreadFactory(MAPPING_RUNTIME_CPUS_PROPERTY, value));
+    }
+
+    private static ThreadFactory mappingRuntimeThreadFactory(final String propName, final String propVal) {
+        try {
+            return CpuPinning.threadFactory(MAPPING_RUNTIME_THREAD_NAME_PREFIX, true, CpuLists.parse(propVal),
+                    defaultErrorListener());
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal +
+                    ", expected " + MAPPING_RUNTIME_CPUS_NONE + " or a CPU list such as 4-7, 0,2,4,6 or 4-", e);
+        }
+    }
+
+    /**
      * Returns the sharing policy of the default mapping runtime.
      *
      * @return the sharing policy named by system property {@value #MAPPING_RUNTIME_SHARING_POLICY_PROPERTY} if set,
@@ -643,21 +691,28 @@ public enum MappingConfigurations {
                                              final Class<T> type,
                                              final String defaultValue,
                                              final Function<? super String, ? extends T> listenersByName,
-                                             final AtomicReference<ListenerInstance> instance) {
+                                             final AtomicReference<PropertyInstance> instance) {
         final String propVal = System.getProperty(propertyName, defaultValue);
         final T namedListener = listenersByName.apply(propVal);
         if (namedListener != null) {
             return namedListener;
         }
-        final ListenerInstance current = instance.get();
-        if (current != null && current.className().equals(propVal)) {
-            return type.cast(current.listener());
+        return getInstanceProperty(propVal, type, instance, value -> newObjInstance(propertyName, value, type));
+    }
+
+    private static <T> T getInstanceProperty(final String propVal,
+                                             final Class<T> type,
+                                             final AtomicReference<PropertyInstance> instance,
+                                             final Function<? super String, ? extends T> factory) {
+        final PropertyInstance current = instance.get();
+        if (current != null && current.value().equals(propVal)) {
+            return type.cast(current.instance());
         }
         //NOTE: racing threads may each create an instance, the first to publish its instance wins
-        final ListenerInstance created = new ListenerInstance(propVal, newObjInstance(propertyName, propVal, type));
-        final ListenerInstance witness = instance.compareAndExchange(current, created);
-        final ListenerInstance winner = witness == current ? created : witness;
-        return type.cast(winner.className().equals(propVal) ? winner.listener() : created.listener());
+        final PropertyInstance created = new PropertyInstance(propVal, factory.apply(propVal));
+        final PropertyInstance witness = instance.compareAndExchange(current, created);
+        final PropertyInstance winner = witness == current ? created : witness;
+        return type.cast(winner.value().equals(propVal) ? winner.instance() : created.instance());
     }
 
     private static <T> T newObjInstance(final String propName, final String propVal, final Class<T> type) {

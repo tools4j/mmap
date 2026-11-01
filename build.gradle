@@ -245,7 +245,7 @@ subprojects {
         options.addBooleanOption('Xdoclint:all', true)
         options.addBooleanOption("Xdoclint/package:${basePackage}.api,${basePackage}.config", true)
         options.addStringOption('Xmaxwarns', '10000')
-        //fail on any doclint warning, i.e. on missing or broken documentation in the api and config packages
+        //fail on any doclint warning, i.e. on missing or broken documentation in the public packages
         options.addBooleanOption('Werror', true)
     }
 

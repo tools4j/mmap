@@ -26,8 +26,8 @@ package org.tools4j.mmap.queue.util;
 import java.io.File;
 import java.io.IOException;
 
-public class FileUtil {
-
+public enum FileUtil {
+    ;
     public static final File IO_TMPDIR = new File(System.getProperty("java.io.tmpdir"));
     public static final File SHARED_MEM_DIR = new File("/dev/shm");
 

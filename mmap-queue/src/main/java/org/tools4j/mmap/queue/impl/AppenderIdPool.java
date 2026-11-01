@@ -21,10 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.queue.impl;
 
 import org.agrona.CloseHelper;
-import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
@@ -32,6 +32,7 @@ import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.impl.AtomicIdBitSet;
 
 import java.io.File;
 
@@ -39,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 
 /**
- * A pool of up to 256 IDs based on a memory-mapped file.
+ * The pool of appender IDs of a queue, up to 256 IDs in a memory-mapped file.
  * <p>
  * The mapped file is used as a bit set with each bit representing an ID. The file content is updated atomically in a
  * thread (and process) safe manner when {@link #acquire() acquiring} or {@link #release(int) releasing} IDs.
@@ -47,36 +48,47 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
  * The file always has {@link #FILE_SIZE} bytes, independent of the max IDs of the pool. Pools with different max IDs
  * can therefore share the same file, each acquiring only IDs below its own max IDs, lowest available ID first.
  */
-public class IdPool256 implements IdPool, Describable {
+public final class AppenderIdPool implements Closeable, Describable {
 
     public static final int MAX_IDS = 1 << Byte.SIZE;
     public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
     private final Mapping mapping;
     private final LifecycleListener lifecycleListener;
-    private int acquiredWhenClosed;
-    private final int maxIds;
-    private final int lastWordIndex;
-    private final long lastWordMask;
+    private final AtomicIdBitSet ids;
+    private int acquiredWhenClosed;//only used for describe string after close
 
-    public IdPool256(final File file) {
+    /**
+     * Validates the max appenders of a queue, the max IDs acquired through its appender ID pool.
+     *
+     * @param maxAppenders the max appenders
+     * @throws IllegalArgumentException if max appenders is not in {@code [1, MAX_IDS]}
+     */
+    public static void validateMaxAppenders(final int maxAppenders) {
+        if (maxAppenders < 1 || maxAppenders > MAX_IDS) {
+            throw new IllegalArgumentException("Max appenders must be in [1, " + MAX_IDS + "] but was " +
+                    maxAppenders);
+        }
+    }
+
+    public AppenderIdPool(final File file) {
         this(file, MAX_IDS);
     }
 
-    public IdPool256(final File file, final int maxIds) {
+    public AppenderIdPool(final File file, final int maxIds) {
         this(file, maxIds, MappingConfigurations.defaultLifecycleListener(),
                 MappingConfigurations.defaultErrorListener());
     }
 
-    public IdPool256(final File file,
-                     final int maxIds,
-                     final LifecycleListener lifecycleListener,
-                     final ErrorListener errorListener) {
+    public AppenderIdPool(final File file,
+                          final int maxIds,
+                          final LifecycleListener lifecycleListener,
+                          final ErrorListener errorListener) {
         this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE, lifecycleListener,
                 errorListener), maxIds, lifecycleListener);
     }
 
-    public IdPool256(final String name, final Mapping mapping) {
+    public AppenderIdPool(final String name, final Mapping mapping) {
         this(name, mapping, MAX_IDS);
     }
 
@@ -88,7 +100,7 @@ public class IdPool256 implements IdPool, Describable {
      * @param mapping   the mapping of {@link #FILE_SIZE} bytes
      * @param maxIds    the max IDs of this pool, only IDs below this value are acquired
      */
-    public IdPool256(final String name, final Mapping mapping, final int maxIds) {
+    public AppenderIdPool(final String name, final Mapping mapping, final int maxIds) {
         this(name, mapping, maxIds, MappingConfigurations.defaultLifecycleListener());
     }
 
@@ -101,10 +113,10 @@ public class IdPool256 implements IdPool, Describable {
      * @param maxIds            the max IDs of this pool, only IDs below this value are acquired
      * @param lifecycleListener the listener notified when the pool is opened and closed
      */
-    public IdPool256(final String name,
-                     final Mapping mapping,
-                     final int maxIds,
-                     final LifecycleListener lifecycleListener) {
+    public AppenderIdPool(final String name,
+                          final Mapping mapping,
+                          final int maxIds,
+                          final LifecycleListener lifecycleListener) {
         this.mapping = requireNonNull(mapping);
         try {
             if (maxIds < 1 || maxIds > MAX_IDS) {
@@ -121,68 +133,46 @@ public class IdPool256 implements IdPool, Describable {
             CloseHelper.quietClose(mapping);
             throw t;
         }
-        this.maxIds = maxIds;
-        this.lastWordIndex = (maxIds - 1) / Long.SIZE * Long.BYTES;
-        final int lastWordIds = maxIds - lastWordIndex / Long.BYTES * Long.SIZE;
-        this.lastWordMask = -1L >>> (Long.SIZE - lastWordIds);
+        this.ids = new AtomicIdBitSet(mapping.buffer(), maxIds);
         lifecycleListener.onOpened(this);
     }
 
-    @Override
+    /**
+     * Acquires the lowest free ID below the max IDs of this pool.
+     *
+     * @return the acquired ID
+     * @throws IllegalStateException if no IDs are left in the pool or if the pool is closed
+     */
     public int acquire() {
         validateNotClosed(this);
-        final AtomicBuffer buf = mapping.buffer();
-
-        for (int index = 0; index <= lastWordIndex; index += Long.BYTES) {
-            final long idMask = index == lastWordIndex ? lastWordMask : -1L;
-            long idBitSet;
-            long idBit;
-            do {
-                idBitSet = buf.getLongAcquire(index);
-                idBit = Long.lowestOneBit(~idBitSet & idMask);
-            } while (idBit != 0 && !buf.compareAndSetLong(index, idBitSet, idBitSet | idBit));
-            if (idBit != 0) {
-                final int idBitValue = Long.SIZE - Long.numberOfLeadingZeros(idBit - 1);
-                return index / Long.BYTES * Long.SIZE + idBitValue;
-            }
+        final int id = ids.acquire();
+        if (id == AtomicIdBitSet.NO_ID) {
+            throw new IllegalStateException("Exceeded max number of " + ids.maxIds() + " IDs in pool: " + name);
         }
-        throw new IllegalStateException("Exceeded max number of " + maxIds + " IDs in pool: " + name);
+        return id;
     }
 
-    @Override
+    /**
+     * Releases the given ID.
+     *
+     * @param id the ID to release
+     * @return true if the ID was released, and false if it was not acquired
+     * @throws IllegalArgumentException if the ID is not below the max IDs of this pool
+     * @throws IllegalStateException if the pool is closed
+     */
     public boolean release(final int id) {
         validateNotClosed(this);
-        if (id < 0 || id >= maxIds) {
-            throw new IllegalArgumentException("Invalid ID: " + id);
-        }
-        final AtomicBuffer buf = mapping.buffer();
-        final int index = (id / Long.SIZE) * Long.BYTES;
-        final int bit = id % Long.SIZE;
-        final long mask = ~(1L << bit);
-
-        long curBitSet;
-        long newBitSet;
-        do {
-            curBitSet = buf.getLongAcquire(index);
-            newBitSet = curBitSet & mask;
-        } while (curBitSet != newBitSet && !buf.compareAndSetLong(index, curBitSet, newBitSet));
-        if (curBitSet != newBitSet) {
-            return true;
-        }
-        return false;
+        return ids.release(id);
     }
 
-    @Override
+    /**
+     * Returns the number of IDs currently acquired, including IDs acquired by pools with a larger max sharing the
+     * file.
+     *
+     * @return the IDs currently acquired, or zero if the pool is closed
+     */
     public int acquired() {
-        if (mapping.isClosed()) {
-            return 0;
-        }
-        final AtomicBuffer buffer = mapping.buffer();
-        int count = 0;
-        for (int index = 0; index < FILE_SIZE; index += Long.BYTES) {
-            count += Long.bitCount(buffer.getLongAcquire(index));
-        }
-        return count;
+        return mapping.isClosed() ? 0 : ids.acquired();
     }
 
     @Override
@@ -201,9 +191,9 @@ public class IdPool256 implements IdPool, Describable {
 
     @Override
     public StringBuilder describeTo(final StringBuilder sb) {
-        return sb.append("IdPool256")
+        return sb.append("AppenderIdPool")
                 .append(":name=").append(name)
-                .append("|maxIds=").append(maxIds)
+                .append("|maxIds=").append(ids.maxIds())
                 .append("|acquired=").append(isClosed() ? acquiredWhenClosed : acquired())
                 .append("|closed=").append(isClosed());
     }

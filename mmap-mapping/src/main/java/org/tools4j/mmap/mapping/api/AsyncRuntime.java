@@ -26,6 +26,8 @@ package org.tools4j.mmap.mapping.api;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 
+import java.util.concurrent.ThreadFactory;
+
 /**
  * Async runtime to perform recurring operations in the background, such as async mapping and unmapping operations.
  */
@@ -86,6 +88,29 @@ public interface AsyncRuntime extends Closeable {
                                final LifecycleListener lifecycleListener,
                                final ErrorListener errorListener) {
         return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister, lifecycleListener, errorListener);
+    }
+
+    /**
+     * Creates an async runtime backed by a thread created with the given thread factory, for instance a
+     * {@linkplain CpuPinning#threadFactory(String, boolean, int[]) pinned thread factory} to pin the runtime thread to
+     * a CPU. The runtime sets name, daemon flag and uncaught exception handler of the created thread.
+     *
+     * @param name                      the name for the runtime, also used as thread name
+     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
+     * @param threadFactory             the factory creating the runtime thread
+     * @param lifecycleListener         the listener notified when the runtime is started and stopped
+     * @param errorListener             the listener notified about errors thrown by registered tasks
+     * @return a new async runtime for the given idle strategy
+     */
+    static AsyncRuntime create(final String name,
+                               final IdleStrategy idleStrategy,
+                               final boolean autoStopOnLastDeregister,
+                               final ThreadFactory threadFactory,
+                               final LifecycleListener lifecycleListener,
+                               final ErrorListener errorListener) {
+        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister, threadFactory, lifecycleListener,
+                errorListener);
     }
 
     /**

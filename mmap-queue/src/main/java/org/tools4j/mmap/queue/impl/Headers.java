@@ -25,7 +25,6 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.impl.IdPool256;
 
 /**
  * Methods to encode and decode header values, and related methods.
@@ -54,7 +53,7 @@ enum Headers {
      */
     public static final int APPENDER_ID_BITS = Byte.SIZE;
     /**
-     * At most 256 appenders, whose IDs can for instance be managed by {@link IdPool256}
+     * At most 256 appenders, whose IDs can for instance be managed by {@link AppenderIdPool}
      */
     public static final int MAX_APPENDERS = 1 << APPENDER_ID_BITS;
     /**

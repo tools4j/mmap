@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.perf;
 
+import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 
 import java.io.File;
@@ -47,6 +48,8 @@ import java.util.stream.Collectors;
  * @param regionSize  the mmap region size, or zero for the system default
  * @param mapAhead    the mmap regions to map ahead by accessors with async mapping, or zero for the system default
  * @param readBack    true to measure reading back the mmap queue with entry reader, iterator and index reader
+ * @param pinCpus     the CPUs to pin threads to, assigned in order to senders, receivers and then mmap mapping
+ *                    runtime threads, or null to not pin threads
  */
 public record PerfOptions(QueueType queue,
                           long messages,
@@ -61,13 +64,17 @@ public record PerfOptions(QueueType queue,
                           MappingStrategy strategy,
                           int regionSize,
                           int mapAhead,
-                          boolean readBack) {
+                          boolean readBack,
+                          int[] pinCpus) {
 
     /** The queue implementations */
     public enum QueueType {
         MMAP,
         CHRONICLE
     }
+
+    /** CPU list used by {@code --pin} without CPUs: from CPU 2 up to the highest online CPU */
+    public static final String DEFAULT_PIN_CPUS = "2-";
 
     public static final String USAGE = """
             Usage: mmap-perf [options]
@@ -85,6 +92,9 @@ public record PerfOptions(QueueType queue,
               --dir <path>               parent of the temporary queue directory, e.g. /dev/shm (default: java.io.tmpdir)
               --keep                     keep the queue files after the run
               --timeout <seconds>        max time to wait for senders and receivers (default: 300)
+              --pin [<cpus>]             pin threads to CPUs, one CPU per thread, assigned in order to senders,
+                                         receivers and then mmap mapping runtime threads; cpus is a CPU list such
+                                         as 2-7 or 2,4,6,8 (default: %s, unpinned without --pin)
               --help                     print this help
 
             mmap only (other settings via -Dmmap.queue.* and -Dmmap.mapping.* system properties):
@@ -94,7 +104,7 @@ public record PerfOptions(QueueType queue,
               --map-ahead <n>            regions to map ahead by accessors with async mapping, the ahead-mapping
                                          cache size is raised to fit (default: system default)
               --read-back                also measure reading back by index, iterating and checking indices
-            """.formatted(MessageCodec.MIN_MESSAGE_LENGTH, Arrays.stream(MappingStrategy.values())
+            """.formatted(MessageCodec.MIN_MESSAGE_LENGTH, DEFAULT_PIN_CPUS, Arrays.stream(MappingStrategy.values())
                     .map(Enum::name).collect(Collectors.joining(", ")));
 
     /**
@@ -119,6 +129,7 @@ public record PerfOptions(QueueType queue,
         int regionSize = 0;
         int mapAhead = 0;
         boolean readBack = false;
+        int[] pinCpus = null;
         for (int i = 0; i < args.length; i++) {
             final String option = args[i];
             switch (option) {
@@ -127,6 +138,11 @@ public record PerfOptions(QueueType queue,
                 }
                 case "--keep" -> keep = true;
                 case "--read-back" -> readBack = true;
+                case "--pin" -> {
+                    //the CPU list is optional
+                    final boolean hasCpus = i + 1 < args.length && !args[i + 1].startsWith("--");
+                    pinCpus = cpus(option, hasCpus ? args[++i] : DEFAULT_PIN_CPUS);
+                }
                 default -> {
                     if (i + 1 >= args.length) {
                         throw new IllegalArgumentException("Missing value for option: " + option);
@@ -151,7 +167,7 @@ public record PerfOptions(QueueType queue,
             }
         }
         return new PerfOptions(queue, messages, warmup, rate, length, senders, receivers, dir, keep, timeout,
-                strategy, regionSize, mapAhead, readBack).validate();
+                strategy, regionSize, mapAhead, readBack, pinCpus).validate();
     }
 
     private PerfOptions validate() {
@@ -173,6 +189,15 @@ public record PerfOptions(QueueType queue,
                 "--map-ahead requires a strategy with async mapping, e.g. " + MappingStrategy.AsyncMapAheadStrategy);
         check(!readBack || senders == 1, "--read-back requires --senders 1");
         return this;
+    }
+
+    private static int[] cpus(final String option, final String value) {
+        try {
+            return CpuLists.parse(value);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid CPU list for " + option + ": " + value + " (" +
+                    e.getMessage() + ")");
+        }
     }
 
     private static void check(final boolean condition, final String message) {

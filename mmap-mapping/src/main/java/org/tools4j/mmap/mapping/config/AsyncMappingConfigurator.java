@@ -27,13 +27,16 @@ import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.impl.AsyncMappingConfiguratorImpl;
 
+import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
 
 /**
  * Configurator to build an {@link AsyncMappingConfig} for asynchronous ahead-mapping.
  * <p>
  * The {@code mappingRuntime..(..)} methods are alternative ways to define the
- * {@linkplain #mappingRuntimeSupplier() runtime supplier}; the last one invoked takes effect.
+ * {@linkplain #mappingRuntimeSupplier() runtime supplier}; the last one invoked takes effect. The exception are the
+ * {@code mappingRuntimeUsing(..)} methods, which combine: the idle strategy and the thread factory of new runtimes can
+ * be set independently, each defaulting to the system default if not set.
  */
 public interface AsyncMappingConfigurator extends AsyncMappingConfig {
     /**
@@ -86,7 +89,8 @@ public interface AsyncMappingConfigurator extends AsyncMappingConfig {
 
     /**
      * Configures a new runtime for every region mapper created with this configuration, all of them using the given
-     * idle strategy instance. The runtimes stop automatically when their last region mapper is closed.
+     * idle strategy instance. The runtimes stop automatically when their last region mapper is closed. Combine with
+     * {@link #mappingRuntimeUsing(ThreadFactory)} to also set the thread factory.
      * <p>
      * Note that the same idle strategy instance is used by all runtimes; use
      * {@link #mappingRuntimeUsing(Supplier)} instead for idle strategies that hold state.
@@ -99,11 +103,24 @@ public interface AsyncMappingConfigurator extends AsyncMappingConfig {
     /**
      * Configures a new runtime for every region mapper created with this configuration, each with an idle strategy
      * obtained from the given supplier. The runtimes stop automatically when their last region mapper is closed.
+     * Combine with {@link #mappingRuntimeUsing(ThreadFactory)} to also set the thread factory.
      *
      * @param idleStrategy the supplier of an idle strategy for every new runtime
      * @return this configurator for method chaining
      */
     AsyncMappingConfigurator mappingRuntimeUsing(Supplier<? extends IdleStrategy> idleStrategy);
+
+    /**
+     * Configures a new runtime for every region mapper created with this configuration, each with a thread created by
+     * the given thread factory, for instance a {@linkplain org.tools4j.mmap.mapping.api.CpuPinning#threadFactory(String, boolean, int[])
+     * pinned thread factory} to pin runtime threads to CPUs. The runtimes stop automatically when their last region
+     * mapper is closed. Combine with {@link #mappingRuntimeUsing(Supplier)} to also set the idle strategy, for
+     * instance {@code mappingRuntimeUsing(idleStrategySupplier).mappingRuntimeUsing(threadFactory)}.
+     *
+     * @param threadFactory the factory creating the thread of every new runtime
+     * @return this configurator for method chaining
+     */
+    AsyncMappingConfigurator mappingRuntimeUsing(ThreadFactory threadFactory);
 
     /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this configurator

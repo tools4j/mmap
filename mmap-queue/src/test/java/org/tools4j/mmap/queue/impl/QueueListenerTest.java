@@ -107,10 +107,10 @@ class QueueListenerTest {
         }
 
         assertThat(events).containsSubsequence(
-                "Opened IdPool256", "Opened QueueImpl",
+                "Opened AppenderIdPool", "Opened QueueImpl",
                 "Opened AppenderImpl", "Closed AppenderImpl",
                 "Opened PollerImpl", "Closed PollerImpl",
-                "Closed IdPool256", "Closed QueueImpl");
+                "Closed AppenderIdPool", "Closed QueueImpl");
         assertThat(count("Error PollerImpl: Unexpected exception thrown by entry handler: handler failure"))
                 .as("every error is reported to the listener").isEqualTo(3);
         assertThat(count("Opened ReadOnlyFileMapper")).isEqualTo(count("Closed ReadOnlyFileMapper")).isPositive();

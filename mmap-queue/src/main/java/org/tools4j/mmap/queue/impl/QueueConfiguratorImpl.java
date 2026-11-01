@@ -41,7 +41,7 @@ import org.tools4j.mmap.queue.config.ReaderConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxAppenders;
+import static org.tools4j.mmap.queue.impl.AppenderIdPool.validateMaxAppenders;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
 import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;

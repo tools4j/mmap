@@ -224,6 +224,7 @@ the latency percentiles of each receiver are printed after the first million (wa
 | `--senders <n>`                 | sender threads                                               | `1`                |
 | `--receivers <n>`               | receiver threads, each receiving all messages                | `2`                |
 | `--dir <path>`                  | parent directory of the temporary queue files                | `java.io.tmpdir`   |
+| `--pin [<cpus>]`                | pin senders, receivers, then mapper threads to CPUs, one each | unpinned; `2-`    |
 | `--strategy <name>`             | mmap mapping strategy, e.g. `AsyncMapAheadStrategy`          | per accessor kind  |
 | `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `2`                |
 | `--read-back`                   | mmap only: also measure reading back by index and iterating  | off                |
@@ -235,6 +236,11 @@ Notes:
 * The Chronicle Queue version used (5.21) runs on Java 17 only; use Java 17 when comparing the two queues.
 * Results depend heavily on the machine: for stable numbers use a quiet machine (or isolated cores), a fast local disk
   or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
+* `--pin` assigns one CPU per thread from the given CPU list (e.g. `2-7` or `2,4,6,8`; without a list from CPU 2 up to
+  the highest online CPU, leaving CPUs 0 and 1 to the OS and other processes), first to the senders, then to the
+  receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux (x86_64 and
+  aarch64) only; elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
+  latencies.
 
 ### Maven/Gradle
 

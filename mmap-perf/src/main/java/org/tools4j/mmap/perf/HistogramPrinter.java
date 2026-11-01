@@ -28,12 +28,9 @@ import org.HdrHistogram.Histogram;
 /**
  * Prints histogram percentiles in microseconds for values recorded in nanoseconds.
  */
-public final class HistogramPrinter {
+public enum HistogramPrinter {
+    ;
     private static final double[] PERCENTILES = {50, 90, 99, 99.9, 99.99, 99.999};
-
-    private HistogramPrinter() {
-        throw new IllegalStateException("No HistogramPrinter for you");
-    }
 
     public static void printHistogram(final String name, final Histogram histogram) {
         final StringBuilder sb = new StringBuilder(256);

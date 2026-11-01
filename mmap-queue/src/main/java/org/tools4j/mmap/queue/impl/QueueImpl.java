@@ -30,8 +30,6 @@ import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.impl.IdPool;
-import org.tools4j.mmap.mapping.impl.IdPool256;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -70,7 +68,7 @@ public final class QueueImpl implements Queue, Describable {
     private final Factory<IndexReaderConfig, IndexReader> indexReaderFactory;
     private final Factory<AppenderConfig, Appender> appenderFactory;
     /** ID pool of appenders, null in read-only mode; closed last, after appenders have released their IDs */
-    private final IdPool idPool;
+    private final AppenderIdPool idPool;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final java.util.Queue<Registration> registrations = new ConcurrentLinkedQueue<>();
 
@@ -115,7 +113,7 @@ public final class QueueImpl implements Queue, Describable {
             };
         } else {
             final QueueConfig writerConfig = effectiveConfig.get();
-            final IdPool pool = new IdPool256(files.idPoolFile(), writerConfig.maxAppenders(), lifecycleListener,
+            final AppenderIdPool pool = new AppenderIdPool(files.idPoolFile(), writerConfig.maxAppenders(), lifecycleListener,
                     errorListener);
             this.idPool = pool;
             this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(

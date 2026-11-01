@@ -29,7 +29,6 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
-import org.tools4j.mmap.mapping.impl.IdPool;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
@@ -77,7 +76,7 @@ interface AppenderMappings extends Closeable {
      * @return a new appender mappings instance
      */
     static AppenderMappings create(final QueueFiles queueFiles,
-                                   final IdPool idPool,
+                                   final AppenderIdPool idPool,
                                    final QueueConfig queueConfig,
                                    final AppenderConfig appenderConfig) {
         requireNonNull(queueFiles);

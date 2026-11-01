@@ -73,7 +73,8 @@ interface LogTarget {
     }
 }
 
-final class LogTargets {
+enum LogTargets {
+    ;
     static final ThreadLocal<StringBuilder> BUILDER = ThreadLocal.withInitial(() -> new StringBuilder(256));
     static final ClassValue<LogTarget> TARGETS = new ClassValue<>() {
         @Override
@@ -82,10 +83,6 @@ final class LogTargets {
         }
     };
     private static final boolean SLF4J_PRESENT = isSlf4jPresent();
-
-    private LogTargets() {
-        throw new IllegalStateException("No LogTargets for you");
-    }
 
     private static boolean isSlf4jPresent() {
         try {

@@ -31,6 +31,7 @@ import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.util.Arrays;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
@@ -38,10 +39,12 @@ import static java.util.Objects.requireNonNull;
 
 public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
     private static final Recurring[] EMPTY = {};
+    public static final ThreadFactory DEFAULT_THREAD_FACTORY = Thread::new;
 
     private final String name;
     private final String idleStrategyAlias;
     private final boolean autoStopOnLastDeregister;
+    private final ThreadFactory threadFactory;
     private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
 
     private enum StopStatus {
@@ -63,12 +66,22 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
                             final boolean autoStopOnLastDeregister,
                             final LifecycleListener lifecycleListener,
                             final ErrorListener errorListener) {
+        this(name, idleStrategy, autoStopOnLastDeregister, DEFAULT_THREAD_FACTORY, lifecycleListener, errorListener);
+    }
+
+    public AsyncRuntimeImpl(final String name,
+                            final IdleStrategy idleStrategy,
+                            final boolean autoStopOnLastDeregister,
+                            final ThreadFactory threadFactory,
+                            final LifecycleListener lifecycleListener,
+                            final ErrorListener errorListener) {
         this.name = requireNonNull(name);
+        this.threadFactory = requireNonNull(threadFactory);
         this.idleStrategyAlias = idleStrategy.alias();
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(lifecycleListener);
         requireNonNull(errorListener);
-        final Thread thread = new Thread(() -> {
+        final Thread thread = threadFactory.newThread(() -> {
             lifecycleListener.onOpened(this);
             idleStrategy.reset();
             StopStatus stopSignal;
@@ -159,10 +172,13 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
     @Override
     public StringBuilder describeTo(final StringBuilder sb) {
         final StopStatus stopStatus = stop.get();
-        return sb.append("AsyncRuntimeImpl")
+        sb.append("AsyncRuntimeImpl")
                 .append(":thread=").append(name)
-                .append("|idleStrategy=").append(idleStrategyAlias)
-                .append("|status=").append(stopStatus == null ? "running" :
+                .append("|idleStrategy=").append(idleStrategyAlias);
+        if (threadFactory != DEFAULT_THREAD_FACTORY) {
+            sb.append("|threadFactory=").append(threadFactory);
+        }
+        return sb.append("|status=").append(stopStatus == null ? "running" :
                         stopStatus == StopStatus.STOPPED ? "stopped" : "stopping");
     }
 

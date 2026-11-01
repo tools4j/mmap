@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.queue.impl;
 
 import org.agrona.LangUtil;
 import org.junit.jupiter.api.Test;
@@ -47,25 +47,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for {@link IdPool}, {@link IdPool64} and {@link IdPool256}
+ * Unit test for {@link AppenderIdPool}.
  */
 class IdPoolTest {
 
     private static final long TIMEOUT_MILLIS = 3_000;
 
     enum PoolFactory {
-        IdPool64(64, IdPool64::new),
-        IdPool256(256, IdPool256::new),
-        IdPool256Max100(100, file -> new IdPool256(file, 100));
+        AppenderIdPool(256, AppenderIdPool::new),
+        AppenderIdPoolMax100(100, file -> new AppenderIdPool(file, 100));
         final int maxIds;
-        private final Function<File, IdPool> factoryMethod;
+        private final Function<File, AppenderIdPool> factoryMethod;
 
-        PoolFactory(final int maxIds, final Function<File, IdPool> factoryMethod) {
+        PoolFactory(final int maxIds, final Function<File, AppenderIdPool> factoryMethod) {
             this.maxIds = maxIds;
             this.factoryMethod = requireNonNull(factoryMethod);
         }
 
-        IdPool createPool(final File idIdFile) {
+        AppenderIdPool createPool(final File idIdFile) {
             return factoryMethod.apply(idIdFile);
         }
     }
@@ -75,7 +74,7 @@ class IdPoolTest {
     void acquireAndReleaseAll(final PoolFactory poolFactory) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
         final int min = 0;
         final int cnt = poolFactory.maxIds;
 
@@ -139,10 +138,10 @@ class IdPoolTest {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        try (final IdPool single = new IdPool256(file, 1);
-             final IdPool all = new IdPool256(file)) {
+        try (final AppenderIdPool single = new AppenderIdPool(file, 1);
+             final AppenderIdPool all = new AppenderIdPool(file)) {
             //then
-            assertEquals(IdPool256.FILE_SIZE, file.length());
+            assertEquals(AppenderIdPool.FILE_SIZE, file.length());
 
             //when + then
             assertEquals(0, single.acquire());
@@ -163,8 +162,8 @@ class IdPoolTest {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        try (final IdPool limited = new IdPool256(file, maxIds);
-             final IdPool all = new IdPool256(file)) {
+        try (final AppenderIdPool limited = new AppenderIdPool(file, maxIds);
+             final AppenderIdPool all = new AppenderIdPool(file)) {
             //when + then
             for (int id = 0; id < maxIds; id++) {
                 assertEquals(id, limited.acquire());
@@ -173,7 +172,7 @@ class IdPoolTest {
             assertThrows(IllegalArgumentException.class, () -> limited.release(maxIds));
 
             //then: IDs from maxIds upwards remain available
-            for (int id = maxIds; id < IdPool256.MAX_IDS; id++) {
+            for (int id = maxIds; id < AppenderIdPool.MAX_IDS; id++) {
                 assertEquals(id, all.acquire());
             }
             assertThrows(IllegalStateException.class, all::acquire);
@@ -188,8 +187,8 @@ class IdPoolTest {
     void releasingIdNotAcquiredReturnsFalseAndCloseIsIdempotent() throws Exception {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        final IdPool pool = new IdPool256(file.getPath(),
-                Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE));
+        final AppenderIdPool pool = new AppenderIdPool(file.getPath(),
+                Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE));
         assertFalse(pool.release(70));
         assertEquals(0, pool.acquire());
         assertTrue(pool.release(0));
@@ -204,30 +203,33 @@ class IdPoolTest {
     void mappingOfWrongSizeIsRejected() throws Exception {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool64.FILE_SIZE)) {
-            assertThrows(IllegalArgumentException.class, () -> new IdPool256(file.getPath(), mapping));
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, Long.BYTES)) {
+            assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file.getPath(), mapping));
             assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
         }
-        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE)) {
-            assertThrows(IllegalArgumentException.class, () -> new IdPool64(file.getPath(), mapping));
-            assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
+        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE);
+        assertThrows(NullPointerException.class, () -> new AppenderIdPool(null, mapping));
+        assertTrue(mapping.isClosed(), "owned mapping must be closed if name is null");
+    }
+
+    @Test
+    void validateMaxAppenders() {
+        for (final int maxAppenders : new int[]{1, 2, 64, 100, 256}) {
+            AppenderIdPool.validateMaxAppenders(maxAppenders);
         }
-        final Mapping mapping64 = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool64.FILE_SIZE);
-        assertThrows(NullPointerException.class, () -> new IdPool64(null, mapping64));
-        assertTrue(mapping64.isClosed(), "owned mapping must be closed if name is null");
-        final Mapping mapping256 = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE);
-        assertThrows(NullPointerException.class, () -> new IdPool256(null, mapping256));
-        assertTrue(mapping256.isClosed(), "owned mapping must be closed if name is null");
+        for (final int maxAppenders : new int[]{-1, 0, 257, 512}) {
+            assertThrows(IllegalArgumentException.class, () -> AppenderIdPool.validateMaxAppenders(maxAppenders));
+        }
     }
 
     @Test
     void invalidMaxIds() throws Exception {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        assertThrows(IllegalArgumentException.class, () -> new IdPool256(file, 0));
-        assertThrows(IllegalArgumentException.class, () -> new IdPool256(file, IdPool256.MAX_IDS + 1));
-        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, IdPool256.FILE_SIZE);
-        assertThrows(IllegalArgumentException.class, () -> new IdPool256(file.getPath(), mapping, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file, AppenderIdPool.MAX_IDS + 1));
+        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE);
+        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file.getPath(), mapping, 0));
         assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
     }
 
@@ -237,7 +239,7 @@ class IdPoolTest {
                                    final long maxWaitMillis) throws Exception {
         //given
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
-        final IdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
+        final AppenderIdPool pool = poolFactory.createPool(new File(tmpDir.toFile(), "test.ids"));
         final BitSet acquired = new BitSet();
         final BitSet released = new BitSet();
         final CountDownLatch latch = new CountDownLatch(threadCount);
@@ -267,7 +269,7 @@ class IdPoolTest {
     private Thread[] initThreads(final int count,
                                  final int repeat,
                                  final long maxWaitMillis,
-                                 final IdPool pool,
+                                 final AppenderIdPool pool,
                                  final BitSet acquired,
                                  final BitSet released,
                                  final CountDownLatch latch) {

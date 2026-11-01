@@ -23,43 +23,39 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.tools4j.mmap.mapping.api.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
- * A pool of IDs that can be acquired and released atomically.
+ * The online CPUs, read from Linux sysfs.
  */
-public interface IdPool extends Closeable {
-    /**
-     * Acquire a new ID
-     * @return the acquired ID
-     * @throws IllegalStateException if no IDs are left in the pool or if the pool is closed
-     */
-    int acquire();
+public enum SystemCpus {
+    ;
+    private static final Path ONLINE = Paths.get("/sys/devices/system/cpu/online");
+
+    /** @return the highest online CPU, or the number of available processors minus one if unknown */
+    public static int maxOnlineCpu() {
+        try {
+            if (Files.isReadable(ONLINE)) {
+                return lastCpu(Files.readString(ONLINE, StandardCharsets.US_ASCII));
+            }
+        } catch (final IOException | RuntimeException e) {
+            //fall through
+        }
+        return Runtime.getRuntime().availableProcessors() - 1;
+    }
 
     /**
-     * Release the given ID
-     * @param id the ID to release
-     * @return true if the ID was released
-     * @throws IllegalArgumentException if the ID is invalid for the range supported by this pool
-     * @throws IllegalStateException if the pool is closed
+     * @param cpuList a CPU list in Linux cpulist format, e.g. {@code 0-3,8,10-11}
+     * @return the last CPU of the list
+     * @throws NumberFormatException if the last CPU is not a number
      */
-    boolean release(int id);
-
-    /**
-     * Returns the number of IDs currently acquired, or zero if this pool is closed.
-     * @return the IDs currently acquired, or zero if the pool is closed
-     */
-    int acquired();
-
-    /**
-     * Returns true if this ID pool is closed.
-     * @return true if the pool is closed.
-     */
-    boolean isClosed();
-
-    /**
-     * Closes the ID pool (no-op if already closed)
-     */
-    @Override
-    void close();
+    public static int lastCpu(final String cpuList) {
+        final String trimmed = cpuList.trim();
+        final int separator = Math.max(trimmed.lastIndexOf(','), trimmed.lastIndexOf('-'));
+        return Integer.parseInt(trimmed.substring(separator + 1).trim());
+    }
 }

@@ -30,7 +30,6 @@ import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfigurator;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -44,7 +43,6 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     private final AsyncUnmappingConfig defaults;
     private int unmappingCacheSize;
     private Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier;
-    private static final AtomicInteger unmapperCounter = new AtomicInteger();
 
     public AsyncUnmappingConfiguratorImpl() {
         this(ASYNC_UNMAPPING_CONFIG_DEFAULTS);
@@ -119,8 +117,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     @Override
     public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
         requireNonNull(idleStrategy);
-        return unmappingRuntimeSupplier(() -> AsyncRuntime.create(
-                "unmapper-" + unmapperCounter.incrementAndGet(), idleStrategy.get(), true));
+        return unmappingRuntimeSupplier(() -> AsyncRuntimeInstances.newUnmappingRuntime(idleStrategy.get()));
     }
 
     @Override

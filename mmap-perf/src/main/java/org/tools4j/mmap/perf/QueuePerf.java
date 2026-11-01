@@ -24,7 +24,10 @@
 package org.tools4j.mmap.perf;
 
 import org.agrona.BitUtil;
+import org.tools4j.mmap.mapping.api.CpuPinning;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
+import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.perf.PerfOptions.QueueType;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
@@ -45,13 +48,9 @@ import java.util.stream.Stream;
  * Chronicle Queue using the same harness. See {@link PerfOptions#USAGE} or run with {@code --help}.
  */
 @SuppressWarnings("JavaPrintToLogpoint")
-public final class QueuePerf {
-
+public enum QueuePerf {
+    ;
     private static final String SLF4J_LOG_LEVEL_PROPERTY = "org.slf4j.simpleLogger.defaultLogLevel";
-
-    private QueuePerf() {
-        throw new IllegalStateException("No QueuePerf for you");
-    }
 
     public static void main(final String... args) throws Throwable {
         //unless set on the command line, e.g. when started with java -jar
@@ -82,19 +81,38 @@ public final class QueuePerf {
      * @throws Throwable if a sender or receiver failed, or did not complete in time
      */
     public static void run(final PerfOptions options) throws Throwable {
+        final PinnedCpus cpus = PinnedCpus.assign(options);
+        final String mapperCpusProperty = System.getProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
+        if (cpus.mapper().length > 0) {
+            //read when mapping runtimes are created; the shared runtime is pinned only if not created before
+            System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, CpuLists.format(cpus.mapper()));
+        }
+        try {
+            run(options, cpus);
+        } finally {
+            if (mapperCpusProperty == null) {
+                System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
+            } else {
+                System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, mapperCpusProperty);
+            }
+        }
+    }
+
+    private static void run(final PerfOptions options, final PinnedCpus cpus) throws Throwable {
         final Path dir = Files.createTempDirectory(options.dir().toPath(), "mmap-perf-");
         try {
             try (final PerfQueue queue = open(options, dir.toFile())) {
-                printSettings(options, queue, dir);
-                final ThreadFactory threadFactory = Thread::new;
+                printSettings(options, cpus, queue, dir);
+                final ThreadFactory receiverThreads = threadFactory("receiver", cpus.receivers());
+                final ThreadFactory senderThreads = threadFactory("sender", cpus.senders());
                 final List<Receiver> receivers = new ArrayList<>();
                 final List<Sender> senders = new ArrayList<>();
                 for (int i = 0; i < options.receivers(); i++) {
-                    receivers.add(new Receiver(i, threadFactory, queue, options.warmup() * options.senders(),
+                    receivers.add(new Receiver(i, receiverThreads, queue, options.warmup() * options.senders(),
                             options.messages() * options.senders(), options.length()));
                 }
                 for (int i = 0; i < options.senders(); i++) {
-                    senders.add(new Sender(i, threadFactory, queue, options.rate(), options.messages(),
+                    senders.add(new Sender(i, senderThreads, queue, options.rate(), options.messages(),
                             options.length()));
                 }
                 receivers.forEach(receiver -> receiver.worker().start());
@@ -123,6 +141,10 @@ public final class QueuePerf {
         }
     }
 
+    private static ThreadFactory threadFactory(final String namePrefix, final int[] cpus) {
+        return cpus.length == 0 ? Thread::new : CpuPinning.threadFactory(namePrefix, true, cpus);
+    }
+
     private static PerfQueue open(final PerfOptions options, final File dir) {
         if (options.queue() == QueueType.CHRONICLE) {
             return new ChroniclePerfQueue(dir);
@@ -148,7 +170,10 @@ public final class QueuePerf {
         ));
     }
 
-    private static void printSettings(final PerfOptions options, final PerfQueue queue, final Path dir) {
+    private static void printSettings(final PerfOptions options,
+                                      final PinnedCpus cpus,
+                                      final PerfQueue queue,
+                                      final Path dir) {
         final StringBuilder sb = new StringBuilder(1024);
         sb.append("Settings:\n");
         queue.describeSettings(sb);
@@ -160,9 +185,20 @@ public final class QueuePerf {
         sb.append("rate per sender       : ").append(options.rate() == 0 ? "max" : options.rate() + " msg/s")
                 .append('\n');
         sb.append("message length        : ").append(options.length()).append(" bytes\n");
+        if (options.pinCpus() != null) {
+            sb.append("pinned cpus           : senders=").append(cpuList(cpus.senders()))
+                    .append(", receivers=").append(cpuList(cpus.receivers()))
+                    .append(", mapper=").append(cpuList(cpus.mapper()))
+                    .append(CpuPinning.isSupported() ? "" : " (pinning not supported on this platform)")
+                    .append('\n');
+        }
         sb.append("java                  : ").append(System.getProperty("java.vm.name")).append(' ')
                 .append(System.getProperty("java.runtime.version")).append('\n');
         System.out.println(sb.toString().replace("\n", "\n\t").replaceFirst("\t$", ""));
+    }
+
+    private static String cpuList(final int[] cpus) {
+        return cpus.length == 0 ? "unpinned" : CpuLists.format(cpus);
     }
 
     private static void deleteRecursively(final Path dir) throws IOException {

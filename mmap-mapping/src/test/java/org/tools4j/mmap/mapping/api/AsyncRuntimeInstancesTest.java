@@ -27,10 +27,15 @@ import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -153,6 +158,42 @@ class AsyncRuntimeInstancesTest {
         thread.start();
         thread.join();
         return runtimes;
+    }
+
+    @Test
+    void newMappingRuntimeCreatesThreadWithThreadFactory() throws InterruptedException {
+        //given
+        final Queue<Thread> threads = new ConcurrentLinkedQueue<>();
+        final ThreadFactory threadFactory = new ThreadFactory() {
+            @Override
+            public Thread newThread(final Runnable runnable) {
+                final Thread thread = new Thread(runnable);
+                threads.add(thread);
+                return thread;
+            }
+
+            @Override
+            public String toString() {
+                return "RecordingThreadFactory";
+            }
+        };
+
+        //when
+        final AsyncRuntime runtime = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), false,
+                threadFactory);
+
+        //then
+        try {
+            assertEquals(1, threads.size());
+            final Thread thread = threads.peek();
+            assertNotNull(thread);
+            assertTrue(thread.getName().startsWith("mapper-"), thread.getName());
+            assertTrue(thread.isDaemon());
+            assertTrue(runtime.toString().contains("threadFactory=RecordingThreadFactory"), runtime.toString());
+        } finally {
+            runtime.stop(true);
+            awaitStopped(runtime);
+        }
     }
 
     private static void awaitStopped(final AsyncRuntime runtime) throws InterruptedException {
