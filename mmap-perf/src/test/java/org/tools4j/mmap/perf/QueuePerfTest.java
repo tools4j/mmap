@@ -48,6 +48,7 @@ public class QueuePerfTest {
             "--queue mmap --senders 2 --receivers 2",
             "--queue mmap --strategy SyncMappingStrategy --region-size 64k --read-back",
             "--queue mmap --strategy AsyncMapAheadStrategy --rate 0 --read-back",
+            "--queue mmap --senders 3 --receivers 1 --read-back",
             "--queue mmap --map-ahead 5 --region-size 64k",
             "--queue mmap --senders 2 --pin 0-3",
             "--queue mmap --pin --receivers 1",

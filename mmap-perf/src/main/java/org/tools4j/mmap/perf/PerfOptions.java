@@ -187,7 +187,6 @@ public record PerfOptions(QueueType queue,
         }
         check(mapAhead == 0 || strategy == null || strategy.mappingStrategyConfig().asyncMapping().isPresent(),
                 "--map-ahead requires a strategy with async mapping, e.g. " + MappingStrategy.AsyncMapAheadStrategy);
-        check(!readBack || senders == 1, "--read-back requires --senders 1");
         return this;
     }
 

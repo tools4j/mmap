@@ -128,8 +128,8 @@ public enum QueuePerf {
                 senders.forEach(Sender::printResult);
                 receivers.forEach(Receiver::printHistogram);
                 if (options.readBack()) {
-                    new ReadBackPerf(((MmapPerfQueue) queue).queue(), options.messages(), options.warmup(),
-                            options.length()).run();
+                    new ReadBackPerf(((MmapPerfQueue) queue).queue(), options.messages() * options.senders(),
+                            options.warmup() * options.senders(), options.length()).run();
                 }
             }
         } finally {

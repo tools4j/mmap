@@ -35,7 +35,7 @@ import org.tools4j.mmap.queue.api.ReadingContext;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Measures reading back a queue written by a single sender: checking indices with an {@link IndexReader}, reading by
+ * Measures reading back a queue after all senders completed: checking indices with an {@link IndexReader}, reading by
  * index with an {@link EntryReader}, and iterating forward and backward with an {@link EntryIterator}. The first
  * {@code warmup} reads are not recorded.
  */
@@ -48,6 +48,12 @@ final class ReadBackPerf {
     private final MessageCodec codec;
     private final byte[] payload;
 
+    /**
+     * @param queue         the queue to read back
+     * @param messages      the messages in the queue, of all senders
+     * @param warmup        the reads of each measurement not recorded
+     * @param messageLength the message length in bytes
+     */
     ReadBackPerf(final Queue queue, final long messages, final long warmup, final int messageLength) {
         this.queue = queue;
         this.messages = messages;
