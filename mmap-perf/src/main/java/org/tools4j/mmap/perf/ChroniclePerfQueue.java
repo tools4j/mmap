@@ -24,6 +24,7 @@
 package org.tools4j.mmap.perf;
 
 import net.openhft.chronicle.bytes.Bytes;
+import net.openhft.chronicle.core.io.BackgroundResourceReleaser;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
@@ -72,6 +73,8 @@ public final class ChroniclePerfQueue implements PerfQueue {
     @Override
     public void close() {
         queue.close();
+        //mapped files are released asynchronously; wait for it so that the queue files can be deleted on Windows
+        BackgroundResourceReleaser.releasePendingResources();
     }
 
     private static final class ChronicleWriter implements Writer {
