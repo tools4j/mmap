@@ -93,17 +93,24 @@ allprojects {
     }
 }
 
-subprojects {
+//the library modules, published to maven central; mmap-perf is a command line application that is not published
+def libraryProjects = subprojects.findAll { it.name != 'mmap-perf' }
+
+configure(libraryProjects) {
     apply plugin: 'java-library'
-    apply plugin: 'com.diffplug.spotless'
     apply plugin: 'com.vanniktech.maven.publish'
     apply plugin: 'signing'
     apply plugin: 'biz.aQute.bnd.builder'
-    apply plugin: 'jacoco'
 
     signing {
         useGpgCmd()
     }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'com.diffplug.spotless'
+    apply plugin: 'jacoco'
 
     dependencies {
         testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
@@ -298,10 +305,7 @@ project(':mmap-queue') {
         api project(':mmap-mapping')
 
         testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
-
-        testImplementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
-        testImplementation "net.openhft:chronicle-queue:${chronicleVersion}"
     }
 
     jar {
@@ -330,6 +334,52 @@ project(':mmap-queue') {
     }
 }
 
+project(':mmap-perf') {
+    apply plugin: 'application'
+
+    //JVM args for the mmap and chronicle queues, see https://chronicle.software/chronicle-support-java-17/
+    def perfJvmArgs = [
+            '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn',
+            '--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.util.zip=ALL-UNNAMED',
+            '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED',
+            '--add-opens', 'jdk.compiler/com.sun.tools.javac=ALL-UNNAMED',
+            '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
+            '--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED',
+            '--add-exports', 'jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED'
+    ]
+
+    dependencies {
+        implementation project(':mmap-queue')
+        implementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
+        implementation "net.openhft:chronicle-queue:${chronicleVersion}"
+        runtimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    }
+
+    application {
+        mainClass = 'org.tools4j.mmap.perf.QueuePerf'
+        applicationDefaultJvmArgs = perfJvmArgs
+    }
+
+    tasks.withType(Test).configureEach {
+        jvmArgs(perfJvmArgs)
+    }
+
+    //run with: ./gradlew :mmap-perf:run --args='--help'
+    tasks.named('run') {
+        enableAssertions = false
+    }
+
+    javadoc.enabled = false
+}
 
 tasks.register('testReport', TestReport) {
     destinationDirectory = file("${rootDir}/reports/allTests")

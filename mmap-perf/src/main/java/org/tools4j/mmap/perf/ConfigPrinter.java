@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.util;
+package org.tools4j.mmap.perf;
 
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
@@ -32,18 +32,39 @@ import java.util.Arrays;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-public class ConfigPrinter {
+/**
+ * Describes the queue config settings relevant for appender and poller performance.
+ */
+public final class ConfigPrinter {
     private static final String[] NAMES = {"a.hdr", "a.pld", "p.hdr", "p.pld"};
 
-    public static void printConfig(final QueueConfig config) {
-        System.out.println("QueueConfig:");
-        System.out.println("\tregionSize            : " + regionSize(config));
-        System.out.println("\tcacheSize             : " + cacheSize(config));
-        System.out.println("\tregionsToMapAhead     : " + regionsToMapAhead(config));
-        System.out.println("\taheadMappingCacheSize : " + aheadMappingCacheSize(config));
-        System.out.println("\tmaxHeaderFileSize     : " + size(config.maxHeaderFileSize()) + ' ' + fileMapperType(config, true));
-        System.out.println("\tmaxPayloadFileSize    : " + size(config.maxPayloadFileSize()) + ' ' + fileMapperType(config, false));
-        System.out.println();
+    private ConfigPrinter() {
+        throw new IllegalStateException("No ConfigPrinter for you");
+    }
+
+    public static void describeConfig(final QueueConfig config, final StringBuilder sb) {
+        sb.append("regionSize            : ").append(regionSize(config)).append('\n');
+        sb.append("mappingStrategy       : ").append(mappingStrategy(config)).append('\n');
+        sb.append("cacheSize             : ").append(cacheSize(config)).append('\n');
+        sb.append("regionsToMapAhead     : ").append(regionsToMapAhead(config)).append('\n');
+        sb.append("aheadMappingCacheSize : ").append(aheadMappingCacheSize(config)).append('\n');
+        sb.append("maxHeaderFileSize     : ").append(size(config.maxHeaderFileSize())).append(' ')
+                .append(fileMapperType(config, true)).append('\n');
+        sb.append("maxPayloadFileSize    : ").append(size(config.maxPayloadFileSize())).append(' ')
+                .append(fileMapperType(config, false)).append('\n');
+    }
+
+    private static String mappingStrategy(final QueueConfig config) {
+        final String[] strategies = Arrays.stream(strategies(config.appenderConfig(), config.pollerConfig()))
+                .map(ConfigPrinter::strategyName)
+                .toArray(String[]::new);
+        if (Arrays.stream(strategies).allMatch(s -> s.equals(strategies[0]))) return strategies[0];
+        return '[' + names(strategies.length, NAMES) + "] = [" + String.join(" / ", strategies) + ']';
+    }
+
+    private static String strategyName(final MappingStrategyConfig config) {
+        if (config.asyncMapping().isPresent()) return "async map-ahead";
+        return config.asyncUnmapping().isPresent() ? "sync with async unmapping" : "sync";
     }
 
     private static String fileMapperType(final QueueConfig config, final boolean header) {
@@ -104,11 +125,17 @@ public class ConfigPrinter {
     private static int[] ints(final AppenderConfig appenderConfig,
                               final ReaderConfig pollerConfig,
                               final ToIntFunction<? super MappingStrategyConfig> valueExtractor) {
-        return ints(valueExtractor,
+        return ints(valueExtractor, strategies(appenderConfig, pollerConfig));
+    }
+
+    private static MappingStrategyConfig[] strategies(final AppenderConfig appenderConfig,
+                                                      final ReaderConfig pollerConfig) {
+        return new MappingStrategyConfig[] {
                 appenderConfig.headerMappingStrategy(),
                 appenderConfig.payloadMappingStrategy(),
                 pollerConfig.headerMappingStrategy(),
-                pollerConfig.payloadMappingStrategy());
+                pollerConfig.payloadMappingStrategy()
+        };
     }
 
     private static int[] ints(final ToIntFunction<? super MappingStrategyConfig> valueExtractor,

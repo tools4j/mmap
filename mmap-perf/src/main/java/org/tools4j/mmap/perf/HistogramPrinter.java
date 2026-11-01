@@ -21,27 +21,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.queue.util;
+package org.tools4j.mmap.perf;
 
 import org.HdrHistogram.Histogram;
 
 /**
- * Test printout for histograms.
+ * Prints histogram percentiles in microseconds for values recorded in nanoseconds.
  */
-public class HistogramPrinter {
+public final class HistogramPrinter {
+    private static final double[] PERCENTILES = {50, 90, 99, 99.9, 99.99, 99.999};
+
+    private HistogramPrinter() {
+        throw new IllegalStateException("No HistogramPrinter for you");
+    }
+
     public static void printHistogram(final String name, final Histogram histogram) {
-        System.out.println(name + ": Percentiles (micros)");
-        System.out.println("\tmin    : " + histogram.getMinValue() / 1000f);
-        System.out.println("\t50%    : " + histogram.getValueAtPercentile(50) / 1000f);
-        System.out.println("\t90%    : " + histogram.getValueAtPercentile(90) / 1000f);
-        System.out.println("\t99%    : " + histogram.getValueAtPercentile(99) / 1000f);
-        System.out.println("\t99.9%  : " + histogram.getValueAtPercentile(99.9) / 1000f);
-        System.out.println("\t99.99% : " + histogram.getValueAtPercentile(99.99) / 1000f);
-        System.out.println("\t99.999%: " + histogram.getValueAtPercentile(99.999) / 1000f);
-        System.out.println("\tmax    : " + histogram.getMaxValue() / 1000f);
-        System.out.println("\tcount  : " + histogram.getTotalCount());
-        System.out.println();
-        //System.out.println("Histogram (micros):");
-        //histogram.outputPercentileDistribution(System.out, 1000.0);
+        final StringBuilder sb = new StringBuilder(256);
+        sb.append(name).append(": Percentiles (micros)\n");
+        line(sb, "min", histogram.getMinValue());
+        for (final double percentile : PERCENTILES) {
+            line(sb, percentile + "%", histogram.getValueAtPercentile(percentile));
+        }
+        line(sb, "max", histogram.getMaxValue());
+        sb.append("\tcount  : ").append(histogram.getTotalCount()).append('\n');
+        System.out.println(sb);
+    }
+
+    private static void line(final StringBuilder sb, final String label, final long nanos) {
+        sb.append('\t').append(String.format("%-7s", label.replace(".0%", "%"))).append(": ").append(nanos / 1000f)
+                .append('\n');
     }
 }
