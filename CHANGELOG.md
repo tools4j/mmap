@@ -6,15 +6,15 @@ Notable changes per release. Entries are curated from the commits since the prev
 ## 2.0 (unreleased)
 
 2.0 is not compatible with 1.0: neither the API nor the queue files. Queues written by 1.0 cannot be opened by 2.0,
-and there is no migration.
+and there is no migration, since 1.0 is considered a draft release that is not publicly used yet.
 
 ### Breaking changes
 - Module `mmap-region` renamed to `mmap-mapping`, packages `org.tools4j.mmap.region.*` to
   `org.tools4j.mmap.mapping.*`.
 - New queue file format: a meta file (`<name>_meta.mmq`) stores the queue layout (region and file sizes, expand and
   roll flags), which applies to everyone opening the queue later.
-- `Queue.create(..)` renamed to `Queue.open(..)`. Mappings and queues are opened with an `OpenMode` (`READ_ONLY`,
-  `READ_ONLY_LAZY`, `READ_WRITE`, `CREATE`, `OPEN_OR_CREATE`, `RECREATE`) instead of an `AccessMode`.
+- The method `Queue.create(..)` was renamed to `Queue.open(..)`. Mappings and queues are opened with an `OpenMode`
+  (`READ_ONLY`, `READ_ONLY_LAZY`, `READ_WRITE`, `CREATE`, `OPEN_OR_CREATE`, `RECREATE`) instead of an `AccessMode`.
 - Region size moved from `MappingStrategyConfig` to `MappingConfig`. Queues have one header and one payload region
   size (`mmap.queue.headerRegionSize`, `mmap.queue.payloadRegionSize`) instead of one per accessor kind.
 - No logging in the library: lifecycle events go to a `LifecycleListener` and swallowed errors and warnings to an
@@ -23,8 +23,8 @@ and there is no migration.
 - Mapping errors are thrown instead of being logged; `NULL_ADDRESS` now only means "not available yet".
 - System properties `mmap.mapping.async.mappingRuntime` and `mmap.mapping.async.unmappingRuntime` removed; custom
   runtimes are set through the async mapping and unmapping configurators.
-- `AsyncMappingConfigurator.mappingRuntimeUsing(..)` takes either an idle strategy or a thread factory; set both by
-  chaining.
+- The method `AsyncMappingConfigurator.mappingRuntimeUsing(..)` takes either an idle strategy or a thread factory;
+  set both by chaining.
 - Entry iterators end once `hasNext()` returns false, like Java collection iterators; use
   `IterableContext.continuous()` for iterators returning entries appended later. `IterableContext.reverse()` (a
   toggle) is replaced by `backward()`.
@@ -35,29 +35,52 @@ and there is no migration.
 - CPU pinning (Linux x86_64 and aarch64): `CpuPinning.pinCurrentThread(..)` and `CpuPinning.threadFactory(..)`;
   mapping runtime threads are pinned with `mmap.mapping.async.mappingRuntimeCpus`, e.g. `4-7`. Async runtimes accept
   a `ThreadFactory`.
-- `READ_ONLY_LAZY` readers of queues that do not exist yet.
+- The open mode `READ_ONLY_LAZY` for readers of queues that do not exist yet.
 - Pollers and entry iterators idle instead of busy spinning while there is nothing to read yet: until the queue
   exists (`READ_ONLY_LAZY`), and until its first entry. Both default to a `BackoffIdleStrategy`, set per reader with
   `ReaderConfigurator.pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, or with
   `mmap.queue.pendingQueueIdleStrategy`, `mmap.queue.pollerPendingDataIdleStrategy` and
   `mmap.queue.entryIteratorPendingDataIdleStrategy`. Once an entry has been read, they never idle.
 - Lifecycle log level `mmap.mapping.lifecycleListener` = `LOG_DEBUG` (default), `LOG_INFO` or `LOG_WARN`.
-- `mmap-perf`, a command line benchmark measuring mmap and Chronicle Queue latencies through the same harness
-  (not published), see the README.
+- The module `mmap-perf`, a command line benchmark measuring mmap and Chronicle Queue latencies through the same
+  harness (not published), see the README.
+
+### Changed
+- The queue config `maxAppenders` accepts any value from 1 to 256 (was 1, 64 or 256) and defaults to 256 (was 64). It
+  only limits the appender IDs of the queue instance opened with it, so instances with different limits can share a
+  queue.
+- Javadoc for all public API and configuration packages.
 
 ### Fixed
 - Appender overwriting the last entry of a reused appender ID.
-- `AppendingContext.ensureCapacity` crossing a payload region.
+- The method `AppendingContext.ensureCapacity` crossing a payload region.
 - Rolling file mappers leaking the mappings of evicted files.
 - Region mappers with an LRU cache corrupting their cache lists, in particular when reusing regions whose unmapping
   was deferred.
-- Async mapping of rolling files leaving cache slots claimed forever after a failed file creation, and never creating
-  files ahead.
-- `FileLocks.acquireLock` spinning forever after a timeout.
+- Async mapping (map-ahead) of rolling files made more stable, with a new lock-free cache of open files: cache slots
+  no longer stay claimed forever after a failed file creation, contention no longer fails mapping, and files are
+  created ahead again.
+- An `AtomicArray` grown beyond its first block returning offsets within the block instead of array indices from
+  `indexOfMin`, `lastIndexOfMin`, `indexOfMax`, `lastIndexOfMax` and to the function of `computeIfPresent`.
+- The method `FileLocks.acquireLock` spinning forever after a timeout.
 - Fixed mappings at offsets not aligned to the mapping granularity.
 - Read-only files opened with write access on Windows.
 - Configurators not falling back to their defaults, and sync default strategies starting an async mapping thread.
 - Async map-ahead mapping beyond the file size limit.
+- Searching the last entry looping or overflowing when indices reach `Index.MAX`.
+- Files left open when creating a fixed mapping or the appender ID pool failed, which prevented deleting them on
+  Windows.
 
 ### Dependencies
 - Agrona 2.7.0 (was 2.6.1).
+
+## 1.0 (2026-10-06)
+
+First (draft) release.
+
+- The `mmap-region` module: memory mapped file regions exposed as Agrona buffers, through fixed, region, elastic and
+  adaptive mappings and mapping pools. Sync or async mapping strategies with region caches, async unmapping and async
+  map-ahead of upcoming regions, over fixed-size, expandable or rolling files.
+- The `mmap-queue` module: an off-heap queue on top of it, with lock-free concurrent appenders (up to 256), pollers,
+  entry readers, entry iterators and index readers, configured per accessor kind through configurators and system
+  properties.
