@@ -208,7 +208,9 @@ public interface ReaderConfigurator extends ReaderConfig {
     }
 
     /**
-     * Returns a new configurator with values not set explicitly taken from the given defaults.
+     * Returns a new configurator with values not set explicitly taken from the given defaults. The defaults must
+     * provide valid values: there is no further fallback, and reading a value that is neither set explicitly nor
+     * provided by the defaults throws an {@link IllegalStateException}.
      *
      * @param defaults the configuration providing values not set explicitly
      * @return a new configurator

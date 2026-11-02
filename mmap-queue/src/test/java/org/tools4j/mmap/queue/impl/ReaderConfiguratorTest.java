@@ -98,7 +98,7 @@ class ReaderConfiguratorTest {
         }
     }
 
-    /** Defaults returning the "unset" sentinel for every value, forcing fallback to system defaults */
+    /** Defaults returning the "unset" sentinel for every value, which is invalid */
     private static ReaderConfig unsetDefaults() {
         return new ReaderConfig() {
             @Override
@@ -151,9 +151,19 @@ class ReaderConfiguratorTest {
     }
 
     @Test
-    void unsetDefaultsFallBackToEntryReaderSystemDefaults() {
-        assertEquals(Kind.ENTRY_READER.expected,
-                ReaderConfigurator.configure(unsetDefaults()).toImmutableReaderConfig());
+    void invalidDefaultsThrowUnlessValuesAreSetExplicitly() {
+        final ReaderConfigurator config = ReaderConfigurator.configure(unsetDefaults());
+        assertThrows(IllegalStateException.class, config::headerMappingStrategy);
+        assertThrows(IllegalStateException.class, config::payloadMappingStrategy);
+        assertThrows(IllegalStateException.class, config::maxOpenHeaderFiles);
+        assertThrows(IllegalStateException.class, config::maxOpenPayloadFiles);
+        assertThrows(IllegalStateException.class, config::pendingQueueIdleStrategy);
+        assertThrows(IllegalStateException.class, config::pendingDataIdleStrategy);
+        assertThrows(IllegalStateException.class, config::toImmutableReaderConfig);
+
+        config.mappingStrategy(STRATEGY_A).maxOpenHeaderFiles(1).maxOpenPayloadFiles(2).pendingIdleStrategy(IDLE_A);
+        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 1, 2, IDLE_A, IDLE_A),
+                config.toImmutableReaderConfig());
     }
 
     @Test

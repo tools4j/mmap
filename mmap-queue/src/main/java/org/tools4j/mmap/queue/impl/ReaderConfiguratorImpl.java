@@ -34,12 +34,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderHeaderFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPendingQueueIdleStrategy;
-import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPendingDataIdleStrategy;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
@@ -104,10 +98,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public MappingStrategyConfig headerMappingStrategy() {
         if (headerMappingStrategy == null) {
-            headerMappingStrategy = defaults.headerMappingStrategy();
-        }
-        if (headerMappingStrategy == null) {
-            headerMappingStrategy = defaultEntryReaderHeaderMappingStrategy();
+            headerMappingStrategy = fromDefaults(defaults.headerMappingStrategy(), "headerMappingStrategy");
         }
         return headerMappingStrategy;
     }
@@ -133,10 +124,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public MappingStrategyConfig payloadMappingStrategy() {
         if (payloadMappingStrategy == null) {
-            payloadMappingStrategy = defaults.payloadMappingStrategy();
-        }
-        if (payloadMappingStrategy == null) {
-            payloadMappingStrategy = defaultEntryReaderPayloadMappingStrategy();
+            payloadMappingStrategy = fromDefaults(defaults.payloadMappingStrategy(), "payloadMappingStrategy");
         }
         return payloadMappingStrategy;
     }
@@ -162,10 +150,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public int maxOpenHeaderFiles() {
         if (maxOpenHeaderFiles <= 0) {
-            maxOpenHeaderFiles = defaults.maxOpenHeaderFiles();
-        }
-        if (maxOpenHeaderFiles <= 0) {
-            maxOpenHeaderFiles = defaultMaxOpenEntryReaderHeaderFiles();
+            maxOpenHeaderFiles = positiveFromDefaults(defaults.maxOpenHeaderFiles(), "maxOpenHeaderFiles");
         }
         return maxOpenHeaderFiles;
     }
@@ -182,10 +167,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public int maxOpenPayloadFiles() {
         if (maxOpenPayloadFiles <= 0) {
-            maxOpenPayloadFiles = defaults.maxOpenPayloadFiles();
-        }
-        if (maxOpenPayloadFiles <= 0) {
-            maxOpenPayloadFiles = defaultMaxOpenEntryReaderPayloadFiles();
+            maxOpenPayloadFiles = positiveFromDefaults(defaults.maxOpenPayloadFiles(), "maxOpenPayloadFiles");
         }
         return maxOpenPayloadFiles;
     }
@@ -202,10 +184,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public Supplier<? extends IdleStrategy> pendingQueueIdleStrategy() {
         if (pendingQueueIdleStrategy == null) {
-            pendingQueueIdleStrategy = defaults.pendingQueueIdleStrategy();
-        }
-        if (pendingQueueIdleStrategy == null) {
-            pendingQueueIdleStrategy = defaultPendingQueueIdleStrategy();
+            pendingQueueIdleStrategy = fromDefaults(defaults.pendingQueueIdleStrategy(), "pendingQueueIdleStrategy");
         }
         return pendingQueueIdleStrategy;
     }
@@ -219,11 +198,7 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
         if (pendingDataIdleStrategy == null) {
-            pendingDataIdleStrategy = defaults.pendingDataIdleStrategy();
-        }
-        if (pendingDataIdleStrategy == null) {
-            //NOTE: the reader kind is unknown here, hence the poller default (entry readers do not use it anyway)
-            pendingDataIdleStrategy = defaultPollerPendingDataIdleStrategy();
+            pendingDataIdleStrategy = fromDefaults(defaults.pendingDataIdleStrategy(), "pendingDataIdleStrategy");
         }
         return pendingDataIdleStrategy;
     }
@@ -237,6 +212,21 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     @Override
     public ReaderConfigurator pendingIdleStrategy(final Supplier<? extends IdleStrategy> idleStrategySupplier) {
         return pendingQueueIdleStrategy(idleStrategySupplier).pendingDataIdleStrategy(idleStrategySupplier);
+    }
+
+    private <T> T fromDefaults(final T value, final String name) {
+        if (value == null) {
+            throw new IllegalStateException("Reader config defaults returned null for " + name + ": " + defaults);
+        }
+        return value;
+    }
+
+    private int positiveFromDefaults(final int value, final String name) {
+        if (value <= 0) {
+            throw new IllegalStateException("Reader config defaults returned " + value + " for " + name + ": " +
+                    defaults);
+        }
+        return value;
     }
 
     @Override
