@@ -32,6 +32,7 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.impl.RollingFiles;
 
 import java.io.File;
 import java.util.function.Function;
@@ -129,17 +130,15 @@ interface ReaderMappings extends Closeable {
                                         final Supplier<? extends QueueConfig> queueConfig,
                                         final Function<? super QueueConfig, ? extends MappingConfig> headerConfig) {
         final File headerFile = queueFiles.headerFile();
+        //NOTE: rolling header files are created starting with index 0 and never deleted individually
+        final File firstRollingHeaderFile = RollingFiles.fileForIndex(headerFile, 0);
         final FileInitialiser fileInitialiser = FileInitialiser.minLength(Headers.HEADER_LENGTH);
-        final QueueConfig queueCfg = queueConfig.get();
-        if (queueCfg != null) {
-            return Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
-                    headerConfig.apply(queueCfg));
-        }
-        return new LazyElasticMapping(() -> {
-            final QueueConfig cfg = queueConfig.get();
-            return cfg == null ? null : Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
-                    headerConfig.apply(cfg));
-        });
+        return new LazyElasticMapping(
+                queueConfig,
+                cfg -> Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
+                        headerConfig.apply(cfg)),
+                cfg -> (cfg.rollHeaderFile() ? firstRollingHeaderFile : headerFile).exists()
+        );
     }
 
     private static QueueConfig existingQueueConfig(final Supplier<? extends QueueConfig> queueConfig) {

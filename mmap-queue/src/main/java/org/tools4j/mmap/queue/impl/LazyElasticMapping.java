@@ -28,7 +28,10 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.EmptyBuffer;
+import org.tools4j.mmap.queue.config.QueueConfig;
 
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -37,8 +40,10 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.Constraints.validatePosition;
 
 /**
- * Read-only elastic mapping for a queue that does not exist yet, delegating to a mapping that is created once the
- * queue exists. Until then, moving fails as it does for a file that does not exist yet.
+ * Read-only elastic mapping for a queue reader's header file, which may not exist yet. The delegate mapping is created
+ * from the queue configuration once the queue exists, and until the header file exists moving fails as it does for a
+ * file that does not exist yet. The mapping is {@linkplain #isOpened() opened} once the header file exists; from then
+ * on, moves are delegated without checking for the file again.
  * <p>
  * The delegate is created on demand since its configuration, for instance the region size, depends on the queue
  * layout; region metrics are hence not available until then.
@@ -46,31 +51,65 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validatePosition;
  * Like other mappings, this mapping is not thread-safe.
  */
 final class LazyElasticMapping implements ElasticMapping {
-    private final Supplier<? extends ElasticMapping> mappingFactory;
+    private final Supplier<? extends QueueConfig> queueConfig;
+    private final Function<? super QueueConfig, ? extends ElasticMapping> mappingFactory;
+    private final Predicate<? super QueueConfig> fileExists;
+    private QueueConfig config;
     private ElasticMapping delegate;
+    private boolean opened;
     private boolean closed;
 
     /**
-     * Constructor with factory for the delegate mapping.
+     * Constructor with queue configuration supplier, delegate factory and file existence check.
      *
-     * @param mappingFactory factory for the delegate, returning null if the delegate cannot be created yet
+     * @param queueConfig    supplies the queue configuration in effect, or null if the queue does not exist yet
+     * @param mappingFactory creates the delegate given the queue configuration in effect
+     * @param fileExists     returns true if the file to map exists given the queue configuration the delegate was
+     *                       created with; invoked after every failed move until opened, hence it should not allocate
      */
-    LazyElasticMapping(final Supplier<? extends ElasticMapping> mappingFactory) {
+    LazyElasticMapping(final Supplier<? extends QueueConfig> queueConfig,
+                       final Function<? super QueueConfig, ? extends ElasticMapping> mappingFactory,
+                       final Predicate<? super QueueConfig> fileExists) {
+        this.queueConfig = requireNonNull(queueConfig);
         this.mappingFactory = requireNonNull(mappingFactory);
+        this.fileExists = requireNonNull(fileExists);
+    }
+
+    /**
+     * Returns true once the file to map exists, that is, after the first successful move, or after the first failed
+     * move when the file exists, for instance when moving beyond its end.
+     *
+     * @return true if the file to map exists, and false while it is pending to be created
+     */
+    boolean isOpened() {
+        return opened;
     }
 
     @Override
     public boolean moveTo(final long position) {
-        if (delegate != null) {
+        if (opened) {
             return delegate.moveTo(position);
         }
         validatePosition(position);
-        return !closed && createDelegate() && delegate.moveTo(position);
+        if (closed || (delegate == null && !createDelegate())) {
+            return false;
+        }
+        if (delegate.moveTo(position)) {
+            opened = true;
+            return true;
+        }
+        opened = fileExists.test(config);
+        return false;
     }
 
     private boolean createDelegate() {
-        delegate = mappingFactory.get();
-        return delegate != null;
+        final QueueConfig cfg = queueConfig.get();
+        if (cfg == null) {
+            return false;
+        }
+        delegate = requireNonNull(mappingFactory.apply(cfg));
+        config = cfg;
+        return true;
     }
 
     @Override
@@ -143,6 +182,6 @@ final class LazyElasticMapping implements ElasticMapping {
 
     @Override
     public String toString() {
-        return "LazyElasticMapping:delegate=" + delegate + "|closed=" + closed;
+        return "LazyElasticMapping:delegate=" + delegate + "|opened=" + opened + "|closed=" + closed;
     }
 }

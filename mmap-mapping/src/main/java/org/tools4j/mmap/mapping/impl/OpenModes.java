@@ -61,7 +61,7 @@ public enum OpenModes {
     }
 
     private static boolean exists(final File file, final boolean rollFiles) {
-        return rollFiles ? RollingFiles.listFiles(file).length > 0 : file.exists();
+        return rollFiles ? RollingFiles.anyExists(file) : file.exists();
     }
 
     private static void create(final File file, final boolean rollFiles) {

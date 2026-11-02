@@ -29,9 +29,12 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,15 +53,28 @@ class LazyElasticMappingTest {
     @TempDir
     Path tempDir;
 
-    /** Delegate returned by the factory once set, null until then */
-    private final AtomicReference<ElasticMapping> available = new AtomicReference<>();
-    private final AtomicInteger factoryCalls = new AtomicInteger();
+    /** Queue configuration in effect, null until the queue exists */
+    private final AtomicReference<QueueConfig> queueConfig = new AtomicReference<>();
+    /** Delegate returned by the factory */
+    private ElasticMapping delegateToCreate;
+    private final List<QueueConfig> createdWith = new ArrayList<>();
+    /** True once the file to map exists */
+    private final AtomicBoolean fileExists = new AtomicBoolean();
+    private final List<QueueConfig> checkedWith = new ArrayList<>();
 
     private LazyElasticMapping lazyMapping() {
-        return new LazyElasticMapping(() -> {
-            factoryCalls.incrementAndGet();
-            return available.get();
+        return new LazyElasticMapping(queueConfig::get, cfg -> {
+            createdWith.add(cfg);
+            return delegateToCreate;
+        }, cfg -> {
+            checkedWith.add(cfg);
+            return fileExists.get();
         });
+    }
+
+    private void queueExists(final ElasticMapping delegate) {
+        delegateToCreate = delegate;
+        queueConfig.set(QueueConfig.configure().toImmutableQueueConfig());
     }
 
     private ElasticMapping delegate() {
@@ -79,12 +95,113 @@ class LazyElasticMappingTest {
             assertThrows(IllegalStateException.class, mapping::regionMetrics);
             assertThrows(IllegalStateException.class, () -> mapping.moveBy(8));
             assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(-1));
-            assertEquals(0, factoryCalls.get());
 
             assertFalse(mapping.moveTo(0));
             assertFalse(mapping.moveTo(8));
-            assertEquals(2, factoryCalls.get());
+            assertEquals(List.of(), createdWith);
+            assertEquals(List.of(), checkedWith);
+            assertFalse(mapping.isOpened());
             assertFalse(mapping.isMapped());
+        }
+    }
+
+    @Test
+    void opensOnceFileExists() {
+        try (final LazyElasticMapping mapping = lazyMapping();
+             final ElasticMapping delegate = delegate()) {
+            //queue exists, header file not yet
+            queueExists(new FailingMapping(delegate));
+            final QueueConfig cfg = queueConfig.get();
+            assertFalse(mapping.moveTo(0));
+            assertFalse(mapping.isOpened());
+            queueConfig.set(QueueConfig.configure().toImmutableQueueConfig());//not used once delegate exists
+
+            //file exists, but moving fails, e.g. beyond its end
+            fileExists.set(true);
+            assertFalse(mapping.moveTo(0));
+            assertTrue(mapping.isOpened());
+            fileExists.set(false);//not checked once opened
+            assertFalse(mapping.moveTo(0));
+            assertTrue(mapping.isOpened());
+            assertEquals(List.of(cfg), createdWith);
+            assertEquals(2, checkedWith.size());
+            assertSame(cfg, checkedWith.get(0));
+            assertSame(cfg, checkedWith.get(1));
+        }
+    }
+
+    @Test
+    void opensWithSuccessfulMove() {
+        try (final LazyElasticMapping mapping = lazyMapping();
+             final ElasticMapping delegate = delegate()) {
+            queueExists(delegate);
+            assertTrue(mapping.moveTo(0));
+            assertTrue(mapping.isOpened());
+            assertTrue(mapping.moveTo(8));
+            assertTrue(mapping.isOpened());
+        }
+    }
+
+    /** Delegate failing every move, as a mapping of a file that does not exist yet or is too short */
+    private record FailingMapping(ElasticMapping delegate) implements ElasticMapping {
+        @Override
+        public boolean moveTo(final long position) {
+            return false;
+        }
+
+        @Override
+        public AccessMode accessMode() {
+            return delegate.accessMode();
+        }
+
+        @Override
+        public org.tools4j.mmap.mapping.api.RegionMetrics regionMetrics() {
+            return delegate.regionMetrics();
+        }
+
+        @Override
+        public int regionOffset() {
+            return delegate.regionOffset();
+        }
+
+        @Override
+        public long regionStartPosition() {
+            return delegate.regionStartPosition();
+        }
+
+        @Override
+        public int positionStepSize() {
+            return delegate.positionStepSize();
+        }
+
+        @Override
+        public long position() {
+            return delegate.position();
+        }
+
+        @Override
+        public long address() {
+            return delegate.address();
+        }
+
+        @Override
+        public org.agrona.concurrent.AtomicBuffer buffer() {
+            return delegate.buffer();
+        }
+
+        @Override
+        public boolean isMapped() {
+            return delegate.isMapped();
+        }
+
+        @Override
+        public boolean isClosed() {
+            return delegate.isClosed();
+        }
+
+        @Override
+        public void close() {
+            //owned by the test
         }
     }
 
@@ -93,7 +210,7 @@ class LazyElasticMappingTest {
         try (final LazyElasticMapping mapping = lazyMapping();
              final ElasticMapping delegate = delegate()) {
             assertFalse(mapping.moveTo(16));
-            available.set(delegate);
+            queueExists(delegate);
 
             assertTrue(mapping.moveTo(16));
             assertTrue(mapping.isMapped());
@@ -108,28 +225,29 @@ class LazyElasticMappingTest {
             assertTrue(mapping.moveBy(8));
             assertEquals(24, mapping.position());
             assertEquals(24, delegate.position());
-            assertEquals(2, factoryCalls.get());
+            assertEquals(1, createdWith.size());
         }
     }
 
     @Test
     void closingBeforeDelegateExistsPreventsCreatingIt() {
         final LazyElasticMapping mapping = lazyMapping();
-        available.set(delegate());
+        final ElasticMapping delegate = delegate();
+        queueExists(delegate);
         mapping.close();
         assertTrue(mapping.isClosed());
         assertFalse(mapping.moveTo(0));
-        assertEquals(0, factoryCalls.get());
+        assertEquals(List.of(), createdWith);
         mapping.close();
         assertTrue(mapping.isClosed());
-        available.get().close();
+        delegate.close();
     }
 
     @Test
     void closingAfterDelegateExistsClosesDelegate() {
         final LazyElasticMapping mapping = lazyMapping();
         final ElasticMapping delegate = delegate();
-        available.set(delegate);
+        queueExists(delegate);
         assertTrue(mapping.moveTo(0));
         mapping.close();
         assertTrue(mapping.isClosed());
