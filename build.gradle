@@ -408,6 +408,42 @@ tasks.register('testReport', TestReport) {
     testResults.setFrom(subprojects*.test)
 }
 
+//prints a draft of the next CHANGELOG.md entry from the commit subjects since the last release tag, grouped by their
+//leading verb, to curate by hand: ./gradlew -q changelogDraft
+tasks.register('changelogDraft') {
+    group = 'documentation'
+    description = 'Prints a CHANGELOG.md draft from the commits since the last release tag'
+    def lastTag = providers.exec { commandLine 'git', 'describe', '--tags', '--abbrev=0' }
+            .standardOutput.asText.map { it.trim() }
+    def commits = lastTag.flatMap { tag ->
+        providers.exec { commandLine 'git', 'log', '--no-merges', '--format=%h %s', "${tag}..HEAD" }
+                .standardOutput.asText
+    }
+    doLast {
+        //first match wins, so test and CI commits are recognised before their leading verb
+        def sections = [
+                'Tests and CI (usually omitted)': ~/(?i)^CI\b.*|.*\btests?\b.*|.*\bperfTest\b.*/,
+                'Added'                         : ~/^(Add|Support|Introduce)\b.*/,
+                'Fixed'                         : ~/^Fix\b.*/,
+                'Removed'                       : ~/^(Remove|Drop|Delete)\b.*/,
+                'Dependencies'                  : ~/^(Upgrade|Bump)\b.*/,
+        ]
+        def grouped = [:].withDefault { [] }
+        commits.get().readLines().findAll { it.trim() }.each { line ->
+            def (hash, subject) = [line.substring(0, line.indexOf(' ')), line.substring(line.indexOf(' ') + 1)]
+            def section = sections.find { name, pattern -> subject ==~ pattern }?.key ?: 'Changed'
+            grouped[section] << "- ${subject} (${hash})"
+        }
+        println "## ${projVersion.replace('-SNAPSHOT', '')} (unreleased), commits since ${lastTag.get()}"
+        ['Added', 'Changed', 'Fixed', 'Removed', 'Dependencies', sections.keySet().first()].each { section ->
+            if (grouped[section]) {
+                println "\n### ${section}"
+                grouped[section].each { println it }
+            }
+        }
+    }
+}
+
 wrapper {
     gradleVersion = '9.8.2'
     distributionType = 'ALL'

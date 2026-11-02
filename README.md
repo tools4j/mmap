@@ -266,7 +266,8 @@ Requires Java 17 or later, and the following JVM options:
 implementation 'org.tools4j:mmap-queue:1.1'
 ```
 
-Release 1.0 was published as `mmap-region` (now `mmap-mapping`) and `mmap-queue`.
+Release 1.0 was published as `mmap-region` (now `mmap-mapping`) and `mmap-queue`. See the [changelog](CHANGELOG.md) for the changes
+per release.
 
 ### Download
 You can download binaries, sources and javadoc from Maven Central:
