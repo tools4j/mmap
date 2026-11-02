@@ -352,4 +352,40 @@ class EntryIteratorTest {
             }
         }
     }
+
+    @Test
+    void nonContinuousHasNextIdlesOnceUntilIteratorIsRestarted() {
+        final CountingIdleStrategy pendingQueue = new CountingIdleStrategy();
+        final CountingIdleStrategy pendingData = new CountingIdleStrategy();
+        final File queueFile = tempDir.resolve("queue").toFile();
+        try (final Queue lazyQueue = Queue.open(queueFile, OpenMode.READ_ONLY_LAZY);
+             final EntryIterator entryIterator = lazyQueue.createEntryIterator(ReaderConfig.configureEntryIterator()
+                     .pendingQueueIdleStrategy(() -> pendingQueue)
+                     .pendingDataIdleStrategy(() -> pendingData));
+             final IterableContext context = entryIterator.readingFromFirst()) {
+            final Iterator<Entry> pendingQueueIterator = context.iterator();
+            assertFalse(pendingQueueIterator.hasNext());
+            assertFalse(pendingQueueIterator.hasNext());
+            assertEquals(1, pendingQueue.idleCount);
+            assertEquals(0, pendingData.idleCount);
+
+            try (final Queue queue = Queue.open(queueFile, OpenMode.CREATE);
+                 final Appender appender = queue.createAppender()) {
+                final Iterator<Entry> pendingDataIterator = context.iterator();
+                assertFalse(pendingDataIterator.hasNext());
+                assertFalse(pendingDataIterator.hasNext());
+                assertEquals(1, pendingQueue.idleCount);
+                assertEquals(1, pendingQueue.resetCount);
+                assertEquals(1, pendingData.idleCount);
+
+                appender.append(new byte[8]);
+                final Iterator<Entry> iterator = context.iterator();
+                assertTrue(iterator.hasNext());
+                assertEquals(0, iterator.next().index());
+                assertFalse(iterator.hasNext());
+                assertEquals(1, pendingData.idleCount);
+                assertEquals(1, pendingData.resetCount);
+            }
+        }
+    }
 }

@@ -361,4 +361,30 @@ class PollerTest {
             }
         }
     }
+
+    @Test
+    void pollOfExistingQueueIdlesOnlyUntilFirstEntryIsPolled() {
+        final CountingIdleStrategy pendingQueue = new CountingIdleStrategy();
+        final CountingIdleStrategy pendingData = new CountingIdleStrategy();
+        final EntryHandler handler = (index, buffer, offset, length) -> Move.NEXT;
+        try (final Queue queue = Queue.open(queueDir, OpenMode.CREATE);
+             final Poller poller = queue.createPoller(ReaderConfig.configurePoller()
+                     .pendingQueueIdleStrategy(() -> pendingQueue)
+                     .pendingDataIdleStrategy(() -> pendingData));
+             final Appender appender = queue.createAppender()) {
+            assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+            assertThat(pendingQueue.idleCount).isZero();
+            assertThat(pendingQueue.resetCount).isEqualTo(1);
+            assertThat(pendingData.idleCount).isEqualTo(2);
+
+            appender.append(new byte[8]);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+            assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+            assertThat(pendingQueue.idleCount).isZero();
+            assertThat(pendingQueue.resetCount).isEqualTo(1);
+            assertThat(pendingData.idleCount).isEqualTo(2);
+            assertThat(pendingData.resetCount).isEqualTo(1);
+        }
+    }
 }

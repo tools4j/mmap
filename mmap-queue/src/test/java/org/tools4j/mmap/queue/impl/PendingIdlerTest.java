@@ -76,4 +76,14 @@ class PendingIdlerTest {
         idler.onNoEntry(0);
         assertCounts(1, 1, 0, 0);
     }
+
+    @Test
+    void noFirstEntryWhileQueueIsPendingResetsPendingQueueStrategy() {
+        idler.onNoEntry(0);
+        assertCounts(0, 1, 1, 0);
+
+        idler.onEntry();
+        idler.onNoEntry(0);
+        assertCounts(0, 1, 1, 1);
+    }
 }
