@@ -43,6 +43,7 @@ int buildJavaVersion = getBuildJavaVersion()
 ext {
     //gradle clean build publishToMavenCentral -PmavenCentralUsername=xxx -PmavenCentralPassword=xxx
     //(or set mavenCentralUsername/mavenCentralPassword, plus signing.* properties, in ~/.gradle/gradle.properties)
+    //then: login/verify/release in https://central.sonatype.com/publishing/deployments
 
     isReleaseVersion = !projVersion.endsWith('-SNAPSHOT')
 
