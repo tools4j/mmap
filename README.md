@@ -260,13 +260,13 @@ Requires Java 17 or later, and the following JVM options:
 <dependency>
     <groupId>org.tools4j</groupId>
     <artifactId>mmap-queue</artifactId>
-    <version>1.1</version>
+    <version>2.0</version>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
-implementation 'org.tools4j:mmap-queue:1.1'
+implementation 'org.tools4j:mmap-queue:2.0'
 ```
 
 Release 1.0 was published as `mmap-region` (now `mmap-mapping`) and `mmap-queue`. See the [changelog](CHANGELOG.md) for the changes
