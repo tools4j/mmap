@@ -73,6 +73,11 @@ public interface PerfQueue extends AutoCloseable {
     /** Handler for a message in a buffer. */
     @FunctionalInterface
     interface MessageHandler {
+        /**
+         * @param buffer the buffer containing the message
+         * @param offset the message offset in the buffer
+         * @param length the message length
+         */
         void onMessage(DirectBuffer buffer, int offset, int length);
     }
 }

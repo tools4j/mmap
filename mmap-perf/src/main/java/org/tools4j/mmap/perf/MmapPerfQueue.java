@@ -55,6 +55,13 @@ public final class MmapPerfQueue implements PerfQueue {
     private final ReaderType readerType;
     private final Queue queue;
 
+    /**
+     * Creates an mmap queue in the given directory.
+     *
+     * @param directory  the queue directory
+     * @param config     the queue config
+     * @param readerType the reader used by receivers
+     */
     public MmapPerfQueue(final File directory, final QueueConfig config, final ReaderType readerType) {
         this.config = requireNonNull(config);
         this.readerType = requireNonNull(readerType);

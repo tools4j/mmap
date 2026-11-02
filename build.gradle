@@ -93,14 +93,17 @@ allprojects {
     }
 }
 
-//the library modules, published to maven central; mmap-perf is a command line application that is not published
+//all modules are published to maven central; mmap-perf is a command line application, not an OSGi bundle
 def libraryProjects = subprojects.findAll { it.name != 'mmap-perf' }
 
 configure(libraryProjects) {
     apply plugin: 'java-library'
+    apply plugin: 'biz.aQute.bnd.builder'
+}
+
+subprojects {
     apply plugin: 'com.vanniktech.maven.publish'
     apply plugin: 'signing'
-    apply plugin: 'biz.aQute.bnd.builder'
 
     signing {
         useGpgCmd()
@@ -240,10 +243,11 @@ subprojects {
             options.addBooleanOption 'html5', true
             options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")
         }
-        //doclint checks only the public api and config packages, which application code uses
+        //doclint checks only the public api and config packages, which application code uses, and all of mmap-perf
         def basePackage = 'org.tools4j.' + project.name.replace('-', '.')
+        def doclintPackages = project.name == 'mmap-perf' ? basePackage : "${basePackage}.api,${basePackage}.config"
         options.addBooleanOption('Xdoclint:all', true)
-        options.addBooleanOption("Xdoclint/package:${basePackage}.api,${basePackage}.config", true)
+        options.addBooleanOption("Xdoclint/package:${doclintPackages}", true)
         options.addStringOption('Xmaxwarns', '10000')
         //fail on any doclint warning, i.e. on missing or broken documentation in the public packages
         options.addBooleanOption('Werror', true)
@@ -357,11 +361,26 @@ project(':mmap-perf') {
             '--add-exports', 'jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED'
     ]
 
+    //chronicle-queue is optional in the published pom, but on the main class paths and in the distribution
+    java {
+        registerFeature('chronicle') {
+            usingSourceSet(sourceSets.main)
+        }
+    }
+
     dependencies {
         implementation project(':mmap-queue')
         implementation "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
-        implementation "net.openhft:chronicle-queue:${chronicleVersion}"
+        chronicleImplementation "net.openhft:chronicle-queue:${chronicleVersion}"
         runtimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    }
+
+    //the chronicle-queue version named by QueuePerf if chronicle is not on the class path
+    processResources {
+        inputs.property('chronicleVersion', chronicleVersion)
+        filesMatching('**/chronicle.properties') {
+            expand(chronicleVersion: chronicleVersion)
+        }
     }
 
     application {
@@ -399,7 +418,21 @@ project(':mmap-perf') {
         }
     }
 
-    javadoc.enabled = false
+    mavenPublishing {
+        publishToMavenCentral()
+        signAllPublications()
+        pom(projectPom)
+        pom {
+            description = 'Command line benchmark measuring mmap and Chronicle Queue latencies through the same harness'
+        }
+    }
+
+    //the distribution zip, ready to run with all dependencies, published next to the jar as mmap-perf-<version>.zip
+    publishing {
+        publications.withType(MavenPublication).configureEach {
+            artifact(distZip)
+        }
+    }
 }
 
 tasks.register('testReport', TestReport) {

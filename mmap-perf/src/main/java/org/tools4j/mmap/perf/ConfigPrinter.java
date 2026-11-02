@@ -39,6 +39,12 @@ public enum ConfigPrinter {
     ;
     private static final String[] NAMES = {"a.hdr", "a.pld", "p.hdr", "p.pld"};
 
+    /**
+     * Appends the appender and poller header and payload settings of the given config, one line per setting.
+     *
+     * @param config the queue config to describe
+     * @param sb     the string builder to append to
+     */
     public static void describeConfig(final QueueConfig config, final StringBuilder sb) {
         sb.append("regionSize            : ").append(regionSize(config)).append('\n');
         sb.append("mappingStrategy       : ").append(mappingStrategy(config)).append('\n');

@@ -34,11 +34,14 @@ import org.tools4j.mmap.queue.config.QueueConfigurator;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -51,7 +54,16 @@ import java.util.stream.Stream;
 public enum QueuePerf {
     ;
     private static final String SLF4J_LOG_LEVEL_PROPERTY = "org.slf4j.simpleLogger.defaultLogLevel";
+    private static final String CHRONICLE_QUEUE_CLASS = "net.openhft.chronicle.queue.ChronicleQueue";
+    private static final String CHRONICLE_PROPERTIES = "chronicle.properties";
+    private static final String CHRONICLE_QUEUE_VERSION_PROPERTY = "chronicleQueueVersion";
 
+    /**
+     * Runs the benchmark with the given command line options, see {@link PerfOptions#USAGE}.
+     *
+     * @param args the command line options
+     * @throws Throwable if a sender or receiver failed, or did not complete in time
+     */
     public static void main(final String... args) throws Throwable {
         //unless set on the command line, e.g. when started with java -jar
         if (System.getProperty(SLF4J_LOG_LEVEL_PROPERTY) == null) {
@@ -71,6 +83,11 @@ public enum QueuePerf {
             System.out.println(PerfOptions.USAGE);
             return;
         }
+        if (options.queue() == QueueType.CHRONICLE && !chronicleOnClassPath()) {
+            System.err.println(chronicleNotOnClassPath());
+            System.exit(2);
+            return;
+        }
         run(options);
     }
 
@@ -78,9 +95,13 @@ public enum QueuePerf {
      * Runs the performance test and prints the results to standard out.
      *
      * @param options the options
+     * @throws IllegalStateException if Chronicle Queue is requested but not on the class path
      * @throws Throwable if a sender or receiver failed, or did not complete in time
      */
     public static void run(final PerfOptions options) throws Throwable {
+        if (options.queue() == QueueType.CHRONICLE && !chronicleOnClassPath()) {
+            throw new IllegalStateException(chronicleNotOnClassPath());
+        }
         final PinnedCpus cpus = PinnedCpus.assign(options);
         final String mapperCpusProperty = System.getProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
         if (cpus.mapper().length > 0) {
@@ -134,6 +155,39 @@ public enum QueuePerf {
             } else {
                 deleteRecursively(dir);
             }
+        }
+    }
+
+    //chronicle-queue is an optional dependency: only the distribution includes it
+    private static boolean chronicleOnClassPath() {
+        try {
+            Class.forName(CHRONICLE_QUEUE_CLASS, false, QueuePerf.class.getClassLoader());
+            return true;
+        } catch (final ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static String chronicleNotOnClassPath() {
+        return "Chronicle Queue is not on the class path, add net.openhft:chronicle-queue:" + chronicleQueueVersion();
+    }
+
+    /**
+     * Returns the chronicle-queue version mmap-perf was built with, from {@code chronicleVersion} in build.gradle.
+     *
+     * @return the chronicle-queue version
+     * @throws IllegalStateException if the version resource is missing
+     */
+    static String chronicleQueueVersion() {
+        try (final InputStream in = QueuePerf.class.getResourceAsStream(CHRONICLE_PROPERTIES)) {
+            if (in == null) {
+                throw new IllegalStateException("Resource " + CHRONICLE_PROPERTIES + " not found");
+            }
+            final Properties properties = new Properties();
+            properties.load(in);
+            return properties.getProperty(CHRONICLE_QUEUE_VERSION_PROPERTY);
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

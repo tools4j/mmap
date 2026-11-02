@@ -47,6 +47,11 @@ public final class ChroniclePerfQueue implements PerfQueue {
 
     private final ChronicleQueue queue;
 
+    /**
+     * Creates a Chronicle queue in the given directory.
+     *
+     * @param directory the queue directory
+     */
     public ChroniclePerfQueue(final File directory) {
         this.queue = ChronicleQueue.singleBuilder(directory)
                 .wireType(WIRE_TYPE)

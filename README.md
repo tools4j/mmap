@@ -198,12 +198,15 @@ The `mmap-perf` module is a command line benchmark measuring the latency from ap
 concurrent senders and receivers. It runs the mmap queue or [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue)
 through the same harness, so you can compare them on your own machine.
 
-Build it (from the project root):
+Download the distribution `mmap-perf-<version>.zip` from Maven Central (next to the jar of `org.tools4j:mmap-perf`,
+e.g. `mvn dependency:copy -Dartifact=org.tools4j:mmap-perf:<version>:zip -DoutputDirectory=.`) and unzip it, or build
+it (from the project root):
 ```
 ./gradlew :mmap-perf:installDist
 ```
-This puts `mmap-perf.jar` and its dependencies into `mmap-perf/build/install/mmap-perf/lib`; the directory can be
-copied to another machine. Run it with Java 17 or later:
+This puts `mmap-perf.jar` and its dependencies into `mmap-perf/build/install/mmap-perf/lib` (`lib` in the unzipped
+distribution); the directory can be copied to another machine. Chronicle Queue is included in the distribution, but
+optional when using `mmap-perf` as a dependency. Run it with Java 17 or later:
 ```
 java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --help
 java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap
@@ -273,11 +276,13 @@ per release.
 You can download binaries, sources and javadoc from Maven Central:
 * [mmap-mapping](https://central.sonatype.com/artifact/org.tools4j/mmap-mapping)
 * [mmap-queue](https://central.sonatype.com/artifact/org.tools4j/mmap-queue)
+* [mmap-perf](https://central.sonatype.com/artifact/org.tools4j/mmap-perf)
 
 ### API Javadoc
 API documentation of the latest release:
 * [mmap-mapping](https://javadoc.io/doc/org.tools4j/mmap-mapping)
 * [mmap-queue](https://javadoc.io/doc/org.tools4j/mmap-queue)
+* [mmap-perf](https://javadoc.io/doc/org.tools4j/mmap-perf)
 
 ### Notes
 * Licensed under the [MIT License](LICENSE.md).

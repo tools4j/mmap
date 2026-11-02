@@ -42,11 +42,18 @@ public final class MessageCodec {
     private static final int SENDER_ID_OFFSET = TIMESTAMP_OFFSET + TIMESTAMP_LENGTH;
     private static final int SENDER_ID_LENGTH = 1;
     private static final int PAYLOAD_OFFSET = SENDER_ID_OFFSET + SENDER_ID_LENGTH;
+    /** The minimum message length, a message without payload. */
     public static final int MIN_MESSAGE_LENGTH = PAYLOAD_OFFSET;
 
     private final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
     private final int payloadLength;
 
+    /**
+     * Creates a codec for messages of the given length.
+     *
+     * @param messageLength the message length in bytes, at least {@link #MIN_MESSAGE_LENGTH}
+     * @throws IllegalArgumentException if the message length is less than {@link #MIN_MESSAGE_LENGTH}
+     */
     public MessageCodec(final int messageLength) {
         if (messageLength < MIN_MESSAGE_LENGTH) {
             throw new IllegalArgumentException("Message length " + messageLength +
@@ -55,37 +62,67 @@ public final class MessageCodec {
         this.payloadLength = messageLength - PAYLOAD_OFFSET;
     }
 
+    /** @return the payload length in bytes */
     public int payloadLength() {
         return payloadLength;
     }
 
+    /**
+     * Wraps the message in the given buffer, at most up to the message length of this codec.
+     *
+     * @param buffer the buffer containing the message
+     * @param offset the message offset in the buffer
+     * @param length the message length available in the buffer
+     * @return this codec
+     */
     public MessageCodec wrap(final DirectBuffer buffer, final int offset, final int length) {
         this.buffer.wrap(buffer, offset, Math.min(length, PAYLOAD_OFFSET + payloadLength));
         return this;
     }
 
+    /** @return the send time in nanoseconds, from {@link System#nanoTime()} */
     public long timestamp() {
         return buffer.getLong(TIMESTAMP_OFFSET);
     }
 
+    /** @return the ID of the sender of the message */
     public byte senderId() {
         return buffer.getByte(SENDER_ID_OFFSET);
     }
 
+    /**
+     * Copies the payload into the given array.
+     *
+     * @param dest the destination array, at least {@link #payloadLength()} long
+     */
     public void getPayload(final byte[] dest) {
         buffer.getBytes(PAYLOAD_OFFSET, dest, 0, payloadLength);
     }
 
+    /**
+     * @param timestamp the send time in nanoseconds, from {@link System#nanoTime()}
+     * @return this codec
+     */
     public MessageCodec timestamp(final long timestamp) {
         buffer.putLong(TIMESTAMP_OFFSET, timestamp);
         return this;
     }
 
+    /**
+     * @param senderId the ID of the sender of the message
+     * @return this codec
+     */
     public MessageCodec senderId(final byte senderId) {
         buffer.putByte(SENDER_ID_OFFSET, senderId);
         return this;
     }
 
+    /**
+     * Copies the payload from the given array.
+     *
+     * @param src the source array, at least {@link #payloadLength()} long
+     * @return this codec
+     */
     public MessageCodec putPayload(final byte[] src) {
         buffer.putBytes(PAYLOAD_OFFSET, src, 0, payloadLength);
         return this;

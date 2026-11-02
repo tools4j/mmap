@@ -23,13 +23,17 @@
  */
 package org.tools4j.mmap.perf;
 
+import net.openhft.chronicle.queue.ChronicleQueue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Objects;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,7 +61,7 @@ public class QueuePerfTest {
     public void runCompletesAndDeletesQueueFiles(final String args) throws Throwable {
         //given
         assumeTrue(!args.contains("chronicle") || Runtime.version().feature() == 17,
-                "Chronicle Queue 5.21 supports only Java 17");
+                "Chronicle Queue " + QueuePerf.chronicleQueueVersion() + " supports only Java 17");
         final PerfOptions options = PerfOptions.parse((args + " --messages 20k --warmup 1k --rate 200k --length 64" +
                 " --timeout 60 --dir " + tempDir).split(" "));
 
@@ -66,6 +70,22 @@ public class QueuePerfTest {
 
         //then
         assertThat(tempDir.list()).isEmpty();
+    }
+
+    @Test
+    public void chronicleQueueVersionMatchesChronicleOnClassPath() throws IOException {
+        //given
+        final Properties pom = new Properties();
+        try (final InputStream in = ChronicleQueue.class.getResourceAsStream(
+                "/META-INF/maven/net.openhft/chronicle-queue/pom.properties")) {
+            pom.load(Objects.requireNonNull(in));
+        }
+
+        //when
+        final String version = QueuePerf.chronicleQueueVersion();
+
+        //then
+        assertThat(version).isEqualTo(pom.getProperty("version"));
     }
 
     @Test

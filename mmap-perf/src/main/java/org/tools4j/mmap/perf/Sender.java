@@ -93,6 +93,7 @@ public final class Sender {
         }
     }
 
+    /** Prints the achieved send rate to standard out. */
     public void printResult() {
         System.out.println(worker.name() + ":\n\tmsg/s  : " + (float) achievedMessagesPerSecond + "\n");
     }

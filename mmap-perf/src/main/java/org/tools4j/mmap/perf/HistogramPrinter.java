@@ -32,6 +32,12 @@ public enum HistogramPrinter {
     ;
     private static final double[] PERCENTILES = {50, 90, 99, 99.9, 99.99, 99.999};
 
+    /**
+     * Prints the percentiles of the given histogram to standard out.
+     *
+     * @param name      the name printed before the percentiles
+     * @param histogram the histogram with values in nanoseconds
+     */
     public static void printHistogram(final String name, final Histogram histogram) {
         final StringBuilder sb = new StringBuilder(256);
         sb.append(name).append(": Percentiles (micros)\n");

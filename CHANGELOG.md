@@ -43,7 +43,7 @@ and there is no migration, since 1.0 is considered a draft release that is not p
   `mmap.queue.entryIteratorPendingDataIdleStrategy`. Once an entry has been read, they never idle.
 - Lifecycle log level `mmap.mapping.lifecycleListener` = `LOG_DEBUG` (default), `LOG_INFO` or `LOG_WARN`.
 - The module `mmap-perf`, a command line benchmark measuring mmap and Chronicle Queue latencies through the same
-  harness (not published), see the README.
+  harness, see the README.
 
 ### Changed
 - The queue config `maxAppenders` accepts any value from 1 to 256 (was 1, 64 or 256) and defaults to 256 (was 64). It

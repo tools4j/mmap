@@ -69,7 +69,9 @@ public record PerfOptions(QueueType queue,
 
     /** The queue implementations */
     public enum QueueType {
+        /** The mmap queue */
         MMAP,
+        /** Chronicle Queue */
         CHRONICLE
     }
 
@@ -84,13 +86,15 @@ public record PerfOptions(QueueType queue,
     /** CPU list used by {@code --pin} without CPUs: from CPU 2 up to the highest online CPU */
     public static final String DEFAULT_PIN_CPUS = "2-";
 
+    /** Usage printed with {@code --help} */
     public static final String USAGE = """
             Usage: mmap-perf [options]
             Measures the latency from sending to receiving messages through a queue, after a warmup phase. Numbers can
             have '_' separators and a k, m or g suffix, decimal for counts (1m = 1_000_000) and binary for sizes
             (64k = 65536).
 
-              --queue <mmap|chronicle>   queue implementation (default: mmap), chronicle requires Java 17
+              --queue <mmap|chronicle>   queue implementation (default: mmap), chronicle requires Java 17 and
+                                         chronicle-queue on the class path
               --messages <n>             messages per sender, including warmup (default: 11m)
               --warmup <n>               warmup messages per sender, not measured (default: 1m)
               --rate <n>                 messages per second per sender, 0 for max speed (default: 1m)
