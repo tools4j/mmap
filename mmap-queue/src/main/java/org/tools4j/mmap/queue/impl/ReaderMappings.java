@@ -23,20 +23,15 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.collections.Int2ObjectHashMap;
-import org.tools4j.mmap.queue.config.QueueConfig;
-import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
-import org.tools4j.mmap.mapping.impl.RollingFiles;
+import org.tools4j.mmap.queue.config.IndexReaderConfig;
+import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
 
-import java.io.File;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -48,14 +43,16 @@ import static org.tools4j.mmap.queue.impl.QueueMappingConfigs.payloadMappingConf
  */
 interface ReaderMappings extends Closeable {
     /**
-     * Returns the header region mapping.
+     * Returns the header region mapping, or null if the queue does not exist yet. Moving the header mapping fails
+     * while the header file does not exist yet.
      *
-     * @return header region
+     * @return header region, or null if the queue does not exist yet
      */
     ElasticMapping header();
 
     /**
-     * Returns the payload region mapping for the given appender.
+     * Returns the payload region mapping for the given appender. Must only be invoked after reading a header with a
+     * non-null {@link #header()} mapping.
      *
      * @param appenderId appender id
      * @return payload region
@@ -63,89 +60,66 @@ interface ReaderMappings extends Closeable {
     ElasticMapping payload(int appenderId);
 
     /**
-     * Factory method for reader mappings.
+     * Factory method for reader mappings of pollers, entry readers and entry iterators.
      *
      * @param queueFiles   the queue files
+     * @param openMode     the open mode of the queue, lazy mappings are created for
+     *                     {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}, and eager mappings otherwise
      * @param queueConfig  supplies the queue configuration in effect, or null if the queue does not exist yet
      * @param readerConfig configuration for reader mappings
      * @return a new reader mappings instance
      */
     static ReaderMappings create(final QueueFiles queueFiles,
+                                 final OpenMode openMode,
                                  final Supplier<? extends QueueConfig> queueConfig,
                                  final ReaderConfig readerConfig) {
-        requireNonNull(queueFiles);
-        requireNonNull(queueConfig);
         final ReaderConfig readerCfg = readerConfig.toImmutableReaderConfig();
-
-        return new ReaderMappings() {
-            final ElasticMapping header = headerMapping(queueFiles, queueConfig,
-                    queueCfg -> headerMappingConfig(queueCfg, readerCfg));
-            final Int2ObjectHashMap<ElasticMapping> payloadMappings = new Int2ObjectHashMap<>();
-            final IntFunction<ElasticMapping> payloadMappingFactory = appenderId -> Mappings.elasticMapping(
-                    queueFiles.payloadFile(appenderId), OpenMode.READ_ONLY_LAZY,
-                    payloadMappingConfig(existingQueueConfig(queueConfig), readerCfg));
-
-            @Override
-            public ElasticMapping header() {
-                return header;
-            }
-
-            @Override
-            public ElasticMapping payload(final int appenderId) {
-                return payloadMappings.computeIfAbsent(appenderId, payloadMappingFactory);
-            }
-
-            @Override
-            public boolean isClosed() {
-                return header.isClosed();
-            }
-
-            @Override
-            public void close() {
-                if (!isClosed()) {
-                    header.close();
-                    payloadMappings.forEachInt((appenderId, mapping) -> mapping.close());
-                    payloadMappings.clear();
-                }
-            }
-
-            @Override
-            public String toString() {
-                return "ReaderMappings" +
-                        ":queue=" + queueFiles.queueName() +
-                        "|closed=" + isClosed();
-            }
-        };
+        return create(queueFiles, openMode, queueConfig,
+                queueCfg -> headerMappingConfig(queueCfg, readerCfg),
+                queueCfg -> payloadMappingConfig(queueCfg, readerCfg));
     }
 
     /**
-     * Creates a read-only header mapping; if the queue does not exist yet, the header file is mapped once it does.
+     * Factory method for reader mappings of index readers, which have only a header mapping.
      *
-     * @param queueFiles   the queue files
-     * @param queueConfig  supplies the queue configuration in effect, or null if the queue does not exist yet
-     * @param headerConfig function returning the header mapping config given the queue configuration in effect
-     * @return a new header mapping
+     * @param queueFiles        the queue files
+     * @param openMode          the open mode of the queue, lazy mappings are created for
+     *                          {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}, and eager mappings otherwise
+     * @param queueConfig       supplies the queue configuration in effect, or null if the queue does not exist yet
+     * @param indexReaderConfig configuration for index reader mappings
+     * @return a new reader mappings instance without payload mappings
      */
-    static ElasticMapping headerMapping(final QueueFiles queueFiles,
-                                        final Supplier<? extends QueueConfig> queueConfig,
-                                        final Function<? super QueueConfig, ? extends MappingConfig> headerConfig) {
-        final File headerFile = queueFiles.headerFile();
-        //NOTE: rolling header files are created starting with index 0 and never deleted individually
-        final File firstRollingHeaderFile = RollingFiles.fileForIndex(headerFile, 0);
-        final FileInitialiser fileInitialiser = FileInitialiser.minLength(Headers.HEADER_LENGTH);
-        return new LazyElasticMapping(
-                queueConfig,
-                cfg -> Mappings.elasticMapping(headerFile, OpenMode.READ_ONLY_LAZY, fileInitialiser,
-                        headerConfig.apply(cfg)),
-                cfg -> (cfg.rollHeaderFile() ? firstRollingHeaderFile : headerFile).exists()
-        );
+    static ReaderMappings create(final QueueFiles queueFiles,
+                                 final OpenMode openMode,
+                                 final Supplier<? extends QueueConfig> queueConfig,
+                                 final IndexReaderConfig indexReaderConfig) {
+        final IndexReaderConfig indexReaderCfg = indexReaderConfig.toImmutableIndexReaderConfig();
+        return create(queueFiles, openMode, queueConfig,
+                queueCfg -> headerMappingConfig(queueCfg, indexReaderCfg),
+                queueCfg -> {
+                    throw new UnsupportedOperationException("Index readers have no payload mappings");
+                });
     }
 
-    private static QueueConfig existingQueueConfig(final Supplier<? extends QueueConfig> queueConfig) {
-        //NOTE: payload is mapped only after reading a header, hence the queue exists
+    private static ReaderMappings create(final QueueFiles queueFiles,
+                                         final OpenMode openMode,
+                                         final Supplier<? extends QueueConfig> queueConfig,
+                                         final Function<? super QueueConfig, ? extends MappingConfig> headerConfig,
+                                         final Function<? super QueueConfig, ? extends MappingConfig> payloadConfig) {
+        requireNonNull(queueFiles);
+        requireNonNull(openMode);
+        requireNonNull(queueConfig);
+        requireNonNull(headerConfig);
+        requireNonNull(payloadConfig);
+        if (openMode == OpenMode.READ_ONLY_LAZY) {
+            return new LazyReaderMappings(queueConfig,
+                    queueCfg -> new EagerReaderMappings(queueFiles, queueCfg, headerConfig, payloadConfig));
+        }
         final QueueConfig queueCfg = queueConfig.get();
-        assert queueCfg != null : "queue must exist";
-        return queueCfg;
+        if (queueCfg == null) {
+            throw new IllegalStateException("Queue " + queueFiles.queueName() + " does not exist in open mode " +
+                    openMode);
+        }
+        return new EagerReaderMappings(queueFiles, queueCfg, headerConfig, payloadConfig);
     }
-
 }

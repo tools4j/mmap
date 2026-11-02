@@ -43,7 +43,6 @@ final class EntryReaderImpl implements EntryReader, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final ElasticMapping header;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private final ReadingContextImpl context;
@@ -53,7 +52,6 @@ final class EntryReaderImpl implements EntryReader, Describable {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
-            this.header = requireNonNull(mappings.header());
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new ReadingContextImpl(this);
@@ -67,13 +65,15 @@ final class EntryReaderImpl implements EntryReader, Describable {
     @Override
     public long lastIndex() {
         checkNotClosed();
-        return Headers.binarySearchLastIndex(header, Index.FIRST);
+        final ElasticMapping header = mappings.header();
+        return header != null ? Headers.binarySearchLastIndex(header, Index.FIRST) : Index.NULL;
     }
 
     @Override
     public boolean hasEntry(final long index) {
         checkNotClosed();
-        return Headers.hasNonEmptyHeaderAt(header, index);
+        final ElasticMapping header = mappings.header();
+        return header != null && Headers.hasNonEmptyHeaderAt(header, index);
     }
 
     @Override
@@ -94,7 +94,7 @@ final class EntryReaderImpl implements EntryReader, Describable {
 
     @Override
     public boolean isClosed() {
-        return header.isClosed();
+        return mappings.isClosed();
     }
 
     private void checkNotClosed() {
@@ -114,7 +114,6 @@ final class EntryReaderImpl implements EntryReader, Describable {
 
     private static final class ReadingContextImpl implements ReadingContext {
         final EntryReaderImpl reader;
-        final ElasticMapping header;
         final ReaderMappings mappings;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long maxIndex;
@@ -123,7 +122,6 @@ final class EntryReaderImpl implements EntryReader, Describable {
 
         ReadingContextImpl(final EntryReaderImpl reader) {
             this.reader = requireNonNull(reader);
-            this.header = requireNonNull(reader.header);
             this.mappings = requireNonNull(reader.mappings);
             this.maxIndex = Index.NULL;
             this.index = Index.NULL;
@@ -152,6 +150,10 @@ final class EntryReaderImpl implements EntryReader, Describable {
         }
 
         private long initPayloadBuffer(final long index) {
+            final ElasticMapping header = mappings.header();
+            if (header == null) {
+                return Index.NULL;
+            }
             final long hdr = index != Index.LAST ?
                     Headers.moveAndGetHeader(header, index):
                     Headers.binarySearchAndGetLastHeader(header, Math.max(maxIndex, Index.FIRST));

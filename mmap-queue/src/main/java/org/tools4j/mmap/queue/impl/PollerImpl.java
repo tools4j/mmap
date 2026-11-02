@@ -42,7 +42,6 @@ final class PollerImpl implements Poller, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final ElasticMapping header;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private final ErrorListener errorListener;
@@ -57,7 +56,6 @@ final class PollerImpl implements Poller, Describable {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
-            this.header = requireNonNull(mappings.header());
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.errorListener = requireNonNull(errorListener);
@@ -170,8 +168,8 @@ final class PollerImpl implements Poller, Describable {
         }
         final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
-        final ElasticMapping headerMapping = this.header;
-        if (!headerMapping.moveTo(position)) {
+        final ElasticMapping headerMapping = mappings.header();
+        if (headerMapping == null || !headerMapping.moveTo(position)) {
             return error;
         }
         if (error == PENDING_OPEN) {

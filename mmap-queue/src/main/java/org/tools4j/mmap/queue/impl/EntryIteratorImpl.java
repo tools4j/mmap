@@ -48,7 +48,6 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final ElasticMapping header;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private final IterableContextImpl context;
@@ -58,7 +57,6 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
-            this.header = requireNonNull(mappings.header());
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new IterableContextImpl(this);
@@ -92,7 +90,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
     @Override
     public boolean isClosed() {
-        return header.isClosed();
+        return mappings.isClosed();
     }
 
     private void checkNotClosed() {
@@ -115,7 +113,6 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         static final int BACKWARD = -1;
         static final int CLOSED = 0;
         final EntryIteratorImpl iterator;
-        final ElasticMapping header;
         final ReaderMappings mappings;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long startIndex;
@@ -128,7 +125,6 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
         IterableContextImpl(final EntryIteratorImpl iterator) {
             this.iterator = requireNonNull(iterator);
-            this.header = requireNonNull(iterator.header);
             this.mappings = requireNonNull(iterator.mappings);
             this.startIndex = Index.NULL;
             this.increment = CLOSED;
@@ -159,7 +155,9 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             if (index < Index.LAST) {
                 throw invalidIndexException(iterator.iteratorName(), index);
             }
-            final long lastIndex = Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST));
+            final ElasticMapping header = mappings.header();
+            final long lastIndex = header != null ?
+                    Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST)) : Index.NULL;
             return lastIndex != Index.NULL ? (index == Index.LAST ? lastIndex : lastIndex + 1) : Index.FIRST;
         }
 
@@ -220,7 +218,8 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             if (hdr != NULL_HEADER) {
                 return true;
             }
-            hdr = Headers.moveAndGetHeader(header, next);
+            final ElasticMapping header = mappings.header();
+            hdr = header != null ? Headers.moveAndGetHeader(header, next) : NULL_HEADER;
             if (hdr != NULL_HEADER) {
                 updateMaxIndex(next);
                 nextHeader = hdr;

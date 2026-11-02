@@ -82,26 +82,26 @@ public final class QueueImpl implements Queue, Describable {
         final Supplier<QueueConfig> effectiveConfigSupplier = this::effectiveConfig;
         this.pollerFactory = factory((pollerConfig, onClose) -> new PollerImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, effectiveConfigSupplier, pollerConfig),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, pollerConfig),
                 onClose,
                 lifecycleListener,
                 errorListener
         ));
         this.entryReaderFactory = factory((readerConfig, onClose) -> new EntryReaderImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, readerConfig),
                 onClose,
                 lifecycleListener
         ));
         this.entryIteratorFactory = factory((readerConfig, onClose) -> new EntryIteratorImpl(
                 queueNameIfNotClosed(),
-                ReaderMappings.create(files, effectiveConfigSupplier, readerConfig),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, readerConfig),
                 onClose,
                 lifecycleListener
         ));
         this.indexReaderFactory = factory((indReaderConfig, onClose) -> new IndexReaderImpl(
                 queueNameIfNotClosed(),
-                IndexMappings.create(files, effectiveConfigSupplier, indReaderConfig),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, indReaderConfig),
                 onClose,
                 lifecycleListener
         ));
