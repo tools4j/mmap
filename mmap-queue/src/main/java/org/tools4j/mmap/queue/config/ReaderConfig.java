@@ -23,6 +23,10 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.agrona.concurrent.IdleStrategy;
+
+import java.util.function.Supplier;
+
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 /**
@@ -67,6 +71,25 @@ public interface ReaderConfig {
      * @return the maximum number of payload files kept open, at least one
      */
     int maxOpenPayloadFiles();
+
+    /**
+     * Returns the supplier of the idle strategy that pollers and entry iterators apply after every attempt to read
+     * while the queue does not exist yet. Every poller and entry iterator gets its own idle strategy instance, which is
+     * reset once the queue exists. Not used by entry readers.
+     *
+     * @return the supplier of the idle strategy while the queue does not exist yet
+     */
+    Supplier<? extends IdleStrategy> pendingQueueIdleStrategy();
+
+    /**
+     * Returns the supplier of the idle strategy that pollers and entry iterators apply after every failed attempt to
+     * read the first queue entry, until an entry has been read; it is never applied after that, so that polling and
+     * iterating latency is not affected. Every poller and entry iterator gets its own idle strategy instance, which
+     * is reset once an entry has been read. Not used by entry readers.
+     *
+     * @return the supplier of the idle strategy until the first entry exists
+     */
+    Supplier<? extends IdleStrategy> pendingDataIdleStrategy();
 
     /**
      * Returns an immutable snapshot of this configuration, or this configuration itself if it is immutable already.

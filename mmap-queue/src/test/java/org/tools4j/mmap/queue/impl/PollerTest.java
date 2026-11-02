@@ -26,12 +26,14 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.io.File;
@@ -316,6 +318,46 @@ class PollerTest {
             try (final Poller poller = queue.createPoller()) {
                 assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(expectedResult);
                 assertThat(poller.poll((index, buffer, offset, len) -> Move.NEXT)).isEqualTo(expectedResult);
+            }
+        }
+    }
+
+    @Test
+    void pollIdlesWhileQueueIsPendingThenUntilFirstEntryIsPolled() {
+        final CountingIdleStrategy pendingQueue = new CountingIdleStrategy();
+        final CountingIdleStrategy pendingData = new CountingIdleStrategy();
+        final EntryHandler handler = (index, buffer, offset, length) -> Move.NEXT;
+        try (final Queue lazyQueue = Queue.open(queueDir, OpenMode.READ_ONLY_LAZY);
+             final Poller poller = lazyQueue.createPoller(ReaderConfig.configurePoller()
+                     .pendingQueueIdleStrategy(() -> pendingQueue)
+                     .pendingDataIdleStrategy(() -> pendingData))) {
+            assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_OPEN);
+            assertThat(pendingQueue.idleCount).isEqualTo(1);
+            assertThat(pendingData.idleCount).isZero();
+
+            try (final Queue queue = Queue.open(queueDir, OpenMode.CREATE)) {
+                //queue exists, header file not yet
+                assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_OPEN);
+                assertThat(pendingQueue.idleCount).isEqualTo(1);
+                assertThat(pendingQueue.resetCount).isEqualTo(1);
+                assertThat(pendingData.idleCount).isEqualTo(1);
+
+                try (final Appender appender = queue.createAppender()) {
+                    assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+                    assertThat(pendingData.idleCount).isEqualTo(2);
+
+                    appender.append(new byte[8]);
+                    assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+                    assertThat(pendingData.resetCount).isEqualTo(1);
+
+                    //tailing: no idling once an entry was polled
+                    assertThat(poller.poll(handler)).isEqualTo(Poller.PENDING_NEXT);
+                    poller.seekFirst();
+                    assertThat(poller.poll(handler)).isEqualTo(Poller.ENTRY_POLLED);
+                    assertThat(pendingQueue.idleCount).isEqualTo(1);
+                    assertThat(pendingData.idleCount).isEqualTo(2);
+                    assertThat(pendingData.resetCount).isEqualTo(1);
+                }
             }
         }
     }

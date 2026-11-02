@@ -36,6 +36,11 @@ and there is no migration.
   mapping runtime threads are pinned with `mmap.mapping.async.mappingRuntimeCpus`, e.g. `4-7`. Async runtimes accept
   a `ThreadFactory`.
 - `READ_ONLY_LAZY` readers of queues that do not exist yet.
+- Pollers and entry iterators idle instead of busy spinning while there is nothing to read yet: until the queue
+  exists (`READ_ONLY_LAZY`), and until its first entry. Both default to a `BackoffIdleStrategy`, set per reader with
+  `ReaderConfigurator.pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, or with
+  `mmap.queue.pendingQueueIdleStrategy`, `mmap.queue.pollerPendingDataIdleStrategy` and
+  `mmap.queue.entryIteratorPendingDataIdleStrategy`. Once an entry has been read, they never idle.
 - Lifecycle log level `mmap.mapping.lifecycleListener` = `LOG_DEBUG` (default), `LOG_INFO` or `LOG_WARN`.
 - `mmap-perf`, a command line benchmark measuring mmap and Chronicle Queue latencies through the same harness
   (not published), see the README.

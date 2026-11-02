@@ -23,28 +23,38 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
+
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public record ReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
                                MappingStrategyConfig payloadMappingStrategy,
                                int maxOpenHeaderFiles,
-                               int maxOpenPayloadFiles) implements ReaderConfig {
+                               int maxOpenPayloadFiles,
+                               Supplier<? extends IdleStrategy> pendingQueueIdleStrategy,
+                               Supplier<? extends IdleStrategy> pendingDataIdleStrategy) implements ReaderConfig {
     public ReaderConfigImpl(final ReaderConfig config) {
         this(config.headerMappingStrategy(), config.payloadMappingStrategy(),
-                config.maxOpenHeaderFiles(), config.maxOpenPayloadFiles());
+                config.maxOpenHeaderFiles(), config.maxOpenPayloadFiles(),
+                config.pendingQueueIdleStrategy(), config.pendingDataIdleStrategy());
     }
 
     public ReaderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
                             final MappingStrategyConfig payloadMappingStrategy,
                             final int maxOpenHeaderFiles,
-                            final int maxOpenPayloadFiles) {
+                            final int maxOpenPayloadFiles,
+                            final Supplier<? extends IdleStrategy> pendingQueueIdleStrategy,
+                            final Supplier<? extends IdleStrategy> pendingDataIdleStrategy) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
         this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         this.maxOpenPayloadFiles = maxOpenPayloadFiles;
+        this.pendingQueueIdleStrategy = requireNonNull(pendingQueueIdleStrategy);
+        this.pendingDataIdleStrategy = requireNonNull(pendingDataIdleStrategy);
     }
 
     @Override
@@ -58,6 +68,8 @@ public record ReaderConfigImpl(MappingStrategyConfig headerMappingStrategy,
                 ":headerMappingStrategy=" + headerMappingStrategy +
                 "|payloadMappingStrategy=" + payloadMappingStrategy +
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
-                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles;
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
+                "|pendingQueueIdleStrategy=" + pendingQueueIdleStrategy +
+                "|pendingDataIdleStrategy=" + pendingDataIdleStrategy;
     }
 }

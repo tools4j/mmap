@@ -23,11 +23,13 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.queue.impl.ReaderConfiguratorImpl;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Configurator to build a {@link ReaderConfig} for a poller, entry reader or entry iterator; values not set explicitly
@@ -137,6 +139,35 @@ public interface ReaderConfigurator extends ReaderConfig {
      * @throws IllegalArgumentException if the value is negative
      */
     ReaderConfigurator maxOpenPayloadFiles(int maxOpenPayloadFiles);
+
+    /**
+     * Sets the supplier of the idle strategy for pollers and entry iterators both while the queue does not exist yet
+     * and until the first entry exists.
+     *
+     * @param idleStrategySupplier supplier of the idle strategy, or null to reset both to the default
+     * @return this configurator for method chaining
+     * @see #pendingQueueIdleStrategy(Supplier)
+     * @see #pendingDataIdleStrategy(Supplier)
+     */
+    ReaderConfigurator pendingIdleStrategy(Supplier<? extends IdleStrategy> idleStrategySupplier);
+
+    /**
+     * Sets the supplier of the {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the queue does
+     * not exist yet}.
+     *
+     * @param idleStrategySupplier supplier of the idle strategy, or null to reset it to the default
+     * @return this configurator for method chaining
+     */
+    ReaderConfigurator pendingQueueIdleStrategy(Supplier<? extends IdleStrategy> idleStrategySupplier);
+
+    /**
+     * Sets the supplier of the {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry
+     * exists}.
+     *
+     * @param idleStrategySupplier supplier of the idle strategy, or null to reset it to the default
+     * @return this configurator for method chaining
+     */
+    ReaderConfigurator pendingDataIdleStrategy(Supplier<? extends IdleStrategy> idleStrategySupplier);
 
     /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this

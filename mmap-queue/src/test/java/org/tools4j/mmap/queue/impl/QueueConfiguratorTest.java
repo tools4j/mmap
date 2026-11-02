@@ -43,6 +43,8 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.AppenderConfiguratorTest.STRATEGY_A;
 import static org.tools4j.mmap.queue.impl.AppenderConfiguratorTest.STRATEGY_B;
+import static org.tools4j.mmap.queue.impl.ReaderConfiguratorTest.IDLE_A;
+import static org.tools4j.mmap.queue.impl.ReaderConfiguratorTest.IDLE_B;
 import static org.tools4j.mmap.queue.impl.AppenderConfiguratorTest.assertMappingStrategy;
 import static org.tools4j.mmap.queue.impl.IndexReaderConfigDefaults.INDEX_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
@@ -66,9 +68,9 @@ class QueueConfiguratorTest {
         return new QueueConfigImpl(5, FILE_SIZE, 2 * FILE_SIZE, 4 * FILE_SIZE, 8 * FILE_SIZE,
                 REGION_SIZE, 2 * REGION_SIZE, true, false, false, true,
                 new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 11, 12, 1, 2),
-                new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 21, 22),
-                new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 31, 32),
-                new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 41, 42),
+                new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 21, 22, IDLE_A, IDLE_B),
+                new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 31, 32, IDLE_B, IDLE_A),
+                new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 41, 42, IDLE_A, IDLE_A),
                 new IndexReaderConfigImpl(STRATEGY_B, 51),
                 LIFECYCLE_LISTENER, ERROR_LISTENER);
     }
@@ -134,9 +136,9 @@ class QueueConfiguratorTest {
     @Test
     void explicitValuesOverrideDefaultsUntilReset() {
         final AppenderConfig appenderConfig = new AppenderConfigImpl(STRATEGY_B, STRATEGY_B, 13, 14, 3, 4);
-        final ReaderConfig pollerConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_B, 23, 24);
-        final ReaderConfig entryReaderConfig = new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 33, 34);
-        final ReaderConfig entryIteratorConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 43, 44);
+        final ReaderConfig pollerConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_B, 23, 24, IDLE_B, IDLE_B);
+        final ReaderConfig entryReaderConfig = new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 33, 34, IDLE_A, IDLE_B);
+        final ReaderConfig entryIteratorConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 43, 44, IDLE_B, IDLE_A);
         final IndexReaderConfig indexReaderConfig = new IndexReaderConfigImpl(STRATEGY_A, 53);
         final QueueConfigurator config = QueueConfig.configure(customDefaults())
                 .maxAppenders(7)
@@ -197,11 +199,11 @@ class QueueConfiguratorTest {
                 .payloadFilesToCreateAhead(4);
         assertEquals(new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62, 3, 4),
                 config.appenderConfig().toImmutableAppenderConfig());
-        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62),
+        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62, IDLE_A, IDLE_B),
                 config.pollerConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 61, 62),
+        assertEquals(new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 61, 62, IDLE_B, IDLE_A),
                 config.entryReaderConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 61, 62),
+        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 61, 62, IDLE_A, IDLE_A),
                 config.entryIteratorConfig().toImmutableReaderConfig());
         assertEquals(new IndexReaderConfigImpl(STRATEGY_B, 61),
                 config.indexReaderConfig().toImmutableIndexReaderConfig());
@@ -215,25 +217,25 @@ class QueueConfiguratorTest {
                 .mappingStrategy(MappingStrategy.SyncMappingStrategy);
         assertEquals(new AppenderConfigImpl(sync, sync, 11, 12, 1, 2),
                 config.appenderConfig().toImmutableAppenderConfig());
-        assertEquals(new ReaderConfigImpl(sync, sync, 21, 22), config.pollerConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(sync, sync, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(sync, sync, 41, 42), config.entryIteratorConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(sync, sync, 21, 22, IDLE_A, IDLE_B), config.pollerConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(sync, sync, 31, 32, IDLE_B, IDLE_A), config.entryReaderConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(sync, sync, 41, 42, IDLE_A, IDLE_A), config.entryIteratorConfig().toImmutableReaderConfig());
         assertEquals(new IndexReaderConfigImpl(sync, 51), config.indexReaderConfig().toImmutableIndexReaderConfig());
 
         config.headerMappingStrategy(MappingStrategy.AsyncMapAheadStrategy);
         assertEquals(new AppenderConfigImpl(async, sync, 11, 12, 1, 2),
                 config.appenderConfig().toImmutableAppenderConfig());
-        assertEquals(new ReaderConfigImpl(async, sync, 21, 22), config.pollerConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(async, sync, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(async, sync, 41, 42), config.entryIteratorConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(async, sync, 21, 22, IDLE_A, IDLE_B), config.pollerConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(async, sync, 31, 32, IDLE_B, IDLE_A), config.entryReaderConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(async, sync, 41, 42, IDLE_A, IDLE_A), config.entryIteratorConfig().toImmutableReaderConfig());
         assertEquals(new IndexReaderConfigImpl(async, 51), config.indexReaderConfig().toImmutableIndexReaderConfig());
 
         config.payloadMappingStrategy(MappingStrategy.AsyncMapAheadStrategy);
         assertEquals(new AppenderConfigImpl(async, async, 11, 12, 1, 2),
                 config.appenderConfig().toImmutableAppenderConfig());
-        assertEquals(new ReaderConfigImpl(async, async, 21, 22), config.pollerConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(async, async, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());
-        assertEquals(new ReaderConfigImpl(async, async, 41, 42),
+        assertEquals(new ReaderConfigImpl(async, async, 21, 22, IDLE_A, IDLE_B), config.pollerConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(async, async, 31, 32, IDLE_B, IDLE_A), config.entryReaderConfig().toImmutableReaderConfig());
+        assertEquals(new ReaderConfigImpl(async, async, 41, 42, IDLE_A, IDLE_A),
                 config.entryIteratorConfig().toImmutableReaderConfig());
         assertEquals(new IndexReaderConfigImpl(async, 51), config.indexReaderConfig().toImmutableIndexReaderConfig());
     }

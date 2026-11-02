@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
@@ -30,12 +31,15 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPendingQueueIdleStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPendingDataIdleStrategy;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
@@ -47,6 +51,8 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private MappingStrategyConfig payloadMappingStrategy;
     private int maxOpenHeaderFiles;
     private int maxOpenPayloadFiles;
+    private Supplier<? extends IdleStrategy> pendingQueueIdleStrategy;
+    private Supplier<? extends IdleStrategy> pendingDataIdleStrategy;
 
     private ReaderConfiguratorImpl(final ReaderConfig defaults) {
         this.defaults = requireNonNull(defaults);
@@ -75,6 +81,8 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         payloadMappingStrategy = null;
         maxOpenHeaderFiles = 0;
         maxOpenPayloadFiles = 0;
+        pendingQueueIdleStrategy = null;
+        pendingDataIdleStrategy = null;
         return this;
     }
 
@@ -191,6 +199,45 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
         return this;
     }
 
+    @Override
+    public Supplier<? extends IdleStrategy> pendingQueueIdleStrategy() {
+        if (pendingQueueIdleStrategy == null) {
+            pendingQueueIdleStrategy = defaults.pendingQueueIdleStrategy();
+        }
+        if (pendingQueueIdleStrategy == null) {
+            pendingQueueIdleStrategy = defaultPendingQueueIdleStrategy();
+        }
+        return pendingQueueIdleStrategy;
+    }
+
+    @Override
+    public ReaderConfigurator pendingQueueIdleStrategy(final Supplier<? extends IdleStrategy> idleStrategySupplier) {
+        this.pendingQueueIdleStrategy = idleStrategySupplier;
+        return this;
+    }
+
+    @Override
+    public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
+        if (pendingDataIdleStrategy == null) {
+            pendingDataIdleStrategy = defaults.pendingDataIdleStrategy();
+        }
+        if (pendingDataIdleStrategy == null) {
+            //NOTE: the reader kind is unknown here, hence the poller default (entry readers do not use it anyway)
+            pendingDataIdleStrategy = defaultPollerPendingDataIdleStrategy();
+        }
+        return pendingDataIdleStrategy;
+    }
+
+    @Override
+    public ReaderConfigurator pendingDataIdleStrategy(final Supplier<? extends IdleStrategy> idleStrategySupplier) {
+        this.pendingDataIdleStrategy = idleStrategySupplier;
+        return this;
+    }
+
+    @Override
+    public ReaderConfigurator pendingIdleStrategy(final Supplier<? extends IdleStrategy> idleStrategySupplier) {
+        return pendingQueueIdleStrategy(idleStrategySupplier).pendingDataIdleStrategy(idleStrategySupplier);
+    }
 
     @Override
     public ReaderConfig toImmutableReaderConfig() {
@@ -204,6 +251,8 @@ public class ReaderConfiguratorImpl implements ReaderConfigurator {
                 "|headerMappingStrategy=" + headerMappingStrategy +
                 "|payloadMappingStrategy=" + payloadMappingStrategy +
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
-                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles;
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
+                "|pendingQueueIdleStrategy=" + pendingQueueIdleStrategy +
+                "|pendingDataIdleStrategy=" + pendingDataIdleStrategy;
     }
 }

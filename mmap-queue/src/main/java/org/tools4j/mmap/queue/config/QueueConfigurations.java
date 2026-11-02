@@ -23,16 +23,22 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.agrona.concurrent.BackoffIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.Constraints;
 import org.tools4j.mmap.queue.impl.AppenderIdPool;
 
-import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
-import java.util.function.LongConsumer;
+import java.util.function.Supplier;
 
+import static org.tools4j.mmap.mapping.impl.SystemProperties.booleanProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.enumProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.intProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.longProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.supplierProperty;
 import static org.tools4j.mmap.queue.config.MappingStrategy.AsyncMapAheadStrategy;
 import static org.tools4j.mmap.queue.config.MappingStrategy.SyncMappingStrategyWithAsyncUnmapping;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
@@ -222,6 +228,49 @@ public enum QueueConfigurations {
      * iterators, used if system property {@value #MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY} is not set.
      */
     public static final int MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
+
+    /**
+     * Name of the system property to override the default
+     * {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the queue does not exist} of pollers and
+     * entry iterators, with the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a
+     * public no-arg constructor).
+     */
+    public static final String PENDING_QUEUE_IDLE_STRATEGY_PROPERTY = "mmap.queue.pendingQueueIdleStrategy";
+    /**
+     * Supplier of the default {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the queue does
+     * not exist} of pollers and entry iterators, used if system property {@value #PENDING_QUEUE_IDLE_STRATEGY_PROPERTY}
+     * is not set: a new {@link BackoffIdleStrategy} with default settings, spinning, then yielding, then parking for up
+     * to 1 millisecond.
+     */
+    public static final Supplier<IdleStrategy> PENDING_QUEUE_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
+    /**
+     * Name of the system property to override the default
+     * {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry exists} of pollers, with
+     * the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a public no-arg
+     * constructor).
+     */
+    public static final String POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY = "mmap.queue.pollerPendingDataIdleStrategy";
+    /**
+     * Supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry
+     * exists} of pollers, used if system property {@value #POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY} is not set: a
+     * new {@link BackoffIdleStrategy} with default settings.
+     */
+    public static final Supplier<IdleStrategy> POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
+    /**
+     * Name of the system property to override the default
+     * {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry exists} of entry
+     * iterators, with the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a
+     * public no-arg constructor).
+     */
+    public static final String ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY =
+            "mmap.queue.entryIteratorPendingDataIdleStrategy";
+    /**
+     * Supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry
+     * exists} of entry iterators, used if system property {@value #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY}
+     * is not set: a new {@link BackoffIdleStrategy} with default settings.
+     */
+    public static final Supplier<IdleStrategy> ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT =
+            BackoffIdleStrategy::new;
 
     /**
      * Name of the system property to override the default
@@ -472,7 +521,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxAppenders() {
-        return getIntProperty(MAX_APPENDERS_PROPERTY, AppenderIdPool::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
+        return intProperty(MAX_APPENDERS_PROPERTY, AppenderIdPool::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
     }
 
     /**
@@ -483,7 +532,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static long defaultMinHeaderFileSize() {
-        return getLongProperty(MIN_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_HEADER_FILE_SIZE_DEFAULT);
+        return longProperty(MIN_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_HEADER_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -494,7 +543,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static long defaultMinPayloadFileSize() {
-        return getLongProperty(MIN_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_PAYLOAD_FILE_SIZE_DEFAULT);
+        return longProperty(MIN_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_PAYLOAD_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -505,7 +554,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static long defaultMaxHeaderFileSize() {
-        return getLongProperty(MAX_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_HEADER_FILE_SIZE_DEFAULT);
+        return longProperty(MAX_HEADER_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_HEADER_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -516,7 +565,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static long defaultMaxPayloadFileSize() {
-        return getLongProperty(MAX_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_PAYLOAD_FILE_SIZE_DEFAULT);
+        return longProperty(MAX_PAYLOAD_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_PAYLOAD_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -527,7 +576,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultHeaderRegionSize() {
-        return getIntProperty(HEADER_REGION_SIZE_PROPERTY, Constraints::validateRegionSize, MappingConfigurations::defaultRegionSize);
+        return intProperty(HEADER_REGION_SIZE_PROPERTY, Constraints::validateRegionSize, MappingConfigurations::defaultRegionSize);
     }
 
     /**
@@ -538,7 +587,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultPayloadRegionSize() {
-        return getIntProperty(PAYLOAD_REGION_SIZE_PROPERTY, Constraints::validateRegionSize, MappingConfigurations::defaultRegionSize);
+        return intProperty(PAYLOAD_REGION_SIZE_PROPERTY, Constraints::validateRegionSize, MappingConfigurations::defaultRegionSize);
     }
 
     /**
@@ -549,7 +598,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static boolean defaultExpandHeaderFile() {
-        return getBooleanProperty(EXPAND_HEADER_FILE_PROPERTY, EXPAND_HEADER_FILE_DEFAULT);
+        return booleanProperty(EXPAND_HEADER_FILE_PROPERTY, EXPAND_HEADER_FILE_DEFAULT);
     }
 
     /**
@@ -560,7 +609,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static boolean defaultExpandPayloadFiles() {
-        return getBooleanProperty(EXPAND_PAYLOAD_FILES_PROPERTY, EXPAND_PAYLOAD_FILES_DEFAULT);
+        return booleanProperty(EXPAND_PAYLOAD_FILES_PROPERTY, EXPAND_PAYLOAD_FILES_DEFAULT);
     }
 
     /**
@@ -571,7 +620,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static boolean defaultRollHeaderFile() {
-        return getBooleanProperty(ROLL_HEADER_FILE_PROPERTY, ROLL_HEADER_FILE_DEFAULT);
+        return booleanProperty(ROLL_HEADER_FILE_PROPERTY, ROLL_HEADER_FILE_DEFAULT);
     }
 
     /**
@@ -582,7 +631,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static boolean defaultRollPayloadFiles() {
-        return getBooleanProperty(ROLL_PAYLOAD_FILES_PROPERTY, ROLL_PAYLOAD_FILES_DEFAULT);
+        return booleanProperty(ROLL_PAYLOAD_FILES_PROPERTY, ROLL_PAYLOAD_FILES_DEFAULT);
     }
 
 
@@ -597,7 +646,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenPollerHeaderFiles() {
-        return getIntProperty(MAX_OPEN_POLLER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_HEADER_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_POLLER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_HEADER_FILES_DEFAULT);
     }
 
     /**
@@ -609,7 +658,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenPollerPayloadFiles() {
-        return getIntProperty(MAX_OPEN_POLLER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_POLLER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_POLLER_PAYLOAD_FILES_DEFAULT);
     }
 
     // ENTRY_READER
@@ -623,7 +672,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenEntryReaderHeaderFiles() {
-        return getIntProperty(MAX_OPEN_ENTRY_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_ENTRY_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_HEADER_FILES_DEFAULT);
     }
 
     /**
@@ -635,7 +684,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenEntryReaderPayloadFiles() {
-        return getIntProperty(MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_READER_PAYLOAD_FILES_DEFAULT);
     }
 
     // ENTRY_ITERATOR
@@ -649,7 +698,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenEntryIteratorHeaderFiles() {
-        return getIntProperty(MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_HEADER_FILES_DEFAULT);
     }
 
     /**
@@ -661,7 +710,49 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenEntryIteratorPayloadFiles() {
-        return getIntProperty(MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT);
+    }
+
+    /**
+     * Returns the supplier of the default {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the
+     * queue does not exist} of pollers and entry iterators. Every invocation of the returned supplier provides a new
+     * idle strategy instance, unless the configured supplier itself returns shared instances.
+     *
+     * @return a supplier for the idle strategy class (or supplier class) given by system property
+     *         {@value #PENDING_QUEUE_IDLE_STRATEGY_PROPERTY} if set, and {@link #PENDING_QUEUE_IDLE_STRATEGY_DEFAULT}
+     *         otherwise
+     */
+    public static Supplier<? extends IdleStrategy> defaultPendingQueueIdleStrategy() {
+        return supplierProperty(PENDING_QUEUE_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+                PENDING_QUEUE_IDLE_STRATEGY_DEFAULT);
+    }
+
+    /**
+     * Returns the supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the
+     * first entry exists} of pollers. Every invocation of the returned supplier provides a new idle strategy instance,
+     * unless the configured supplier itself returns shared instances.
+     *
+     * @return a supplier for the idle strategy class (or supplier class) given by system property
+     *         {@value #POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY} if set, and
+     *         {@link #POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT} otherwise
+     */
+    public static Supplier<? extends IdleStrategy> defaultPollerPendingDataIdleStrategy() {
+        return supplierProperty(POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+                POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT);
+    }
+
+    /**
+     * Returns the supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the
+     * first entry exists} of entry iterators. Every invocation of the returned supplier provides a new idle strategy
+     * instance, unless the configured supplier itself returns shared instances.
+     *
+     * @return a supplier for the idle strategy class (or supplier class) given by system property
+     *         {@value #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY} if set, and
+     *         {@link #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT} otherwise
+     */
+    public static Supplier<? extends IdleStrategy> defaultEntryIteratorPendingDataIdleStrategy() {
+        return supplierProperty(ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY,
+                IdleStrategy.class, ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT);
     }
 
     // INDEX_READER
@@ -674,7 +765,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenIndexReaderHeaderFiles() {
-        return getIntProperty(MAX_OPEN_INDEX_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_INDEX_READER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_INDEX_READER_HEADER_FILES_DEFAULT);
     }
 
     // APPENDER
@@ -687,7 +778,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenAppenderHeaderFiles() {
-        return getIntProperty(MAX_OPEN_APPENDER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_APPENDER_HEADER_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_HEADER_FILES_DEFAULT);
     }
 
     /**
@@ -699,7 +790,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultMaxOpenAppenderPayloadFiles() {
-        return getIntProperty(MAX_OPEN_APPENDER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_APPENDER_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_APPENDER_PAYLOAD_FILES_DEFAULT);
     }
 
     /**
@@ -711,7 +802,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderHeaderFilesToCreateAhead() {
-        return getIntProperty(APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT);
+        return intProperty(APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT);
     }
 
     /**
@@ -723,7 +814,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderPayloadFilesToCreateAhead() {
-        return getIntProperty(APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
+        return intProperty(APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
     }
 
 
@@ -737,7 +828,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultPollerHeaderRegionCacheSize() {
-        return getIntProperty(POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(POLLER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -749,7 +840,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultPollerHeaderRegionsToMapAhead() {
-        return getIntProperty(POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(POLLER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -781,7 +872,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultPollerPayloadRegionCacheSize() {
-        return getIntProperty(POLLER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(POLLER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -793,7 +884,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultPollerPayloadRegionsToMapAhead() {
-        return getIntProperty(POLLER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(POLLER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -825,7 +916,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryReaderHeaderRegionCacheSize() {
-        return getIntProperty(ENTRY_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(ENTRY_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -837,7 +928,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryReaderHeaderRegionsToMapAhead() {
-        return getIntProperty(ENTRY_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(ENTRY_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -869,7 +960,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryReaderPayloadRegionCacheSize() {
-        return getIntProperty(ENTRY_READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(ENTRY_READER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -881,7 +972,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryReaderPayloadRegionsToMapAhead() {
-        return getIntProperty(ENTRY_READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(ENTRY_READER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -913,7 +1004,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryIteratorHeaderRegionCacheSize() {
-        return getIntProperty(ENTRY_ITERATOR_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(ENTRY_ITERATOR_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -925,7 +1016,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryIteratorHeaderRegionsToMapAhead() {
-        return getIntProperty(ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -957,7 +1048,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryIteratorPayloadRegionCacheSize() {
-        return getIntProperty(ENTRY_ITERATOR_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(ENTRY_ITERATOR_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -969,7 +1060,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultEntryIteratorPayloadRegionsToMapAhead() {
-        return getIntProperty(ENTRY_ITERATOR_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(ENTRY_ITERATOR_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -1001,7 +1092,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultIndexReaderHeaderRegionCacheSize() {
-        return getIntProperty(INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(INDEX_READER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -1013,7 +1104,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultIndexReaderHeaderRegionsToMapAhead() {
-        return getIntProperty(INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(INDEX_READER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -1045,7 +1136,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderHeaderRegionCacheSize() {
-        return getIntProperty(APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(APPENDER_HEADER_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -1057,7 +1148,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderHeaderRegionsToMapAhead() {
-        return getIntProperty(APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(APPENDER_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -1089,7 +1180,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderPayloadRegionCacheSize() {
-        return getIntProperty(APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
+        return intProperty(APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, MappingConfigurations::defaultRegionCacheSize);
     }
 
     /**
@@ -1101,7 +1192,7 @@ public enum QueueConfigurations {
      * @throws IllegalArgumentException if the system property value is invalid
      */
     public static int defaultAppenderPayloadRegionsToMapAhead() {
-        return getIntProperty(APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
+        return intProperty(APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, MappingConfigurations::defaultRegionsToMapAhead);
     }
 
     /**
@@ -1187,7 +1278,7 @@ public enum QueueConfigurations {
                                                                     final MappingStrategy mappingStrategyDefault,
                                                                     final IntSupplier regionCacheSizeSupplier,
                                                                     final IntSupplier regionsToMapAheadSupplier) {
-        final MappingStrategyConfig strategy = getEnumProperty(mappingStrategyProperty, MappingStrategy.class,
+        final MappingStrategyConfig strategy = enumProperty(mappingStrategyProperty, MappingStrategy.class,
                 mappingStrategyDefault).mappingStrategyConfig();
         final MappingStrategyConfigurator config = MappingStrategyConfig.configure(strategy)
                 .cacheSize(regionCacheSizeSupplier.getAsInt())
@@ -1196,76 +1287,5 @@ public enum QueueConfigurations {
             config.asyncMapping(async -> async.regionsToMapAhead(regionsToMapAheadSupplier.getAsInt()));
         }
         return config.toImmutableConfig();
-    }
-
-    private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            final int intValue = Integer.parseInt(propVal);
-            validator.accept(intValue);
-            return intValue;
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    private static int getIntProperty(final String propertyName, final IntConsumer validator, final IntSupplier defaultValueSupplier) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValueSupplier.getAsInt();
-        }
-        try {
-            final int intValue = Integer.parseInt(propVal);
-            validator.accept(intValue);
-            return intValue;
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    private static long getLongProperty(final String propertyName, final LongConsumer validator, final long defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            final long longValue = Long.parseLong(propVal);
-            validator.accept(longValue);
-            return longValue;
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    private static boolean getBooleanProperty(final String propertyName, final boolean defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        if ("true".equalsIgnoreCase(propVal)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(propVal)) {
-            return false;
-        }
-        throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal +
-                " (expected true or false)");
-    }
-
-    private static <E extends Enum<E>> E getEnumProperty(final String propertyName,
-                                                         final Class<E> enumType,
-                                                         final E defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            return Enum.valueOf(enumType, propVal);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
     }
 }

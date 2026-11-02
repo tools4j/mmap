@@ -36,16 +36,20 @@ import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.mapping.impl.Constraints;
 import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
+import org.tools4j.mmap.mapping.impl.SystemProperties.PropertyInstance;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.IntConsumer;
-import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
-import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.booleanProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.enumProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.instanceProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.intProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.longProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.namedOrClassInstanceProperty;
+import static org.tools4j.mmap.mapping.impl.SystemProperties.supplierProperty;
 
 /**
  * Defines default configuration values for mappings and system property names to override them. The
@@ -226,8 +230,6 @@ public enum MappingConfigurations {
     /** The default error listener, used if the error listener property is not set. */
     public static final String ERROR_LISTENER_DEFAULT = LOGGING_LISTENER;
 
-    /** Instance created for a property value, reused while the property value is unchanged */
-    private record PropertyInstance(String value, Object instance) {}
     private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE =
@@ -243,7 +245,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#minFileSize()
      */
     public static long defaultMinFileSize() {
-        return getLongProperty(MIN_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_FILE_SIZE_DEFAULT);
+        return longProperty(MIN_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -255,7 +257,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#maxFileSize()
      */
     public static long defaultMaxFileSize() {
-        return getLongProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
+        return longProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -267,7 +269,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#expandFile()
      */
     public static boolean defaultExpandFile() {
-        return getBooleanProperty(EXPAND_FILE_PROPERTY, EXPAND_FILE_DEFAULT);
+        return booleanProperty(EXPAND_FILE_PROPERTY, EXPAND_FILE_DEFAULT);
     }
 
     /**
@@ -279,7 +281,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#rollFiles()
      */
     public static boolean defaultRollFiles() {
-        return getBooleanProperty(ROLL_FILES_PROPERTY, ROLL_FILES_DEFAULT);
+        return booleanProperty(ROLL_FILES_PROPERTY, ROLL_FILES_DEFAULT);
     }
 
     /**
@@ -291,7 +293,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#maxOpenFiles()
      */
     public static int defaultMaxOpenFiles() {
-        return getIntProperty(MAX_OPEN_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_FILES_DEFAULT);
     }
 
     /**
@@ -303,7 +305,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#filesToCreateAhead()
      */
     public static int defaultFilesToCreateAhead() {
-        return getIntProperty(FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, FILES_TO_CREATE_AHEAD_DEFAULT);
+        return intProperty(FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, FILES_TO_CREATE_AHEAD_DEFAULT);
     }
 
     /**
@@ -315,7 +317,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#regionSize()
      */
     public static int defaultRegionSize() {
-        return getIntProperty(REGION_SIZE_PROPERTY, Constraints::validateRegionSize, REGION_SIZE_DEFAULT);
+        return intProperty(REGION_SIZE_PROPERTY, Constraints::validateRegionSize, REGION_SIZE_DEFAULT);
     }
 
     /**
@@ -328,7 +330,7 @@ public enum MappingConfigurations {
      *         {@value #INITIAL_MAPPING_POOL_SIZE_DEFAULT} otherwise
      */
     public static int defaultInitialMappingPoolSize() {
-        return getIntProperty(INITIAL_MAPPING_POOL_SIZE_PROPERTY, Constraints::validateInitialPoolSize, INITIAL_MAPPING_POOL_SIZE_DEFAULT);
+        return intProperty(INITIAL_MAPPING_POOL_SIZE_PROPERTY, Constraints::validateInitialPoolSize, INITIAL_MAPPING_POOL_SIZE_DEFAULT);
     }
 
     /**
@@ -340,7 +342,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#cacheSize()
      */
     public static int defaultRegionCacheSize() {
-        return getIntProperty(REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, REGION_CACHE_SIZE_DEFAULT);
+        return intProperty(REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, REGION_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -352,7 +354,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#lruCacheSize()
      */
     public static int defaultRegionLruCacheSize() {
-        return getIntProperty(REGION_LRU_CACHE_SIZE_PROPERTY, Constraints::validateRegionLruCacheSize, REGION_LRU_CACHE_SIZE_DEFAULT);
+        return intProperty(REGION_LRU_CACHE_SIZE_PROPERTY, Constraints::validateRegionLruCacheSize, REGION_LRU_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -364,7 +366,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#deferUnmapping()
      */
     public static boolean defaultDeferUnmapping() {
-        return getBooleanProperty(DEFER_UNMAPPING_PROPERTY, DEFER_UNMAPPING_DEFAULT);
+        return booleanProperty(DEFER_UNMAPPING_PROPERTY, DEFER_UNMAPPING_DEFAULT);
     }
 
     /**
@@ -376,7 +378,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#asyncMapping()
      */
     public static boolean defaultAsyncMapping() {
-        return getBooleanProperty(ASYNC_MAPPING_PROPERTY, ASYNC_MAPPING_DEFAULT);
+        return booleanProperty(ASYNC_MAPPING_PROPERTY, ASYNC_MAPPING_DEFAULT);
     }
 
     /**
@@ -388,7 +390,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#asyncUnmapping()
      */
     public static boolean defaultAsyncUnmapping() {
-        return getBooleanProperty(ASYNC_UNMAPPING_PROPERTY, ASYNC_UNMAPPING_DEFAULT);
+        return booleanProperty(ASYNC_UNMAPPING_PROPERTY, ASYNC_UNMAPPING_DEFAULT);
     }
 
     /**
@@ -400,7 +402,7 @@ public enum MappingConfigurations {
      * @see AsyncMappingConfig#regionsToMapAhead()
      */
     public static int defaultRegionsToMapAhead() {
-        return getIntProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
+        return intProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
     }
 
     /**
@@ -412,7 +414,7 @@ public enum MappingConfigurations {
      * @see AsyncMappingConfig#aheadMappingCacheSize()
      */
     public static int defaultAheadMappingCacheSize() {
-        return getIntProperty(AHEAD_MAPPING_CACHE_SIZE_PROPERTY, Constraints::validateAheadMappingCacheSize, AHEAD_MAPPING_CACHE_SIZE_DEFAULT);
+        return intProperty(AHEAD_MAPPING_CACHE_SIZE_PROPERTY, Constraints::validateAheadMappingCacheSize, AHEAD_MAPPING_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -424,7 +426,7 @@ public enum MappingConfigurations {
      * @see AsyncUnmappingConfig#unmappingCacheSize()
      */
     public static int defaultUnmappingCacheSize() {
-        return getIntProperty(UNMAPPING_CACHE_SIZE_PROPERTY, Constraints::validateUnmappingCacheSize, UNMAPPING_CACHE_SIZE_DEFAULT);
+        return intProperty(UNMAPPING_CACHE_SIZE_PROPERTY, Constraints::validateUnmappingCacheSize, UNMAPPING_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -437,7 +439,7 @@ public enum MappingConfigurations {
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
     public static Supplier<? extends IdleStrategy> defaultMappingRuntimeIdleStrategySupplier() {
-        return getSupplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+        return supplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
                 MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
     }
 
@@ -452,7 +454,7 @@ public enum MappingConfigurations {
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
     public static Supplier<? extends IdleStrategy> defaultUnmappingRuntimeIdleStrategySupplier() {
-        return getSupplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
+        return supplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
                 UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
     }
 
@@ -471,7 +473,7 @@ public enum MappingConfigurations {
         if (propVal.equalsIgnoreCase(MAPPING_RUNTIME_CPUS_NONE)) {
             return AsyncRuntimeImpl.DEFAULT_THREAD_FACTORY;
         }
-        return getInstanceProperty(propVal, ThreadFactory.class, MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE,
+        return instanceProperty(propVal, ThreadFactory.class, MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE,
                 value -> mappingRuntimeThreadFactory(MAPPING_RUNTIME_CPUS_PROPERTY, value));
     }
 
@@ -493,7 +495,7 @@ public enum MappingConfigurations {
      * @throws IllegalArgumentException if the system property value is not a {@link SharingPolicy} constant name
      */
     public static SharingPolicy defaultMappingRuntimeSharingPolicy() {
-        return getEnumProperty(MAPPING_RUNTIME_SHARING_POLICY_PROPERTY, SharingPolicy.class,
+        return enumProperty(MAPPING_RUNTIME_SHARING_POLICY_PROPERTY, SharingPolicy.class,
                 MAPPING_RUNTIME_SHARING_POLICY_DEFAULT);
     }
 
@@ -505,7 +507,7 @@ public enum MappingConfigurations {
      * @throws IllegalArgumentException if the system property value is not a {@link SharingPolicy} constant name
      */
     public static SharingPolicy defaultUnmappingRuntimeSharingPolicy() {
-        return getEnumProperty(UNMAPPING_RUNTIME_SHARING_POLICY_PROPERTY, SharingPolicy.class,
+        return enumProperty(UNMAPPING_RUNTIME_SHARING_POLICY_PROPERTY, SharingPolicy.class,
                 UNMAPPING_RUNTIME_SHARING_POLICY_DEFAULT);
     }
 
@@ -521,7 +523,7 @@ public enum MappingConfigurations {
      *                                  instantiated
      */
     public static LifecycleListener defaultLifecycleListener() {
-        return getListenerProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class, LIFECYCLE_LISTENER_DEFAULT,
+        return namedOrClassInstanceProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class, LIFECYCLE_LISTENER_DEFAULT,
                 MappingConfigurations::lifecycleListenerByName, LIFECYCLE_LISTENER_INSTANCE);
     }
 
@@ -537,7 +539,7 @@ public enum MappingConfigurations {
      *                                  instantiated
      */
     public static ErrorListener defaultErrorListener() {
-        return getListenerProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class, ERROR_LISTENER_DEFAULT,
+        return namedOrClassInstanceProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class, ERROR_LISTENER_DEFAULT,
                 MappingConfigurations::errorListenerByName, ERROR_LISTENER_INSTANCE);
     }
 
@@ -565,108 +567,6 @@ public enum MappingConfigurations {
         return AsyncRuntimeInstances.unmappingRuntimeSupplier(defaultUnmappingRuntimeSharingPolicy());
     }
 
-    private static int getIntProperty(final String propertyName, final IntConsumer validator, final int defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            final int intValue = Integer.parseInt(propVal);
-            validator.accept(intValue);
-            return intValue;
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    private static long getLongProperty(final String propertyName, final LongConsumer validator, final long defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            final long longValue = Long.parseLong(propVal);
-            validator.accept(longValue);
-            return longValue;
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    private static boolean getBooleanProperty(final String propertyName, final boolean defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        if ("true".equalsIgnoreCase(propVal)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(propVal)) {
-            return false;
-        }
-        throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal +
-                " (expected true or false)");
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private static <E extends Enum<E>> E getEnumProperty(final String propertyName,
-                                                         final Class<E> type,
-                                                         final E defaultValue) {
-        final String propVal = System.getProperty(propertyName, null);
-        if (propVal == null) {
-            return defaultValue;
-        }
-        try {
-            return Enum.valueOf(type, propVal);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propertyName + "=" + propVal, e);
-        }
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private static <T> Supplier<T> getSupplierProperty(final String propertyName,
-                                                       final Class<T> type,
-                                                       final Supplier<T> defaultValueSupplier) {
-        requireNonNull(propertyName);
-        requireNonNull(type);
-        requireNonNull(defaultValueSupplier);
-        final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValueSupplier : newSupplier(propertyName, propVal, type);
-    }
-
-    /**
-     * Returns a supplier for the type given by class name as property value, either the class of the value itself or
-     * of a supplier of such values. Every invocation returns a new value, unless it is a supplier returning the same
-     * value every time.
-     */
-    private static <T> Supplier<T> newSupplier(final String propName, final String propVal, final Class<T> type) {
-        requireNonNull(propName);
-        requireNonNull(type);
-        final AtomicReference<Supplier<?>> supplierPtr = new AtomicReference<>();
-        return () -> {
-            try {
-                Supplier<?> supplier = supplierPtr.get();
-                if (supplier != null) {
-                    return type.cast(supplier.get());
-                }
-                final Object value = newObjInstance(propName, propVal, Object.class);
-                if (type.isInstance(value)) {
-                    supplierPtr.set(() -> newObjInstance(propName, propVal, type));
-                    return type.cast(value);
-                }
-                if (value instanceof Supplier) {
-                    supplier = (Supplier<?>) value;
-                    supplierPtr.set(supplier);
-                    return type.cast(supplier.get());
-                }
-                throw new IllegalArgumentException("Value expected to be of type " + type.getName() +
-                        " or a supplier of such a value, but was found to be: " + value);
-            } catch (final Exception e) {
-                throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal, e);
-            }
-        };
-    }
-
     /** Returns the lifecycle listener for the given property value, or null if it is not one of the named values */
     private static LifecycleListener lifecycleListenerByName(final String name) {
         return switch (name) {
@@ -685,43 +585,5 @@ public enum MappingConfigurations {
             case NO_OP_LISTENER -> ErrorListener.NO_OP;
             default -> null;
         };
-    }
-
-    private static <T> T getListenerProperty(final String propertyName,
-                                             final Class<T> type,
-                                             final String defaultValue,
-                                             final Function<? super String, ? extends T> listenersByName,
-                                             final AtomicReference<PropertyInstance> instance) {
-        final String propVal = System.getProperty(propertyName, defaultValue);
-        final T namedListener = listenersByName.apply(propVal);
-        if (namedListener != null) {
-            return namedListener;
-        }
-        return getInstanceProperty(propVal, type, instance, value -> newObjInstance(propertyName, value, type));
-    }
-
-    private static <T> T getInstanceProperty(final String propVal,
-                                             final Class<T> type,
-                                             final AtomicReference<PropertyInstance> instance,
-                                             final Function<? super String, ? extends T> factory) {
-        final PropertyInstance current = instance.get();
-        if (current != null && current.value().equals(propVal)) {
-            return type.cast(current.instance());
-        }
-        //NOTE: racing threads may each create an instance, the first to publish its instance wins
-        final PropertyInstance created = new PropertyInstance(propVal, factory.apply(propVal));
-        final PropertyInstance witness = instance.compareAndExchange(current, created);
-        final PropertyInstance winner = witness == current ? created : witness;
-        return type.cast(winner.value().equals(propVal) ? winner.instance() : created.instance());
-    }
-
-    private static <T> T newObjInstance(final String propName, final String propVal, final Class<T> type) {
-        try {
-            final Class<?> clazz = Class.forName(propVal);
-            final Object value = clazz.getDeclaredConstructor().newInstance();
-            return type.cast(value);
-        } catch (final Exception e) {
-            throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal, e);
-        }
     }
 }

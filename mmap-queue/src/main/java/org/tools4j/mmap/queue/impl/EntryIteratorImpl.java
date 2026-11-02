@@ -48,15 +48,18 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
+    private final PendingIdler pendingIdler;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private final IterableContextImpl context;
 
-    EntryIteratorImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose,
+    EntryIteratorImpl(final String queueName, final ReaderMappings mappings, final PendingIdler pendingIdler,
+                      final Runnable onClose,
                       final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
+            this.pendingIdler = requireNonNull(pendingIdler);
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new IterableContextImpl(this);
@@ -114,6 +117,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         static final int CLOSED = 0;
         final EntryIteratorImpl iterator;
         final ReaderMappings mappings;
+        final PendingIdler pendingIdler;
         final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
         long startIndex;
         int increment;
@@ -126,6 +130,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         IterableContextImpl(final EntryIteratorImpl iterator) {
             this.iterator = requireNonNull(iterator);
             this.mappings = requireNonNull(iterator.mappings);
+            this.pendingIdler = requireNonNull(iterator.pendingIdler);
             this.startIndex = Index.NULL;
             this.increment = CLOSED;
             this.index = Index.NULL;
@@ -221,9 +226,15 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             final ElasticMapping header = mappings.header();
             hdr = header != null ? Headers.moveAndGetHeader(header, next) : NULL_HEADER;
             if (hdr != NULL_HEADER) {
+                pendingIdler.onEntry();
                 updateMaxIndex(next);
                 nextHeader = hdr;
                 return true;
+            }
+            if (header == null) {
+                pendingIdler.onQueuePending();
+            } else {
+                pendingIdler.onNoEntry(next);
             }
             if (!continuous) {
                 //like Java collection iterators: once hasNext() returned false, it keeps returning false

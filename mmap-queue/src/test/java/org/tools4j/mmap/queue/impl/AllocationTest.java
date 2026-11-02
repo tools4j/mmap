@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.NoOpIdleStrategy;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -115,7 +116,9 @@ class AllocationTest {
                 .toImmutableQueueConfig();
         final File file = tempDir.resolve("queue").toFile();
         try (final Queue lazyQueue = Queue.open(file, OpenMode.READ_ONLY_LAZY, config);
-             final Poller poller = lazyQueue.createPoller(ReaderConfig.configurePoller().mappingStrategy(strategy))) {
+             final Poller poller = lazyQueue.createPoller(ReaderConfig.configurePoller()
+                     .mappingStrategy(strategy)
+                     .pendingIdleStrategy(() -> NoOpIdleStrategy.INSTANCE))) {//idling path without parking
             assertPendingPollsAllocateNoGarbage(poller, Poller.PENDING_OPEN, "queue does not exist");
             try (final Queue queue = Queue.open(file, OpenMode.CREATE, config)) {
                 assertPendingPollsAllocateNoGarbage(poller, Poller.PENDING_OPEN, "header file does not exist");

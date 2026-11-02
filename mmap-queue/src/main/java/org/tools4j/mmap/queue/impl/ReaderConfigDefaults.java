@@ -23,11 +23,15 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
+import java.util.function.Supplier;
+
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryIteratorPendingDataIdleStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultEntryReaderPayloadMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEntryIteratorHeaderFiles;
@@ -37,7 +41,9 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenEn
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenPollerHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenPollerPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerHeaderMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPendingQueueIdleStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPollerPendingDataIdleStrategy;
 
 public enum ReaderConfigDefaults implements ReaderConfig {
     POLLER_CONFIG_DEFAULTS {
@@ -60,6 +66,11 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         public int maxOpenPayloadFiles() {
             return defaultMaxOpenPollerPayloadFiles();
         }
+
+        @Override
+        public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
+            return defaultPollerPendingDataIdleStrategy();
+        }
     },
     ENTRY_READER_CONFIG_DEFAULTS {
         @Override
@@ -80,6 +91,12 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         @Override
         public int maxOpenPayloadFiles() {
             return defaultMaxOpenEntryReaderPayloadFiles();
+        }
+
+        @Override
+        public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
+            //NOTE: not used by entry readers, the poller default is just a placeholder
+            return defaultPollerPendingDataIdleStrategy();
         }
     },
     ENTRY_ITERATOR_CONFIG_DEFAULTS {
@@ -102,7 +119,17 @@ public enum ReaderConfigDefaults implements ReaderConfig {
         public int maxOpenPayloadFiles() {
             return defaultMaxOpenEntryIteratorPayloadFiles();
         }
+
+        @Override
+        public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
+            return defaultEntryIteratorPendingDataIdleStrategy();
+        }
     };
+
+    @Override
+    public Supplier<? extends IdleStrategy> pendingQueueIdleStrategy() {
+        return defaultPendingQueueIdleStrategy();
+    }
 
     @Override
     public ReaderConfig toImmutableReaderConfig() {
@@ -116,6 +143,8 @@ public enum ReaderConfigDefaults implements ReaderConfig {
                 "|headerMappingStrategy=" + headerMappingStrategy() +
                 "|payloadMappingStrategy=" + payloadMappingStrategy() +
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles() +
-                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles();
+                "|maxOpenPayloadFiles=" + maxOpenPayloadFiles() +
+                "|pendingQueueIdleStrategy=" + pendingQueueIdleStrategy() +
+                "|pendingDataIdleStrategy=" + pendingDataIdleStrategy();
     }
 }
