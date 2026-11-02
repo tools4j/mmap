@@ -3,6 +3,8 @@
 Notable changes per release. Entries are curated from the commits since the previous release tag; run
 `./gradlew -q changelogDraft` for a draft of the next release's entry.
 
+## 2.1 (unreleased)
+
 ## 2.0 (2026-11-02)
 
 2.0 is not compatible with 1.0: neither the API nor the queue files. Queues written by 1.0 cannot be opened by 2.0,
