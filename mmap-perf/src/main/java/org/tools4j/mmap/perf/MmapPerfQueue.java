@@ -25,6 +25,7 @@ package org.tools4j.mmap.perf;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.NoOpIdleStrategy;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.perf.PerfOptions.ReaderType;
 import org.tools4j.mmap.queue.api.Appender;
@@ -37,6 +38,7 @@ import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.ReaderConfig;
 
 import java.io.File;
 import java.util.Iterator;
@@ -67,8 +69,12 @@ public final class MmapPerfQueue implements PerfQueue {
     @Override
     public Reader createReader() {
         return switch (readerType) {
-            case POLLER -> new PollerReader(queue.createPoller());
-            case ITERATOR -> new IteratorReader(queue.createEntryIterator());
+            //NOTE: busy-spin also before the first message, like Chronicle tailers, so that it is not delayed by
+            //      backoff idling if latencies are recorded without warmup
+            case POLLER -> new PollerReader(queue.createPoller(ReaderConfig.configurePoller()
+                    .pendingIdleStrategy(() -> NoOpIdleStrategy.INSTANCE)));
+            case ITERATOR -> new IteratorReader(queue.createEntryIterator(ReaderConfig.configureEntryIterator()
+                    .pendingIdleStrategy(() -> NoOpIdleStrategy.INSTANCE)));
         };
     }
 
