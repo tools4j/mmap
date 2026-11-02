@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Quick introduction to queues, used as example in the README, see {@link Queue} and {@link QueueImpl}.
  */
-class QuickIntroTest {
+class QueueIntroTest {
 
     @Test
     @SuppressWarnings({"ControlFlowStatementWithoutBraces", "StatementWithEmptyBody"})

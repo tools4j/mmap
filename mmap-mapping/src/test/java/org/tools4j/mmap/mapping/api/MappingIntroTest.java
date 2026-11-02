@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Quick introduction to memory-mapped files, used as example in the README, see {@link Mappings}.
  */
-class QuickIntroTest {
+class MappingIntroTest {
 
     @Test
     void writeAndReadFixedMapping(@TempDir final Path tempDir) {

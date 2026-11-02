@@ -123,7 +123,7 @@ try (var mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY, config)) {
 }
 ```
 The full example is in
-[QuickIntroTest](mmap-mapping/src/test/java/org/tools4j/mmap/mapping/api/QuickIntroTest.java).
+[MappingIntroTest](mmap-mapping/src/test/java/org/tools4j/mmap/mapping/api/MappingIntroTest.java).
 
 ### Queues
 Package `org.tools4j.mmap.queue.api` contains the queue types, with `Queue.open(..)` as the main entry point.
@@ -191,7 +191,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
 }
 ```
 The full example is in
-[QuickIntroTest](mmap-queue/src/test/java/org/tools4j/mmap/queue/api/QuickIntroTest.java).
+[QueueIntroTest](mmap-queue/src/test/java/org/tools4j/mmap/queue/api/QueueIntroTest.java).
 
 ### Benchmarks
 The `mmap-perf` module is a command line benchmark measuring the latency from appending an entry to polling it, with
