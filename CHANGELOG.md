@@ -5,6 +5,13 @@ Notable changes per release. Entries are curated from the commits since the prev
 
 ## 2.1 (unreleased)
 
+### Breaking changes
+- Pollers and entry iterators no longer idle while the queue or its first entry does not exist yet; idling is left to
+  the application's poll or iteration loop. Removed `ReaderConfigurator.pendingIdleStrategy(..)`,
+  `pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, the corresponding `ReaderConfig` getters, and the
+  system properties `mmap.queue.pendingQueueIdleStrategy`, `mmap.queue.pollerPendingDataIdleStrategy` and
+  `mmap.queue.entryIteratorPendingDataIdleStrategy`.
+
 ## 2.0 (2026-11-02)
 
 2.0 is not compatible with 1.0: neither the API nor the queue files. Queues written by 1.0 cannot be opened by 2.0,

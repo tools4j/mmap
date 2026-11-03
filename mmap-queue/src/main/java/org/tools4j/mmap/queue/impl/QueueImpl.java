@@ -80,34 +80,25 @@ public final class QueueImpl implements Queue, Describable {
         this.effectiveConfig = new AtomicReference<>(openQueue(openMode));
 
         final Supplier<QueueConfig> effectiveConfigSupplier = this::effectiveConfig;
-        //NOTE: pending idlers are created before the mappings, which are closed by the reader if its creation fails
-        this.pollerFactory = factory((pollerConfig, onClose) -> {
-            final PendingIdler pendingIdler = new PendingIdler(pollerConfig);
-            return new PollerImpl(
-                    queueNameIfNotClosed(),
-                    ReaderMappings.create(files, openMode, effectiveConfigSupplier, pollerConfig),
-                    pendingIdler,
-                    onClose,
-                    lifecycleListener,
-                    errorListener
-            );
-        });
+        this.pollerFactory = factory((pollerConfig, onClose) -> new PollerImpl(
+                queueNameIfNotClosed(),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, pollerConfig),
+                onClose,
+                lifecycleListener,
+                errorListener
+        ));
         this.entryReaderFactory = factory((readerConfig, onClose) -> new EntryReaderImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, openMode, effectiveConfigSupplier, readerConfig),
                 onClose,
                 lifecycleListener
         ));
-        this.entryIteratorFactory = factory((readerConfig, onClose) -> {
-            final PendingIdler pendingIdler = new PendingIdler(readerConfig);
-            return new EntryIteratorImpl(
-                    queueNameIfNotClosed(),
-                    ReaderMappings.create(files, openMode, effectiveConfigSupplier, readerConfig),
-                    pendingIdler,
-                    onClose,
-                    lifecycleListener
-            );
-        });
+        this.entryIteratorFactory = factory((readerConfig, onClose) -> new EntryIteratorImpl(
+                queueNameIfNotClosed(),
+                ReaderMappings.create(files, openMode, effectiveConfigSupplier, readerConfig),
+                onClose,
+                lifecycleListener
+        ));
         this.indexReaderFactory = factory((indReaderConfig, onClose) -> new IndexReaderImpl(
                 queueNameIfNotClosed(),
                 ReaderMappings.create(files, openMode, effectiveConfigSupplier, indReaderConfig),

@@ -37,7 +37,6 @@ import org.tools4j.mmap.queue.api.IterationMode;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
-import org.tools4j.mmap.queue.config.ReaderConfig;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -316,76 +315,6 @@ class EntryIteratorTest {
         try (context) {
             assertEquals(startIndex, context.startIndex());
             assertEquals(expectedIndices, drain(context.iterator()));
-        }
-    }
-
-    @Test
-    void hasNextIdlesWhileQueueIsPendingThenUntilFirstEntryIsRead() {
-        final CountingIdleStrategy pendingQueue = new CountingIdleStrategy();
-        final CountingIdleStrategy pendingData = new CountingIdleStrategy();
-        final File queueFile = tempDir.resolve("queue").toFile();
-        try (final Queue lazyQueue = Queue.open(queueFile, OpenMode.READ_ONLY_LAZY);
-             final EntryIterator entryIterator = lazyQueue.createEntryIterator(ReaderConfig.configureEntryIterator()
-                     .pendingQueueIdleStrategy(() -> pendingQueue)
-                     .pendingDataIdleStrategy(() -> pendingData));
-             final IterableContext context = entryIterator.readingFromFirst().continuous()) {
-            final Iterator<Entry> iterator = context.iterator();
-            assertFalse(iterator.hasNext());
-            assertEquals(1, pendingQueue.idleCount);
-            assertEquals(0, pendingData.idleCount);
-
-            try (final Queue queue = Queue.open(queueFile, OpenMode.CREATE);
-                 final Appender appender = queue.createAppender()) {
-                assertFalse(iterator.hasNext());
-                assertEquals(1, pendingQueue.resetCount);
-                assertEquals(1, pendingData.idleCount);
-
-                appender.append(new byte[8]);
-                assertTrue(iterator.hasNext());
-                assertEquals(0, iterator.next().index());
-                assertEquals(1, pendingData.resetCount);
-
-                //no idling once an entry was read
-                assertFalse(iterator.hasNext());
-                assertEquals(1, pendingQueue.idleCount);
-                assertEquals(1, pendingData.idleCount);
-            }
-        }
-    }
-
-    @Test
-    void nonContinuousHasNextIdlesOnceUntilIteratorIsRestarted() {
-        final CountingIdleStrategy pendingQueue = new CountingIdleStrategy();
-        final CountingIdleStrategy pendingData = new CountingIdleStrategy();
-        final File queueFile = tempDir.resolve("queue").toFile();
-        try (final Queue lazyQueue = Queue.open(queueFile, OpenMode.READ_ONLY_LAZY);
-             final EntryIterator entryIterator = lazyQueue.createEntryIterator(ReaderConfig.configureEntryIterator()
-                     .pendingQueueIdleStrategy(() -> pendingQueue)
-                     .pendingDataIdleStrategy(() -> pendingData));
-             final IterableContext context = entryIterator.readingFromFirst()) {
-            final Iterator<Entry> pendingQueueIterator = context.iterator();
-            assertFalse(pendingQueueIterator.hasNext());
-            assertFalse(pendingQueueIterator.hasNext());
-            assertEquals(1, pendingQueue.idleCount);
-            assertEquals(0, pendingData.idleCount);
-
-            try (final Queue queue = Queue.open(queueFile, OpenMode.CREATE);
-                 final Appender appender = queue.createAppender()) {
-                final Iterator<Entry> pendingDataIterator = context.iterator();
-                assertFalse(pendingDataIterator.hasNext());
-                assertFalse(pendingDataIterator.hasNext());
-                assertEquals(1, pendingQueue.idleCount);
-                assertEquals(1, pendingQueue.resetCount);
-                assertEquals(1, pendingData.idleCount);
-
-                appender.append(new byte[8]);
-                final Iterator<Entry> iterator = context.iterator();
-                assertTrue(iterator.hasNext());
-                assertEquals(0, iterator.next().index());
-                assertFalse(iterator.hasNext());
-                assertEquals(1, pendingData.idleCount);
-                assertEquals(1, pendingData.resetCount);
-            }
         }
     }
 }

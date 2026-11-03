@@ -23,9 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.concurrent.BusySpinIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
-import org.agrona.concurrent.NoOpIdleStrategy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -52,9 +49,6 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
  */
 class ReaderConfiguratorTest {
 
-    static final Supplier<IdleStrategy> IDLE_A = () -> NoOpIdleStrategy.INSTANCE;
-    static final Supplier<IdleStrategy> IDLE_B = BusySpinIdleStrategy::new;
-
     /** Reader kind with its configurator factory and expected defaults */
     enum Kind {
         POLLER(ReaderConfig::configurePoller, ReaderConfig::getDefaultPollerConfig, POLLER_CONFIG_DEFAULTS,
@@ -62,25 +56,19 @@ class ReaderConfiguratorTest {
                         QueueConfigurations.defaultPollerHeaderMappingStrategy(),
                         QueueConfigurations.defaultPollerPayloadMappingStrategy(),
                         QueueConfigurations.defaultMaxOpenPollerHeaderFiles(),
-                        QueueConfigurations.defaultMaxOpenPollerPayloadFiles(),
-                        QueueConfigurations.defaultPendingQueueIdleStrategy(),
-                        QueueConfigurations.defaultPollerPendingDataIdleStrategy())),
+                        QueueConfigurations.defaultMaxOpenPollerPayloadFiles())),
         ENTRY_READER(ReaderConfig::configureEntryReader, ReaderConfig::getDefaultEntryReaderConfig,
                 ENTRY_READER_CONFIG_DEFAULTS, new ReaderConfigImpl(
                         QueueConfigurations.defaultEntryReaderHeaderMappingStrategy(),
                         QueueConfigurations.defaultEntryReaderPayloadMappingStrategy(),
                         QueueConfigurations.defaultMaxOpenEntryReaderHeaderFiles(),
-                        QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles(),
-                        QueueConfigurations.defaultPendingQueueIdleStrategy(),
-                        QueueConfigurations.defaultPollerPendingDataIdleStrategy())),
+                        QueueConfigurations.defaultMaxOpenEntryReaderPayloadFiles())),
         ENTRY_ITERATOR(ReaderConfig::configureEntryIterator, ReaderConfig::getDefaultEntryIteratorConfig,
                 ENTRY_ITERATOR_CONFIG_DEFAULTS, new ReaderConfigImpl(
                         QueueConfigurations.defaultEntryIteratorHeaderMappingStrategy(),
                         QueueConfigurations.defaultEntryIteratorPayloadMappingStrategy(),
                         QueueConfigurations.defaultMaxOpenEntryIteratorHeaderFiles(),
-                        QueueConfigurations.defaultMaxOpenEntryIteratorPayloadFiles(),
-                        QueueConfigurations.defaultPendingQueueIdleStrategy(),
-                        QueueConfigurations.defaultEntryIteratorPendingDataIdleStrategy()));
+                        QueueConfigurations.defaultMaxOpenEntryIteratorPayloadFiles()));
 
         final Supplier<ReaderConfigurator> configurator;
         final Supplier<ReaderConfig> defaultConfig;
@@ -122,16 +110,6 @@ class ReaderConfiguratorTest {
             }
 
             @Override
-            public Supplier<? extends IdleStrategy> pendingQueueIdleStrategy() {
-                return null;
-            }
-
-            @Override
-            public Supplier<? extends IdleStrategy> pendingDataIdleStrategy() {
-                return null;
-            }
-
-            @Override
             public ReaderConfig toImmutableReaderConfig() {
                 throw new UnsupportedOperationException();
             }
@@ -139,7 +117,7 @@ class ReaderConfiguratorTest {
     }
 
     private static ReaderConfig customDefaults() {
-        return new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 5, 6, IDLE_A, IDLE_B);
+        return new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 5, 6);
     }
 
     @ParameterizedTest
@@ -157,13 +135,10 @@ class ReaderConfiguratorTest {
         assertThrows(IllegalStateException.class, config::payloadMappingStrategy);
         assertThrows(IllegalStateException.class, config::maxOpenHeaderFiles);
         assertThrows(IllegalStateException.class, config::maxOpenPayloadFiles);
-        assertThrows(IllegalStateException.class, config::pendingQueueIdleStrategy);
-        assertThrows(IllegalStateException.class, config::pendingDataIdleStrategy);
         assertThrows(IllegalStateException.class, config::toImmutableReaderConfig);
 
-        config.mappingStrategy(STRATEGY_A).maxOpenHeaderFiles(1).maxOpenPayloadFiles(2).pendingIdleStrategy(IDLE_A);
-        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 1, 2, IDLE_A, IDLE_A),
-                config.toImmutableReaderConfig());
+        config.mappingStrategy(STRATEGY_A).maxOpenHeaderFiles(1).maxOpenPayloadFiles(2);
+        assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 1, 2), config.toImmutableReaderConfig());
     }
 
     @Test
@@ -178,11 +153,8 @@ class ReaderConfiguratorTest {
                 .headerMappingStrategy(STRATEGY_B)
                 .payloadMappingStrategy(STRATEGY_A)
                 .maxOpenHeaderFiles(7)
-                .maxOpenPayloadFiles(8)
-                .pendingQueueIdleStrategy(IDLE_B)
-                .pendingDataIdleStrategy(IDLE_A);
-        assertEquals(new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 7, 8, IDLE_B, IDLE_A),
-                config.toImmutableReaderConfig());
+                .maxOpenPayloadFiles(8);
+        assertEquals(new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 7, 8), config.toImmutableReaderConfig());
         config.reset();
         assertEquals(kind.expected, config.toImmutableReaderConfig());
     }
@@ -196,17 +168,6 @@ class ReaderConfiguratorTest {
         assertEquals(6, config.maxOpenPayloadFiles());
         assertThrows(IllegalArgumentException.class, () -> config.maxOpenHeaderFiles(-1));
         assertThrows(IllegalArgumentException.class, () -> config.maxOpenPayloadFiles(-1));
-    }
-
-    @Test
-    void pendingIdleStrategySetsBothAndNullResetsToDefault() {
-        final ReaderConfigurator config = ReaderConfigurator.configure(customDefaults());
-        assertSame(IDLE_B, config.pendingIdleStrategy(IDLE_B).pendingQueueIdleStrategy());
-        assertSame(IDLE_B, config.pendingDataIdleStrategy());
-
-        config.pendingIdleStrategy(null);
-        assertSame(IDLE_A, config.pendingQueueIdleStrategy());
-        assertSame(IDLE_B, config.pendingDataIdleStrategy());
     }
 
     @Test
@@ -245,10 +206,8 @@ class ReaderConfiguratorTest {
         config.mappingStrategy(STRATEGY_B).maxOpenHeaderFiles(9);
         assertEquals(customDefaults(), immutable);
         assertSame(immutable, immutable.toImmutableReaderConfig());
-        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(null, STRATEGY_A, 1, 1, IDLE_A, IDLE_A));
-        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(STRATEGY_A, null, 1, 1, IDLE_A, IDLE_A));
-        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 1, 1, null, IDLE_A));
-        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 1, 1, IDLE_A, null));
+        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(null, STRATEGY_A, 1, 1));
+        assertThrows(NullPointerException.class, () -> new ReaderConfigImpl(STRATEGY_A, null, 1, 1));
         assertThrows(NullPointerException.class, () -> ReaderConfigurator.configure(null));
     }
 }

@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
@@ -32,13 +30,11 @@ import org.tools4j.mmap.mapping.impl.Constraints;
 import org.tools4j.mmap.queue.impl.AppenderIdPool;
 
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 
 import static org.tools4j.mmap.mapping.impl.SystemProperties.booleanProperty;
 import static org.tools4j.mmap.mapping.impl.SystemProperties.enumProperty;
 import static org.tools4j.mmap.mapping.impl.SystemProperties.intProperty;
 import static org.tools4j.mmap.mapping.impl.SystemProperties.longProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.supplierProperty;
 import static org.tools4j.mmap.queue.config.MappingStrategy.AsyncMapAheadStrategy;
 import static org.tools4j.mmap.queue.config.MappingStrategy.SyncMappingStrategyWithAsyncUnmapping;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
@@ -228,49 +224,6 @@ public enum QueueConfigurations {
      * iterators, used if system property {@value #MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY} is not set.
      */
     public static final int MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT = MAX_OPEN_FILES_DEFAULT;
-
-    /**
-     * Name of the system property to override the default
-     * {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the queue does not exist} of pollers and
-     * entry iterators, with the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a
-     * public no-arg constructor).
-     */
-    public static final String PENDING_QUEUE_IDLE_STRATEGY_PROPERTY = "mmap.queue.pendingQueueIdleStrategy";
-    /**
-     * Supplier of the default {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the queue does
-     * not exist} of pollers and entry iterators, used if system property {@value #PENDING_QUEUE_IDLE_STRATEGY_PROPERTY}
-     * is not set: a new {@link BackoffIdleStrategy} with default settings, spinning, then yielding, then parking for up
-     * to 1 millisecond.
-     */
-    public static final Supplier<IdleStrategy> PENDING_QUEUE_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
-    /**
-     * Name of the system property to override the default
-     * {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry exists} of pollers, with
-     * the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a public no-arg
-     * constructor).
-     */
-    public static final String POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY = "mmap.queue.pollerPendingDataIdleStrategy";
-    /**
-     * Supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry
-     * exists} of pollers, used if system property {@value #POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY} is not set: a
-     * new {@link BackoffIdleStrategy} with default settings.
-     */
-    public static final Supplier<IdleStrategy> POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
-    /**
-     * Name of the system property to override the default
-     * {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry exists} of entry
-     * iterators, with the class name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a
-     * public no-arg constructor).
-     */
-    public static final String ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY =
-            "mmap.queue.entryIteratorPendingDataIdleStrategy";
-    /**
-     * Supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the first entry
-     * exists} of entry iterators, used if system property {@value #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY}
-     * is not set: a new {@link BackoffIdleStrategy} with default settings.
-     */
-    public static final Supplier<IdleStrategy> ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT =
-            BackoffIdleStrategy::new;
 
     /**
      * Name of the system property to override the default
@@ -711,48 +664,6 @@ public enum QueueConfigurations {
      */
     public static int defaultMaxOpenEntryIteratorPayloadFiles() {
         return intProperty(MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_ENTRY_ITERATOR_PAYLOAD_FILES_DEFAULT);
-    }
-
-    /**
-     * Returns the supplier of the default {@linkplain ReaderConfig#pendingQueueIdleStrategy() idle strategy while the
-     * queue does not exist} of pollers and entry iterators. Every invocation of the returned supplier provides a new
-     * idle strategy instance, unless the configured supplier itself returns shared instances.
-     *
-     * @return a supplier for the idle strategy class (or supplier class) given by system property
-     *         {@value #PENDING_QUEUE_IDLE_STRATEGY_PROPERTY} if set, and {@link #PENDING_QUEUE_IDLE_STRATEGY_DEFAULT}
-     *         otherwise
-     */
-    public static Supplier<? extends IdleStrategy> defaultPendingQueueIdleStrategy() {
-        return supplierProperty(PENDING_QUEUE_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
-                PENDING_QUEUE_IDLE_STRATEGY_DEFAULT);
-    }
-
-    /**
-     * Returns the supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the
-     * first entry exists} of pollers. Every invocation of the returned supplier provides a new idle strategy instance,
-     * unless the configured supplier itself returns shared instances.
-     *
-     * @return a supplier for the idle strategy class (or supplier class) given by system property
-     *         {@value #POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY} if set, and
-     *         {@link #POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT} otherwise
-     */
-    public static Supplier<? extends IdleStrategy> defaultPollerPendingDataIdleStrategy() {
-        return supplierProperty(POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
-                POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT);
-    }
-
-    /**
-     * Returns the supplier of the default {@linkplain ReaderConfig#pendingDataIdleStrategy() idle strategy until the
-     * first entry exists} of entry iterators. Every invocation of the returned supplier provides a new idle strategy
-     * instance, unless the configured supplier itself returns shared instances.
-     *
-     * @return a supplier for the idle strategy class (or supplier class) given by system property
-     *         {@value #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY} if set, and
-     *         {@link #ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT} otherwise
-     */
-    public static Supplier<? extends IdleStrategy> defaultEntryIteratorPendingDataIdleStrategy() {
-        return supplierProperty(ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY,
-                IdleStrategy.class, ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT);
     }
 
     // INDEX_READER

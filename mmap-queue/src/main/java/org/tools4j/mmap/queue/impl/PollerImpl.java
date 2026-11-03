@@ -42,7 +42,6 @@ final class PollerImpl implements Poller, Describable {
 
     private final String queueName;
     private final ReaderMappings mappings;
-    private final PendingIdler pendingIdler;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private final ErrorListener errorListener;
@@ -51,14 +50,12 @@ final class PollerImpl implements Poller, Describable {
     private long currentHeader;
     private int errorState = PENDING_OPEN;
 
-    PollerImpl(final String queueName, final ReaderMappings mappings, final PendingIdler pendingIdler,
-               final Runnable onClose,
+    PollerImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose,
                final LifecycleListener lifecycleListener,
                final ErrorListener errorListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
-            this.pendingIdler = requireNonNull(pendingIdler);
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.errorListener = requireNonNull(errorListener);
@@ -172,12 +169,7 @@ final class PollerImpl implements Poller, Describable {
         final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
         final ElasticMapping headerMapping = mappings.header();
-        if (headerMapping == null) {
-            pendingIdler.onQueuePending();
-            return error;
-        }
-        if (!headerMapping.moveTo(position)) {
-            pendingIdler.onNoEntry(index);
+        if (headerMapping == null || !headerMapping.moveTo(position)) {
             return error;
         }
         if (error == PENDING_OPEN) {
@@ -194,10 +186,8 @@ final class PollerImpl implements Poller, Describable {
                 }
                 nextIndex = index;
             }
-            pendingIdler.onNoEntry(index);
             return PENDING_NEXT;
         }
-        pendingIdler.onEntry();
         currentIndex = index;
         currentHeader = header;
         return CURSOR_MOVED;

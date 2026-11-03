@@ -23,9 +23,6 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
-import org.agrona.concurrent.YieldingIdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,7 +43,6 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -423,38 +419,5 @@ class QueueConfigurationsTest {
                 MappingStrategy.SyncMappingStrategyWithAsyncUnmapping.mappingStrategyConfig());
         assertSame(MappingStrategyConfig.getDefaultAsyncMapAhead(),
                 MappingStrategy.AsyncMapAheadStrategy.mappingStrategyConfig());
-    }
-
-    static Stream<Arguments> idleStrategyProperties() {
-        return Stream.of(
-                Arguments.of(QueueConfigurations.PENDING_QUEUE_IDLE_STRATEGY_PROPERTY,
-                        (Supplier<Supplier<? extends IdleStrategy>>) QueueConfigurations::defaultPendingQueueIdleStrategy,
-                        QueueConfigurations.PENDING_QUEUE_IDLE_STRATEGY_DEFAULT),
-                Arguments.of(QueueConfigurations.POLLER_PENDING_DATA_IDLE_STRATEGY_PROPERTY,
-                        (Supplier<Supplier<? extends IdleStrategy>>) QueueConfigurations::defaultPollerPendingDataIdleStrategy,
-                        QueueConfigurations.POLLER_PENDING_DATA_IDLE_STRATEGY_DEFAULT),
-                Arguments.of(QueueConfigurations.ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_PROPERTY,
-                        (Supplier<Supplier<? extends IdleStrategy>>) QueueConfigurations::defaultEntryIteratorPendingDataIdleStrategy,
-                        QueueConfigurations.ENTRY_ITERATOR_PENDING_DATA_IDLE_STRATEGY_DEFAULT)
-        );
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("idleStrategyProperties")
-    void idleStrategyPropertySuppliesNewInstancesOfGivenClass(final String property,
-                                                              final Supplier<Supplier<? extends IdleStrategy>> getter,
-                                                              final Supplier<IdleStrategy> defaultValue) {
-        final Supplier<? extends IdleStrategy> defaultSupplier = getter.get();
-        assertSame(defaultValue, defaultSupplier);
-        assertInstanceOf(BackoffIdleStrategy.class, defaultSupplier.get());
-        assertNotSame(defaultSupplier.get(), defaultSupplier.get());
-
-        setProperty(property, YieldingIdleStrategy.class.getName());
-        final Supplier<? extends IdleStrategy> supplier = getter.get();
-        assertInstanceOf(YieldingIdleStrategy.class, supplier.get());
-        assertNotSame(supplier.get(), supplier.get());
-
-        setProperty(property, "no.such.IdleStrategy");
-        assertThrows(IllegalArgumentException.class, () -> getter.get().get());
     }
 }
