@@ -32,7 +32,6 @@ import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
-import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,7 +64,7 @@ class PollerTest {
     @AfterEach
     void tearDown() {
         try {
-            FileUtil.deleteRecursively(tempDir.toFile());
+            TempFiles.deleteRecursively(tempDir.toFile());
         } catch (final IOException e) {
             System.err.println("Deleting temp files failed: tempDir=" + tempDir + ", e=" + e);
         }

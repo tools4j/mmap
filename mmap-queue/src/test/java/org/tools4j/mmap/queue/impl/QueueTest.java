@@ -42,7 +42,6 @@ import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
-import org.tools4j.mmap.queue.util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,7 +69,7 @@ class QueueTest {
     @AfterEach
     void tearDown() {
         try {
-            FileUtil.deleteRecursively(tempDir.toFile());
+            TempFiles.deleteRecursively(tempDir.toFile());
         } catch (final IOException e) {
             System.err.println("Deleting temp files failed: tempDir=" + tempDir + ", e=" + e);
         }
