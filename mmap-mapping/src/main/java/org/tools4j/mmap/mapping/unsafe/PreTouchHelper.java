@@ -30,9 +30,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
-import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 final class PreTouchHelper {
+    /** The OS page size; not the mapping granularity, which is larger on Windows (64k with 4k pages) */
+    private static final int PAGE_SIZE = UnsafeApi.pageSize();
 
     private final AccessMode accessMode;
     private final AtomicLong touchedSize = new AtomicLong();
@@ -57,8 +58,11 @@ final class PreTouchHelper {
                 return;
             }
         }
-        for (long i = 0; i < length; i += REGION_SIZE_GRANULARITY) {
-            UnsafeApi.compareAndSetLong(null, address + i, 0L, 0L);
+        for (long i = 0; i < length; i += PAGE_SIZE) {
+            //write access to fault the page in writable without changing data that may already be there, written
+            //for instance by other appenders; adding 0 always writes, unlike a failing CAS on aarch64 without LSE,
+            //and needs no memory ordering
+            UnsafeApi.getAndAddLongRelease(null, address + i, 0L);
         }
     }
 
