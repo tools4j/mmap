@@ -89,14 +89,14 @@ class ConcurrentRollingFileMapperTest {
     }
 
     private static void writeRegion(final FileMapper mapper, final int region, final int slot) {
-        final long address = mapper.map(regionPosition(region), REGION_SIZE);
+        final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
         assertNotEquals(NULL_ADDRESS, address, "region " + region);
         new UnsafeBuffer(address, REGION_SIZE).putLong(slot * Long.BYTES, valueFor(region));
         mapper.unmap(regionPosition(region), address, REGION_SIZE);
     }
 
     private static long readRegion(final FileMapper mapper, final int region, final int slot) {
-        final long address = mapper.map(regionPosition(region), REGION_SIZE);
+        final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
         assertNotEquals(NULL_ADDRESS, address, "region " + region);
         try {
             return new UnsafeBuffer(address, REGION_SIZE).getLong(slot * Long.BYTES);
@@ -146,7 +146,7 @@ class ConcurrentRollingFileMapperTest {
                 REGION_SIZE, 2, READ_ONLY_INITIALISER)) {
             assertEquals(AccessMode.READ_ONLY, reader.accessMode());
             assertEquals(valueFor(0), readRegion(reader, 0, 0));
-            assertEquals(NULL_ADDRESS, reader.map(filePosition(1), REGION_SIZE));
+            assertEquals(NULL_ADDRESS, reader.map(filePosition(1), REGION_SIZE, false));
             assertFalse(baseFile("ro_1.map").exists());
         }
     }
@@ -154,8 +154,8 @@ class ConcurrentRollingFileMapperTest {
     @Test
     void negativePositionIsNotMappedAndLengthMustMatchRegionSize() {
         try (final FileMapper mapper = readWrite(baseFile("args.map"), 0, 2)) {
-            assertEquals(NULL_ADDRESS, mapper.map(-1, REGION_SIZE));
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, 2 * REGION_SIZE));
+            assertEquals(NULL_ADDRESS, mapper.map(-1, REGION_SIZE, false));
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, 2 * REGION_SIZE, false));
             assertThrows(IllegalArgumentException.class, () -> mapper.unmap(0, 1, 2 * REGION_SIZE));
         }
     }
@@ -163,7 +163,7 @@ class ConcurrentRollingFileMapperTest {
     @Test
     void unmapReleasesMappingOfOpenFile() {
         try (final FileMapper mapper = readWrite(baseFile("open.map"), 0, 2)) {
-            final long address = mapper.map(filePosition(0), REGION_SIZE);
+            final long address = mapper.map(filePosition(0), REGION_SIZE, false);
             final Path file0 = OsMappings.realPath(baseFile("open_0.map"));
             assertTrue(OsMappings.isMapped(file0));
             mapper.unmap(filePosition(0), address, REGION_SIZE);
@@ -174,10 +174,10 @@ class ConcurrentRollingFileMapperTest {
     @Test
     void unmapReleasesMappingOfAlreadyClosedFile() {
         try (final ConcurrentRollingFileMapper.PerThreadFileMapper mapper = readWrite(baseFile("evicted.map"), 0, 2)) {
-            final long address0 = mapper.map(filePosition(0), REGION_SIZE);
+            final long address0 = mapper.map(filePosition(0), REGION_SIZE, false);
             final Path file0 = OsMappings.realPath(baseFile("evicted_0.map"));
-            final long address1 = mapper.map(filePosition(1), REGION_SIZE);
-            final long address2 = mapper.map(filePosition(2), REGION_SIZE);//evicts file 0
+            final long address1 = mapper.map(filePosition(1), REGION_SIZE, false);
+            final long address2 = mapper.map(filePosition(2), REGION_SIZE, false);//evicts file 0
             assertEquals(2, mapper.openFiles());
             assertTrue(OsMappings.isMapped(file0), "mapping outlives closing its file");
             mapper.unmap(filePosition(0), address0, REGION_SIZE);
@@ -198,11 +198,11 @@ class ConcurrentRollingFileMapperTest {
         writeRegion(sibling, 1, 1);
         assertEquals(valueFor(1), readRegion(owner, 1, 1));
 
-        final long address = sibling.map(regionPosition(0), REGION_SIZE);
+        final long address = sibling.map(regionPosition(0), REGION_SIZE, false);
         owner.close();
         assertTrue(owner.isClosed());
         assertTrue(sibling.isClosed());
-        assertThrows(IllegalStateException.class, () -> sibling.map(regionPosition(0), REGION_SIZE));
+        assertThrows(IllegalStateException.class, () -> sibling.map(regionPosition(0), REGION_SIZE, false));
         assertThrows(IllegalStateException.class, () -> FileMappers.forThread(owner));
         assertThrows(IllegalStateException.class, () -> sibling.unmap(regionPosition(0), address, REGION_SIZE));
         FileChannels.unmap(address, REGION_SIZE);
@@ -217,7 +217,7 @@ class ConcurrentRollingFileMapperTest {
             sibling.close();
             assertTrue(sibling.isClosed());
             assertFalse(owner.isClosed());
-            assertThrows(IllegalStateException.class, () -> sibling.map(regionPosition(0), REGION_SIZE));
+            assertThrows(IllegalStateException.class, () -> sibling.map(regionPosition(0), REGION_SIZE, false));
             assertEquals(valueFor(0), readRegion(owner, 0, 0));
             //released borrower slot can be reused
             final FileMapper another = FileMappers.forThread(owner);
@@ -259,7 +259,7 @@ class ConcurrentRollingFileMapperTest {
                         start.await(MAX_WAIT_MILLIS, TimeUnit.MILLISECONDS);
                         for (int i = 0; i < iterations; i++) {
                             final int region = random.nextInt(regions);
-                            final long address = mapper.map(regionPosition(region), REGION_SIZE);
+                            final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
                             assertNotEquals(NULL_ADDRESS, address, "region " + region);
                             final UnsafeBuffer buffer = new UnsafeBuffer(address, REGION_SIZE);
                             buffer.putLongVolatile(slot * Long.BYTES, valueFor(region));
@@ -311,7 +311,7 @@ class ConcurrentRollingFileMapperTest {
     void positionBeyondMaxFileIndexIsRejected() {
         try (final FileMapper mapper = readWrite(baseFile("max.map"), 0, 2)) {
             final long position = (Integer.MAX_VALUE + 1L) * MAX_FILE_SIZE;
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE));
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE, false));
         }
     }
 

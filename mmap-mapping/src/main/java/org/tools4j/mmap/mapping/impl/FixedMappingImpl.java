@@ -99,7 +99,8 @@ public class FixedMappingImpl implements FixedMapping {
     }
 
     private static long map(final FileMapper fileMapper, final long position, final int length) {
-        final long address = fileMapper.map(position, length);
+        //NOTE: no pre-touch, the mapping is used by the thread creating it
+        final long address = fileMapper.map(position, length, false);
         if (address != NULL_ADDRESS) {
             return address;
         }

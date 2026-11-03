@@ -315,7 +315,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
         }
 
         @Override
-        public long map(final long position, final int length) {
+        public long map(final long position, final int length, final boolean preTouch) {
             if (position < 0) {
                 return NULL_ADDRESS;
             }
@@ -339,7 +339,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                 mapperForIndex = borrower.acquire(fileIndex, fileMapperByIndexFactory);
             }
             try {
-                return mapperForIndex.map(position & positionInFileMask, length);
+                return mapperForIndex.map(position & positionInFileMask, length, preTouch);
             } finally {
                 borrower.release();
             }

@@ -24,24 +24,16 @@
 package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.UnsafeApi;
-import org.tools4j.mmap.mapping.api.AccessMode;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
-final class PreTouchHelper {
+final class PreToucher {
     /** The OS page size; not the mapping granularity, which is larger on Windows (64k with 4k pages) */
     private static final int PAGE_SIZE = UnsafeApi.pageSize();
 
-    private final AccessMode accessMode;
     private final AtomicLong touchedSize = new AtomicLong();
-
-    PreTouchHelper(final AccessMode accessMode) {
-        this.accessMode = requireNonNull(accessMode);
-        reset();
-    }
 
     void preTouch(final long position, final int length, final long address) {
         if (address == NULL_ADDRESS) {
@@ -67,8 +59,7 @@ final class PreTouchHelper {
     }
 
     void reset() {
-        //NOTE: for read-only access we do not need to pre-touch
-        touchedSize.set(accessMode == AccessMode.READ_ONLY ? Long.MAX_VALUE : 0);
+        touchedSize.set(0);
     }
 
 }

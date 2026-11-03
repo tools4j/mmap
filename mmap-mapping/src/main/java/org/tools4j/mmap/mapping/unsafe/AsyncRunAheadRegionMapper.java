@@ -451,7 +451,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
                 if (req != NULL_POSITION) {
                     long mappedAddr;
                     try {
-                        mappedAddr = fileMapper.map(req, regionSize);
+                        //NOTE: pre-touch, mapped ahead on the mapping thread before the requester uses it
+                        mappedAddr = fileMapper.map(req, regionSize, true);
                     } catch (final RuntimeException e) {
                         //NOTE: mapping ahead is speculative, the requester maps synchronously when needed and gets
                         //      the error then; the slot must be handed back to the requester in any case

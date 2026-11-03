@@ -48,7 +48,8 @@ record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) impl
 
     @Override
     public long mapInternal(final long position, final int regionSize) {
-        final long addr = fileMapper.map(position, regionSize);
+        //NOTE: no pre-touch, mapped synchronously for immediate use
+        final long addr = fileMapper.map(position, regionSize, false);
         return addr > 0 ? addr : NULL_ADDRESS;
     }
 

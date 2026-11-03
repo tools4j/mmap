@@ -57,7 +57,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     private final long minFileSize;
     private final long maxFileSize;
     private final FileChannelProvider fileChannelProvider;
-    private final PreTouchHelper preTouchHelper;
+    private final PreToucher preToucher;
     private final AtomicLong fileLengthCache = new AtomicLong();
     private final AtomicBoolean fileSizeExtensionLatch = new AtomicBoolean();
 
@@ -102,7 +102,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         }
         this.fileChannelProvider = new FileChannelProvider(this, AccessMode.READ_WRITE, file, fileInitialiser,
                 minFileSize, lifecycleListener, errorListener);
-        this.preTouchHelper = new PreTouchHelper(AccessMode.READ_WRITE);
+        this.preToucher = new PreToucher();
     }
 
     @Override
@@ -111,7 +111,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length) {
+    public long map(final long position, final int length, final boolean preTouch) {
         assert position >= 0;
         assert length >= 0;
         //NOTE: relying on fileChannelProvider's closed check
@@ -125,7 +125,9 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         }
         ensureFileLength(channel, position + length);
         final long address = FileChannels.map(channel, AccessMode.READ_WRITE.mapMode(), position, length);
-        preTouchHelper.preTouch(position, length, address);
+        if (preTouch) {
+            preToucher.preTouch(position, length, address);
+        }
         return address;
     }
 
@@ -211,7 +213,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     @Override
     public void close() {
         if (fileChannelProvider.closeIfNeeded()) {
-            preTouchHelper.reset();
+            preToucher.reset();
         }
     }
 

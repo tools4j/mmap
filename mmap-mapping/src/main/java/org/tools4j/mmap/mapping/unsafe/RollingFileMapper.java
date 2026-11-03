@@ -279,7 +279,7 @@ public class RollingFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length) {
+    public long map(final long position, final int length, final boolean preTouch) {
         validateNotClosed(this);
         if (position < 0) {
             return NULL_ADDRESS;
@@ -318,7 +318,7 @@ public class RollingFileMapper implements FileMapper, Describable {
             touch(fileIndex);
         }
         final long positionWithinFile = position & positionInFileMask;
-        return mapperForIndex.map(positionWithinFile, length);
+        return mapperForIndex.map(positionWithinFile, length, preTouch);
     }
 
     @Override

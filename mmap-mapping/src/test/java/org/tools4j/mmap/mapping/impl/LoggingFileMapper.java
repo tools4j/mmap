@@ -51,8 +51,8 @@ class LoggingFileMapper implements FileMapper {
     }
 
     @Override
-    public long map(final long position, final int length) {
-        final long address = mapper.map(position, length);
+    public long map(final long position, final int length, final boolean preTouch) {
+        final long address = mapper.map(position, length, preTouch);
         LOGGER.info("map: {} -> @{}", position, address);
         return address;
     }

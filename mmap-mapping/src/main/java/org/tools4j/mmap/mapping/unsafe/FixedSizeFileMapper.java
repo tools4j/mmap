@@ -51,7 +51,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
     private final long fileSize;
     private final AccessMode accessMode;
     private final FileChannelProvider fileChannelProvider;
-    private final PreTouchHelper preTouchHelper;
+    private final PreToucher preToucher;
 
     public FixedSizeFileMapper(final File file, 
                                final long fileSize, 
@@ -70,7 +70,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
         this.file = requireNonNull(file);
         this.fileSize = fileSize;
         this.accessMode = requireNonNull(accessMode);
-        this.preTouchHelper = new PreTouchHelper(accessMode);
+        this.preToucher = new PreToucher();
         this.fileChannelProvider = new FileChannelProvider(this, accessMode, file, fileInitialiser, fileSize,
                 lifecycleListener, errorListener);
         init();
@@ -95,7 +95,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length) {
+    public long map(final long position, final int length, final boolean preTouch) {
         assert position >= 0;
         assert length >= 0;
         if (position + length > fileSize) {
@@ -108,7 +108,9 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
             throw new IllegalStateException("Failed to open file channel for file " + file);
         }
         final long address = FileChannels.map(channel, accessMode.mapMode(), position, length);
-        preTouchHelper.preTouch(position, length, address);
+        if (preTouch && accessMode != AccessMode.READ_ONLY) {//pre-touching writes, which a read-only mapping must not
+            preToucher.preTouch(position, length, address);
+        }
         return address;
     }
 

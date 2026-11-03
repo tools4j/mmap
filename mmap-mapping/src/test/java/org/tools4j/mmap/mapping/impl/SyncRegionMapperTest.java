@@ -27,6 +27,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InOrder;
@@ -46,11 +47,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
@@ -74,7 +77,7 @@ public class SyncRegionMapperTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
-        when(fileMapper.map(anyLong(), eq(regionSize))).thenAnswer(invocation -> {
+        when(fileMapper.map(anyLong(), eq(regionSize), anyBoolean())).thenAnswer(invocation -> {
             final long position = invocation.getArgument(0);
             if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
                 return NULL_ADDRESS;
@@ -87,6 +90,13 @@ public class SyncRegionMapperTest {
     @AfterEach
     public void cleanup() {
         regionMapper.close();
+    }
+
+    @Test
+    public void mapsWithoutPreTouch() {
+        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize);
+        regionMapper.map(0);
+        verify(fileMapper).map(0L, regionSize, false);
     }
 
     @ParameterizedTest(name = "cacheSize={0}, lruCacheSize={1}, deferUnmapping={2}")
@@ -106,7 +116,7 @@ public class SyncRegionMapperTest {
         final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
         final long failingRegionPosition = 2L * regionSize;
         final IllegalStateException error = new IllegalStateException("test mapping error");
-        doThrow(error).when(fileMapper).map(failingRegionPosition, regionSize);
+        doThrow(error).when(fileMapper).map(eq(failingRegionPosition), eq(regionSize), anyBoolean());
         region.moveTo(8);
         region.buffer().putLong(0, 42);
 
@@ -148,7 +158,7 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
         assertEquals(positionInRegion, region.regionOffset());
         assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
@@ -157,7 +167,7 @@ public class SyncRegionMapperTest {
         region.moveToCurrentRegion(offset);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
         assertEquals(offset, region.regionOffset());
         assertEquals(regionSize - offset, region.bytesAvailable());
 
@@ -165,7 +175,7 @@ public class SyncRegionMapperTest {
         region.moveTo(regionStartPosition);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
         assertEquals(0, region.regionOffset());
         assertEquals(regionSize, region.bytesAvailable());
 
@@ -175,7 +185,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, once()).unmap(regionStartPosition, address, regionSize);
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
     }
 
     @ParameterizedTest(name = "cacheSize={0}, deferUnmapping={1}")
@@ -201,13 +211,13 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
 
         //when - map again within the same region and check if had been mapped
         region.moveToCurrentRegion(0);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
 
         //when - close to unmap
         long address = region.address();
@@ -222,7 +232,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
     }
 
     @ParameterizedTest(name = "cacheSize={0}, deferUnmapping={1}")
@@ -249,7 +259,7 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(regionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
 
         //when
         unmapAddress = region.address() - region.regionOffset();
@@ -257,7 +267,7 @@ public class SyncRegionMapperTest {
 
         //then
         final long nextRegionStartPosition = regionStartPosition + regionSize;
-        inOrder.verify(fileMapper, once()).map(nextRegionStartPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(eq(nextRegionStartPosition), eq(regionSize), anyBoolean());
         if (cacheSize > 1 && deferUnmapping) {
             inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
         } else {
@@ -272,10 +282,10 @@ public class SyncRegionMapperTest {
         //then
         if (cacheSize > 1 && deferUnmapping) {
             //already mapped from before, still in ring cache
-            inOrder.verify(fileMapper, never()).map(anyLong(), anyInt());
+            inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
             inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
         } else {
-            inOrder.verify(fileMapper, once()).map(prevRegionStartPosition, regionSize);
+            inOrder.verify(fileMapper, once()).map(eq(prevRegionStartPosition), eq(regionSize), anyBoolean());
             inOrder.verify(fileMapper, once()).unmap(nextRegionStartPosition, unmapAddress, regionSize);
         }
 
@@ -284,7 +294,7 @@ public class SyncRegionMapperTest {
         region.moveTo(lastRegionPosition);
 
         //then
-        inOrder.verify(fileMapper, once()).map(lastRegionPosition, regionSize);
+        inOrder.verify(fileMapper, once()).map(eq(lastRegionPosition), eq(regionSize), anyBoolean());
         inOrder.verify(fileMapper, once()).unmap(eq(prevRegionStartPosition), anyLong(), eq(regionSize));
     }
 

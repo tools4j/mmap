@@ -27,7 +27,6 @@ import org.agrona.BufferUtil;
 import org.agrona.UnsafeApi;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
-import org.tools4j.mmap.mapping.api.AccessMode;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,9 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Unit test for {@link PreTouchHelper}.
+ * Unit test for {@link PreToucher}.
  */
-class PreTouchHelperTest {
+class PreToucherTest {
 
     private static final int PAGE_SIZE = UnsafeApi.pageSize();
     private static final int PAGES = 4;
@@ -56,7 +55,7 @@ class PreTouchHelperTest {
             //every other page has data, including the first word that is touched
             buffer.putLong(offset, (offset / PAGE_SIZE) % 2 == 0 ? offset + 1 : 0);
         }
-        new PreTouchHelper(AccessMode.READ_WRITE).preTouch(0, LENGTH, address);
+        new PreToucher().preTouch(0, LENGTH, address);
         for (int offset = 0; offset < LENGTH; offset += Long.BYTES) {
             assertEquals((offset / PAGE_SIZE) % 2 == 0 ? offset + 1 : 0, buffer.getLong(offset), "offset=" + offset);
         }
@@ -77,11 +76,11 @@ class PreTouchHelperTest {
                 error.set(t);
             }
         }, "writer");
-        final PreTouchHelper helper = new PreTouchHelper(AccessMode.READ_WRITE);
+        final PreToucher preToucher = new PreToucher();
         writer.start();
         while (writer.isAlive()) {
-            helper.reset();
-            helper.preTouch(0, LENGTH, address);
+            preToucher.reset();
+            preToucher.preTouch(0, LENGTH, address);
         }
         writer.join(MAX_WAIT_MILLIS);
         assertFalse(writer.isAlive(), "writer still running");

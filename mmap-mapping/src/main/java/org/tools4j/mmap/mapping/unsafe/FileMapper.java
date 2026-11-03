@@ -49,6 +49,11 @@ public interface FileMapper extends Closeable {
      * @param position absolute position, a multiple of
      *                 {@link org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY REGION_SIZE_GRANULARITY}
      * @param length region length
+     * @param preTouch true to pre-touch the region if this mapper writes (read-write mappers touch every page the
+     *                 first time a position is mapped, so that it faults in writable and its file blocks are
+     *                 allocated); pass true only when mapping ahead on a thread other than the one using the region,
+     *                 as pre-touching on the using thread only bunches the page faults it would take anyway into one
+     *                 stall
      * @return positive value if address has been mapped, or {@code NULL_ADDRESS} if the region is not available yet,
      *         for instance because a read-only file does not exist or is not long enough yet
      * @throws IllegalArgumentException if the region exceeds the {@link #mappingLimit() mapping limit}, or if the
@@ -57,7 +62,7 @@ public interface FileMapper extends Closeable {
      * @throws UncheckedIOException if creating, opening, initialising, extending or mapping the file fails
      *                                      with an I/O error
      */
-    long map(long position, int length);
+    long map(long position, int length, boolean preTouch);
 
     /**
      * Returns the mapping limit, the maximum end position (exclusive) of any mapping: {@link #map(long, int) mapping}
