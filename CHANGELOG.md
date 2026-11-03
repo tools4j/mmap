@@ -15,6 +15,8 @@ Notable changes per release. Entries are curated from the commits since the prev
 ### Changed
 - The default region size is 2 MB instead of 64 KB, for huge page eligibility and fewer unmaps; existing queues keep
   theirs. The maximum entry size of new queues with default region sizes grows accordingly.
+- Regions are pre-touched only when mapped ahead by the async mapping thread, so that appenders with sync mapping
+  strategies no longer stall at region boundaries, and pre-touching faults in every page, also on Windows and aarch64.
 - New appenders find the end of the queue with a binary search, and scan back for their own last entry only if their
   appender ID has a payload file: opening an appender on a long queue takes well under a millisecond instead of
   seconds when the ID has no entries or its last entry is near the end.
