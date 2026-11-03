@@ -12,6 +12,15 @@ Notable changes per release. Entries are curated from the commits since the prev
   system properties `mmap.queue.pendingQueueIdleStrategy`, `mmap.queue.pollerPendingDataIdleStrategy` and
   `mmap.queue.entryIteratorPendingDataIdleStrategy`.
 
+### Changed
+- New appenders find the end of the queue with a binary search, and scan back for their own last entry only if their
+  appender ID has a payload file: opening an appender on a long queue takes well under a millisecond instead of
+  seconds when the ID has no entries or its last entry is near the end.
+- Readers look up payload mappings by appender ID in an array instead of a hash map, which makes polling about 15%
+  faster per entry.
+- Open modes determine whether rolling files exist by the first rolling file alone, without scanning the directory;
+  rolling files whose first file was deleted are not supported.
+
 ## 2.0 (2026-11-02)
 
 2.0 is not compatible with 1.0: neither the API nor the queue files. Queues written by 1.0 cannot be opened by 2.0,
