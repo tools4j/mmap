@@ -38,7 +38,6 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.impl.RollingFilesTest.names;
@@ -76,9 +75,17 @@ class OpenModesTest {
         for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
             assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, openMode, rollFiles));
         }
-        createFiles(rollFiles ? "data_3.map" : "data.map");
+        createFiles(rollFiles ? "data_0.map" : "data.map");
         for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
             assertDoesNotThrow(() -> OpenModes.apply(file, openMode, rollFiles));
+        }
+    }
+
+    @Test
+    void readOnlyAndReadWriteOfRollingFilesRequireFirstFile() throws IOException {
+        createFiles("data_3.map");
+        for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
+            assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file("data.map"), openMode, true));
         }
     }
 
@@ -96,13 +103,6 @@ class OpenModesTest {
         OpenModes.apply(file, OpenMode.CREATE, rollFiles);
         assertTrue(file(rollFiles ? "data_0.map" : "data.map").exists());
         assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, OpenMode.CREATE, rollFiles));
-    }
-
-    @Test
-    void createOfRollingFilesFailsIfAnyRollingFileExists() throws IOException {
-        createFiles("data_2.map");
-        assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file("data.map"), OpenMode.CREATE, true));
-        assertFalse(file("data_0.map").exists());
     }
 
     @Test

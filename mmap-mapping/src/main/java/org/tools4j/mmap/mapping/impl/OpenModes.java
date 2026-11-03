@@ -38,7 +38,9 @@ public enum OpenModes {
     ;
 
     /**
-     * Applies the open mode to the given file, or to all rolling files of the given base file.
+     * Applies the open mode to the given file, or to all rolling files of the given base file. Whether rolling files
+     * exist is determined by the first rolling file alone, as rolling files are never deleted individually; a set of
+     * rolling files whose first file was deleted is not supported.
      *
      * @param file      the file, or the base file of the rolling files
      * @param openMode  the open mode
@@ -49,32 +51,30 @@ public enum OpenModes {
     public static void apply(final File file, final OpenMode openMode, final boolean rollFiles) {
         switch (openMode) {
             case READ_ONLY_LAZY, OPEN_OR_CREATE -> {}
-            case READ_ONLY, READ_WRITE -> {
-                if (!exists(file, rollFiles)) {
-                    throw new IllegalArgumentException("File does not exist: " + file);
-                }
-            }
-            case CREATE -> create(file, rollFiles);
+            case READ_ONLY, READ_WRITE -> requireExists(firstFile(file, rollFiles));
+            case CREATE -> create(firstFile(file, rollFiles));
             case RECREATE -> delete(file, rollFiles);
             default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
         }
     }
 
-    private static boolean exists(final File file, final boolean rollFiles) {
-        return rollFiles ? RollingFiles.anyExists(file) : file.exists();
+    private static File firstFile(final File file, final boolean rollFiles) {
+        return rollFiles ? RollingFiles.fileForIndex(file, 0) : file;
     }
 
-    private static void create(final File file, final boolean rollFiles) {
-        if (rollFiles && exists(file, true)) {
-            throw new IllegalArgumentException("Rolling files already exist: " + file);
+    private static void requireExists(final File file) {
+        if (!file.exists()) {
+            throw new IllegalArgumentException("File does not exist: " + file);
         }
-        final File toCreate = rollFiles ? RollingFiles.fileForIndex(file, 0) : file;
+    }
+
+    private static void create(final File file) {
         try {
-            Files.createFile(toCreate.toPath());
+            Files.createFile(file.toPath());
         } catch (final FileAlreadyExistsException e) {
-            throw new IllegalArgumentException("File already exists: " + toCreate, e);
+            throw new IllegalArgumentException("File already exists: " + file, e);
         } catch (final IOException e) {
-            throw new IllegalArgumentException("Failed to create file " + toCreate + ": " + e, e);
+            throw new IllegalArgumentException("Failed to create file " + file + ": " + e, e);
         }
     }
 

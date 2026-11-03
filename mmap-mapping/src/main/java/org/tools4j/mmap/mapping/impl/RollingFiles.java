@@ -24,11 +24,6 @@
 package org.tools4j.mmap.mapping.impl;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
@@ -64,30 +59,6 @@ public enum RollingFiles {
         final File dir = requireNonNull(baseFile.getAbsoluteFile().getParentFile());
         final File[] files = dir.listFiles((d, fileName) -> pattern.matcher(fileName).matches());
         return files == null ? new File[0] : files;
-    }
-
-    /**
-     * Returns whether any rolling file of the given base file exists. Checks the file with index 0 first, and only if
-     * that does not exist (for instance because it was deleted) scans the directory up to the first rolling file.
-     *
-     * @param baseFile the base file of the rolling files
-     * @return true if any rolling file exists
-     */
-    public static boolean anyExists(final File baseFile) {
-        if (fileForIndex(baseFile, 0).exists()) {
-            return true;
-        }
-        final File dir = baseFile.getAbsoluteFile().getParentFile();
-        if (dir == null || !dir.isDirectory()) {
-            return false;
-        }
-        final Pattern pattern = filePattern(baseFile.getName());
-        try (final DirectoryStream<Path> files = Files.newDirectoryStream(dir.toPath(),
-                path -> pattern.matcher(path.getFileName().toString()).matches())) {
-            return files.iterator().hasNext();
-        } catch (final IOException e) {
-            throw new UncheckedIOException("Failed to list rolling files of " + baseFile, e);
-        }
     }
 
     private static Pattern filePattern(final String name) {

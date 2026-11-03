@@ -34,8 +34,6 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for {@link RollingFiles}.
@@ -68,26 +66,6 @@ class RollingFilesTest {
     void listFilesIsEmptyIfNoneExist() {
         assertEquals(0, RollingFiles.listFiles(tempDir.resolve("data.map").toFile()).length);
         assertEquals(0, RollingFiles.listFiles(tempDir.resolve("missing/data.map").toFile()).length);
-    }
-
-    @Test
-    void anyExistsChecksFirstFileAndOtherwiseScansForAnyRollingFile() throws IOException {
-        final File baseFile = tempDir.resolve("data.map").toFile();
-        assertFalse(RollingFiles.anyExists(baseFile));
-        assertFalse(RollingFiles.anyExists(tempDir.resolve("missing/data.map").toFile()));
-
-        for (final String name : new String[] {"data.map", "data_x.map", "data_1.map.bak", "other_1.map",
-                "data_1.mmq", "xdata_1.map"}) {
-            Files.createFile(tempDir.resolve(name));
-        }
-        assertFalse(RollingFiles.anyExists(baseFile));
-
-        //first file deleted, a later one exists
-        Files.createFile(tempDir.resolve("data_7.map"));
-        assertTrue(RollingFiles.anyExists(baseFile));
-
-        Files.createFile(tempDir.resolve("data_0.map"));
-        assertTrue(RollingFiles.anyExists(baseFile));
     }
 
     static String[] names(final File[] files) {
