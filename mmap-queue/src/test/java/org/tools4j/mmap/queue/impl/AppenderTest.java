@@ -67,6 +67,8 @@ class AppenderTest {
     private static final long MAX_WAIT_MILLIS = 10_000;
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final int MAX_ENTRY_LENGTH = REGION_SIZE - Integer.BYTES;
+    /** Entries of a queue spanning three header regions */
+    private static final int LONG_QUEUE_ENTRIES = 3 * REGION_SIZE / Headers.HEADER_LENGTH + 7;
 
     @TempDir
     Path tempDir;
@@ -89,6 +91,81 @@ class AppenderTest {
                 append(appender, "fourth");
             }
             assertEquals(List.of("first", "second entry", "third", "fourth"), pollAll(queue.createPoller()));
+        }
+    }
+
+    @ParameterizedTest(name = "rollPayloadFiles={0}")
+    @ValueSource(booleans = {true, false})
+    void appenderReusingIdWithLastEntryAtEndOfLongQueueAppendsAfterIt(final boolean rollPayloadFiles) {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, longQueueConfig(rollPayloadFiles))) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender = queue.createAppender()) {
+                appendLongQueue(appender, expected, 0, LONG_QUEUE_ENTRIES);
+            }
+            try (final Appender appender = queue.createAppender()) {
+                assertEquals(LONG_QUEUE_ENTRIES, appender.append(bytes(expected, "resumed")));
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @ParameterizedTest(name = "rollPayloadFiles={0}")
+    @ValueSource(booleans = {true, false})
+    void appenderReusingIdWithLastEntryInMiddleOfLongQueueAppendsAfterIt(final boolean rollPayloadFiles) {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, longQueueConfig(rollPayloadFiles))) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender0 = queue.createAppender()) {
+                try (final Appender appender1 = queue.createAppender()) {
+                    appendLongQueue(appender0, expected, 0, LONG_QUEUE_ENTRIES / 2);
+                    append(appender1, filler(100, 1));
+                    expected.add(filler(100, 1));
+                }
+                appendLongQueue(appender0, expected, LONG_QUEUE_ENTRIES / 2 + 1, LONG_QUEUE_ENTRIES);
+                //reuses the ID of appender 1, whose only entry is in the middle of the queue
+                try (final Appender appender = queue.createAppender()) {
+                    assertEquals(LONG_QUEUE_ENTRIES, appender.append(bytes(expected, "resumed")));
+                }
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @ParameterizedTest(name = "rollPayloadFiles={0}")
+    @ValueSource(booleans = {true, false})
+    void appenderWithNewIdJoiningLongQueueAppendsAtEnd(final boolean rollPayloadFiles) {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, longQueueConfig(rollPayloadFiles))) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender0 = queue.createAppender()) {
+                appendLongQueue(appender0, expected, 0, LONG_QUEUE_ENTRIES);
+                //new ID without payload file
+                try (final Appender appender = queue.createAppender()) {
+                    assertEquals(LONG_QUEUE_ENTRIES, appender.append(bytes(expected, "joined")));
+                }
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void appenderReusingIdWithOnlyAbortedEntryAppendsAtEnd() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, longQueueConfig(true))) {
+            final List<String> expected = new ArrayList<>();
+            final Appender aborting = queue.createAppender();
+            try (final Appender appender1 = queue.createAppender()) {
+                abortAppending(aborting, "aborted");
+                aborting.close();
+                assertTrue(new QueueFiles(dir).firstPayloadFile(0, true).exists(), "payload file of aborting ID");
+                appendLongQueue(appender1, expected, 0, LONG_QUEUE_ENTRIES);
+                //reuses the ID of the aborting appender, which has a payload file but no entries
+                try (final Appender appender = queue.createAppender()) {
+                    assertEquals(LONG_QUEUE_ENTRIES, appender.append(bytes(expected, "reused")));
+                }
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
         }
     }
 
@@ -504,6 +581,29 @@ class AppenderTest {
                 .maxPayloadFileSize(2L * REGION_SIZE)
                 .rollPayloadFiles(rollPayloadFiles)
                 .toImmutableQueueConfig();
+    }
+
+    /** Config for long queues spanning several header regions and payload regions (or files if rolled) */
+    private static QueueConfig longQueueConfig(final boolean rollPayloadFiles) {
+        return QueueConfig.configure(smallConfig(rollPayloadFiles))
+                .maxPayloadFileSize(rollPayloadFiles ? 2L * REGION_SIZE : 64L * REGION_SIZE)
+                .toImmutableQueueConfig();
+    }
+
+    /** Appends entries with the given indices, adding them to the expected entries */
+    private static void appendLongQueue(final Appender appender,
+                                        final List<String> expected,
+                                        final int fromIndex,
+                                        final int toIndex) {
+        for (int index = fromIndex; index < toIndex; index++) {
+            assertEquals(index, appender.append(bytes(expected, record(index))));
+        }
+    }
+
+    /** Adds the entry to the expected entries and returns its bytes */
+    private static byte[] bytes(final List<String> expected, final String entry) {
+        expected.add(entry);
+        return entry.getBytes(StandardCharsets.US_ASCII);
     }
 
     private static void abortAppending(final Appender appender, final String entry) {

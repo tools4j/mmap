@@ -67,6 +67,14 @@ interface AppenderMappings extends Closeable {
     boolean keepsPreviousPayloadRegionMapped();
 
     /**
+     * Returns true if a payload file of the appender ID existed before these mappings were created; false means that
+     * the appender ID has no entries in the queue.
+     *
+     * @return true if the appender ID may have entries in the queue, false if it has none
+     */
+    boolean payloadFileExisted();
+
+    /**
      * Factory method for appender mappings.
      *
      * @param queueFiles        the queue files
@@ -89,6 +97,8 @@ interface AppenderMappings extends Closeable {
             final int appenderId = idPool.acquire();
             final MappingConfig headerCfg = headerMappingConfig(queueCfg, appenderCfg);
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
+            //NOTE: checked before the payload mapping is created, which may create the file
+            final boolean payloadFileExisted = queueFiles.firstPayloadFile(appenderId, payloadCfg.rollFiles()).exists();
             final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.OPEN_OR_CREATE,
                     FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
             final ElasticMapping payload = Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
@@ -113,6 +123,11 @@ interface AppenderMappings extends Closeable {
             @Override
             public boolean keepsPreviousPayloadRegionMapped() {
                 return keepsPreviousPayloadRegionMapped;
+            }
+
+            @Override
+            public boolean payloadFileExisted() {
+                return payloadFileExisted;
             }
 
             @Override

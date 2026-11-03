@@ -88,13 +88,18 @@ final class AppenderImpl implements Appender, Describable {
         }
     }
 
-    /** Linear move to end while also remembering the last of our own headers */
+    /**
+     * Move to end while also finding the last of our own headers: binary search of the last entry, backward scan to
+     * our last own entry unless our ID has none, then forward scan to the end, which may have moved since the binary
+     * search if other appenders appended concurrently
+     */
     private void initialMoveToEnd() {
         final ElasticMapping hdr = header;
         //noinspection UnnecessaryLocalVariable
         final int ownAppenderId = appenderId;
-        long endIndex = Index.FIRST;
-        long lastOwnHeader = NULL_HEADER;
+        final long lastIndex = Headers.binarySearchLastIndex(hdr, Index.FIRST);
+        long lastOwnHeader = mappings.payloadFileExisted() ? lastOwnHeaderBackwardFrom(lastIndex) : NULL_HEADER;
+        long endIndex = lastIndex + 1;
         long header;
         while ((header = Headers.moveAndGetHeader(hdr, endIndex)) != NULL_HEADER) {
             endIndex++;
@@ -106,6 +111,16 @@ final class AppenderImpl implements Appender, Describable {
         this.endIndex = endIndex;
         this.lastOwnHeader = lastOwnHeader;
         this.lastOwnPayloadLength = lastOwnHeader == NULL_HEADER ? -1 : payloadLength(lastOwnHeader);
+    }
+
+    private long lastOwnHeaderBackwardFrom(final long lastIndex) {
+        for (long index = lastIndex; index >= Index.FIRST; index--) {
+            final long header = Headers.moveAndGetHeader(this.header, index);
+            if (header != NULL_HEADER && Headers.appenderId(header) == appenderId) {
+                return header;
+            }
+        }
+        return NULL_HEADER;
     }
 
     /**

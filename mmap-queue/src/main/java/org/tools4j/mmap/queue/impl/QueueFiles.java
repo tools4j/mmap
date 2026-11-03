@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.mapping.impl.RollingFiles;
+
 import java.io.File;
 import java.util.function.IntFunction;
 
@@ -38,8 +40,13 @@ final class QueueFiles {
     private final File metaFile;
     private final File headerFile;
     private final File idPoolFile;
+    //NOTE: lazily filled by plain writes from appender and reader threads; the race is benign: File is immutable with
+    //      final fields, so a racily published instance is fully constructed, and racing threads at worst create
+    //      equal duplicates
     private final File[] payloadFiles;
+    private final File[] firstRollingPayloadFiles;
     private final IntFunction<File> payloadFileFactory;
+    private final IntFunction<File> firstRollingPayloadFileFactory;
 
     public QueueFiles(final File queueFile) {
         this.queueFile = requireNonNull(queueFile);
@@ -47,7 +54,9 @@ final class QueueFiles {
         this.headerFile = new File(queueFile, queueFile.getName() + "_hdr.mmq");
         this.idPoolFile = new File(queueFile, queueFile.getName() + "_ids.mmq");
         this.payloadFiles = new File[Headers.MAX_APPENDERS];
+        this.firstRollingPayloadFiles = new File[Headers.MAX_APPENDERS];
         this.payloadFileFactory = appenderId -> new File(queueFile, queueFile.getName() + "_dat_" + appenderId + ".mmq");
+        this.firstRollingPayloadFileFactory = appenderId -> RollingFiles.fileForIndex(payloadFile(appenderId), 0);
     }
 
     public String queueName() {
@@ -67,12 +76,31 @@ final class QueueFiles {
     }
 
     public File payloadFile(final int appenderId) {
-        File payloadFile = payloadFiles[appenderId];
-        if (payloadFile == null) {
-            payloadFile = payloadFileFactory.apply(appenderId);
-            payloadFiles[appenderId] = payloadFile;
+        return cached(payloadFiles, appenderId, payloadFileFactory);
+    }
+
+    /**
+     * Returns the first payload file of the appender ID, which exists if the appender ID has ever mapped its payload:
+     * the payload file itself, or the first of its rolling files. Cached like the payload file, so that checking its
+     * existence creates no garbage.
+     *
+     * @param appenderId the appender ID
+     * @param rollFiles  true if payload files are rolled
+     * @return the payload file or the first rolling payload file
+     */
+    public File firstPayloadFile(final int appenderId, final boolean rollFiles) {
+        return rollFiles ? cached(firstRollingPayloadFiles, appenderId, firstRollingPayloadFileFactory) :
+                payloadFile(appenderId);
+    }
+
+    /** Returns the cached file, creating and caching it first if necessary (benign race, see note on the caches) */
+    private static File cached(final File[] cache, final int appenderId, final IntFunction<File> factory) {
+        File file = cache[appenderId];
+        if (file == null) {
+            file = factory.apply(appenderId);
+            cache[appenderId] = file;
         }
-        return payloadFile;
+        return file;
     }
 
     public File[] listFiles() {
