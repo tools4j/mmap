@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.collections.Int2ObjectHashMap;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
@@ -47,7 +46,8 @@ final class EagerReaderMappings implements ReaderMappings {
     private static final FileInitialiser HEADER_FILE_INITIALISER = FileInitialiser.minLength(Headers.HEADER_LENGTH);
     private final QueueFiles queueFiles;
     private final ElasticMapping header;
-    private final Int2ObjectHashMap<ElasticMapping> payloadMappings = new Int2ObjectHashMap<>();
+    /** Payload mappings by appender ID, created on first access */
+    private final ElasticMapping[] payloadMappings = new ElasticMapping[Headers.MAX_APPENDERS];
     private final IntFunction<ElasticMapping> payloadMappingFactory;
 
     /**
@@ -81,7 +81,14 @@ final class EagerReaderMappings implements ReaderMappings {
 
     @Override
     public ElasticMapping payload(final int appenderId) {
-        return payloadMappings.computeIfAbsent(appenderId, payloadMappingFactory);
+        final ElasticMapping mapping = payloadMappings[appenderId];
+        return mapping != null ? mapping : newPayloadMapping(appenderId);
+    }
+
+    private ElasticMapping newPayloadMapping(final int appenderId) {
+        final ElasticMapping mapping = payloadMappingFactory.apply(appenderId);
+        payloadMappings[appenderId] = mapping;
+        return mapping;
     }
 
     @Override
@@ -93,8 +100,13 @@ final class EagerReaderMappings implements ReaderMappings {
     public void close() {
         if (!isClosed()) {
             header.close();
-            payloadMappings.forEachInt((appenderId, mapping) -> mapping.close());
-            payloadMappings.clear();
+            for (int appenderId = 0; appenderId < payloadMappings.length; appenderId++) {
+                final ElasticMapping mapping = payloadMappings[appenderId];
+                if (mapping != null) {
+                    mapping.close();
+                    payloadMappings[appenderId] = null;
+                }
+            }
         }
     }
 
