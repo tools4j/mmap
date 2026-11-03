@@ -13,6 +13,8 @@ Notable changes per release. Entries are curated from the commits since the prev
   `mmap.queue.entryIteratorPendingDataIdleStrategy`.
 
 ### Changed
+- The default region size is 2 MB instead of 64 KB, for huge page eligibility and fewer unmaps; existing queues keep
+  theirs. The maximum entry size of new queues with default region sizes grows accordingly.
 - New appenders find the end of the queue with a binary search, and scan back for their own last entry only if their
   appender ID has a payload file: opening an appender on a long queue takes well under a millisecond instead of
   seconds when the ID has no entries or its last entry is near the end.

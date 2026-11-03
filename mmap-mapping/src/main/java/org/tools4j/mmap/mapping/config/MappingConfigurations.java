@@ -102,8 +102,13 @@ public enum MappingConfigurations {
     public static final int FILES_TO_CREATE_AHEAD_DEFAULT = 0;
     /** Name of the system property to override the default region size. */
     public static final String REGION_SIZE_PROPERTY = "mmap.mapping.regionSize";
-    /** The default region size, used if system property {@value #REGION_SIZE_PROPERTY} is not set. */
-    public static final int REGION_SIZE_DEFAULT = (int)Math.max(64*1024, REGION_SIZE_GRANULARITY);
+    /**
+     * The default region size, used if system property {@value #REGION_SIZE_PROPERTY} is not set: 2 MB, the smallest
+     * region size that can be backed by huge pages (on x86-64 and aarch64 with 4k pages, for instance for files on a
+     * tmpfs with transparent huge pages enabled), and large enough to keep unmapping, with its TLB shootdowns
+     * interrupting other threads of the process, rare when data is accessed sequentially.
+     */
+    public static final int REGION_SIZE_DEFAULT = (int)Math.max(2*1024*1024, REGION_SIZE_GRANULARITY);
     /** Name of the system property to override the default initial mapping pool size. */
     public static final String INITIAL_MAPPING_POOL_SIZE_PROPERTY = "mmap.mapping.initialMappingPoolSize";
     /**
