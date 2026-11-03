@@ -123,9 +123,11 @@ public interface Poller extends Closeable {
      * Sets the index of the next polled entry. This operation returns fast and does not move the cursor immediately,
      * instead the cursor is moved through subsequent {@link #poll(EntryHandler) poll(..)} invocations.
      *
-     * @param index the index of the next entry to poll, 0 for first and {@link Index#END} for the end of the queue
+     * @param index the index of the next entry to poll, 0 for first, {@link Index#LAST} for last, and {@link Index#END}
+     *              for the end of the queue
      * @throws IllegalArgumentException if the provided index is negative
      * @see #seekFirst()
+     * @see #seekLast()
      * @see #seekEnd()
      */
     void seek(long index);
