@@ -93,9 +93,9 @@ class AsyncRunAheadRegionMapperTest {
     }
 
     @AfterEach
-    void close() {
+    void close() throws InterruptedException {
         if (regionMapper != null) {
-            regionMapper.close();
+            RecurringTasks.closeWhileExecuting(regionMapper::close, recurring.get(0));
         }
     }
 

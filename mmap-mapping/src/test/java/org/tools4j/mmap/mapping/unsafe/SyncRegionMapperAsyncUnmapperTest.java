@@ -26,14 +26,19 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
+import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.impl.Constants;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,14 +51,16 @@ class SyncRegionMapperAsyncUnmapperTest {
     private static final int REGION_SIZE = (int) Constants.REGION_SIZE_GRANULARITY;
 
     @Test
-    void mapsWithoutPreTouch() {
+    void mapsWithoutPreTouch() throws InterruptedException {
         final UnsafeBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(REGION_SIZE));
         final FileMapper fileMapper = mock(FileMapper.class);
         when(fileMapper.map(anyLong(), eq(REGION_SIZE), anyBoolean())).thenReturn(data.addressOffset());
-        try (final RegionMapper regionMapper = new SyncRegionMapperAsyncUnmapper(mock(AsyncRuntime.class), fileMapper,
-                REGION_SIZE, 32)) {
-            assertEquals(data.addressOffset(), regionMapper.map(0));
-            verify(fileMapper).map(0L, REGION_SIZE, false);
-        }
+        final AsyncRuntime asyncRuntime = mock(AsyncRuntime.class);
+        final List<Recurring> recurring = new ArrayList<>();
+        doAnswer(invocation -> recurring.add(invocation.getArgument(0))).when(asyncRuntime).register(any());
+        final RegionMapper regionMapper = new SyncRegionMapperAsyncUnmapper(asyncRuntime, fileMapper, REGION_SIZE, 32);
+        assertEquals(data.addressOffset(), regionMapper.map(0));
+        verify(fileMapper).map(0L, REGION_SIZE, false);
+        RecurringTasks.closeWhileExecuting(regionMapper::close, recurring.get(0));
     }
 }
