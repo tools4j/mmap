@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
  * Receives messages from all senders and records the latency from claiming the message in the sender until reading it
  * in the receiver, after a warmup phase. Busy-spins while no message is available.
  */
-public final class Receiver implements MessageHandler {
+public final class Receiver {
     private static final long MAX_VALUE = TimeUnit.SECONDS.toNanos(1);
 
     private final Worker worker;
@@ -76,17 +76,17 @@ public final class Receiver implements MessageHandler {
     }
 
     private void run() {
+        final MessageHandler handler = this::onMessage;
         try (final Reader reader = queue.createReader()) {
             while (received < messages) {
-                if (!reader.poll(this)) {
+                if (!reader.poll(handler)) {
                     Thread.onSpinWait();
                 }
             }
         }
     }
 
-    @Override
-    public void onMessage(final DirectBuffer buffer, final int offset, final int length) {
+    private void onMessage(final DirectBuffer buffer, final int offset, final int length) {
         final long time = System.nanoTime();
         codec.wrap(buffer, offset, length).getPayload(payload);
         histogram.recordValue(Math.min(time - codec.timestamp(), MAX_VALUE));
