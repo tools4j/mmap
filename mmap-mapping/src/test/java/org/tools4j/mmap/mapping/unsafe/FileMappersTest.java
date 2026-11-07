@@ -48,7 +48,7 @@ class FileMappersTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final long MAX_FILE_SIZE = 2L * REGION_SIZE;
-    private static final FileInitialiser INITIALISER = FileInitialiser.none();
+    private static final FileInitialiser FILE_INITIALISER = FileInitialiser.LAZY;
 
     @TempDir
     Path tempDir;
@@ -65,20 +65,20 @@ class FileMappersTest {
     @Test
     void createUsesConcurrentRollingFileMapperOnlyForAsyncMapping() {
         final File file = tempDir.resolve("create.map").toFile();
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, FILE_INITIALISER,
                 rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 2))) {
             assertInstanceOf(ConcurrentRollingFileMapper.PerThreadFileMapper.class, mapper);
         }
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, INITIALISER,
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, FILE_INITIALISER,
                 rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 2))) {
             assertInstanceOf(ConcurrentRollingFileMapper.PerThreadFileMapper.class, mapper);
         }
         //async unmapping only: unmapping is thread-safe, and a single open file suffices
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, FILE_INITIALISER,
                 rollingConfig(MappingStrategyConfig.getDefaultSyncWithAsyncUnmapping(), 1))) {
             assertInstanceOf(RollingFileMapper.class, mapper);
         }
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER,
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, FILE_INITIALISER,
                 rollingConfig(MappingStrategyConfig.getDefaultSync(), 1))) {
             assertInstanceOf(RollingFileMapper.class, mapper);
         }
@@ -90,22 +90,22 @@ class FileMappersTest {
         final MappingConfig expandable = MappingConfig.configure()
                 .rollFiles(false).expandFile(true).minFileSize(0).maxFileSize(MAX_FILE_SIZE).regionSize(REGION_SIZE);
         final MappingConfig fixed = MappingConfig.configure(expandable).expandFile(false);
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER, expandable)) {
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, FILE_INITIALISER, expandable)) {
             assertInstanceOf(ExpandableSizeFileMapper.class, mapper);
             assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
         }
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, INITIALISER, fixed)) {
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, FILE_INITIALISER, fixed)) {
             assertInstanceOf(FixedSizeFileMapper.class, mapper);
             assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
         }
-        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, INITIALISER, fixed)) {
+        try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, FILE_INITIALISER, fixed)) {
             assertInstanceOf(ReadOnlyFileMapper.class, mapper);
             assertEquals(Long.MAX_VALUE, mapper.mappingLimit());
         }
         for (final MappingStrategyConfig strategy : new MappingStrategyConfig[] {
                 MappingStrategyConfig.getDefaultSync(), MappingStrategyConfig.getDefaultAsyncMapAhead()}) {
             for (final AccessMode accessMode : AccessMode.values()) {
-                try (final FileMapper mapper = FileMappers.create(file, accessMode, INITIALISER,
+                try (final FileMapper mapper = FileMappers.create(file, accessMode, FILE_INITIALISER,
                         rollingConfig(strategy, 2))) {
                     assertEquals(Long.MAX_VALUE, mapper.mappingLimit(), mapper.toString());
                 }
@@ -116,7 +116,7 @@ class FileMappersTest {
     @Test
     void createRejectsSingleOpenFileForAsyncMapping() {
         assertThrows(IllegalArgumentException.class, () -> FileMappers.create(tempDir.resolve("one.map").toFile(),
-                AccessMode.READ_WRITE, INITIALISER, rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 1)));
+                AccessMode.READ_WRITE, FILE_INITIALISER, rollingConfig(MappingStrategyConfig.getDefaultAsyncMapAhead(), 1)));
     }
 
     @Test
@@ -129,7 +129,7 @@ class FileMappersTest {
     void forThreadReturnsNewPerThreadFileMapperForConcurrentRollingFileMapper() {
         try (final FileMapper concurrent = ConcurrentRollingFileMapper.forReadWrite(
                 tempDir.resolve("concurrent.map").toFile(), AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE,
-                REGION_SIZE, 0, 3, INITIALISER)) {
+                REGION_SIZE, 0, 3, FILE_INITIALISER)) {
             final FileMapper sibling = FileMappers.forThread(concurrent);
             assertNotSame(concurrent, sibling);
             assertNotSame(sibling, FileMappers.forThread(sibling));
@@ -139,7 +139,7 @@ class FileMappersTest {
     @Test
     void forThreadRejectsSingleThreadedFileMapper() {
         try (final FileMapper rolling = RollingFileMapper.forReadWrite(tempDir.resolve("rolling.map").toFile(),
-                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 2, INITIALISER)) {
+                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 2, FILE_INITIALISER)) {
             assertThrows(IllegalArgumentException.class, () -> FileMappers.forThread(rolling));
         }
     }

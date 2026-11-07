@@ -23,53 +23,37 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.tools4j.mmap.mapping.impl.MinLengthFileInitialiser;
-
-import java.io.IOException;
-import java.nio.channels.FileChannel;
+import org.tools4j.mmap.mapping.impl.StandardFileInitialiser;
 
 /**
- * File initialiser invoked when a file is opened for mapping, before it is mapped, for instance to ensure or validate
- * a minimum file length, or to write or validate a file header.
+ * Initialises mapped files, providing the {@link PreAccessHook} for the access mode a file is opened with.
+ * <p>
+ * The standard initialisers leave read-only files untouched, and differ in how new space of writable files is
+ * initialised:
+ * <ul>
+ *     <li>{@link #LAZY}: the file length is extended without writing, leaving sparse file space that reads as zero
+ *         bytes and is allocated by the file system only when a page of the mapping is first written; if the disk is
+ *         full at that point, the write faults, crashing the JVM or throwing an asynchronous {@link InternalError}</li>
+ *     <li>{@link #ZERO}: new space is allocated by writing zero bytes when the file is opened or extended</li>
+ *     <li>{@link #MINUS_ONE}: new space is allocated by writing bytes with all bits set</li>
+ * </ul>
+ * Existing file content is never overwritten.
  */
 @FunctionalInterface
 public interface FileInitialiser {
+    /** Initialiser extending files without writing, leaving sparse space allocated on first write to the mapping */
+    FileInitialiser LAZY = StandardFileInitialiser.LAZY;
+    /** Initialiser allocating new file space by writing zero bytes */
+    FileInitialiser ZERO = StandardFileInitialiser.ZERO;
+    /** Initialiser allocating new file space by writing minus one bytes, that is, bytes with all bits set */
+    FileInitialiser MINUS_ONE = StandardFileInitialiser.MINUS_ONE;
 
     /**
-     * Initialises the file channel, or validates the file if it is opened for reading only.
+     * Returns the hook for a file opened with the given access mode, invoked once per file mapper, which uses the
+     * returned hook for its file only; the standard initialisers return the same thread safe hook for all files.
      *
-     * @param fileName    file name for reference
-     * @param fileChannel file channel to initialise
-     * @param accessMode  the access mode the file is opened with
-     * @throws IOException thrown when file channel could not be initialised.
+     * @param accessMode the access mode the file is opened with
+     * @return the hook, {@link PreAccessHook#NO_OP} if the file needs no initialisation or validation
      */
-    void init(String fileName, FileChannel fileChannel, AccessMode accessMode) throws IOException;
-
-    /**
-     * Returns a file initialiser that does nothing.
-     *
-     * @return a no-op file initialiser
-     */
-    static FileInitialiser none() {
-        return MinLengthFileInitialiser.NONE;
-    }
-
-    /**
-     * Returns a file initialiser that ensures the file is at least the given length, with behaviour depending on the
-     * access mode the file is opened with:
-     * <ul>
-     *     <li>{@link AccessMode#READ_ONLY READ_ONLY}: throws an {@link IllegalArgumentException} if the file is
-     *         shorter than {@code length}</li>
-     *     <li>{@link AccessMode#READ_WRITE READ_WRITE}: appends zero bytes if the file is shorter than
-     *         {@code length}, leaving existing content untouched</li>
-     * </ul>
-     * File modifications are performed under a file lock.
-     *
-     * @param length the minimum file length in bytes, or zero for no minimum length
-     * @return a file initialiser ensuring the given minimum length
-     * @throws IllegalArgumentException if length is negative
-     */
-    static FileInitialiser minLength(final long length) {
-        return length == 0 ? none() : new MinLengthFileInitialiser(length);
-    }
+    PreAccessHook hook(AccessMode accessMode);
 }

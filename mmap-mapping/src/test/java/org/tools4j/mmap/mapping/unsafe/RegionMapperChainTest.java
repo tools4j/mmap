@@ -114,7 +114,7 @@ class RegionMapperChainTest {
 
     private FileMapper fileMapper(final File file) {
         return new FixedSizeFileMapper(file, (long) REGIONS * REGION_SIZE, AccessMode.READ_WRITE,
-                FileInitialiser.none());
+                FileInitialiser.LAZY);
     }
 
     private static long valueFor(final int region) {

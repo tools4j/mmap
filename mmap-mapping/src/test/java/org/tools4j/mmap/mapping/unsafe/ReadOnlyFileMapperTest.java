@@ -49,7 +49,7 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 class ReadOnlyFileMapperTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
-    private static final FileInitialiser INITIALISER = FileInitialiser.none();
+    private static final FileInitialiser FILE_INITIALISER = FileInitialiser.LAZY;
 
     @TempDir
     Path tempDir;
@@ -76,7 +76,7 @@ class ReadOnlyFileMapperTest {
     @Test
     void mapsExistingRegions() throws IOException {
         final Path path = fileWithRegions(2);
-        try (final FileMapper mapper = new ReadOnlyFileMapper(path.toString(), INITIALISER)) {
+        try (final FileMapper mapper = new ReadOnlyFileMapper(path.toString(), FILE_INITIALISER)) {
             assertEquals(AccessMode.READ_ONLY, mapper.accessMode());
             assertEquals(1, firstByte(mapper, 0));
             assertEquals(2, firstByte(mapper, 1));
@@ -86,7 +86,7 @@ class ReadOnlyFileMapperTest {
     @Test
     void mappingBeyondFileEndFailsUntilFileHasGrown() throws IOException {
         final Path path = fileWithRegions(1);
-        try (final FileMapper mapper = new ReadOnlyFileMapper(path.toFile(), INITIALISER)) {
+        try (final FileMapper mapper = new ReadOnlyFileMapper(path.toFile(), FILE_INITIALISER)) {
             assertEquals(1, firstByte(mapper, 0));
             assertEquals(NULL_ADDRESS, mapper.map(REGION_SIZE, REGION_SIZE, false));
             final byte[] secondRegion = new byte[REGION_SIZE];
@@ -99,19 +99,19 @@ class ReadOnlyFileMapperTest {
     @Test
     void missingOrEmptyFileIsNotMapped() throws IOException {
         final File missing = tempDir.resolve("missing.map").toFile();
-        try (final FileMapper mapper = new ReadOnlyFileMapper(missing, INITIALISER)) {
+        try (final FileMapper mapper = new ReadOnlyFileMapper(missing, FILE_INITIALISER)) {
             assertEquals(NULL_ADDRESS, mapper.map(0, REGION_SIZE, false));
             assertFalse(missing.exists(), "read-only mapper does not create files");
         }
         final File empty = Files.createFile(tempDir.resolve("empty.map")).toFile();
-        try (final FileMapper mapper = new ReadOnlyFileMapper(empty, INITIALISER)) {
+        try (final FileMapper mapper = new ReadOnlyFileMapper(empty, FILE_INITIALISER)) {
             assertEquals(NULL_ADDRESS, mapper.map(0, REGION_SIZE, false));
         }
     }
 
     @Test
     void closedMapperRejectsMapAndUnmap() throws IOException {
-        final FileMapper mapper = new ReadOnlyFileMapper(fileWithRegions(1).toFile(), INITIALISER);
+        final FileMapper mapper = new ReadOnlyFileMapper(fileWithRegions(1).toFile(), FILE_INITIALISER);
         final long address = mapper.map(0, REGION_SIZE, false);
         mapper.close();
         assertTrue(mapper.isClosed());

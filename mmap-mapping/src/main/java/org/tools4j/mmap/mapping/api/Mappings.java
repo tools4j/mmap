@@ -116,7 +116,9 @@ public enum Mappings {
      * Creates a fixed mapping over the specified slice of the given file, notifying the given listeners.
      * <p>
      * The file is mapped immediately, hence it must exist when opened for reading only, also with
-     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}.
+     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}. A writable file shorter than the mapped slice is extended with
+     * {@link FileInitialiser#ZERO zero bytes}, and opening a read-only file that is too short fails with an
+     * {@link IllegalArgumentException}.
      *
      * @param file              the file to map
      * @param openMode          the mode to open the file with
@@ -135,8 +137,7 @@ public enum Mappings {
         OpenModes.apply(file, openMode, false);
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
-        final FileInitialiser initialiser = FileInitialiser.minLength(fileSize);
-        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), initialiser,
+        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), FileInitialiser.ZERO,
                 lifecycleListener, errorListener);
         return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
@@ -205,7 +206,7 @@ public enum Mappings {
      * @return a new region mapping for the given file
      */
     public static RegionMapping regionMapping(final File file, final OpenMode openMode, final MappingConfig config) {
-        return regionMapping(file, openMode, FileInitialiser.none(), config);
+        return regionMapping(file, openMode, FileInitialiser.LAZY, config);
     }
 
     /**
@@ -213,7 +214,7 @@ public enum Mappings {
      *
      * @param file            the file to map
      * @param openMode        the mode to open the file with
-     * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
+     * @param fileInitialiser      the format initialising the file when it is opened or extended
      * @param config          the mapping configuration to use
      * @return a new region mapping for the given file
      */
@@ -268,16 +269,16 @@ public enum Mappings {
     public static ElasticMapping elasticMapping(final File file,
                                                 final OpenMode openMode,
                                                 final MappingConfig config) {
-        return elasticMapping(file, openMode, FileInitialiser.none(), config);
+        return elasticMapping(file, openMode, FileInitialiser.LAZY, config);
     }
 
     /**
      * Creates an elastic mapping for the specified file using the given file initialiser and mapping configuration.
      *
-     * @param file            the file to map
-     * @param openMode        the mode to open the file with
-     * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
-     * @param config          the mapping configuration to use
+     * @param file              the file to map
+     * @param openMode          the mode to open the file with
+     * @param fileInitialiser   the format initialising the file when it is opened or extended
+     * @param config            the mapping configuration to use
      * @return a new elastic mapping for the given file
      */
     public static ElasticMapping elasticMapping(final File file,
@@ -332,16 +333,16 @@ public enum Mappings {
     public static AdaptiveMapping adaptiveMapping(final File file,
                                                   final OpenMode openMode,
                                                   final MappingConfig config) {
-        return adaptiveMapping(file, openMode, FileInitialiser.none(), config);
+        return adaptiveMapping(file, openMode, FileInitialiser.LAZY, config);
     }
 
     /**
      * Creates an adaptive mapping for the specified file using the given file initialiser and mapping configuration.
      *
-     * @param file            the file to map
-     * @param openMode        the mode to open the file with
-     * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
-     * @param config          the mapping configuration to use
+     * @param file              the file to map
+     * @param openMode          the mode to open the file with
+     * @param fileInitialiser   the format initialising the file when it is opened or extended
+     * @param config            the mapping configuration to use
      * @return a new adaptive mapping for the given file
      */
     public static AdaptiveMapping adaptiveMapping(final File file,
@@ -418,7 +419,7 @@ public enum Mappings {
                                           final OpenMode openMode,
                                           final MappingConfig config,
                                           final int initialPoolSize) {
-        return mappingPool(file, openMode, FileInitialiser.none(), config, initialPoolSize);
+        return mappingPool(file, openMode, FileInitialiser.LAZY, config, initialPoolSize);
     }
 
     /**
@@ -427,7 +428,7 @@ public enum Mappings {
      *
      * @param file            the file to map
      * @param openMode        the mode to open the file with
-     * @param fileInitialiser the initialiser invoked once when the file is newly created or expanded
+     * @param fileInitialiser      the format initialising the file when it is opened or extended
      * @param config          the mapping configuration to use
      * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
      *                        for its internal tracking structures (mappings themselves are still created lazily,

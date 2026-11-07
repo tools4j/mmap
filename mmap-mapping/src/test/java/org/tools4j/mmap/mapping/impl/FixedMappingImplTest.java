@@ -217,6 +217,6 @@ class FixedMappingImplTest {
     }
 
     private static FixedSizeFileMapper fixedSizeFileMapper(final File file, final int size) {
-        return new FixedSizeFileMapper(file, size, AccessMode.READ_WRITE, FileInitialiser.minLength(size));
+        return new FixedSizeFileMapper(file, size, AccessMode.READ_WRITE, FileInitialiser.ZERO);
     }
 }

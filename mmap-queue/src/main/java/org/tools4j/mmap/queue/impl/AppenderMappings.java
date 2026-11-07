@@ -25,7 +25,6 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
@@ -100,7 +99,7 @@ interface AppenderMappings extends Closeable {
             //NOTE: checked before the payload mapping is created, which may create the file
             final boolean payloadFileExisted = queueFiles.firstPayloadFile(appenderId, payloadCfg.rollFiles()).exists();
             final ElasticMapping header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.OPEN_OR_CREATE,
-                    FileInitialiser.minLength(Headers.HEADER_LENGTH), headerCfg);
+                    headerCfg);
             final ElasticMapping payload = Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
                     OpenMode.OPEN_OR_CREATE, payloadCfg);
             final boolean keepsPreviousPayloadRegionMapped = QueueMappingConfigs.keepsPreviousRegionMapped(payloadCfg);

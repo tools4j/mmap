@@ -28,7 +28,9 @@ import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.impl.FileLocks;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -36,6 +38,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
@@ -44,7 +47,7 @@ import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 final class FileChannelProvider implements Closeable {
     private final Describable owner;
     private final File file;
-    private final FileInitialiser fileInitialiser;
+    private final PreAccessHook preAccessHook;
     private final AccessMode accessMode;
     private final long minFileLength;
     private final LifecycleListener lifecycleListener;
@@ -67,8 +70,9 @@ final class FileChannelProvider implements Closeable {
      * @param owner             the file mapper owning this provider, the resource passed to listeners
      * @param accessMode        the access mode of the file mapper
      * @param file              the file
-     * @param fileInitialiser   the initialiser invoked when the file is opened
-     * @param minFileLength     the min length to set for a writable file, or zero for none
+     * @param fileInitialiser   the initialiser providing the hook invoked when the file is opened or extended
+     * @param minFileLength     the min length to set for a writable file and to expect for a read-only file, or zero
+     *                          for none
      * @param lifecycleListener the listener notified when the file is created and when it is opened and closed
      * @param errorListener     the listener notified about errors when closing the file
      */
@@ -81,8 +85,8 @@ final class FileChannelProvider implements Closeable {
                         final ErrorListener errorListener) {
         this.owner = requireNonNull(owner);
         this.file = requireNonNull(file);
-        this.fileInitialiser = requireNonNull(fileInitialiser);
         this.accessMode = requireNonNull(accessMode);
+        this.preAccessHook = requireNonNull(fileInitialiser.hook(accessMode));
         this.minFileLength = minFileLength;
         this.lifecycleListener = requireNonNull(lifecycleListener);
         this.errorListener = requireNonNull(errorListener);
@@ -121,15 +125,38 @@ final class FileChannelProvider implements Closeable {
         return cwf != null ? cwf.channel : null;
     }
 
-    public void setSize(final long size) {
+    /**
+     * Extends the writable file to the given size unless it is already that long, initialising the new space under an
+     * exclusive file lock.
+     *
+     * @param size the new file size
+     * @throws UncheckedIOException if extending the file fails
+     */
+    public void extend(final long size) {
+        assert accessMode != AccessMode.READ_ONLY;
         final ChannelWithFile cwf = getChannelWithFile();
         if (cwf == null) {
-            throw new IllegalStateException("No file channel to set size " + size + " for file " + file);
+            throw new IllegalStateException("No file channel to extend file " + file + " to size " + size);
         }
         try {
-            cwf.randomAccessFile.setLength(size);
+            final FileLock lock = FileLocks.acquireLock(cwf.channel);
+            try {
+                if (cwf.channel.size() < size) {
+                    preAccessHook.onExtend(file.getName(), cwf.channel, size);
+                    ensureLength(cwf.randomAccessFile, size);
+                }
+            } finally {
+                lock.release();
+            }
         } catch (final IOException e) {
-            throw new UncheckedIOException("Failed to set size " + size + " for file " + file, e);
+            throw new UncheckedIOException("Failed to extend file " + file + " to size " + size, e);
+        }
+    }
+
+    /** Extends the file without writing if the initialiser left it shorter than the size, never truncating it */
+    private static void ensureLength(final RandomAccessFile raf, final long size) throws IOException {
+        if (raf.length() < size) {
+            raf.setLength(size);
         }
     }
 
@@ -186,24 +213,24 @@ final class FileChannelProvider implements Closeable {
             }
             throw new UncheckedIOException("Failed to open file " + file, e);
         }
-        if (accessMode != AccessMode.READ_ONLY && minFileLength > 0) {
-            try {
-                if (raf.length() < minFileLength) {
-                    raf.setLength(minFileLength);
-                }
-            } catch (final IOException e) {
-                close(raf);
-                throw new UncheckedIOException("Failed to set min file length " + minFileLength + " for file " +
-                        file, e);
-            }
-        }
         return raf;
     }
 
     private FileChannel initChannel(final RandomAccessFile raf) {
         final FileChannel channel = raf.getChannel();
         try {
-            fileInitialiser.init(file.getName(), channel, accessMode);
+            if (accessMode == AccessMode.READ_ONLY) {
+                validateMinFileLength(channel);
+                preAccessHook.onOpen(file.getName(), channel, minFileLength);
+            } else {
+                final FileLock lock = FileLocks.acquireLock(channel);
+                try {
+                    preAccessHook.onOpen(file.getName(), channel, minFileLength);
+                    ensureLength(raf, minFileLength);
+                } finally {
+                    lock.release();
+                }
+            }
         } catch (final IOException e) {
             close(channel);
             close(raf);
@@ -216,6 +243,14 @@ final class FileChannelProvider implements Closeable {
         assert channel != null : "channel cannot be null";
         assert channel.isOpen() : "channel must be open";
         return channel;
+    }
+
+    private void validateMinFileLength(final FileChannel channel) throws IOException {
+        final long length = channel.size();
+        if (length < minFileLength) {
+            throw new IllegalArgumentException("Invalid file, expected file of size at least " + minFileLength +
+                    " but found only " + length + ": " + file);
+        }
     }
 
     private ChannelWithFile setOrGet(final ChannelWithFile value) {

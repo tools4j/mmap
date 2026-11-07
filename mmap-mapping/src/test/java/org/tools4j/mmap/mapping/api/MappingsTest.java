@@ -84,7 +84,7 @@ class MappingsTest {
     void fixedMappingFromFileMapperClosesFileMapper() {
         final File file = tempDir.resolve("fixed.map").toFile();
         final FileMapper fileMapper = new FixedSizeFileMapper(file, 64, AccessMode.READ_WRITE,
-                FileInitialiser.minLength(64));
+                FileInitialiser.ZERO);
         try (final FixedMapping mapping = Mappings.fixedMapping(fileMapper, 0, 64)) {
             assertEquals(64, mapping.bytesAvailable());
             mapping.buffer().putLong(56, VALUE);

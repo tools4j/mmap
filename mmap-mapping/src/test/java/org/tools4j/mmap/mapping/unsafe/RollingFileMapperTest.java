@@ -51,8 +51,7 @@ class RollingFileMapperTest {
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final int REGIONS_PER_FILE = 2;
     private static final long MAX_FILE_SIZE = (long) REGIONS_PER_FILE * REGION_SIZE;
-    private static final FileInitialiser READ_WRITE_INITIALISER = FileInitialiser.none();
-    private static final FileInitialiser READ_ONLY_INITIALISER = FileInitialiser.none();
+    private static final FileInitialiser FILE_INITIALISER = FileInitialiser.LAZY;
 
     @TempDir
     Path tempDir;
@@ -66,11 +65,11 @@ class RollingFileMapperTest {
                                         final int filesToCreateAhead,
                                         final int maxOpenFiles) {
         return RollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE, expandFile, 0, MAX_FILE_SIZE,
-                REGION_SIZE, filesToCreateAhead, maxOpenFiles, READ_WRITE_INITIALISER);
+                REGION_SIZE, filesToCreateAhead, maxOpenFiles, FILE_INITIALISER);
     }
 
     private static FileMapper readOnly(final File baseFile, final int maxOpenFiles) {
-        return RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE, maxOpenFiles, READ_ONLY_INITIALISER);
+        return RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE, maxOpenFiles, FILE_INITIALISER);
     }
 
     private static long position(final int region) {
@@ -263,14 +262,14 @@ class RollingFileMapperTest {
     void maxFileSizeNotMultipleOfRegionSizeIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile("invalid.map"),
                 AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 2,
-                READ_WRITE_INITIALISER));
+                FILE_INITIALISER));
     }
 
     @Test
     void invalidConfigurationIsRejected() {
         final File baseFile = baseFile("invalid.map");
         assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile,
-                AccessMode.READ_WRITE, false, 0, REGION_SIZE / 2, REGION_SIZE, 0, 2, READ_WRITE_INITIALISER));
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE / 2, REGION_SIZE, 0, 2, FILE_INITIALISER));
         assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, false, 2, 2),
                 "filesToCreateAhead must be smaller than maxOpenFiles");
         assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, false, 0, 0));

@@ -178,7 +178,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
             final long newestFileLength = channel.size();
             if (newestFileLength < minLength) {
                 final long newLength = newFileLength(minLength);
-                fileChannelProvider.setSize(newLength);
+                fileChannelProvider.extend(newLength);
                 return newLength;
             } else {
                 return newestFileLength;

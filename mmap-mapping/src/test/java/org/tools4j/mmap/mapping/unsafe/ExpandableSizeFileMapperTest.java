@@ -28,10 +28,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.PreAccessHook;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +59,7 @@ class ExpandableSizeFileMapperTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final long MAX_FILE_SIZE = 8L * REGION_SIZE;
-    private static final FileInitialiser INITIALISER = FileInitialiser.none();
+    private static final FileInitialiser FILE_INITIALISER = FileInitialiser.LAZY;
 
     @TempDir
     Path tempDir;
@@ -66,7 +68,7 @@ class ExpandableSizeFileMapperTest {
 
     private ExpandableSizeFileMapper mapper(final long minFileSize) {
         file = tempDir.resolve("expandable.map").toFile();
-        return new ExpandableSizeFileMapper(file, minFileSize, MAX_FILE_SIZE, REGION_SIZE, INITIALISER);
+        return new ExpandableSizeFileMapper(file, minFileSize, MAX_FILE_SIZE, REGION_SIZE, FILE_INITIALISER);
     }
 
     private static long mapAndWrite(final FileMapper mapper, final long position, final long value) {
@@ -121,7 +123,7 @@ class ExpandableSizeFileMapperTest {
         assertTrue(notADirectory.createNewFile());
         file = new File(notADirectory, "expandable.map");
         try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
-                INITIALISER)) {
+                FILE_INITIALISER)) {
             for (int i = 0; i < 2; i++) {
                 final UncheckedIOException error = assertThrows(UncheckedIOException.class,
                         () -> mapper.map(0, REGION_SIZE, false));
@@ -133,11 +135,15 @@ class ExpandableSizeFileMapperTest {
     @Test
     void fileInitialiserErrorIsThrownOnEveryMap() {
         final IOException cause = new IOException("test initialiser error");
+        final PreAccessHook failingInitialiser = new PreAccessHook() {
+            @Override
+            public void onOpen(final String name, final FileChannel channel, final long size) throws IOException {
+                throw cause;
+            }
+        };
         file = tempDir.resolve("expandable.map").toFile();
         try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
-                (fileName, fileChannel, accessMode) -> {
-                    throw cause;
-                })) {
+                accessMode -> failingInitialiser)) {
             for (int i = 0; i < 2; i++) {
                 assertSame(cause, assertThrows(UncheckedIOException.class, () -> mapper.map(0, REGION_SIZE, false))
                         .getCause());
@@ -158,13 +164,13 @@ class ExpandableSizeFileMapperTest {
     void invalidSizesAreRejected() {
         final File file = tempDir.resolve("invalid.map").toFile();
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 0,
-                REGION_SIZE / 2, REGION_SIZE, INITIALISER), "max smaller than region");
+                REGION_SIZE / 2, REGION_SIZE, FILE_INITIALISER), "max smaller than region");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 4L * REGION_SIZE,
-                2L * REGION_SIZE, REGION_SIZE, INITIALISER), "max smaller than min");
+                2L * REGION_SIZE, REGION_SIZE, FILE_INITIALISER), "max smaller than min");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, REGION_SIZE,
-                MAX_FILE_SIZE, 2 * REGION_SIZE, INITIALISER), "min smaller than region");
+                MAX_FILE_SIZE, 2 * REGION_SIZE, FILE_INITIALISER), "min smaller than region");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 3L * REGION_SIZE,
-                MAX_FILE_SIZE, REGION_SIZE, INITIALISER), "min not a power of two");
+                MAX_FILE_SIZE, REGION_SIZE, FILE_INITIALISER), "min not a power of two");
     }
 
     @Test

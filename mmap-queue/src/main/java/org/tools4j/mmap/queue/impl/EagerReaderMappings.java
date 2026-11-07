@@ -25,11 +25,14 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
+import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -43,7 +46,23 @@ import static java.util.Objects.requireNonNull;
  * Like the mappings, this class is not thread-safe.
  */
 final class EagerReaderMappings implements ReaderMappings {
-    private static final FileInitialiser HEADER_FILE_INITIALISER = FileInitialiser.minLength(Headers.HEADER_LENGTH);
+    /** Validates that an existing header file holds at least one header, which appenders always allocate */
+    private static final PreAccessHook HEADER_FILE_VALIDATOR = new PreAccessHook() {
+        @Override
+        public void onOpen(final String name, final FileChannel channel, final long size) throws IOException {
+            final long length = channel.size();
+            if (length < Headers.HEADER_LENGTH) {
+                throw new IllegalArgumentException("Invalid header file, expected file of size at least " +
+                        Headers.HEADER_LENGTH + " but found only " + length + ": " + name);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "HEADER_FILE_VALIDATOR";
+        }
+    };
+    private static final FileInitialiser HEADER_FILE_INITIALISER = accessMode -> HEADER_FILE_VALIDATOR;
     private final QueueFiles queueFiles;
     private final ElasticMapping header;
     /** Payload mappings by appender ID, created on first access */

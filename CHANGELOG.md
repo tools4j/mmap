@@ -11,6 +11,11 @@ Notable changes per release. Entries are curated from the commits since the prev
   `pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, the corresponding `ReaderConfig` getters, and the
   system properties `mmap.queue.pendingQueueIdleStrategy`, `mmap.queue.pollerPendingDataIdleStrategy` and
   `mmap.queue.entryIteratorPendingDataIdleStrategy`.
+- File initialisers are reworked: `FileInitialiser.none()` and `minLength(..)` are replaced by the initialisers
+  `FileInitialiser.LAZY` (sparse file space, the default), `ZERO` and `MINUS_ONE` (allocating new space by writing
+  zero or minus one bytes, so that writing to the mapping cannot fault on a full disk). A custom initialiser returns a
+  `PreAccessHook` per access mode, invoked when a file is opened (`onOpen`) and extended (`onExtend`); mappers ensure
+  the min file length themselves. Fixed mappings allocate their writable files with zero bytes.
 
 ### Changed
 - The default region size is 2 MB instead of 64 KB, for huge page eligibility and fewer unmaps; existing queues keep
@@ -24,6 +29,10 @@ Notable changes per release. Entries are curated from the commits since the prev
   faster per entry.
 - Open modes determine whether rolling files exist by the first rolling file alone, without scanning the directory;
   rolling files whose first file was deleted are not supported.
+
+### Fixed
+- Files are extended under an exclusive file lock, so that a process extending a file with an outdated length can no
+  longer truncate it after another process extended it further.
 
 ## 2.0 (2026-11-02)
 

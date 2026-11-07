@@ -60,7 +60,7 @@ class FixedSizeFileMapperTest {
         }
         Files.write(file.toPath(), content.array());
         try (final FixedSizeFileMapper mapper = new FixedSizeFileMapper(file, LENGTH, AccessMode.READ_ONLY,
-                FileInitialiser.none())) {
+                FileInitialiser.LAZY)) {
             //pre-touching writes, which would crash the JVM on a read-only mapping
             final long address = mapper.map(0, LENGTH, true);
             assertNotEquals(NULL_ADDRESS, address);

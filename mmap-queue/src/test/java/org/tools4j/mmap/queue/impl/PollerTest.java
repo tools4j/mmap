@@ -112,7 +112,7 @@ class PollerTest {
 
     @Test
     void pollReturnsUnknownErrorForTruncatedHeaderFile() throws IOException {
-        //writers set the length of a new file at once, so a non-empty file shorter than a header is corrupt
+        //a non-empty file shorter than one header is corrupt, whereas a longer one may still be growing
         pollHeaderFileOfLength(Long.BYTES / 2, Poller.UNKNOWN_ERROR);
     }
 
