@@ -25,10 +25,11 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurator;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.IOException;
@@ -87,8 +88,9 @@ final class EagerReaderMappings implements ReaderMappings {
         //NOTES: header  : may not exist yet if no data has been appended yet, hence opening in lazy mode
         //       payload : mapped only after reading a header, and appenders write the payload before the header,
         //                 hence the payload file must exist
-        this.header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY,
-                HEADER_FILE_INITIALISER, headerConfig.apply(queueConfig));
+        final MappingConfig validatingHeaderConfig = MappingConfigurator.configure(headerConfig.apply(queueConfig))
+                .fileInitialiser(HEADER_FILE_INITIALISER);
+        this.header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY, validatingHeaderConfig);
         this.payloadMappingFactory = appenderId -> Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
                 OpenMode.READ_ONLY, payloadConfig.apply(queueConfig));
     }

@@ -28,9 +28,12 @@ import org.agrona.concurrent.NoOpIdleStrategy;
 import org.agrona.concurrent.YieldingIdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.impl.PinnedThreadFactory;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
@@ -69,6 +72,14 @@ class MappingConfigurationsTest {
     /** Custom error listener, instantiated via the error listener property */
     public static final class CustomErrorListener implements ErrorListener {}
 
+    /** Custom file initialiser, instantiated via the file initialiser property */
+    public static final class CustomFileInitialiser implements FileInitialiser {
+        @Override
+        public PreAccessHook hook(final AccessMode accessMode) {
+            return PreAccessHook.NO_OP;
+        }
+    }
+
     @AfterEach
     void clearProperties() {
         System.clearProperty(MappingConfigurations.ROLL_FILES_PROPERTY);
@@ -80,6 +91,7 @@ class MappingConfigurationsTest {
         System.clearProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY);
         System.clearProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY);
         System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
+        System.clearProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY);
     }
 
     @Test
@@ -294,5 +306,22 @@ class MappingConfigurationsTest {
         assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultLifecycleListener);
         System.setProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY, CustomLifecycleListener.class.getName());
         assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultErrorListener);
+    }
+
+    @Test
+    void fileInitialiserPropertyDefaultsToLazyAndAcceptsNamesAndClassNames() {
+        assertSame(FileInitialiser.LAZY, MappingConfigurations.defaultFileInitialiser());
+        System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, "ZERO");
+        assertSame(FileInitialiser.ZERO, MappingConfigurations.defaultFileInitialiser());
+        System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, "MINUS_ONE");
+        assertSame(FileInitialiser.MINUS_ONE, MappingConfigurations.defaultFileInitialiser());
+        System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, "LAZY");
+        assertSame(FileInitialiser.LAZY, MappingConfigurations.defaultFileInitialiser());
+        System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, CustomFileInitialiser.class.getName());
+        final FileInitialiser initialiser = MappingConfigurations.defaultFileInitialiser();
+        assertInstanceOf(CustomFileInitialiser.class, initialiser);
+        assertSame(initialiser, MappingConfigurations.defaultFileInitialiser());
+        System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, CustomErrorListener.class.getName());
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultFileInitialiser);
     }
 }

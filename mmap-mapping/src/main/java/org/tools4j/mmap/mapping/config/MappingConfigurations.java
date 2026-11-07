@@ -30,12 +30,14 @@ import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.CpuPinning;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.mapping.impl.Constraints;
 import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
+import org.tools4j.mmap.mapping.impl.StandardFileInitialiser;
 import org.tools4j.mmap.mapping.impl.SystemProperties.PropertyInstance;
 
 import java.util.concurrent.ThreadFactory;
@@ -235,8 +237,18 @@ public enum MappingConfigurations {
     /** The default error listener, used if the error listener property is not set. */
     public static final String ERROR_LISTENER_DEFAULT = LOGGING_LISTENER;
 
+    /**
+     * Name of the system property to override the default file initialiser, with the name of a standard initialiser,
+     * that is, {@code LAZY}, {@code ZERO} or {@code MINUS_ONE} (see {@link FileInitialiser}), or the class name of a
+     * {@link FileInitialiser} with a public no-arg constructor.
+     */
+    public static final String FILE_INITIALISER_PROPERTY = "mmap.mapping.fileInitialiser";
+    /** The default file initialiser {@link FileInitialiser#LAZY}, used if the file initialiser property is not set. */
+    public static final String FILE_INITIALISER_DEFAULT = StandardFileInitialiser.LAZY.name();
+
     private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
+    private static final AtomicReference<PropertyInstance> FILE_INITIALISER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE =
             new AtomicReference<>();
     private static final String MAPPING_RUNTIME_THREAD_NAME_PREFIX = "mapper";
@@ -311,6 +323,21 @@ public enum MappingConfigurations {
      */
     public static int defaultFilesToCreateAhead() {
         return intProperty(FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, FILES_TO_CREATE_AHEAD_DEFAULT);
+    }
+
+    /**
+     * Returns the default file initialiser. An initialiser class given by system property is instantiated once and
+     * reused while the property value is unchanged.
+     *
+     * @return the initialiser given by system property {@value #FILE_INITIALISER_PROPERTY} if set, and by
+     *         {@link #FILE_INITIALISER_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid, or the initialiser class cannot be
+     *                                  instantiated
+     * @see MappingConfig#fileInitialiser()
+     */
+    public static FileInitialiser defaultFileInitialiser() {
+        return namedOrClassInstanceProperty(FILE_INITIALISER_PROPERTY, FileInitialiser.class, FILE_INITIALISER_DEFAULT,
+                StandardFileInitialiser::byName, FILE_INITIALISER_INSTANCE);
     }
 
     /**

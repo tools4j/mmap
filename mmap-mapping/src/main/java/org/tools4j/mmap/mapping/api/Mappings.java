@@ -137,8 +137,8 @@ public enum Mappings {
         OpenModes.apply(file, openMode, false);
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
-        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(), FileInitialiser.ZERO,
-                lifecycleListener, errorListener);
+        final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(),
+                FileInitialiser.ZERO, lifecycleListener, errorListener);
         return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
@@ -206,24 +206,8 @@ public enum Mappings {
      * @return a new region mapping for the given file
      */
     public static RegionMapping regionMapping(final File file, final OpenMode openMode, final MappingConfig config) {
-        return regionMapping(file, openMode, FileInitialiser.LAZY, config);
-    }
-
-    /**
-     * Creates a region mapping for the specified file using the given file initialiser and mapping configuration.
-     *
-     * @param file            the file to map
-     * @param openMode        the mode to open the file with
-     * @param fileInitialiser      the format initialising the file when it is opened or extended
-     * @param config          the mapping configuration to use
-     * @return a new region mapping for the given file
-     */
-    public static RegionMapping regionMapping(final File file,
-                                              final OpenMode openMode,
-                                              final FileInitialiser fileInitialiser,
-                                              final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return regionMapping(regionMapper, true);
     }
@@ -269,24 +253,8 @@ public enum Mappings {
     public static ElasticMapping elasticMapping(final File file,
                                                 final OpenMode openMode,
                                                 final MappingConfig config) {
-        return elasticMapping(file, openMode, FileInitialiser.LAZY, config);
-    }
-
-    /**
-     * Creates an elastic mapping for the specified file using the given file initialiser and mapping configuration.
-     *
-     * @param file              the file to map
-     * @param openMode          the mode to open the file with
-     * @param fileInitialiser   the format initialising the file when it is opened or extended
-     * @param config            the mapping configuration to use
-     * @return a new elastic mapping for the given file
-     */
-    public static ElasticMapping elasticMapping(final File file,
-                                                final OpenMode openMode,
-                                                final FileInitialiser fileInitialiser,
-                                                final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return elasticMapping(regionMapper, true);
     }
@@ -333,24 +301,8 @@ public enum Mappings {
     public static AdaptiveMapping adaptiveMapping(final File file,
                                                   final OpenMode openMode,
                                                   final MappingConfig config) {
-        return adaptiveMapping(file, openMode, FileInitialiser.LAZY, config);
-    }
-
-    /**
-     * Creates an adaptive mapping for the specified file using the given file initialiser and mapping configuration.
-     *
-     * @param file              the file to map
-     * @param openMode          the mode to open the file with
-     * @param fileInitialiser   the format initialising the file when it is opened or extended
-     * @param config            the mapping configuration to use
-     * @return a new adaptive mapping for the given file
-     */
-    public static AdaptiveMapping adaptiveMapping(final File file,
-                                                  final OpenMode openMode,
-                                                  final FileInitialiser fileInitialiser,
-                                                  final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return adaptiveMapping(regionMapper, true);
     }
@@ -419,29 +371,8 @@ public enum Mappings {
                                           final OpenMode openMode,
                                           final MappingConfig config,
                                           final int initialPoolSize) {
-        return mappingPool(file, openMode, FileInitialiser.LAZY, config, initialPoolSize);
-    }
-
-    /**
-     * Creates a mapping pool for the specified file using the given file initialiser, mapping configuration and
-     * initial pool size.
-     *
-     * @param file            the file to map
-     * @param openMode        the mode to open the file with
-     * @param fileInitialiser      the format initialising the file when it is opened or extended
-     * @param config          the mapping configuration to use
-     * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
-     *                        for its internal tracking structures (mappings themselves are still created lazily,
-     *                        on each acquire call)
-     * @return a new mapping pool for the given file
-     */
-    public static MappingPool mappingPool(final File file,
-                                          final OpenMode openMode,
-                                          final FileInitialiser fileInitialiser,
-                                          final MappingConfig config,
-                                          final int initialPoolSize) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), fileInitialiser, config);
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
         return new MappingPoolImpl(regionMapper, initialPoolSize, config.lifecycleListener());
     }

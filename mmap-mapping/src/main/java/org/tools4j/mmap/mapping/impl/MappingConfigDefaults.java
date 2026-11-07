@@ -24,12 +24,14 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultExpandFile;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultFileInitialiser;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultFilesToCreateAhead;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxFileSize;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMaxOpenFiles;
@@ -82,6 +84,11 @@ public enum MappingConfigDefaults implements MappingConfig {
     @Override
     public int filesToCreateAhead() {
         return defaultFilesToCreateAhead();
+    }
+
+    @Override
+    public FileInitialiser fileInitialiser() {
+        return defaultFileInitialiser();
     }
 
     @Override

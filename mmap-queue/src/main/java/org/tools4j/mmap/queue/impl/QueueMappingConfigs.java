@@ -24,8 +24,10 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.MappingConfigImpl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
@@ -90,6 +92,11 @@ enum QueueMappingConfigs {
             @Override
             public int filesToCreateAhead() {
                 return filesToCreateAhead;
+            }
+
+            @Override
+            public FileInitialiser fileInitialiser() {
+                return MappingConfigurations.defaultFileInitialiser();
             }
 
             @Override
@@ -170,6 +177,11 @@ enum QueueMappingConfigs {
             @Override
             public int filesToCreateAhead() {
                 return filesToCreateAhead;
+            }
+
+            @Override
+            public FileInitialiser fileInitialiser() {
+                return MappingConfigurations.defaultFileInitialiser();
             }
 
             @Override

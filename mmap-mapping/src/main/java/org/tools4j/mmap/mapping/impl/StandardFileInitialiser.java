@@ -40,6 +40,7 @@ public enum StandardFileInitialiser implements FileInitialiser {
     MINUS_ONE((byte) -1);
 
     private static final int FILL_CHUNK_SIZE = 64 * 1024;
+    private static final StandardFileInitialiser[] VALUES = values();
 
     private final PreAccessHook readWriteHook;
 
@@ -54,6 +55,21 @@ public enum StandardFileInitialiser implements FileInitialiser {
         }
         final ByteBuffer initialBytes = buffer.asReadOnlyBuffer();
         this.readWriteHook = new Filler(name(), ThreadLocal.withInitial(initialBytes::duplicate));
+    }
+
+    /**
+     * Returns the standard initialiser with the given name.
+     *
+     * @param name the name, for instance {@code ZERO}
+     * @return the standard initialiser with the given name, or null if there is none
+     */
+    public static StandardFileInitialiser byName(final String name) {
+        for (final StandardFileInitialiser initialiser : VALUES) {
+            if (initialiser.name().equals(name)) {
+                return initialiser;
+            }
+        }
+        return null;
     }
 
     @Override

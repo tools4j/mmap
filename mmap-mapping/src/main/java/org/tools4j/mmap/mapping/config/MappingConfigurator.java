@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.config;
 
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.impl.MappingConfiguratorImpl;
@@ -119,6 +120,16 @@ public interface MappingConfigurator extends MappingConfig {
      * @see #rollFiles(boolean)
      */
     MappingConfigurator filesToCreateAhead(int filesToCreateAhead);
+
+    /**
+     * Sets the file initialiser, providing the hook invoked before a file or its new space is accessed through a
+     * mapping.
+     *
+     * @param fileInitialiser the file initialiser, for instance {@link FileInitialiser#ZERO}
+     * @return this configurator for method chaining
+     * @see MappingConfigurations#defaultFileInitialiser()
+     */
+    MappingConfigurator fileInitialiser(FileInitialiser fileInitialiser);
 
     /**
      * Sets the mapping strategy configuration to use. Alternatively, {@link #mappingStrategy(Consumer)} can be used

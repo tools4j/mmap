@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -85,6 +86,11 @@ class MappingConfiguratorImplTest {
         }
 
         @Override
+        public FileInitialiser fileInitialiser() {
+            return null;
+        }
+
+        @Override
         public MappingStrategyConfig mappingStrategy() {
             return null;
         }
@@ -118,6 +124,7 @@ class MappingConfiguratorImplTest {
         assertEquals(MappingConfigurations.defaultRegionSize(), config.regionSize());
         assertEquals(MappingConfigurations.defaultMaxOpenFiles(), config.maxOpenFiles());
         assertEquals(MappingConfigurations.defaultFilesToCreateAhead(), config.filesToCreateAhead());
+        assertSame(MappingConfigurations.defaultFileInitialiser(), config.fileInitialiser());
         assertSame(MAPPING_STRATEGY_CONFIG_DEFAULTS, config.mappingStrategy());
         assertSame(MappingConfigurations.defaultLifecycleListener(), config.lifecycleListener());
         assertSame(MappingConfigurations.defaultErrorListener(), config.errorListener());
@@ -127,7 +134,7 @@ class MappingConfiguratorImplTest {
     void valuesAreResolvedFromDefaults() {
         final MappingConfig defaults = MappingConfigurator.configure()
                 .minFileSize(FILE_SIZE).maxFileSize(2 * FILE_SIZE).regionSize(REGION_SIZE).expandFile(true)
-                .rollFiles(false).maxOpenFiles(7).filesToCreateAhead(2)
+                .rollFiles(false).maxOpenFiles(7).filesToCreateAhead(2).fileInitialiser(FileInitialiser.ZERO)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync())
                 .lifecycleListener(LifecycleListener.NO_OP).errorListener(ErrorListener.NO_OP);
         final MappingConfigurator config = MappingConfigurator.configure(defaults);
@@ -138,6 +145,7 @@ class MappingConfiguratorImplTest {
         assertFalse(config.rollFiles());
         assertEquals(7, config.maxOpenFiles());
         assertEquals(2, config.filesToCreateAhead());
+        assertSame(FileInitialiser.ZERO, config.fileInitialiser());
         assertSame(MappingStrategyConfig.getDefaultSync(), config.mappingStrategy());
         assertSame(LifecycleListener.NO_OP, config.lifecycleListener());
         assertSame(ErrorListener.NO_OP, config.errorListener());
@@ -146,14 +154,17 @@ class MappingConfiguratorImplTest {
     @Test
     void explicitValuesOverrideDefaults() {
         final MappingConfig defaults = MappingConfigurator.configure()
-                .minFileSize(FILE_SIZE).regionSize(REGION_SIZE).rollFiles(true).maxOpenFiles(7).filesToCreateAhead(2);
+                .minFileSize(FILE_SIZE).regionSize(REGION_SIZE).rollFiles(true).maxOpenFiles(7).filesToCreateAhead(2)
+                .fileInitialiser(FileInitialiser.MINUS_ONE);
         final MappingConfigurator config = MappingConfigurator.configure(defaults)
-                .minFileSize(0).regionSize(2 * REGION_SIZE).rollFiles(false).maxOpenFiles(1).filesToCreateAhead(0);
+                .minFileSize(0).regionSize(2 * REGION_SIZE).rollFiles(false).maxOpenFiles(1).filesToCreateAhead(0)
+                .fileInitialiser(FileInitialiser.LAZY);
         assertEquals(0, config.minFileSize());
         assertEquals(2 * REGION_SIZE, config.regionSize());
         assertFalse(config.rollFiles());
         assertEquals(1, config.maxOpenFiles());
         assertEquals(0, config.filesToCreateAhead());
+        assertSame(FileInitialiser.LAZY, config.fileInitialiser());
     }
 
     @Test
@@ -173,6 +184,7 @@ class MappingConfiguratorImplTest {
         assertThrows(IllegalArgumentException.class, () -> config.regionSize(REGION_SIZE + 1));
         assertThrows(IllegalArgumentException.class, () -> config.maxOpenFiles(-1));
         assertThrows(IllegalArgumentException.class, () -> config.filesToCreateAhead(-1));
+        assertThrows(NullPointerException.class, () -> config.fileInitialiser(null));
         assertThrows(NullPointerException.class, () -> config.mappingStrategy((MappingStrategyConfig) null));
         assertThrows(NullPointerException.class, () -> config.lifecycleListener(null));
         assertThrows(NullPointerException.class, () -> config.errorListener(null));
@@ -193,12 +205,16 @@ class MappingConfiguratorImplTest {
     void toStringShowsUnresolvedValuesAndDefaults() {
         final MappingConfigurator config = MappingConfigurator.configure(UNSET_DEFAULTS);
         assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=null|maxOpenFiles=0|filesToCreateAhead=-1|mappingStrategy=null|lifecycleListener=null|errorListener=null|defaults=UNSET_DEFAULTS",
+                "|rollFiles=null|maxOpenFiles=0|filesToCreateAhead=-1|fileInitialiser=null|mappingStrategy=null" +
+                "|lifecycleListener=null" +
+                "|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());
         config.maxOpenFiles(5);
         config.rollFiles();
         assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|mappingStrategy=null|lifecycleListener=null|errorListener=null|defaults=UNSET_DEFAULTS",
+                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|fileInitialiser=null|mappingStrategy=null" +
+                "|lifecycleListener=null" +
+                "|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());
     }
 }

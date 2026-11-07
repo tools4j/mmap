@@ -129,10 +129,9 @@ public final class ConcurrentRollingFileMapper implements Describable {
     }
 
     public static FileMapper forReadOnly(final File baseFile,
-                                         final MappingConfig config,
-                                         final FileInitialiser fileInitialiser) {
+                                         final MappingConfig config) {
         return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.maxOpenFiles(),
-                fileInitialiser, config.lifecycleListener(), config.errorListener());
+                config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
@@ -161,11 +160,10 @@ public final class ConcurrentRollingFileMapper implements Describable {
 
     public static FileMapper forReadWrite(final File baseFile,
                                           final AccessMode accessMode,
-                                          final MappingConfig config,
-                                          final FileInitialiser fileInitialiser) {
+                                          final MappingConfig config) {
         return forReadWrite(baseFile, accessMode, config.expandFile(), config.minFileSize(), config.maxFileSize(),
                 config.regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
-                fileInitialiser, config.lifecycleListener(), config.errorListener());
+                config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadWrite(final File baseFile,

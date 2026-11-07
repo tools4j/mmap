@@ -16,6 +16,9 @@ Notable changes per release. Entries are curated from the commits since the prev
   zero or minus one bytes, so that writing to the mapping cannot fault on a full disk). A custom initialiser returns a
   `PreAccessHook` per access mode, invoked when a file is opened (`onOpen`) and extended (`onExtend`); mappers ensure
   the min file length themselves. Fixed mappings allocate their writable files with zero bytes.
+- The file initialiser is part of `MappingConfig` (`MappingConfigurator.fileInitialiser(..)`, system property
+  `mmap.mapping.fileInitialiser` with `LAZY`, `ZERO`, `MINUS_ONE` or a class name). The `Mappings` overloads taking a
+  `FileInitialiser` are removed, and `FileMappers.create(..)` takes the initialiser from the config.
 
 ### Changed
 - The default region size is 2 MB instead of 64 KB, for huge page eligibility and fewer unmaps; existing queues keep

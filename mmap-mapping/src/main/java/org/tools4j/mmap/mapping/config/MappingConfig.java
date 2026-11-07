@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.config;
 
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
 
@@ -88,6 +89,16 @@ public interface MappingConfig {
      * @return the number of files to create ahead if {@linkplain #rollFiles() file rolling} is used, zero if none
      */
     int filesToCreateAhead();
+
+    /**
+     * Returns the file initialiser, providing the hook invoked before a file or its new space is accessed through a
+     * mapping, for instance {@link FileInitialiser#LAZY} leaving new file space sparse, or {@link FileInitialiser#ZERO}
+     * allocating it by writing zero bytes.
+     *
+     * @return the file initialiser
+     * @see MappingConfigurations#defaultFileInitialiser()
+     */
+    FileInitialiser fileInitialiser();
 
     /**
      * Returns the mapping strategy to use.

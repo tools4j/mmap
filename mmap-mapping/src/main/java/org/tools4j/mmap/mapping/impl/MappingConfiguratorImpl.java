@@ -24,6 +24,7 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -51,6 +52,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     protected Boolean rollFiles;
     protected int maxOpenFiles;
     protected int filesToCreateAhead;
+    protected FileInitialiser fileInitialiser;
     protected MappingStrategyConfig mappingStrategy;
     protected LifecycleListener lifecycleListener;
     protected ErrorListener errorListener;
@@ -73,6 +75,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
         this.rollFiles = null;
         this.maxOpenFiles = 0;
         this.filesToCreateAhead = -1;
+        this.fileInitialiser = null;
         this.mappingStrategy = null;
         this.lifecycleListener = null;
         this.errorListener = null;
@@ -153,6 +156,17 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
             filesToCreateAhead = MappingConfigurations.defaultFilesToCreateAhead();
         }
         return filesToCreateAhead;
+    }
+
+    @Override
+    public FileInitialiser fileInitialiser() {
+        if (fileInitialiser == null) {
+            fileInitialiser = defaults.fileInitialiser();
+        }
+        if (fileInitialiser == null) {
+            fileInitialiser = MappingConfigurations.defaultFileInitialiser();
+        }
+        return fileInitialiser;
     }
 
     @Override
@@ -238,6 +252,12 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public MappingConfigurator fileInitialiser(final FileInitialiser fileInitialiser) {
+        this.fileInitialiser = requireNonNull(fileInitialiser);
+        return this;
+    }
+
+    @Override
     public MappingConfigurator mappingStrategy(final MappingStrategyConfig mappingStrategy) {
         this.mappingStrategy = requireNonNull(mappingStrategy);
         return this;
@@ -272,6 +292,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
                 "|rollFiles=" + rollFiles +
                 "|maxOpenFiles=" + maxOpenFiles +
                 "|filesToCreateAhead=" + filesToCreateAhead +
+                "|fileInitialiser=" + fileInitialiser +
                 "|mappingStrategy=" + mappingStrategy +
                 "|lifecycleListener=" + lifecycleListener +
                 "|errorListener=" + errorListener +

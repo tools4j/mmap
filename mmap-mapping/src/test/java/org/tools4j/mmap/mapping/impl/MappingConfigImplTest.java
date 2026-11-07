@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
@@ -77,10 +78,10 @@ class MappingConfigImplTest {
     void invalidIndividualValuesAreRejected() {
         final MappingStrategyConfig strategy = MappingStrategyConfig.configure().toImmutableConfig();
         assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(3, REGION_SIZE, REGION_SIZE, true,
-                true, 1, 0, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
+                true, 1, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
         assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE, true,
-                true, 0, 0, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
+                true, 0, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
         assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE + 1,
-                true, true, 1, 0, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
+                true, true, 1, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
     }
 }
