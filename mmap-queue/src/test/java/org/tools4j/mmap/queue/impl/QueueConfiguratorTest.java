@@ -65,7 +65,7 @@ class QueueConfiguratorTest {
     private static QueueConfig customDefaults() {
         return new QueueConfigImpl(5, FILE_SIZE, 2 * FILE_SIZE, 4 * FILE_SIZE, 8 * FILE_SIZE,
                 REGION_SIZE, 2 * REGION_SIZE, true, false, false, true,
-                new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 11, 12, 1, 2),
+                new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 11, 12, 1, 2, true, true),
                 new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 21, 22),
                 new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 31, 32),
                 new ReaderConfigImpl(STRATEGY_A, STRATEGY_A, 41, 42),
@@ -133,7 +133,7 @@ class QueueConfiguratorTest {
 
     @Test
     void explicitValuesOverrideDefaultsUntilReset() {
-        final AppenderConfig appenderConfig = new AppenderConfigImpl(STRATEGY_B, STRATEGY_B, 13, 14, 3, 4);
+        final AppenderConfig appenderConfig = new AppenderConfigImpl(STRATEGY_B, STRATEGY_B, 13, 14, 3, 4, false, true);
         final ReaderConfig pollerConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_B, 23, 24);
         final ReaderConfig entryReaderConfig = new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 33, 34);
         final ReaderConfig entryIteratorConfig = new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 43, 44);
@@ -195,7 +195,7 @@ class QueueConfiguratorTest {
                 .maxOpenPayloadFiles(62)
                 .headerFilesToCreateAhead(3)
                 .payloadFilesToCreateAhead(4);
-        assertEquals(new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62, 3, 4),
+        assertEquals(new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62, 3, 4, true, true),
                 config.appenderConfig().toImmutableAppenderConfig());
         assertEquals(new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 61, 62),
                 config.pollerConfig().toImmutableReaderConfig());
@@ -213,7 +213,7 @@ class QueueConfiguratorTest {
         final MappingStrategyConfig async = MappingStrategyConfig.getDefaultAsyncMapAhead();
         final QueueConfigurator config = QueueConfig.configure(customDefaults())
                 .mappingStrategy(MappingStrategy.SyncMappingStrategy);
-        assertEquals(new AppenderConfigImpl(sync, sync, 11, 12, 1, 2),
+        assertEquals(new AppenderConfigImpl(sync, sync, 11, 12, 1, 2, true, true),
                 config.appenderConfig().toImmutableAppenderConfig());
         assertEquals(new ReaderConfigImpl(sync, sync, 21, 22), config.pollerConfig().toImmutableReaderConfig());
         assertEquals(new ReaderConfigImpl(sync, sync, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());
@@ -221,7 +221,7 @@ class QueueConfiguratorTest {
         assertEquals(new IndexReaderConfigImpl(sync, 51), config.indexReaderConfig().toImmutableIndexReaderConfig());
 
         config.headerMappingStrategy(MappingStrategy.AsyncMapAheadStrategy);
-        assertEquals(new AppenderConfigImpl(async, sync, 11, 12, 1, 2),
+        assertEquals(new AppenderConfigImpl(async, sync, 11, 12, 1, 2, true, true),
                 config.appenderConfig().toImmutableAppenderConfig());
         assertEquals(new ReaderConfigImpl(async, sync, 21, 22), config.pollerConfig().toImmutableReaderConfig());
         assertEquals(new ReaderConfigImpl(async, sync, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());
@@ -229,7 +229,7 @@ class QueueConfiguratorTest {
         assertEquals(new IndexReaderConfigImpl(async, 51), config.indexReaderConfig().toImmutableIndexReaderConfig());
 
         config.payloadMappingStrategy(MappingStrategy.AsyncMapAheadStrategy);
-        assertEquals(new AppenderConfigImpl(async, async, 11, 12, 1, 2),
+        assertEquals(new AppenderConfigImpl(async, async, 11, 12, 1, 2, true, true),
                 config.appenderConfig().toImmutableAppenderConfig());
         assertEquals(new ReaderConfigImpl(async, async, 21, 22), config.pollerConfig().toImmutableReaderConfig());
         assertEquals(new ReaderConfigImpl(async, async, 31, 32), config.entryReaderConfig().toImmutableReaderConfig());

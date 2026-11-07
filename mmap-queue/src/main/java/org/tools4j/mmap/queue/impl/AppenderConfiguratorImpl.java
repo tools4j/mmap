@@ -50,6 +50,8 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     private int maxOpenPayloadFiles;
     private int headerFilesToCreateAhead;
     private int payloadFilesToCreateAhead;
+    private Boolean prefillHeaderFiles;
+    private Boolean prefillPayloadFiles;
 
     public AppenderConfiguratorImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
@@ -68,6 +70,8 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
         maxOpenPayloadFiles = 0;
         headerFilesToCreateAhead = -1;
         payloadFilesToCreateAhead = -1;
+        prefillHeaderFiles = null;
+        prefillPayloadFiles = null;
         return this;
     }
 
@@ -221,6 +225,39 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
     }
 
     @Override
+    public AppenderConfigurator prefillFiles(final boolean prefillFiles) {
+        return prefillHeaderFiles(prefillFiles).prefillPayloadFiles(prefillFiles);
+    }
+
+    @Override
+    public boolean prefillHeaderFiles() {
+        if (prefillHeaderFiles == null) {
+            prefillHeaderFiles = defaults.prefillHeaderFiles();
+        }
+        return prefillHeaderFiles;
+    }
+
+    @Override
+    public AppenderConfigurator prefillHeaderFiles(final boolean prefillHeaderFiles) {
+        this.prefillHeaderFiles = prefillHeaderFiles;
+        return this;
+    }
+
+    @Override
+    public boolean prefillPayloadFiles() {
+        if (prefillPayloadFiles == null) {
+            prefillPayloadFiles = defaults.prefillPayloadFiles();
+        }
+        return prefillPayloadFiles;
+    }
+
+    @Override
+    public AppenderConfigurator prefillPayloadFiles(final boolean prefillPayloadFiles) {
+        this.prefillPayloadFiles = prefillPayloadFiles;
+        return this;
+    }
+
+    @Override
     public AppenderConfig toImmutableAppenderConfig() {
         return new AppenderConfigImpl(this);
     }
@@ -233,6 +270,8 @@ public class AppenderConfiguratorImpl implements AppenderConfigurator {
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
                 "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
                 "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead;
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
+                "|prefillHeaderFiles=" + prefillHeaderFiles +
+                "|prefillPayloadFiles=" + prefillPayloadFiles;
     }
 }

@@ -157,6 +157,34 @@ public interface AppenderConfigurator extends AppenderConfig {
     AppenderConfigurator payloadFilesToCreateAhead(int payloadFilesToCreateAhead);
 
     /**
+     * Sets whether new space of header and payload files is prefilled.
+     *
+     * @param prefillFiles true to prefill new file space, false to leave it sparse
+     * @return this configurator for method chaining
+     * @see AppenderConfig#prefillHeaderFiles()
+     * @see AppenderConfig#prefillPayloadFiles()
+     */
+    AppenderConfigurator prefillFiles(boolean prefillFiles);
+
+    /**
+     * Sets whether new space of header files is prefilled.
+     *
+     * @param prefillHeaderFiles true to prefill new header file space, false to leave it sparse
+     * @return this configurator for method chaining
+     * @see AppenderConfig#prefillHeaderFiles()
+     */
+    AppenderConfigurator prefillHeaderFiles(boolean prefillHeaderFiles);
+
+    /**
+     * Sets whether new space of payload files is prefilled.
+     *
+     * @param prefillPayloadFiles true to prefill new payload file space, false to leave it sparse
+     * @return this configurator for method chaining
+     * @see AppenderConfig#prefillPayloadFiles()
+     */
+    AppenderConfigurator prefillPayloadFiles(boolean prefillPayloadFiles);
+
+    /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this
      * configurator was created with.
      *

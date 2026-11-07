@@ -20,6 +20,12 @@ Notable changes per release. Entries are curated from the commits since the prev
   `mmap.mapping.fileInitialiser` with `LAZY`, `ZERO`, `MINUS_ONE` or a class name). The `Mappings` overloads taking a
   `FileInitialiser` are removed, and `FileMappers.create(..)` takes the initialiser from the config.
 
+### Added
+- Appenders can prefill new space of header and payload files, reserving the disk space so that appending cannot
+  fault on a full disk: `AppenderConfigurator.prefillFiles(..)`, `prefillHeaderFiles(..)` and `prefillPayloadFiles(..)`,
+  or the system properties `mmap.queue.appenderPrefillHeaderFiles` and `mmap.queue.appenderPrefillPayloadFiles`
+  (default: sparse files, as before).
+
 ### Changed
 - The default region size is 2 MB instead of 64 KB, for huge page eligibility and fewer unmaps; existing queues keep
   theirs. The maximum entry size of new queues with default region sizes grows accordingly.

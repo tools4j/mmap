@@ -27,7 +27,6 @@ import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.MappingConfigImpl;
 import org.tools4j.mmap.queue.config.AppenderConfig;
@@ -39,23 +38,28 @@ import static java.util.Objects.requireNonNull;
 
 enum QueueMappingConfigs {
     ;
+    //NOTE: readers open files read-only, where prefilling does not apply, hence they pass prefillFiles=false
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
         return headerMappingConfig(queueConfig, appenderConfig.headerMappingStrategy(),
-                appenderConfig.maxOpenHeaderFiles(), appenderConfig.headerFilesToCreateAhead());
+                appenderConfig.maxOpenHeaderFiles(), appenderConfig.headerFilesToCreateAhead(),
+                appenderConfig.prefillHeaderFiles());
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {
-        return headerMappingConfig(queueConfig, readerConfig.headerMappingStrategy(), readerConfig.maxOpenHeaderFiles(), 0);
+        return headerMappingConfig(queueConfig, readerConfig.headerMappingStrategy(), readerConfig.maxOpenHeaderFiles(), 0,
+                false);
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig, final IndexReaderConfig indexReaderConfig) {
-        return headerMappingConfig(queueConfig, indexReaderConfig.headerMappingStrategy(), indexReaderConfig.maxOpenHeaderFiles(), 0);
+        return headerMappingConfig(queueConfig, indexReaderConfig.headerMappingStrategy(),
+                indexReaderConfig.maxOpenHeaderFiles(), 0, false);
     }
 
     static MappingConfig headerMappingConfig(final QueueConfig queueConfig,
                                              final MappingStrategyConfig mappingStrategy,
                                              final int maxOpenFiles,
-                                             final int filesToCreateAhead) {
+                                             final int filesToCreateAhead,
+                                             final boolean prefillFiles) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
@@ -96,7 +100,7 @@ enum QueueMappingConfigs {
 
             @Override
             public FileInitialiser fileInitialiser() {
-                return MappingConfigurations.defaultFileInitialiser();
+                return prefillFiles ? FileInitialiser.ZERO : FileInitialiser.LAZY;
             }
 
             @Override
@@ -119,7 +123,8 @@ enum QueueMappingConfigs {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
                 final MappingStrategyConfig immutableStrategy = mappingStrategy.toImmutableConfig();
                 return queueConfig == immutableConfig && mappingStrategy == immutableStrategy ? this
-                        : headerMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead);
+                        : headerMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead,
+                        prefillFiles);
             }
 
             @Override
@@ -130,17 +135,20 @@ enum QueueMappingConfigs {
     }
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
         return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(),
-                appenderConfig.maxOpenPayloadFiles(), appenderConfig.payloadFilesToCreateAhead());
+                appenderConfig.maxOpenPayloadFiles(), appenderConfig.payloadFilesToCreateAhead(),
+                appenderConfig.prefillPayloadFiles());
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final ReaderConfig readerConfig) {
-        return payloadMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.maxOpenPayloadFiles(), 0);
+        return payloadMappingConfig(queueConfig, readerConfig.payloadMappingStrategy(), readerConfig.maxOpenPayloadFiles(), 0,
+                false);
     }
 
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig,
                                               final MappingStrategyConfig mappingStrategy,
                                               final int maxOpenFiles,
-                                              final int filesToCreateAhead) {
+                                              final int filesToCreateAhead,
+                                             final boolean prefillFiles) {
         requireNonNull(queueConfig);
         requireNonNull(mappingStrategy);
         return new MappingConfig() {
@@ -181,7 +189,7 @@ enum QueueMappingConfigs {
 
             @Override
             public FileInitialiser fileInitialiser() {
-                return MappingConfigurations.defaultFileInitialiser();
+                return prefillFiles ? FileInitialiser.ZERO : FileInitialiser.LAZY;
             }
 
             @Override
@@ -204,7 +212,8 @@ enum QueueMappingConfigs {
                 final QueueConfig immutableConfig = queueConfig.toImmutableQueueConfig();
                 final MappingStrategyConfig immutableStrategy = mappingStrategy.toImmutableConfig();
                 return queueConfig == immutableConfig && mappingStrategy == immutableStrategy ? this
-                        : payloadMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead);
+                        : payloadMappingConfig(immutableConfig, immutableStrategy, maxOpenFiles, filesToCreateAhead,
+                        prefillFiles);
             }
 
             @Override

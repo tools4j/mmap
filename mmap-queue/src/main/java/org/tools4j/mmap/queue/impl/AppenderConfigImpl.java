@@ -34,13 +34,17 @@ public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
                                  int maxOpenHeaderFiles,
                                  int maxOpenPayloadFiles,
                                  int headerFilesToCreateAhead,
-                                 int payloadFilesToCreateAhead) implements AppenderConfig {
+                                 int payloadFilesToCreateAhead,
+                                 boolean prefillHeaderFiles,
+                                 boolean prefillPayloadFiles) implements AppenderConfig {
     public AppenderConfigImpl() {
         this(APPENDER_CONFIG_DEFAULTS);
     }
 
     public AppenderConfigImpl(final AppenderConfig config) {
-        this(config.headerMappingStrategy(), config.payloadMappingStrategy(), config.maxOpenHeaderFiles(), config.maxOpenPayloadFiles(), config.headerFilesToCreateAhead(), config.payloadFilesToCreateAhead());
+        this(config.headerMappingStrategy(), config.payloadMappingStrategy(), config.maxOpenHeaderFiles(),
+                config.maxOpenPayloadFiles(), config.headerFilesToCreateAhead(), config.payloadFilesToCreateAhead(),
+                config.prefillHeaderFiles(), config.prefillPayloadFiles());
     }
 
     public AppenderConfigImpl(final MappingStrategyConfig headerMappingStrategy,
@@ -48,13 +52,17 @@ public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
                               final int maxOpenHeaderFiles,
                               final int maxOpenPayloadFiles,
                               final int headerFilesToCreateAhead,
-                              final int payloadFilesToCreateAhead) {
+                              final int payloadFilesToCreateAhead,
+                              final boolean prefillHeaderFiles,
+                              final boolean prefillPayloadFiles) {
         this.headerMappingStrategy = requireNonNull(headerMappingStrategy);
         this.payloadMappingStrategy = requireNonNull(payloadMappingStrategy);
         this.maxOpenHeaderFiles = maxOpenHeaderFiles;
         this.maxOpenPayloadFiles = maxOpenPayloadFiles;
         this.headerFilesToCreateAhead = headerFilesToCreateAhead;
         this.payloadFilesToCreateAhead = payloadFilesToCreateAhead;
+        this.prefillHeaderFiles = prefillHeaderFiles;
+        this.prefillPayloadFiles = prefillPayloadFiles;
     }
 
     @Override
@@ -70,6 +78,8 @@ public record AppenderConfigImpl(MappingStrategyConfig headerMappingStrategy,
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles +
                 "|maxOpenPayloadFiles=" + maxOpenPayloadFiles +
                 "|headerFilesToCreateAhead=" + headerFilesToCreateAhead +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead;
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead +
+                "|prefillHeaderFiles=" + prefillHeaderFiles +
+                "|prefillPayloadFiles=" + prefillPayloadFiles;
     }
 }

@@ -30,6 +30,8 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderH
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadMappingStrategy;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPrefillHeaderFiles;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPrefillPayloadFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderPayloadFiles;
 
@@ -72,6 +74,16 @@ public enum AppenderConfigDefaults implements AppenderConfig {
     }
 
     @Override
+    public boolean prefillHeaderFiles() {
+        return defaultAppenderPrefillHeaderFiles();
+    }
+
+    @Override
+    public boolean prefillPayloadFiles() {
+        return defaultAppenderPrefillPayloadFiles();
+    }
+
+    @Override
     public String toString() {
         return "AppenderConfigDefaults" +
                 ":headerMappingStrategy=" + headerMappingStrategy() +
@@ -79,6 +91,8 @@ public enum AppenderConfigDefaults implements AppenderConfig {
                 "|maxOpenHeaderFiles=" + maxOpenHeaderFiles() +
                 "|maxOpenPayloadFiles=" + maxOpenPayloadFiles() +
                 "|headerFilesToCreateAhead=" + headerFilesToCreateAhead() +
-                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead();
+                "|payloadFilesToCreateAhead=" + payloadFilesToCreateAhead() +
+                "|prefillHeaderFiles=" + prefillHeaderFiles() +
+                "|prefillPayloadFiles=" + prefillPayloadFiles();
     }
 }

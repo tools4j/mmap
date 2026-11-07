@@ -59,6 +59,10 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_REGIONS_TO_MAP_AHEAD_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PAYLOAD_REGION_CACHE_SIZE_PROPERTY;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PREFILL_HEADER_FILES_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PREFILL_HEADER_FILES_PROPERTY;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PREFILL_PAYLOAD_FILES_DEFAULT;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_DEFAULT;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_MAPPING_STRATEGY_PROPERTY;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.ENTRY_ITERATOR_HEADER_REGIONS_TO_MAP_AHEAD_PROPERTY;
@@ -292,7 +296,13 @@ class QueueConfigurationsTest {
                 Arguments.of(ROLL_HEADER_FILE_PROPERTY,
                         (BooleanSupplier) QueueConfigurations::defaultRollHeaderFile, ROLL_HEADER_FILE_DEFAULT),
                 Arguments.of(ROLL_PAYLOAD_FILES_PROPERTY,
-                        (BooleanSupplier) QueueConfigurations::defaultRollPayloadFiles, ROLL_PAYLOAD_FILES_DEFAULT)
+                        (BooleanSupplier) QueueConfigurations::defaultRollPayloadFiles, ROLL_PAYLOAD_FILES_DEFAULT),
+                Arguments.of(APPENDER_PREFILL_HEADER_FILES_PROPERTY,
+                        (BooleanSupplier) QueueConfigurations::defaultAppenderPrefillHeaderFiles,
+                        APPENDER_PREFILL_HEADER_FILES_DEFAULT),
+                Arguments.of(APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY,
+                        (BooleanSupplier) QueueConfigurations::defaultAppenderPrefillPayloadFiles,
+                        APPENDER_PREFILL_PAYLOAD_FILES_DEFAULT)
         );
     }
 

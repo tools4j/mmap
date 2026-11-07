@@ -25,6 +25,8 @@ package org.tools4j.mmap.queue.impl;
 
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -36,6 +38,7 @@ import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.File;
@@ -52,6 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -389,6 +393,74 @@ class AppenderTest {
             }
             assertEquals(expected, pollAll(queue.createPoller()));
         }
+    }
+
+    @ParameterizedTest(name = "prefillFiles={0}")
+    @ValueSource(booleans = {true, false})
+    void entriesSpanningSeveralFileExtensionsAreReadBack(final boolean prefillFiles) {
+        final File dir = tempDir.resolve("queue").toFile();
+        final QueueConfig config = QueueConfig.configure(longQueueConfig(false))
+                .expandHeaderFile(true)
+                .appenderConfig(appender -> appender.prefillFiles(prefillFiles))
+                .toImmutableQueueConfig();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender = queue.createAppender()) {
+                appendLongQueue(appender, expected, 0, LONG_QUEUE_ENTRIES);
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @ParameterizedTest(name = "prefillFiles={0}")
+    @ValueSource(booleans = {true, false})
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "allocated size measured with du")
+    void prefilledFilesAreAllocatedAndOthersSparse(final boolean prefillFiles) throws Exception {
+        final File dir = tempDir.resolve("queue").toFile();
+        //files much longer than the few entries written, so that only prefilling allocates most of their space; sync
+        //mapping, as pre-touching regions mapped ahead would allocate them as well
+        final QueueConfig config = QueueConfig.configure(smallConfig(false))
+                .mappingStrategy(MappingStrategy.SyncMappingStrategy)
+                .expandHeaderFile(true)
+                .minHeaderFileSize(8L * REGION_SIZE)
+                .maxHeaderFileSize(16L * REGION_SIZE)
+                .minPayloadFileSize(8L * REGION_SIZE)
+                .maxPayloadFileSize(16L * REGION_SIZE)
+                .appenderConfig(appender -> appender.prefillFiles(prefillFiles))
+                .toImmutableQueueConfig();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config);
+             final Appender appender = queue.createAppender()) {
+            append(appender, "first");
+            append(appender, "second");
+        }
+        for (final File file : queueFiles(dir, "_hdr", "_dat")) {
+            final long allocated = allocatedBytes(file);
+            final String message = file.getName() + " allocated " + allocated + " of " + file.length() + " bytes";
+            assertEquals(8L * REGION_SIZE, file.length(), message);
+            if (prefillFiles) {
+                assertTrue(allocated >= file.length(), message);
+            } else if (OS.current() == OS.LINUX) {//APFS on macOS allocates the whole mapped file once it is closed
+                assertTrue(allocated < file.length() / 2, message);
+            }
+        }
+    }
+
+    private static List<File> queueFiles(final File dir, final String... nameParts) {
+        final List<File> files = new ArrayList<>();
+        for (final File file : requireNonNull(dir.listFiles())) {
+            if (Arrays.stream(nameParts).anyMatch(file.getName()::contains)) {
+                files.add(file);
+            }
+        }
+        assertEquals(nameParts.length, files.size(), "files " + files);
+        return files;
+    }
+
+    private static long allocatedBytes(final File file) throws Exception {
+        final Process process = new ProcessBuilder("du", "-k", file.getPath()).start();
+        final String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.US_ASCII).trim();
+        assertEquals(0, process.waitFor(), "du exit code");
+        return 1024L * Long.parseLong(output.split("\\s+")[0]);
     }
 
     @Test

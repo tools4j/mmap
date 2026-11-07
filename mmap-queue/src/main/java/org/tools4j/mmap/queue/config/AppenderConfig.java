@@ -83,6 +83,32 @@ public interface AppenderConfig {
     int payloadFilesToCreateAhead();
 
     /**
+     * Returns true if new space of header files is prefilled, that is, written before it is mapped. This reserves the
+     * disk space, so that writing to the mapping cannot fault on a full disk. Otherwise new space is sparse, and
+     * allocated by the file system when first written through the mapping.
+     * <p>
+     * Prefilling is done by the thread extending the file: the async mapping thread with async mapping strategies, and
+     * otherwise the appending thread itself, which then stalls while the new space is filled: one min file size for
+     * expanding files, and the whole file for fixed size files when it is created.
+     *
+     * @return true if new header file space is prefilled, false if it is sparse
+     */
+    boolean prefillHeaderFiles();
+
+    /**
+     * Returns true if new space of payload files is prefilled, that is, written before it is mapped. This reserves the
+     * disk space, so that writing to the mapping cannot fault on a full disk. Otherwise new space is sparse, and
+     * allocated by the file system when first written through the mapping.
+     * <p>
+     * Prefilling is done by the thread extending the file: the async mapping thread with async mapping strategies, and
+     * otherwise the appending thread itself, which then stalls while the new space is filled: one min file size for
+     * expanding files, and the whole file for fixed size files when it is created.
+     *
+     * @return true if new payload file space is prefilled, false if it is sparse
+     */
+    boolean prefillPayloadFiles();
+
+    /**
      * Returns an immutable snapshot of this configuration, or this configuration itself if it is immutable already.
      *
      * @return an immutable appender configuration with the values of this configuration

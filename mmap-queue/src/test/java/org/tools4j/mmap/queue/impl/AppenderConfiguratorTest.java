@@ -80,6 +80,16 @@ class AppenderConfiguratorTest {
             }
 
             @Override
+            public boolean prefillHeaderFiles() {
+                return false;
+            }
+
+            @Override
+            public boolean prefillPayloadFiles() {
+                return false;
+            }
+
+            @Override
             public AppenderConfig toImmutableAppenderConfig() {
                 throw new UnsupportedOperationException();
             }
@@ -87,7 +97,7 @@ class AppenderConfiguratorTest {
     }
 
     private static AppenderConfig customDefaults() {
-        return new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 5, 6, 1, 2);
+        return new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 5, 6, 1, 2, true, false);
     }
 
     @Test
@@ -115,8 +125,11 @@ class AppenderConfiguratorTest {
                 .maxOpenHeaderFiles(7)
                 .maxOpenPayloadFiles(8)
                 .headerFilesToCreateAhead(0)
-                .payloadFilesToCreateAhead(3);
-        assertEquals(new AppenderConfigImpl(STRATEGY_B, STRATEGY_A, 7, 8, 0, 3), config.toImmutableAppenderConfig());
+                .payloadFilesToCreateAhead(3)
+                .prefillHeaderFiles(false)
+                .prefillPayloadFiles(true);
+        assertEquals(new AppenderConfigImpl(STRATEGY_B, STRATEGY_A, 7, 8, 0, 3, false, true),
+                config.toImmutableAppenderConfig());
     }
 
     @Test
@@ -126,8 +139,10 @@ class AppenderConfiguratorTest {
                 .maxOpenHeaderFiles(7)
                 .maxOpenPayloadFiles(8)
                 .headerFilesToCreateAhead(0)
-                .payloadFilesToCreateAhead(0);
-        assertEquals(new AppenderConfigImpl(STRATEGY_B, STRATEGY_B, 7, 8, 0, 0), config.toImmutableAppenderConfig());
+                .payloadFilesToCreateAhead(0)
+                .prefillFiles(false);
+        assertEquals(new AppenderConfigImpl(STRATEGY_B, STRATEGY_B, 7, 8, 0, 0, false, false),
+                config.toImmutableAppenderConfig());
         config.reset();
         assertEquals(customDefaults(), config.toImmutableAppenderConfig());
     }
@@ -167,6 +182,17 @@ class AppenderConfiguratorTest {
     }
 
     @Test
+    void prefillFilesSetsHeaderAndPayload() {
+        final AppenderConfigurator config = AppenderConfigurator.configure(customDefaults());
+        config.prefillFiles(true);
+        assertEquals(true, config.prefillHeaderFiles());
+        assertEquals(true, config.prefillPayloadFiles());
+        config.prefillFiles(false);
+        assertEquals(false, config.prefillHeaderFiles());
+        assertEquals(false, config.prefillPayloadFiles());
+    }
+
+    @Test
     void mappingStrategyConsumerModifiesResolvedStrategy() {
         final AppenderConfigurator config = AppenderConfigurator.configure(customDefaults())
                 .headerMappingStrategy(cfg -> cfg.lruCacheSize(16))
@@ -194,8 +220,8 @@ class AppenderConfiguratorTest {
         config.mappingStrategy(STRATEGY_B).maxOpenHeaderFiles(9).headerFilesToCreateAhead(4);
         assertEquals(customDefaults(), immutable);
         assertSame(immutable, immutable.toImmutableAppenderConfig());
-        assertThrows(NullPointerException.class, () -> new AppenderConfigImpl(null, STRATEGY_A, 1, 1, 0, 0));
-        assertThrows(NullPointerException.class, () -> new AppenderConfigImpl(STRATEGY_A, null, 1, 1, 0, 0));
+        assertThrows(NullPointerException.class, () -> new AppenderConfigImpl(null, STRATEGY_A, 1, 1, 0, 0, false, false));
+        assertThrows(NullPointerException.class, () -> new AppenderConfigImpl(STRATEGY_A, null, 1, 1, 0, 0, false, false));
     }
 
     @Test

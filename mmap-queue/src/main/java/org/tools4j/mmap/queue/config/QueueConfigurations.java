@@ -276,6 +276,26 @@ public enum QueueConfigurations {
      * appenders, used if system property {@value #APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY} is not set.
      */
     public static final int APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
+    /**
+     * Name of the system property to override the default
+     * {@linkplain AppenderConfig#prefillHeaderFiles() prefill-header-files flag} of appenders.
+     */
+    public static final String APPENDER_PREFILL_HEADER_FILES_PROPERTY = "mmap.queue.appenderPrefillHeaderFiles";
+    /**
+     * The default {@linkplain AppenderConfig#prefillHeaderFiles() prefill-header-files flag} of appenders, used if
+     * system property {@value #APPENDER_PREFILL_HEADER_FILES_PROPERTY} is not set.
+     */
+    public static final boolean APPENDER_PREFILL_HEADER_FILES_DEFAULT = false;
+    /**
+     * Name of the system property to override the default
+     * {@linkplain AppenderConfig#prefillPayloadFiles() prefill-payload-files flag} of appenders.
+     */
+    public static final String APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY = "mmap.queue.appenderPrefillPayloadFiles";
+    /**
+     * The default {@linkplain AppenderConfig#prefillPayloadFiles() prefill-payload-files flag} of appenders, used if
+     * system property {@value #APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY} is not set.
+     */
+    public static final boolean APPENDER_PREFILL_PAYLOAD_FILES_DEFAULT = false;
 
     /**
      * Name of the system property to override the region cache size of the default header mapping strategy of pollers.
@@ -726,6 +746,28 @@ public enum QueueConfigurations {
      */
     public static int defaultAppenderPayloadFilesToCreateAhead() {
         return intProperty(APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT);
+    }
+
+    /**
+     * Returns the default {@linkplain AppenderConfig#prefillHeaderFiles() prefill-header-files flag} of appenders.
+     *
+     * @return the value of system property {@value #APPENDER_PREFILL_HEADER_FILES_PROPERTY} if set, and
+     *         {@link #APPENDER_PREFILL_HEADER_FILES_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid
+     */
+    public static boolean defaultAppenderPrefillHeaderFiles() {
+        return booleanProperty(APPENDER_PREFILL_HEADER_FILES_PROPERTY, APPENDER_PREFILL_HEADER_FILES_DEFAULT);
+    }
+
+    /**
+     * Returns the default {@linkplain AppenderConfig#prefillPayloadFiles() prefill-payload-files flag} of appenders.
+     *
+     * @return the value of system property {@value #APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY} if set, and
+     *         {@link #APPENDER_PREFILL_PAYLOAD_FILES_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid
+     */
+    public static boolean defaultAppenderPrefillPayloadFiles() {
+        return booleanProperty(APPENDER_PREFILL_PAYLOAD_FILES_PROPERTY, APPENDER_PREFILL_PAYLOAD_FILES_DEFAULT);
     }
 
 
