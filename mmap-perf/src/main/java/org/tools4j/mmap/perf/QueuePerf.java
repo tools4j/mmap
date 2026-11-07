@@ -209,6 +209,11 @@ public enum QueuePerf {
         if (options.mapAhead() != 0) {
             config.mappingStrategy(strategy -> mapAhead(strategy, options.mapAhead()));
         }
+        if (options.prefill() != null) {
+            config.appenderConfig(appender -> appender
+                    .prefillHeaderFiles(options.prefill().header())
+                    .prefillPayloadFiles(options.prefill().payload()));
+        }
         return new MmapPerfQueue(dir, config.toImmutableQueueConfig(), options.reader());
     }
 

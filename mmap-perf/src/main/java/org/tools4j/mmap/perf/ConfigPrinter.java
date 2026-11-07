@@ -55,6 +55,12 @@ public enum ConfigPrinter {
                 .append(fileMapperType(config, true)).append('\n');
         sb.append("maxPayloadFileSize    : ").append(size(config.maxPayloadFileSize())).append(' ')
                 .append(fileMapperType(config, false)).append('\n');
+        sb.append("prefill               : ").append(prefill(config.appenderConfig())).append('\n');
+    }
+
+    private static String prefill(final AppenderConfig config) {
+        if (config.prefillHeaderFiles()) return config.prefillPayloadFiles() ? "both" : "header";
+        return config.prefillPayloadFiles() ? "payload" : "none";
     }
 
     private static String mappingStrategy(final QueueConfig config) {

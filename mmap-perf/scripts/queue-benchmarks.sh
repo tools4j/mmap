@@ -44,7 +44,7 @@ min size applies, unless --fixed-header is given.
   M   2m/16m/4m
   L   2m/64m/16m
 
-Prefill modes, setting the appender's prefill-header-files and prefill-payload-files flags:
+Prefill modes, passed to mmap-perf with --prefill:
   none, header, payload, both
 
 Options:
@@ -154,7 +154,7 @@ run() {
     local region pmin hmin ph pp
     read -r region pmin hmin <<< "$(profile "$prof")"
     read -r ph pp <<< "$(prefill_flags "$prefill")"
-    local args=(--region-size "$region")
+    local args=(--region-size "$region" --prefill "$prefill")
     case "$set" in
         A) args+=(--messages "$MESSAGES" --warmup "$WARMUP");;
         B) args+=(--messages "$MESSAGES" --warmup "$WARMUP" --strategy SyncMappingStrategy);;
@@ -165,8 +165,7 @@ run() {
     echo "# bench set=$set strategy=$(strategy "$set") profile=$prof prefill=$prefill run=$rep region=$region" \
          "payloadMin=$pmin headerMin=$hmin expandHeader=$EXPAND_HEADER prefillHeader=$ph prefillPayload=$pp" > "$log"
     local status=0
-    java -Dmmap.queue.appenderPrefillHeaderFiles="$ph" -Dmmap.queue.appenderPrefillPayloadFiles="$pp" \
-         -Dmmap.queue.expandHeaderFile="$EXPAND_HEADER" \
+    java -Dmmap.queue.expandHeaderFile="$EXPAND_HEADER" \
          -Dmmap.queue.minPayloadFileSize="$pmin" -Dmmap.queue.minHeaderFileSize="$hmin" \
          -jar "$JAR" "${args[@]}" >> "$log" 2>&1 || status=$?
     echo "set=$set profile=$prof prefill=$prefill run=$rep exit=$status"

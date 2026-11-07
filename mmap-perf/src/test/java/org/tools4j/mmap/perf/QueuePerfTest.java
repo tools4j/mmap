@@ -54,6 +54,8 @@ public class QueuePerfTest {
             "--queue mmap --strategy AsyncMapAheadStrategy --rate 0 --reader iterator",
             "--queue mmap --senders 3 --receivers 2 --reader iterator",
             "--queue mmap --map-ahead 5 --region-size 64k",
+            "--queue mmap --prefill both --region-size 64k",
+            "--queue mmap --prefill payload --strategy SyncMappingStrategy",
             "--queue mmap --senders 2 --pin 0-3",
             "--queue mmap --pin --receivers 1",
             "--queue chronicle --senders 2 --receivers 2"
@@ -100,6 +102,12 @@ public class QueuePerfTest {
         assertThat(defaults.reader()).isEqualTo(PerfOptions.ReaderType.POLLER);
         assertThat(Objects.requireNonNull(PerfOptions.parse("--reader", "Iterator")).reader())
                 .isEqualTo(PerfOptions.ReaderType.ITERATOR);
+        assertThat(defaults.prefill()).isNull();
+        final PerfOptions.PrefillMode header =
+                Objects.requireNonNull(PerfOptions.parse("--prefill", "Header")).prefill();
+        assertThat(header).isEqualTo(PerfOptions.PrefillMode.HEADER);
+        assertThat(header.header()).isTrue();
+        assertThat(header.payload()).isFalse();
 
         final PerfOptions options = Objects.requireNonNull(PerfOptions.parse("--queue", "Chronicle",
                 "--messages", "2_500k", "--warmup", "1_000", "--rate", "0", "--senders", "3", "--keep"));
@@ -133,6 +141,10 @@ public class QueuePerfTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("--warmup");
         assertThatThrownBy(() -> PerfOptions.parse("--queue", "chronicle", "--reader", "iterator"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("only supported");
+        assertThatThrownBy(() -> PerfOptions.parse("--queue", "chronicle", "--prefill", "both"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("only supported");
+        assertThatThrownBy(() -> PerfOptions.parse("--prefill", "all"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("must be one of");
         assertThatThrownBy(() -> PerfOptions.parse("--strategy", "SyncMappingStrategy", "--map-ahead", "4"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("async mapping");
         assertThatThrownBy(() -> PerfOptions.parse("--pin", "1,x"))

@@ -232,6 +232,7 @@ the latency percentiles of each receiver are printed after the first million (wa
 | `--strategy <name>`             | mmap mapping strategy, e.g. `AsyncMapAheadStrategy`          | per accessor kind  |
 | `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `2`                |
 | `--reader poller\|iterator`     | mmap only: receivers use a poller or continuous iterator     | `poller`           |
+| `--prefill <mode>`              | mmap only: prefill `none`, `header`, `payload` or `both`     | `none`             |
 
 Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`),
 e.g. `java -Dmmap.queue.pollerHeaderRegionCacheSize=16 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar`.

@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
  * @param regionSize  the mmap region size, or zero for the system default
  * @param mapAhead    the mmap regions to map ahead by accessors with async mapping, or zero for the system default
  * @param reader      the mmap reader used by receivers
+ * @param prefill     the mmap prefill mode of new header and payload file space, or null for the system default
  * @param pinCpus     the CPUs to pin threads to, assigned in order to senders, receivers and then mmap mapping
  *                    runtime threads, or null to not pin threads
  */
@@ -65,6 +66,7 @@ public record PerfOptions(QueueType queue,
                           int regionSize,
                           int mapAhead,
                           ReaderType reader,
+                          PrefillMode prefill,
                           int[] pinCpus) {
 
     /** The queue implementations */
@@ -81,6 +83,36 @@ public record PerfOptions(QueueType queue,
         POLLER,
         /** Reading with a continuous {@link org.tools4j.mmap.queue.api.EntryIterator EntryIterator} */
         ITERATOR
+    }
+
+    /** The mmap prefill modes, prefilling new space of header and/or payload files written by senders */
+    public enum PrefillMode {
+        /** Neither header nor payload files are prefilled, new file space is sparse */
+        NONE(false, false),
+        /** Header files are prefilled */
+        HEADER(true, false),
+        /** Payload files are prefilled */
+        PAYLOAD(false, true),
+        /** Header and payload files are prefilled */
+        BOTH(true, true);
+
+        private final boolean header;
+        private final boolean payload;
+
+        PrefillMode(final boolean header, final boolean payload) {
+            this.header = header;
+            this.payload = payload;
+        }
+
+        /** @return true if new header file space is prefilled */
+        public boolean header() {
+            return header;
+        }
+
+        /** @return true if new payload file space is prefilled */
+        public boolean payload() {
+            return payload;
+        }
     }
 
     /** CPU list used by {@code --pin} without CPUs: from CPU 2 up to the highest online CPU */
@@ -117,6 +149,8 @@ public record PerfOptions(QueueType queue,
                                          cache size is raised to fit (default: system default)
               --reader <poller|iterator> receivers read with a poller or a continuous entry iterator
                                          (default: poller)
+              --prefill <mode>           prefill new space of header and/or payload files: none, header, payload,
+                                         both (default: system default, none unless set by system property)
             """.formatted(MessageCodec.MIN_MESSAGE_LENGTH, DEFAULT_PIN_CPUS, Arrays.stream(MappingStrategy.values())
                     .map(Enum::name).collect(Collectors.joining(", ")));
 
@@ -142,6 +176,7 @@ public record PerfOptions(QueueType queue,
         int regionSize = 0;
         int mapAhead = 0;
         ReaderType reader = ReaderType.POLLER;
+        PrefillMode prefill = null;
         int[] pinCpus = null;
         for (int i = 0; i < args.length; i++) {
             final String option = args[i];
@@ -174,13 +209,14 @@ public record PerfOptions(QueueType queue,
                         case "--region-size" -> regionSize = intSize(option, value);
                         case "--map-ahead" -> mapAhead = intNumber(option, value);
                         case "--reader" -> reader = enumValue(ReaderType.class, option, value);
+                        case "--prefill" -> prefill = enumValue(PrefillMode.class, option, value);
                         default -> throw new IllegalArgumentException("Unknown option: " + option);
                     }
                 }
             }
         }
         return new PerfOptions(queue, messages, warmup, rate, length, senders, receivers, dir, keep, timeout,
-                strategy, regionSize, mapAhead, reader, pinCpus).validate();
+                strategy, regionSize, mapAhead, reader, prefill, pinCpus).validate();
     }
 
     private PerfOptions validate() {
@@ -195,8 +231,10 @@ public record PerfOptions(QueueType queue,
         check(dir.isDirectory(), "--dir must be an existing directory: " + dir);
         check(mapAhead >= 0, "--map-ahead must not be negative");
         if (queue != QueueType.MMAP) {
-            check(strategy == null && regionSize == 0 && mapAhead == 0 && reader == ReaderType.POLLER,
-                    "--strategy, --region-size, --map-ahead and --reader are only supported for --queue mmap");
+            check(strategy == null && regionSize == 0 && mapAhead == 0 && reader == ReaderType.POLLER
+                            && prefill == null,
+                    "--strategy, --region-size, --map-ahead, --reader and --prefill are only supported for --queue " +
+                            "mmap");
         }
         check(mapAhead == 0 || strategy == null || strategy.mappingStrategyConfig().asyncMapping().isPresent(),
                 "--map-ahead requires a strategy with async mapping, e.g. " + MappingStrategy.AsyncMapAheadStrategy);
