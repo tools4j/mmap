@@ -87,9 +87,14 @@ public interface AppenderConfig {
      * disk space, so that writing to the mapping cannot fault on a full disk. Otherwise new space is sparse, and
      * allocated by the file system when first written through the mapping.
      * <p>
-     * Prefilling is done by the thread extending the file: the async mapping thread with async mapping strategies, and
-     * otherwise the appending thread itself, which then stalls while the new space is filled: one min file size for
-     * expanding files, and the whole file for fixed size files when it is created.
+     * Prefilling is done by the thread extending the file: the async mapping thread with an async mapping strategy
+     * such as {@link MappingStrategy#AsyncMapAheadStrategy}, and otherwise the appending thread itself, which then
+     * stalls while the new space is filled. The space filled at once is the
+     * {@linkplain QueueLayoutConfig#minHeaderFileSize() min header file size} if the header file is
+     * {@linkplain QueueLayoutConfig#expandHeaderFile() expanded}, and otherwise the
+     * {@linkplain QueueLayoutConfig#maxHeaderFileSize() max header file size}, filled when a header file is created.
+     * With sync mapping strategies, a small file size filled at once is therefore recommended, a few megabytes for
+     * instance, since filling takes in the order of milliseconds per ten megabytes.
      *
      * @return true if new header file space is prefilled, false if it is sparse
      */
@@ -100,9 +105,14 @@ public interface AppenderConfig {
      * disk space, so that writing to the mapping cannot fault on a full disk. Otherwise new space is sparse, and
      * allocated by the file system when first written through the mapping.
      * <p>
-     * Prefilling is done by the thread extending the file: the async mapping thread with async mapping strategies, and
-     * otherwise the appending thread itself, which then stalls while the new space is filled: one min file size for
-     * expanding files, and the whole file for fixed size files when it is created.
+     * Prefilling is done by the thread extending the file: the async mapping thread with an async mapping strategy
+     * such as {@link MappingStrategy#AsyncMapAheadStrategy}, and otherwise the appending thread itself, which then
+     * stalls while the new space is filled. The space filled at once is the
+     * {@linkplain QueueLayoutConfig#minPayloadFileSize() min payload file size} if payload files are
+     * {@linkplain QueueLayoutConfig#expandPayloadFiles() expanded}, and otherwise the
+     * {@linkplain QueueLayoutConfig#maxPayloadFileSize() max payload file size}, filled when a payload file is created.
+     * With sync mapping strategies, a small file size filled at once is therefore recommended, a few megabytes for
+     * instance, since filling takes in the order of milliseconds per ten megabytes.
      *
      * @return true if new payload file space is prefilled, false if it is sparse
      */
