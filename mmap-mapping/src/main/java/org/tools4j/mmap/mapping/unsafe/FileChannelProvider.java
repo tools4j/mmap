@@ -115,11 +115,6 @@ final class FileChannelProvider implements Closeable {
         closeIfNeeded();
     }
 
-    public FileChannel getIfOpen() {
-        final ChannelWithFile cwf = channelWithFile.get();
-        return cwf == null ? null : cwf.channel;
-    }
-
     public FileChannel get() {
         final ChannelWithFile cwf = getChannelWithFile();
         return cwf != null ? cwf.channel : null;
@@ -130,9 +125,11 @@ final class FileChannelProvider implements Closeable {
      * exclusive file lock.
      *
      * @param size the new file size
+     * @return the file length after extending, the given size or the current length if it was longer already, for
+     *         instance if another process extended the file further
      * @throws UncheckedIOException if extending the file fails
      */
-    public void extend(final long size) {
+    public long extend(final long size) {
         assert accessMode != AccessMode.READ_ONLY;
         final ChannelWithFile cwf = getChannelWithFile();
         if (cwf == null) {
@@ -141,10 +138,13 @@ final class FileChannelProvider implements Closeable {
         try {
             final FileLock lock = FileLocks.acquireLock(cwf.channel);
             try {
-                if (cwf.channel.size() < size) {
-                    preAccessHook.onExtend(file, cwf.channel, size);
-                    ensureLength(cwf.randomAccessFile, size);
+                final long length = cwf.channel.size();
+                if (length >= size) {
+                    return length;
                 }
+                preAccessHook.onExtend(file, cwf.channel, size);
+                ensureLength(cwf.randomAccessFile, size);
+                return size;
             } finally {
                 lock.release();
             }

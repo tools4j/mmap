@@ -32,7 +32,6 @@ import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -123,7 +122,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
         }
-        ensureFileLength(channel, position + length);
+        ensureFileLength(position + length);
         final long address = FileChannels.map(channel, AccessMode.READ_WRITE.mapMode(), position, length);
         if (preTouch) {
             preToucher.preTouch(position, length, address);
@@ -144,7 +143,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         FileChannels.unmap(address, length);
     }
 
-    void ensureFileLength(final FileChannel channel, final long minLength) {
+    private void ensureFileLength(final long minLength) {
         long cachedFileLength = fileLengthCache.get();
         if (minLength <= cachedFileLength) {
             return;
@@ -152,42 +151,20 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         if (minLength > maxFileSize) {
             throw new IllegalStateException("Exceeded max file size " + maxFileSize + " for file " + file);
         }
-        do {
-            final long fileLength = fileLength(channel);
-            if (fileLength > cachedFileLength) {
-                cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
-            }
-            if (cachedFileLength < minLength) {
-                final long extendedLength = tryExtendFile(channel, fileLength, minLength);
-                if (extendedLength > cachedFileLength) {
-                    cachedFileLength = fileLengthCache.accumulateAndGet(extendedLength, Math::max);
+        //NOTE: threads waiting for another thread's extension spin on the cached length, published before the latch is
+        //      released, so they neither query the file length nor contend for the channel's lock meanwhile
+        while (cachedFileLength < minLength) {
+            if (fileSizeExtensionLatch.compareAndSet(false, true)) {
+                try {
+                    final long fileLength = fileChannelProvider.extend(newFileLength(minLength));
+                    cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
+                } finally {
+                    fileSizeExtensionLatch.set(false);
                 }
-            }
-        } while (cachedFileLength < minLength);
-    }
-
-    private long tryExtendFile(final FileChannel channel, final long fileLength, final long minLength) {
-        final FileChannel fileChannel = fileChannelProvider.getIfOpen();
-        if (fileChannel == null) {
-            return fileLength;
-        }
-        if (!fileSizeExtensionLatch.compareAndSet(false, true)) {
-            return fileLength;
-        }
-        try {
-            final long newestFileLength = channel.size();
-            if (newestFileLength < minLength) {
-                final long newLength = newFileLength(minLength);
-                fileChannelProvider.extend(newLength);
-                return newLength;
             } else {
-                return newestFileLength;
+                Thread.onSpinWait();
+                cachedFileLength = fileLengthCache.get();
             }
-        } catch (final IOException e) {
-            throw new IllegalStateException("Extending file " + file + " to size " + minLength +
-                    " failed, e=" + e, e);
-        } finally {
-            fileSizeExtensionLatch.set(false);
         }
     }
 
@@ -195,14 +172,6 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         final long newFileLength = minFileSize + minFileSize * ((minLength - 1) / minFileSize);
         assert newFileLength <= maxFileSize : "newFileLen exceeds maxFileSize";
         return newFileLength;
-    }
-
-    private long fileLength(final FileChannel channel) {
-        try {
-            return channel.size();
-        } catch (final IOException e) {
-            throw new IllegalStateException("Reading the length of file " + file + " failed, e=" + e, e);
-        }
     }
 
     @Override

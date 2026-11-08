@@ -76,7 +76,7 @@ class FileChannelProviderTest {
     void lazyExtendsFileWhenOpenedAndExtended() throws IOException {
         try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
             assertEquals(SIZE, provider.get().size());
-            provider.extend(2 * SIZE);
+            assertEquals(2 * SIZE, provider.extend(2 * SIZE));
             assertEquals(2 * SIZE, provider.get().size());
         }
         assertFilled(Files.readAllBytes(path), 0, (byte) 0);
@@ -117,9 +117,9 @@ class FileChannelProviderTest {
     }
 
     @Test
-    void extendNeverShrinksFile() throws IOException {
+    void extendNeverShrinksFileAndReturnsLongerLength() throws IOException {
         try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.ZERO, 2 * SIZE)) {
-            provider.extend(SIZE);
+            assertEquals(2 * SIZE, provider.extend(SIZE));
             assertEquals(2 * SIZE, provider.get().size());
         }
     }
