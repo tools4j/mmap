@@ -152,9 +152,11 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
             throw new IllegalStateException("Exceeded max file size " + maxFileSize + " for file " + file);
         }
         //NOTE: threads waiting for another thread's extension spin on the cached length, published before the latch is
-        //      released, so they neither query the file length nor contend for the channel's lock meanwhile
+        //      released, so they neither query the file length nor contend for the channel's lock meanwhile; they
+        //      read the latch before the CAS, which would otherwise write its cache line on every spin
+        boolean tryExtensionLatch = true;
         while (cachedFileLength < minLength) {
-            if (fileSizeExtensionLatch.compareAndSet(false, true)) {
+            if (tryExtensionLatch && fileSizeExtensionLatch.compareAndSet(false, true)) {
                 try {
                     final long fileLength = fileChannelProvider.extend(newFileLength(minLength));
                     cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
@@ -163,6 +165,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
                 }
             } else {
                 Thread.onSpinWait();
+                tryExtensionLatch = !fileSizeExtensionLatch.get();
                 cachedFileLength = fileLengthCache.get();
             }
         }
