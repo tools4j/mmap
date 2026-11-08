@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Acquires file locks, waiting until a lock is available or a timeout occurs. A lock held by another thread of the
@@ -34,7 +35,8 @@ import java.nio.channels.OverlappingFileLockException;
  */
 public enum FileLocks {
     ;
-    static final long DEFAULT_MAX_WAIT_MILLIS = 5000;
+    static final long DEFAULT_MAX_WAIT_MILLIS = 5_000;
+    private static final long PARK_PERIOD_NANOS = 1_000_000; // 1 ms
 
     /**
      * Acquires an exclusive lock for the whole file, which requires a file channel open for writing.
@@ -70,7 +72,7 @@ public enum FileLocks {
             try {
                 fileLock = fileChannel.tryLock(0, Long.MAX_VALUE, shared);
             } catch (final OverlappingFileLockException e) {
-                // ignore - sleep and try again
+                // ignore - park and try again
             } catch (final IOException e) {
                 throw new IllegalStateException("Unexpected exception while attempting to acquire file lock for " +
                         fileChannel, e);
@@ -78,11 +80,9 @@ public enum FileLocks {
             if (fileLock == null) {
                 remainingMillis = endTime - System.currentTimeMillis();
                 if (remainingMillis > 0) {
-                    try {
-                        Thread.sleep(Math.min(10, remainingMillis));
-                    } catch (final InterruptedException e) {
-                        throw new IllegalStateException("Interrupted while waiting for file lock for " +
-                                fileChannel, e);
+                    LockSupport.parkNanos(PARK_PERIOD_NANOS);
+                    if (Thread.interrupted()) {
+                        throw new IllegalStateException("Interrupted while waiting for file lock for " + fileChannel);
                     }
                 }
             }

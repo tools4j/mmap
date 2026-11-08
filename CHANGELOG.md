@@ -55,6 +55,8 @@ Notable changes per release. Entries are curated from the commits since the prev
 - Sync mapping strategies over rolling files allocating garbage on every region mapped.
 - Closing appenders and readers with async mapping took tens of milliseconds, waiting for the async mapping thread
   in steps of 20 ms; it now takes about a millisecond.
+- Waiting for a file lock held by another thread or process retried only every 10 ms; it now retries every
+  millisecond, for instance when several appenders extend the same file.
 
 ## 2.0 (2026-11-02)
 

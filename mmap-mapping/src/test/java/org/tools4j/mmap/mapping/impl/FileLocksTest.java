@@ -97,6 +97,24 @@ class FileLocksTest {
     }
 
     @Test
+    void interruptedWaitFailsWithoutWaitingForTimeout() throws IOException {
+        try (final FileLock held = FileLocks.acquireLock(channel1)) {
+            Thread.currentThread().interrupt();
+            final long start = System.nanoTime();
+            final IllegalStateException e;
+            try {
+                e = assertThrows(IllegalStateException.class, () -> FileLocks.acquireLock(channel2, MAX_WAIT_MILLIS));
+            } finally {
+                Thread.interrupted();
+            }
+            assertTrue(e.getMessage().startsWith("Interrupted while waiting for file lock"), e.getMessage());
+            assertTrue(System.nanoTime() - start < TimeUnit.MILLISECONDS.toNanos(MAX_WAIT_MILLIS / 2),
+                    "waited for the timeout");
+            assertTrue(held.isValid());
+        }
+    }
+
+    @Test
     void acquiresLockOnceReleased() throws Exception {
         final FileLock held = FileLocks.acquireLock(channel1);
         final CountDownLatch started = new CountDownLatch(1);
