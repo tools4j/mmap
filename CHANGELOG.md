@@ -42,6 +42,7 @@ Notable changes per release. Entries are curated from the commits since the prev
 ### Fixed
 - Files are extended under an exclusive file lock, so that a process extending a file with an outdated length can no
   longer truncate it after another process extended it further.
+- Sync mapping strategies over rolling files allocating garbage on every region mapped.
 
 ## 2.0 (2026-11-02)
 

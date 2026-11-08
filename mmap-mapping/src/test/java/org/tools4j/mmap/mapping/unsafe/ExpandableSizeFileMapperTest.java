@@ -137,7 +137,7 @@ class ExpandableSizeFileMapperTest {
         final IOException cause = new IOException("test initialiser error");
         final PreAccessHook failingInitialiser = new PreAccessHook() {
             @Override
-            public void onOpen(final String name, final FileChannel channel, final long size) throws IOException {
+            public void onOpen(final File file, final FileChannel channel, final long size) throws IOException {
                 throw cause;
             }
         };

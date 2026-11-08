@@ -27,6 +27,7 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -83,7 +84,7 @@ public enum StandardFileInitialiser implements FileInitialiser {
      */
     private record Filler(String name, ThreadLocal<ByteBuffer> initialBytes) implements PreAccessHook {
         @Override
-        public void onExtend(final String fileName, final FileChannel channel, final long size) throws IOException {
+        public void onExtend(final File file, final FileChannel channel, final long size) throws IOException {
             final ByteBuffer source = initialBytes.get();
             long position = channel.size();
             while (position < size) {

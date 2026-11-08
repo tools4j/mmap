@@ -142,7 +142,7 @@ final class FileChannelProvider implements Closeable {
             final FileLock lock = FileLocks.acquireLock(cwf.channel);
             try {
                 if (cwf.channel.size() < size) {
-                    preAccessHook.onExtend(file.getName(), cwf.channel, size);
+                    preAccessHook.onExtend(file, cwf.channel, size);
                     ensureLength(cwf.randomAccessFile, size);
                 }
             } finally {
@@ -221,11 +221,11 @@ final class FileChannelProvider implements Closeable {
         try {
             if (accessMode == AccessMode.READ_ONLY) {
                 validateMinFileLength(channel);
-                preAccessHook.onOpen(file.getName(), channel, minFileLength);
+                preAccessHook.onOpen(file, channel, minFileLength);
             } else {
                 final FileLock lock = FileLocks.acquireLock(channel);
                 try {
-                    preAccessHook.onOpen(file.getName(), channel, minFileLength);
+                    preAccessHook.onOpen(file, channel, minFileLength);
                     ensureLength(raf, minFileLength);
                 } finally {
                     lock.release();

@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
@@ -48,27 +49,27 @@ public interface PreAccessHook {
 
     /**
      * Invoked when the file is opened, validating a read-only file or initialising a writable file, by default
-     * initialising new space like {@link #onExtend(String, FileChannel, long) onExtend}.
+     * initialising new space like {@link #onExtend(File, FileChannel, long) onExtend}.
      *
-     * @param name    the file name for reference
+     * @param file    the file, for reference in messages
      * @param channel the file channel
      * @param size    the min file size, zero for none
      * @throws IOException if initialising or validating the file fails
      */
-    default void onOpen(final String name, final FileChannel channel, final long size) throws IOException {
-        onExtend(name, channel, size);
+    default void onOpen(final File file, final FileChannel channel, final long size) throws IOException {
+        onExtend(file, channel, size);
     }
 
     /**
      * Invoked when a writable file is extended, to initialise the new space from the current file size up to the
      * given size; does nothing by default.
      *
-     * @param name    the file name for reference
+     * @param file    the file, for reference in messages
      * @param channel the file channel
      * @param size    the new file size
      * @throws IOException if initialising the new space fails
      */
-    default void onExtend(final String name, final FileChannel channel, final long size) throws IOException {
+    default void onExtend(final File file, final FileChannel channel, final long size) throws IOException {
         //no-op
     }
 }

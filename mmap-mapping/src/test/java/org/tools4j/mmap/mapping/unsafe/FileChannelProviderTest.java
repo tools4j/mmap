@@ -33,6 +33,7 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.api.LifecycleListener;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -139,12 +140,12 @@ class FileChannelProviderTest {
             calls.add("hook:" + accessMode);
             return new PreAccessHook() {
                 @Override
-                public void onOpen(final String name, final FileChannel channel, final long size) {
+                public void onOpen(final File file, final FileChannel channel, final long size) {
                     calls.add("open:" + size);
                 }
 
                 @Override
-                public void onExtend(final String name, final FileChannel channel, final long size) {
+                public void onExtend(final File file, final FileChannel channel, final long size) {
                     calls.add("extend:" + size);
                 }
             };

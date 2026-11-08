@@ -32,6 +32,7 @@ import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.function.Function;
@@ -50,11 +51,11 @@ final class EagerReaderMappings implements ReaderMappings {
     /** Validates that an existing header file holds at least one header, which appenders always allocate */
     private static final PreAccessHook HEADER_FILE_VALIDATOR = new PreAccessHook() {
         @Override
-        public void onOpen(final String name, final FileChannel channel, final long size) throws IOException {
+        public void onOpen(final File file, final FileChannel channel, final long size) throws IOException {
             final long length = channel.size();
             if (length < Headers.HEADER_LENGTH) {
                 throw new IllegalArgumentException("Invalid header file, expected file of size at least " +
-                        Headers.HEADER_LENGTH + " but found only " + length + ": " + name);
+                        Headers.HEADER_LENGTH + " but found only " + length + ": " + file);
             }
         }
 

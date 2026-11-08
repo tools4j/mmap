@@ -225,7 +225,7 @@ public class RollingFileMapper implements FileMapper, Describable {
         for (int i = timeStamps.size(); i <= fileIndex; i++) {
             timeStamps.addLong(0);
         }
-        timeStamps.set(fileIndex, ++clock);
+        timeStamps.setLong(fileIndex, ++clock);
         openFiles++;
         if (isClosed()) {
             close(fileIndex);
@@ -239,7 +239,7 @@ public class RollingFileMapper implements FileMapper, Describable {
         int lruIndex = -1;
         for (int fileIndex = 0; fileIndex < fileMappers.size(); fileIndex++) {
             if (fileMappers.get(fileIndex) != null) {
-                final long timeStamp = timeStamps.get(fileIndex);
+                final long timeStamp = timeStamps.getLong(fileIndex);
                 if (timeStamp < lruTime) {
                     lruTime = timeStamp;
                     lruIndex = fileIndex;
@@ -250,7 +250,7 @@ public class RollingFileMapper implements FileMapper, Describable {
     }
 
     private void touch(final int fileIndex) {
-        timeStamps.set(fileIndex, ++clock);
+        timeStamps.setLong(fileIndex, ++clock);
     }
 
     private File fileForIndex(final int index) {
