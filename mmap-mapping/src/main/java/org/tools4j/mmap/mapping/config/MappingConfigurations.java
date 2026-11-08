@@ -24,7 +24,6 @@
 package org.tools4j.mmap.mapping.config;
 
 import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.BusySpinIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
@@ -94,7 +93,7 @@ public enum MappingConfigurations {
      * The default maximum number of files kept open in roll-files mode, used if system property
      * {@value #MAX_OPEN_FILES_PROPERTY} is not set.
      */
-    public static final int MAX_OPEN_FILES_DEFAULT = 3;
+    public static final int MAX_OPEN_FILES_DEFAULT = 4;
     /** Name of the system property to override the default number of files to create ahead in roll-files mode. */
     public static final String FILES_TO_CREATE_AHEAD_PROPERTY = "mmap.mapping.filesToCreateAhead";
     /**
@@ -125,7 +124,7 @@ public enum MappingConfigurations {
      * The default ring cache size for mapped regions, used if system property {@value #REGION_CACHE_SIZE_PROPERTY} is
      * not set.
      */
-    public static final int REGION_CACHE_SIZE_DEFAULT = 4;
+    public static final int REGION_CACHE_SIZE_DEFAULT = 8;
     /** Name of the system property to override the default LRU cache size for mapped regions. */
     public static final String REGION_LRU_CACHE_SIZE_PROPERTY = "mmap.mapping.regionLruCacheSize";
     /**
@@ -157,7 +156,7 @@ public enum MappingConfigurations {
      * The default number of regions to map ahead, used if system property {@value #REGIONS_TO_MAP_AHEAD_PROPERTY} is
      * not set.
      */
-    public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 2;
+    public static final int REGIONS_TO_MAP_AHEAD_DEFAULT = 4;
     /** Name of the system property to override the default ahead-mapping cache size. */
     public static final String AHEAD_MAPPING_CACHE_SIZE_PROPERTY = "mmap.mapping.async.aheadMappingCacheSize";
     /**
@@ -175,7 +174,7 @@ public enum MappingConfigurations {
      */
     public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.mapping.async.mappingRuntimeIdleStrategy";
     /** Supplier of the default idle strategy of mapping runtimes, used if the idle strategy property is not set. */
-    public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = () -> BusySpinIdleStrategy.INSTANCE;
+    public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
     /**
      * Name of the system property to pin the threads of mapping runtimes created by default to CPUs, with a CPU list
      * in Linux cpulist format such as {@code 4-7}, {@code 0,2,4,6}, {@code 4-} for CPU 4 up to the highest online

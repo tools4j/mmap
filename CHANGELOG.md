@@ -38,6 +38,16 @@ Notable changes per release. Entries are curated from the commits since the prev
   faster per entry.
 - Open modes determine whether rolling files exist by the first rolling file alone, without scanning the directory;
   rolling files whose first file was deleted are not supported.
+- New queues expand their header files and roll them at 1 GB instead of creating 64 MB files at full size, so that
+  header files roll about as rarely as payload files; existing queues keep their layout.
+- Appenders create the next rolling header and payload file ahead, and rolling files keep up to 4 files open instead
+  of 3 to make room for it.
+- Async mapping maps 4 regions ahead instead of 2, with region caches of 8 instead of 4 regions, so that mapping
+  ahead stays ahead of fast appenders; the cache sizes keep the previous payload region mapped for entries growing
+  across a region.
+- The mapping runtime thread backs off when idle instead of busy spinning, so that it no longer occupies a CPU by
+  default; set `mmap.mapping.async.mappingRuntimeIdleStrategy` to `org.agrona.concurrent.BusySpinIdleStrategy` for
+  the previous behaviour.
 
 ### Fixed
 - Files are extended under an exclusive file lock, so that a process extending a file with an outdated length can no

@@ -57,9 +57,10 @@ public enum QueueConfigurations {
     ;
     /**
      * The default maximum number of rolled header or payload files kept open at once by an appender or reader: one each
-     * for the accessing thread, the async mapping thread and the async unmapping thread.
+     * for the accessing thread, the async mapping thread and the async unmapping thread, plus one for a file created
+     * ahead.
      */
-    public static final int MAX_OPEN_FILES_DEFAULT = 3;
+    public static final int MAX_OPEN_FILES_DEFAULT = 4;
 
     /**
      * Name of the system property to override the default
@@ -100,7 +101,7 @@ public enum QueueConfigurations {
      * The default {@linkplain QueueLayoutConfig#maxHeaderFileSize() maximum header file size}, used if system property
      * {@value #MAX_HEADER_FILE_SIZE_PROPERTY} is not set.
      */
-    public static final long MAX_HEADER_FILE_SIZE_DEFAULT = 64*1024*1024L;
+    public static final long MAX_HEADER_FILE_SIZE_DEFAULT = 1024*1024*1024L;
     /**
      * Name of the system property to override the default
      * {@linkplain QueueLayoutConfig#maxPayloadFileSize() maximum payload file size}.
@@ -130,7 +131,7 @@ public enum QueueConfigurations {
      * The default {@linkplain QueueLayoutConfig#expandHeaderFile() expand-header-file flag}, used if system property
      * {@value #EXPAND_HEADER_FILE_PROPERTY} is not set.
      */
-    public static final boolean EXPAND_HEADER_FILE_DEFAULT = false;
+    public static final boolean EXPAND_HEADER_FILE_DEFAULT = true;
     /**
      * Name of the system property to override the default
      * {@linkplain QueueLayoutConfig#expandPayloadFiles() expand-payload-files flag}.
@@ -265,7 +266,7 @@ public enum QueueConfigurations {
      * The default {@linkplain AppenderConfig#headerFilesToCreateAhead() number of header files to create ahead} by
      * appenders, used if system property {@value #APPENDER_HEADER_FILES_TO_CREATE_AHEAD_PROPERTY} is not set.
      */
-    public static final int APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
+    public static final int APPENDER_HEADER_FILES_TO_CREATE_AHEAD_DEFAULT = 1;
     /**
      * Name of the system property to override the default
      * {@linkplain AppenderConfig#payloadFilesToCreateAhead() number of payload files to create ahead} by appenders.
@@ -275,7 +276,7 @@ public enum QueueConfigurations {
      * The default {@linkplain AppenderConfig#payloadFilesToCreateAhead() number of payload files to create ahead} by
      * appenders, used if system property {@value #APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_PROPERTY} is not set.
      */
-    public static final int APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 0;
+    public static final int APPENDER_PAYLOAD_FILES_TO_CREATE_AHEAD_DEFAULT = 1;
     /**
      * Name of the system property to override the default
      * {@linkplain AppenderConfig#prefillHeaderFiles() prefill-header-files flag} of appenders.

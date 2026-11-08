@@ -230,7 +230,7 @@ the latency percentiles of each receiver are printed after the first million (wa
 | `--dir <path>`                  | parent directory of the temporary queue files                | `java.io.tmpdir`   |
 | `--pin [<cpus>]`                | pin senders, receivers, then mapper threads to CPUs, one each | unpinned; `2-`    |
 | `--strategy <name>`             | mmap mapping strategy, e.g. `AsyncMapAheadStrategy`          | per accessor kind  |
-| `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `2`                |
+| `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `4`                |
 | `--reader poller\|iterator`     | mmap only: receivers use a poller or continuous iterator     | `poller`           |
 | `--prefill <mode>`              | mmap only: prefill `none`, `header`, `payload` or `both`     | `none`             |
 
