@@ -47,14 +47,14 @@ final class FfmBranchBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         return heap != null ? (long) HEAP_LONG.get(heap, index) : (long) LONG_UNALIGNED.get(ALL, address + index);
     }
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         if (heap != null) {
             HEAP_LONG.set(heap, index, value);
@@ -65,14 +65,14 @@ final class FfmBranchBuffer implements BenchBuffer {
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         return heap != null ? Ffm.getLongAcquire(heap, index) : (long) LONG.getAcquire(ALL, address + index);
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         if (heap != null) {
             Ffm.putLongRelease(heap, index, value);
@@ -83,7 +83,7 @@ final class FfmBranchBuffer implements BenchBuffer {
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         if (array != null) {
             throw Ffm.noHeapCompareAndSet();
         }

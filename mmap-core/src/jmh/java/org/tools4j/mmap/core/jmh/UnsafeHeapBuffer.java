@@ -43,31 +43,31 @@ final class UnsafeHeapBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.getLong(array, ARRAY_BASE_OFFSET + index);
     }
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         UnsafeApi.putLong(array, ARRAY_BASE_OFFSET + index, value);
     }
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.getLongAcquire(array, ARRAY_BASE_OFFSET + index);
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         UnsafeApi.putLongRelease(array, ARRAY_BASE_OFFSET + index, value);
     }
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.compareAndSetLong(array, ARRAY_BASE_OFFSET + index, expectedValue, updateValue);
     }
 

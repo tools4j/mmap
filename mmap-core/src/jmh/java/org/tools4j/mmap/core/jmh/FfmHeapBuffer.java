@@ -41,25 +41,25 @@ final class FfmHeapBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return (long) HEAP_LONG.get(array, index);
     }
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         HEAP_LONG.set(array, index, value);
     }
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return Ffm.getLongAcquire(array, index);
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         Ffm.putLongRelease(array, index, value);
     }
 

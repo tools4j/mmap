@@ -42,31 +42,31 @@ final class UnsafeDirectBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.getLong(null, address + index);
     }
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         UnsafeApi.putLong(null, address + index, value);
     }
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.getLongAcquire(null, address + index);
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         UnsafeApi.putLongRelease(null, address + index, value);
     }
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return UnsafeApi.compareAndSetLong(null, address + index, expectedValue, updateValue);
     }
 

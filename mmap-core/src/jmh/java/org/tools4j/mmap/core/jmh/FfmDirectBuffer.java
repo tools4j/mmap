@@ -44,31 +44,31 @@ final class FfmDirectBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return (long) LONG_UNALIGNED.get(ALL, address + index);
     }
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         LONG_UNALIGNED.set(ALL, address + index, value);
     }
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return (long) LONG.getAcquire(ALL, address + index);
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         LONG.setRelease(ALL, address + index, value);
     }
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         return LONG.compareAndSet(ALL, address + index, expectedValue, updateValue);
     }
 

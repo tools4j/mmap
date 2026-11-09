@@ -45,7 +45,7 @@ final class UnsafeBranchBuffer implements BenchBuffer {
 
     @Override
     public long getLong(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         return heap != null
                 ? UnsafeApi.getLong(heap, ARRAY_BASE_OFFSET + index)
@@ -54,7 +54,7 @@ final class UnsafeBranchBuffer implements BenchBuffer {
 
     @Override
     public void putLong(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         if (heap != null) {
             UnsafeApi.putLong(heap, ARRAY_BASE_OFFSET + index, value);
@@ -65,7 +65,7 @@ final class UnsafeBranchBuffer implements BenchBuffer {
 
     @Override
     public long getLongAcquire(final int index) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         return heap != null
                 ? UnsafeApi.getLongAcquire(heap, ARRAY_BASE_OFFSET + index)
@@ -74,7 +74,7 @@ final class UnsafeBranchBuffer implements BenchBuffer {
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         if (heap != null) {
             UnsafeApi.putLongRelease(heap, ARRAY_BASE_OFFSET + index, value);
@@ -85,7 +85,7 @@ final class UnsafeBranchBuffer implements BenchBuffer {
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
-        Objects.checkFromIndexSize(index, Long.BYTES, capacity);
+        Bounds.checkLong(index, capacity);
         final byte[] heap = array;
         return heap != null
                 ? UnsafeApi.compareAndSetLong(heap, ARRAY_BASE_OFFSET + index, expectedValue, updateValue)
