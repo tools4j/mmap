@@ -57,7 +57,7 @@ public class BufferSingleOpBenchmark {
 
     static volatile long pollutionResult;
 
-    @Param({"AGRONA", "UNSAFE_SPLIT", "UNSAFE_BRANCH", "FFM_BRANCH", "FFM_SPLIT"})
+    @Param({"AGRONA", "UNSAFE_SPLIT", "UNSAFE_BRANCH", "FFM_BRANCH", "FFM_SPLIT", "BYTE_BUFFER"})
     public Implementation implementation;
 
     @Param({"DIRECT", "HEAP"})
@@ -85,7 +85,8 @@ public class BufferSingleOpBenchmark {
     }
 
     /**
-     * Fails for heap memory with FFM, which has no compare-and-set; exclude those combinations with {@code -p}.
+     * Fails for heap memory with FFM and for ByteBuffer, which have no compare-and-set; exclude those combinations with
+     * {@code -p}.
      */
     @Benchmark
     public boolean increment() {

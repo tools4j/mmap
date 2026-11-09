@@ -62,6 +62,13 @@ public enum Implementation {
             return kind == MemoryKind.DIRECT ? new FfmDirectBuffer() : new FfmHeapBuffer();
         }
     },
+    /** The JDK's ByteBuffer, see {@link JdkByteBuffer} */
+    BYTE_BUFFER {
+        @Override
+        BenchBuffer create(final MemoryKind kind) {
+            return new JdkByteBuffer();
+        }
+    },
     /** Diagnostic only, not run by default: FFM with a segment allocated per wrap, see {@link FfmSegmentBuffer} */
     FFM_SEGMENT {
         @Override
@@ -73,6 +80,7 @@ public enum Implementation {
     abstract BenchBuffer create(MemoryKind kind);
 
     boolean supportsCompareAndSet(final MemoryKind kind) {
-        return kind == MemoryKind.DIRECT || this == AGRONA || this == UNSAFE_SPLIT || this == UNSAFE_BRANCH;
+        return this != BYTE_BUFFER
+                && (kind == MemoryKind.DIRECT || this == AGRONA || this == UNSAFE_SPLIT || this == UNSAFE_BRANCH);
     }
 }

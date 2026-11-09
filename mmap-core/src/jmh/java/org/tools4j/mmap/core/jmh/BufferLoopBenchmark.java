@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 public class BufferLoopBenchmark {
     static volatile long pollutionResult;
 
-    @Param({"AGRONA", "UNSAFE_SPLIT", "UNSAFE_BRANCH", "FFM_BRANCH", "FFM_SPLIT"})
+    @Param({"AGRONA", "UNSAFE_SPLIT", "UNSAFE_BRANCH", "FFM_BRANCH", "FFM_SPLIT", "BYTE_BUFFER"})
     public Implementation implementation;
 
     @Param({"DIRECT", "HEAP"})

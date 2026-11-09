@@ -4,34 +4,37 @@
 # polluted, and two sizes -- and prints the results as one table, implementations side by side, in ns/op (with the
 # allocated bytes per operation where the gc profiler ran and found any).
 #
-# Usage:
-#   mmap-core/jmh-matrix.sh [output-dir]    runs the matrix, writes JSON results and logs to output-dir (default
-#                                           mmap-core/build/jmh/<timestamp>), then prints the table
-#   mmap-core/jmh-matrix.sh --table <dir>   prints the table of an earlier run
-#
-# Environment (defaults in brackets):
-#   FORKS [2], WARMUP [3], MEASUREMENT [5]  forks, and warmup and measurement iterations per fork
-#   ITERATION_TIME [1s]                     time per iteration
-#   JMH_JAVA [25]                           Java version of the toolchain the benchmarks run with
-#
-# With the defaults it takes about 70 minutes; keep the machine otherwise idle. On macOS it prevents idle sleep with
-# caffeinate, but closing the lid still puts the machine to sleep and invalidates the run.
-#
-# Paths must not contain spaces: the JMH arguments are passed to Gradle as one space separated property.
-#
 set -euo pipefail
 
-if [[ "${1:-}" != "--table" && -z "${JMH_MATRIX_CAFFEINATED:-}" ]] && command -v caffeinate > /dev/null; then
-    JMH_MATRIX_CAFFEINATED=1 exec caffeinate -i "$0" "$@"
-fi
+usage() {
+    cat <<EOF
+Usage:
+  $0 run [output-dir]
+      runs the matrix, writes JSON results and logs to output-dir (default mmap-core/build/jmh/<timestamp>), then
+      prints the table
+  $0 table <dir>
+      prints the table of an earlier run
+  $0 -h | --help
+      prints this help
 
-cd "$(dirname "$0")/.."
+Environment (defaults in brackets):
+  FORKS [2], WARMUP [3], MEASUREMENT [5]  forks, and warmup and measurement iterations per fork
+  ITERATION_TIME [1s]                     time per iteration
+  JMH_JAVA [25]                           Java version of the toolchain the benchmarks run with
+
+With the defaults a run takes about 85 minutes; keep the machine otherwise idle. On macOS the run prevents idle
+sleep with caffeinate, but closing the lid still puts the machine to sleep and invalidates the run. A quick smoke run
+of about a minute: FORKS=1 WARMUP=0 MEASUREMENT=1 ITERATION_TIME=100ms $0 run
+
+Paths must not contain spaces: the JMH arguments are passed to Gradle as one space separated property.
+EOF
+}
 
 print_table() {
     python3 - "$1" <<'EOF'
 import glob, json, os, sys
 
-implementations = ['AGRONA', 'UNSAFE_SPLIT', 'UNSAFE_BRANCH', 'FFM_BRANCH', 'FFM_SPLIT']
+implementations = ['AGRONA', 'UNSAFE_SPLIT', 'UNSAFE_BRANCH', 'FFM_BRANCH', 'FFM_SPLIT', 'BYTE_BUFFER']
 rows, jvm = {}, None
 for file in sorted(glob.glob(os.path.join(sys.argv[1], '*.json'))):
     for result in json.load(open(file)):
@@ -60,31 +63,50 @@ for key in sorted(rows):
 EOF
 }
 
-if [[ "${1:-}" == "--table" ]]; then
-    print_table "${2:?Usage: $0 --table <dir>}"
-    exit 0
-fi
+run_matrix() {
+    local out="$1"
+    local common="-f ${FORKS:-2} -wi ${WARMUP:-3} -w ${ITERATION_TIME:-1s} -i ${MEASUREMENT:-5} -r ${ITERATION_TIME:-1s} -foe true"
 
-out="${1:-mmap-core/build/jmh/$(date +%Y%m%d-%H%M%S)}"
-mkdir -p "$out"
-out="$(cd "$out" && pwd)"
-common="-f ${FORKS:-2} -wi ${WARMUP:-3} -w ${ITERATION_TIME:-1s} -i ${MEASUREMENT:-5} -r ${ITERATION_TIME:-1s} -foe true"
+    run() {
+        local name="$1"
+        shift
+        echo "$(date +%T) $name"
+        ./gradlew -q :mmap-core:jmh -PjmhJava="${JMH_JAVA:-25}" \
+                -Pjmh="$common $* -rf json -rff $out/$name.json" > "$out/$name.log" 2>&1 ||
+                { echo "Failed, see $out/$name.log" >&2; exit 1; }
+    }
 
-run() {
-    local name="$1"
-    shift
-    echo "$(date +%T) $name"
-    ./gradlew -q :mmap-core:jmh -PjmhJava="${JMH_JAVA:-25}" \
-            -Pjmh="$common $* -rf json -rff $out/$name.json" > "$out/$name.log" 2>&1 ||
-            { echo "Failed, see $out/$name.log" >&2; exit 1; }
+    echo "Writing results to $out"
+    run loops 'BufferLoopBenchmark'
+    run wrap 'BufferSingleOpBenchmark.wrapAndRead -prof gc'
+    #FFM has no compare-and-set for heap memory, ByteBuffer none at all
+    run increment-unsafe 'BufferSingleOpBenchmark.increment -prof gc -p implementation=AGRONA,UNSAFE_SPLIT,UNSAFE_BRANCH'
+    run increment-ffm 'BufferSingleOpBenchmark.increment -prof gc -p implementation=FFM_BRANCH,FFM_SPLIT -p memory=DIRECT'
+    echo "$(date +%T) done"
+    echo
+    print_table "$out"
 }
 
-echo "Writing results to $out"
-run loops 'BufferLoopBenchmark'
-run wrap 'BufferSingleOpBenchmark.wrapAndRead -prof gc'
-run increment-unsafe 'BufferSingleOpBenchmark.increment -prof gc -p implementation=AGRONA,UNSAFE_SPLIT,UNSAFE_BRANCH'
-#FFM has no compare-and-set for heap memory
-run increment-ffm 'BufferSingleOpBenchmark.increment -prof gc -p implementation=FFM_BRANCH,FFM_SPLIT -p memory=DIRECT'
-echo "$(date +%T) done"
-echo
-print_table "$out"
+case "${1:-}" in
+    run)
+        if [[ -z "${JMH_MATRIX_CAFFEINATED:-}" ]] && command -v caffeinate > /dev/null; then
+            JMH_MATRIX_CAFFEINATED=1 exec caffeinate -i "$0" "$@"
+        fi
+        out="${2:-$(dirname "$0")/build/jmh/$(date +%Y%m%d-%H%M%S)}"
+        mkdir -p "$out"
+        out="$(cd "$out" && pwd)"
+        cd "$(dirname "$0")/.."
+        run_matrix "$out"
+        ;;
+    table)
+        [[ -n "${2:-}" ]] || { usage >&2; exit 1; }
+        print_table "$2"
+        ;;
+    -h | --help)
+        usage
+        ;;
+    *)
+        usage >&2
+        exit 1
+        ;;
+esac
