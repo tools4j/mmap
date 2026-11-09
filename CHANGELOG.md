@@ -48,6 +48,8 @@ Notable changes per release. Entries are curated from the commits since the prev
 - The mapping runtime thread backs off when idle instead of busy spinning, so that it no longer occupies a CPU by
   default; set `mmap.mapping.async.mappingRuntimeIdleStrategy` to `org.agrona.concurrent.BusySpinIdleStrategy` for
   the previous behaviour.
+- The benchmark `mmap-perf` prints its usage when run without options, instead of starting a run with the defaults;
+  pass for instance `--queue mmap` to run it with the defaults.
 
 ### Fixed
 - Files are extended under an exclusive file lock, so that a process extending a file with an outdated length can no

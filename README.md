@@ -213,7 +213,8 @@ java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap
 java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue chronicle
 ```
 Alternatively use the start script `mmap-perf/build/install/mmap-perf/bin/mmap-perf` (`mmap-perf.bat` on Windows), or
-`./gradlew :mmap-perf:run --args='--queue mmap'`.
+`./gradlew :mmap-perf:run --args='--queue mmap'`. Without options, `mmap-perf` prints its usage; `--queue mmap` runs it
+with all defaults.
 
 By default, one sender sends 11 million messages of 100 bytes at 1 million messages per second to two receivers, and
 the latency percentiles of each receiver are printed after the first million (warmup) messages. Main options:
@@ -234,8 +235,8 @@ the latency percentiles of each receiver are printed after the first million (wa
 | `--reader poller\|iterator`     | mmap only: receivers use a poller or continuous iterator     | `poller`           |
 | `--prefill <mode>`              | mmap only: prefill `none`, `header`, `payload` or `both`     | `none`             |
 
-Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`),
-e.g. `java -Dmmap.queue.pollerHeaderRegionCacheSize=16 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar`.
+Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`), e.g.
+`java -Dmmap.queue.pollerHeaderRegionCacheSize=4 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap`.
 
 Notes:
 * The Chronicle Queue version used (5.21) runs on Java 17 only; use Java 17 when comparing the two queues.

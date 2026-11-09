@@ -59,7 +59,8 @@ public enum QueuePerf {
     private static final String CHRONICLE_QUEUE_VERSION_PROPERTY = "chronicleQueueVersion";
 
     /**
-     * Runs the benchmark with the given command line options, see {@link PerfOptions#USAGE}.
+     * Runs the benchmark with the given command line options, see {@link PerfOptions#USAGE}; prints the usage instead
+     * if there are none, so that trying the program out does not start a run.
      *
      * @param args the command line options
      * @throws Throwable if a sender or receiver failed, or did not complete in time
@@ -68,6 +69,11 @@ public enum QueuePerf {
         //unless set on the command line, e.g. when started with java -jar
         if (System.getProperty(SLF4J_LOG_LEVEL_PROPERTY) == null) {
             System.setProperty(SLF4J_LOG_LEVEL_PROPERTY, "warn");
+        }
+        if (args.length == 0) {
+            System.err.println(PerfOptions.USAGE);
+            System.exit(2);
+            return;
         }
         final PerfOptions options;
         try {

@@ -118,12 +118,12 @@ public record PerfOptions(QueueType queue,
     /** CPU list used by {@code --pin} without CPUs: from CPU 2 up to the highest online CPU */
     public static final String DEFAULT_PIN_CPUS = "2-";
 
-    /** Usage printed with {@code --help} */
+    /** Usage printed with {@code --help} and without options */
     public static final String USAGE = """
-            Usage: mmap-perf [options]
-            Measures the latency from sending to receiving messages through a queue, after a warmup phase. Numbers can
-            have '_' separators and a k, m or g suffix, decimal for counts (1m = 1_000_000) and binary for sizes
-            (64k = 65536).
+            Usage: mmap-perf <options>
+            Measures the latency from sending to receiving messages through a queue, after a warmup phase. Without
+            options, prints this help; to run with all defaults, pass e.g. --queue mmap. Numbers can have '_'
+            separators and a k, m or g suffix, decimal for counts (1m = 1_000_000) and binary for sizes (64k = 65536).
 
               --queue <mmap|chronicle>   queue implementation (default: mmap), chronicle requires Java 17 and
                                          chronicle-queue on the class path
