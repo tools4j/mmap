@@ -261,9 +261,13 @@ subprojects {
             options.addBooleanOption 'html5', true
             options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")
         }
-        //doclint checks only the public api and config packages, which application code uses, and all of mmap-perf
+        //doclint checks the packages that application code uses: in mmap-mapping and mmap-queue the api and config
+        //packages, in mmap-core all feature packages but their impl subpackages, and all of mmap-perf
         def basePackage = 'org.tools4j.' + project.name.replace('-', '.')
-        def doclintPackages = project.name == 'mmap-perf' ? basePackage : "${basePackage}.api,${basePackage}.config"
+        def doclintPackages = [
+                'mmap-perf': basePackage,
+                'mmap-core': "${basePackage}.*,-${basePackage}.buffer.impl"
+        ].getOrDefault(project.name, "${basePackage}.api,${basePackage}.config")
         options.addBooleanOption('Xdoclint:all', true)
         options.addBooleanOption("Xdoclint/package:${doclintPackages}", true)
         options.addStringOption('Xmaxwarns', '10000')

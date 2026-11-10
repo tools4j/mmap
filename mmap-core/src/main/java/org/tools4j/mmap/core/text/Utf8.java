@@ -21,22 +21,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.core.impl;
-
-import org.tools4j.mmap.core.api.MemoryBuffer;
-import org.tools4j.mmap.core.api.MutableMemoryBuffer;
+package org.tools4j.mmap.core.text;
 
 import java.util.Objects;
 
 /**
- * UTF-8 utilities complementing the UTF-8 accessors of {@link MemoryBuffer} and {@link MutableMemoryBuffer}.
+ * UTF-8 utilities that do not allocate.
  */
 public enum Utf8 {
     ;
 
     /**
-     * Returns the number of bytes encoding the characters as UTF-8, as {@link MutableMemoryBuffer#putUtf8(int,
-     * CharSequence)} writes them, with an unpaired surrogate encoded as one byte {@code '?'}.
+     * Returns the number of bytes encoding the characters as UTF-8, as {@code value.toString().getBytes(UTF_8)}
+     * would without allocating: an unpaired surrogate is encoded as one byte {@code '?'}, as the JDK does.
      *
      * @param value the characters
      * @return the number of bytes
@@ -46,9 +43,8 @@ public enum Utf8 {
     }
 
     /**
-     * Returns the number of bytes encoding a range of characters as UTF-8, as
-     * {@link MutableMemoryBuffer#putUtf8(int, CharSequence, int, int)} writes them, with an unpaired surrogate
-     * encoded as one byte {@code '?'}; a surrogate pair split by the end of the range counts as unpaired.
+     * Returns the number of bytes encoding a range of characters as UTF-8, as {@link #length(CharSequence)} does
+     * for all characters; a surrogate pair split by the start or end of the range counts as unpaired.
      *
      * @param value the characters
      * @param offset the index of the first character

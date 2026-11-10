@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.core.impl;
+package org.tools4j.mmap.core.text;
 
 import org.junit.jupiter.api.Test;
 

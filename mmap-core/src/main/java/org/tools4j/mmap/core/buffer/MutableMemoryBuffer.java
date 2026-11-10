@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.core.api;
+package org.tools4j.mmap.core.buffer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -602,7 +602,7 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
 
     /**
      * Encodes characters as UTF-8 to this buffer, without a length prefix; unpaired surrogates are encoded as
-     * {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.impl.Utf8#length(CharSequence)} tells the number
+     * {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.text.Utf8#length(CharSequence)} tells the number
      * of bytes beforehand.
      *
      * @param index the index of the first byte to write
@@ -613,7 +613,7 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
 
     /**
      * Encodes a range of characters as UTF-8 to this buffer, without a length prefix; unpaired surrogates are
-     * encoded as {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.impl.Utf8#length(CharSequence, int,
+     * encoded as {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.text.Utf8#length(CharSequence, int,
      * int)} tells the number of bytes beforehand.
      *
      * @param index the index of the first byte to write

@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.core.api;
+package org.tools4j.mmap.core.buffer;
 
 /**
  * Creates buffers and flyweights.
