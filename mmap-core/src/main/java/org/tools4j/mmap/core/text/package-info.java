@@ -22,8 +22,6 @@
  * SOFTWARE.
  */
 /**
- * Buffers over direct and heap memory: {@linkplain MemoryBuffer read} and {@linkplain MutableMemoryBuffer write}
- * access, the re-wrappable {@linkplain MemoryBufferFlyweight flyweights}, and the factory methods in
- * {@linkplain MemoryBuffers} to create them.
+ * Text utilities, such as the length of the {@linkplain Utf8 UTF-8} encoding of characters.
  */
-package org.tools4j.mmap.core.api;
+package org.tools4j.mmap.core.text;

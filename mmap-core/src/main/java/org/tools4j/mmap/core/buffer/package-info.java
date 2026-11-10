@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 /**
- * Internal implementations backing the {@linkplain org.tools4j.mmap.core.api buffer API}, and utilities.
+ * Buffers over direct and heap memory: {@linkplain MemoryBuffer read} and {@linkplain MutableMemoryBuffer write}
+ * access, the re-wrappable {@linkplain MemoryBufferFlyweight flyweights}, and the factory methods in
+ * {@linkplain MemoryBuffers} to create them.
  */
-package org.tools4j.mmap.core.impl;
+package org.tools4j.mmap.core.buffer;
