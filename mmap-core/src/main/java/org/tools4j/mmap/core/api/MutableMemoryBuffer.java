@@ -602,7 +602,8 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
 
     /**
      * Encodes characters as UTF-8 to this buffer, without a length prefix; unpaired surrogates are encoded as
-     * {@code '?'}, as the JDK does. {@link Utf8#length(CharSequence)} tells the number of bytes beforehand.
+     * {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.impl.Utf8#length(CharSequence)} tells the number
+     * of bytes beforehand.
      *
      * @param index the index of the first byte to write
      * @param value the characters to encode
@@ -612,8 +613,8 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
 
     /**
      * Encodes a range of characters as UTF-8 to this buffer, without a length prefix; unpaired surrogates are
-     * encoded as {@code '?'}, as the JDK does. {@link Utf8#length(CharSequence, int, int)} tells the number of bytes
-     * beforehand.
+     * encoded as {@code '?'}, as the JDK does. {@link org.tools4j.mmap.core.impl.Utf8#length(CharSequence, int,
+     * int)} tells the number of bytes beforehand.
      *
      * @param index the index of the first byte to write
      * @param value the characters to encode from

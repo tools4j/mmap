@@ -65,22 +65,6 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
     void wrap(byte[] array, int offset, int length);
 
     /**
-     * Wraps a whole long array, with a capacity of 8 bytes per element; supports ordered access.
-     *
-     * @param array the array to wrap
-     */
-    void wrap(long[] array);
-
-    /**
-     * Wraps a range of a long array; supports ordered access.
-     *
-     * @param array the array to wrap
-     * @param byteOffset the offset of the first byte in bytes from the start of the array
-     * @param length the number of bytes
-     */
-    void wrap(long[] array, int byteOffset, int length);
-
-    /**
      * Wraps a {@code ByteBuffer} from 0 to its capacity, ignoring its position, limit and byte order.
      *
      * @param buffer a direct byte buffer, or a heap byte buffer with an {@linkplain ByteBuffer#hasArray() accessible
@@ -126,10 +110,11 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
 
     /**
      * Returns the offset of index 0 within the wrapped array or {@code ByteBuffer}: index {@code i} of this
-     * flyweight is element {@code wrapOffset() + i} of the wrapped byte array or byte buffer, and byte
-     * {@code wrapOffset() + i} of the wrapped long array. A flyweight wrapping a range of another buffer has the
-     * other buffer's offset plus the index of the range, so it stays relative to the underlying array or byte
-     * buffer. A flyweight wrapping a raw address, or a buffer allocated by {@link MemoryBuffers}, has offset 0.
+     * flyweight is element {@code wrapOffset() + i} of the wrapped byte array or byte buffer. A flyweight wrapping
+     * a range of another buffer has the other buffer's offset plus the index of the range, so it stays relative to
+     * the underlying array or byte buffer; for a buffer created with {@link MemoryBuffers#wrap(long[], int, int)},
+     * it is the byte offset from the start of its {@code long[]}, 8 bytes per element. A buffer allocated by
+     * {@link MemoryBuffers}, and a flyweight wrapping a raw address, have offset 0.
      *
      * @return the offset in bytes
      */
