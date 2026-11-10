@@ -21,11 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.concurrent;
 
-import org.agrona.BitUtil;
-import org.agrona.collections.IntObjConsumer;
-import org.agrona.collections.IntObjPredicate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -174,7 +171,7 @@ class AtomicArrayTest {
                 values.set(value);
             }
         };
-        final IntObjConsumer<Object> indexCaptor = (index, obj) -> {
+        final AtomicArray.IndexedConsumer<Object> indexCaptor = (index, obj) -> {
             indices.set(index);
             if (obj != null) {
                 values.set(index);
@@ -228,7 +225,7 @@ class AtomicArrayTest {
         final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
         final BitSet values = new BitSet(n);
         final BitSet indices = new BitSet(n);
-        final IntObjPredicate<Object> predicate = (index, obj) -> {
+        final AtomicArray.IndexedPredicate<Object> predicate = (index, obj) -> {
             indices.set(index);
             if (obj == null) {
                 return false;
@@ -351,7 +348,7 @@ class AtomicArrayTest {
         assertEquals(-1, array.lastIndexOf(-1));
         assertEquals(-1, array.lastIndexOf(n));
         assertEquals(n - 1, array.lastIndexOf((index, value) -> value != null));
-        final int nextPow2 = BitUtil.isPowerOfTwo(n) ? n : (Integer.highestOneBit(n) << 1);
+        final int nextPow2 = (n & (n - 1)) == 0 ? n : (Integer.highestOneBit(n) << 1);
         assertEquals(nextPow2 - 1, array.lastIndexOf((index, value) -> value == null));
     }
 
