@@ -285,6 +285,27 @@ subprojects {
     }
 }
 
+project(':mmap-core') {
+    jar {
+        bundle {
+            // workaround for https://github.com/bndtools/bnd/issues/6346
+            properties.put("project.group", provider({project.group}))
+            bnd """
+                Automatic-Module-Name:  org.tools4j.mmap.core
+                Bundle-Name:            org.tools4j.mmap.core
+                Bundle-SymbolicName:    org.tools4j.mmap.core
+                Implementation-Title:   mmap
+                Implementation-Vendor:  tools4j.org
+                Implementation-Version: ${projVersion}
+                -exportcontents: org.tools4j.mmap.core.*
+                # Suppress headers that reduce reproducibility.
+                -reproducible: true
+                -noextraheaders: true
+            """
+        }
+    }
+}
+
 project(':mmap-mapping') {
     dependencies {
         api "org.agrona:agrona:${agronaVersion}"
