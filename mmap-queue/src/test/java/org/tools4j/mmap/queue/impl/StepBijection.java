@@ -21,9 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.agrona.BitUtil;
+package org.tools4j.mmap.queue.impl;
 
 /**
  * A bijective function that generates sequences of values that are regular incremental steps apart. For a given step
@@ -55,7 +53,7 @@ public class StepBijection implements IndexBijection {
     }
 
     public StepBijection(final int block, final int step) {
-        if (!BitUtil.isPowerOfTwo(block)) {
+        if (block <= 0 || (block & (block - 1)) != 0) {
             throw new IllegalArgumentException("Block length must be a power of 2: " + block);
         }
         if (step <= 0) {
