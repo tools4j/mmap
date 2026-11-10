@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+
 /**
  * Defines constants for uninitialised (aka null) values.
  */
@@ -36,5 +38,5 @@ public enum NullValues {
     /**
      * Null value used for undefined address.
      */
-    public static final long NULL_ADDRESS = 0;
+    public static final long NULL_ADDRESS = MemoryBuffers.NULL_ADDRESS;
 }

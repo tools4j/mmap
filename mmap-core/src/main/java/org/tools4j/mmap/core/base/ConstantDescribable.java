@@ -34,6 +34,8 @@ public final class ConstantDescribable implements Describable {
     private final String description;
 
     /**
+     * Creates a describable with the given constant description.
+     *
      * @param description the constant description
      */
     public ConstantDescribable(final String description) {
