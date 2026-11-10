@@ -419,69 +419,78 @@ public interface MemoryBuffer {
     void getBytes(int index, ByteBuffer destination, int length);
 
     /**
-     * Appends ASCII characters from this buffer to an appendable, one per byte, without allocating unless the
+     * Appends ASCII text from this buffer to an appendable, one character per byte, without allocating unless the
      * appendable does; there is no length prefix, the caller knows the length.
      *
-     * @param index the index of the first character
-     * @param length the number of characters
-     * @param destination the appendable to append to, such as a {@code StringBuilder}
-     * @return the number of characters appended, the length
+     * @param index the index of the first byte
+     * @param length the number of bytes, one per character
+     * @param destination the appendable to append to
+     * @return the number of bytes read, the length
      * @throws java.io.UncheckedIOException if the appendable throws an {@link java.io.IOException}
      */
-    int getAscii(int index, int length, Appendable destination);
+    int getTextAscii(int index, int length, Appendable destination);
 
     /**
-     * Appends ASCII characters from this buffer to a string builder, one per byte, without allocating unless the
+     * Appends ASCII text from this buffer to a string builder, one character per byte, without allocating unless the
      * string builder grows; there is no length prefix, the caller knows the length.
      *
-     * @param index the index of the first character
-     * @param length the number of characters
+     * @param index the index of the first byte
+     * @param length the number of bytes, one per character
      * @param destination the string builder to append to
-     * @return the number of characters appended, the length
+     * @return the number of bytes read, the length
      */
-    int getAscii(int index, int length, StringBuilder destination);
+    int getTextAscii(int index, int length, StringBuilder destination);
 
     /**
-     * Returns ASCII characters from this buffer as a new string, one character per byte; allocates the string.
-     *
-     * @param index the index of the first character
-     * @param length the number of characters
-     * @return the string
-     */
-    String getAscii(int index, int length);
-
-    /**
-     * Decodes UTF-8 from this buffer and appends the characters to an appendable, without allocating unless the
-     * appendable does; there is no length prefix, the caller knows the length in bytes. Malformed input is decoded
-     * as the replacement character {@code U+FFFD}, as the JDK does.
+     * Returns ASCII text from this buffer as a new string, one character per byte; allocates the string.
      *
      * @param index the index of the first byte
-     * @param length the number of bytes to decode
+     * @param length the number of bytes, one per character
+     * @return the string
+     */
+    String getTextAscii(int index, int length);
+
+    /**
+     * Decodes UTF-8 text from this buffer and appends it to an appendable, without allocating unless the appendable
+     * does; there is no length prefix, the caller knows the length in bytes.
+     * <p>
+     * Decoding can be resumed: if the range ends within the encoding of a character, those up to 3 bytes are not
+     * read, and the result is less than the length, so that text split into chunks can be decoded chunk by chunk,
+     * continuing at {@code index} plus the result. Other malformed input is decoded as the replacement character
+     * {@code U+FFFD}, as the JDK does.
+     *
+     * @param index the index of the first byte
+     * @param length the number of bytes to decode at most
      * @param destination the appendable to append to
-     * @return the number of characters appended
+     * @return the number of bytes read, the length or up to 3 less
      * @throws java.io.UncheckedIOException if the appendable throws an {@link java.io.IOException}
      */
-    int getUtf8(int index, int length, Appendable destination);
+    int getTextUtf8(int index, int length, Appendable destination);
 
     /**
-     * Decodes UTF-8 from this buffer and appends the characters to a string builder, without allocating unless the
-     * string builder grows; there is no length prefix, the caller knows the length in bytes. Malformed input is
-     * decoded as the replacement character {@code U+FFFD}, as the JDK does.
+     * Decodes UTF-8 text from this buffer and appends it to a string builder, without allocating unless the string
+     * builder grows; there is no length prefix, the caller knows the length in bytes.
+     * <p>
+     * Decoding can be resumed: if the range ends within the encoding of a character, those up to 3 bytes are not
+     * read, and the result is less than the length, so that text split into chunks can be decoded chunk by chunk,
+     * continuing at {@code index} plus the result. Other malformed input is decoded as the replacement character
+     * {@code U+FFFD}, as the JDK does.
      *
      * @param index the index of the first byte
-     * @param length the number of bytes to decode
+     * @param length the number of bytes to decode at most
      * @param destination the string builder to append to
-     * @return the number of characters appended
+     * @return the number of bytes read, the length or up to 3 less
      */
-    int getUtf8(int index, int length, StringBuilder destination);
+    int getTextUtf8(int index, int length, StringBuilder destination);
 
     /**
-     * Decodes UTF-8 from this buffer into a new string; allocates the string. Malformed input is decoded as the
-     * replacement character {@code U+FFFD}, as the JDK does.
+     * Decodes UTF-8 text from this buffer into a new string; allocates the string. All bytes are decoded, malformed
+     * input, including a character cut off by the end of the range, as the replacement character {@code U+FFFD}, as
+     * the JDK does.
      *
      * @param index the index of the first byte
      * @param length the number of bytes to decode
      * @return the string
      */
-    String getUtf8(int index, int length);
+    String getTextUtf8(int index, int length);
 }
