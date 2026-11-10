@@ -36,10 +36,9 @@ import java.nio.ByteOrder;
  * <b>Plain access</b> ({@code getLong(..)} etc.) works at any index, aligned or not.
  * <p>
  * <b>Ordered access</b> (opaque, acquire, volatile, and the atomic operations of {@link MutableMemoryBuffer}) needs
- * memory whose alignment is known: direct memory, or heap memory backed by a {@code long[]}. The address of the value
- * must be naturally aligned, that is, a multiple of the value's size; {@link #alignment()} tells the alignment of
- * index 0.
- * Ordered access to multi-byte values in memory backed by a {@code byte[]} throws
+ * memory whose alignment is known: direct memory, or heap memory allocated by {@link MemoryBuffers}. The address of
+ * the value must be naturally aligned, that is, a multiple of the value's size; {@link #alignment()} tells the
+ * alignment of index 0. Ordered access to multi-byte values in memory backed by a {@code byte[]} throws
  * {@link UnsupportedOperationException}, as the JDK's byte array view var handles do, since the elements of a
  * {@code byte[]} have no guaranteed alignment; single bytes have no alignment and support ordered access everywhere.
  * <p>
@@ -72,8 +71,9 @@ public interface MemoryBuffer {
 
     /**
      * Returns the guaranteed alignment of the address of index 0, the largest power of two dividing it: for direct
-     * memory that of the address; for memory backed by a {@code long[]} 8, or less if wrapped at an offset that is
-     * not a multiple of 8; for memory backed by a {@code byte[]} 1, since its elements have no guaranteed alignment.
+     * memory that of the address; for heap memory allocated by {@link MemoryBuffers} 8, or less for a flyweight
+     * wrapping it at an index that is not a multiple of 8; for a wrapped {@code byte[]} or heap {@code ByteBuffer} 1,
+     * since the elements of a {@code byte[]} have no guaranteed alignment.
      * <p>
      * Ordered access to a value of {@code n} bytes at {@code index} is supported if {@code n <= alignment()} and
      * {@code index % n == 0}, or if {@code n == 1}.

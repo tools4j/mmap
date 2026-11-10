@@ -23,7 +23,7 @@
  */
 /**
  * Buffers over direct and heap memory: {@linkplain MemoryBuffer read} and {@linkplain MutableMemoryBuffer write}
- * access, the re-wrappable {@linkplain MemoryBufferFlyweight flyweights}, the factory methods in
- * {@linkplain MemoryBuffers} to create them, and {@linkplain Utf8 UTF-8 utilities}.
+ * access, the re-wrappable {@linkplain MemoryBufferFlyweight flyweights}, and the factory methods in
+ * {@linkplain MemoryBuffers} to create them.
  */
 package org.tools4j.mmap.core.api;

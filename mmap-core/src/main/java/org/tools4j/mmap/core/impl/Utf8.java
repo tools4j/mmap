@@ -21,7 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.core.api;
+package org.tools4j.mmap.core.impl;
+
+import org.tools4j.mmap.core.api.MemoryBuffer;
+import org.tools4j.mmap.core.api.MutableMemoryBuffer;
 
 import java.util.Objects;
 

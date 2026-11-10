@@ -71,6 +71,41 @@ public enum MemoryBuffers {
     }
 
     /**
+     * Returns a new heap buffer over an existing {@code long[]}, sharing it without copying, which supports ordered
+     * access and atomic operations like an {@linkplain #allocate(int) allocated} heap buffer.
+     * <p>
+     * Unlike wrapping a flyweight, this allocates: the buffer, and for some memory access mechanisms its view of the
+     * array. To access ranges of the array without allocating, wrap flyweights around the returned buffer.
+     *
+     * @param array the array, with a capacity of 8 bytes per element
+     * @return the buffer
+     * @throws IllegalArgumentException if the array has more than {@code Integer.MAX_VALUE / 8} elements
+     */
+    public static MutableMemoryBuffer wrap(final long[] array) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /**
+     * Returns a new heap buffer over a range of elements of an existing {@code long[]}, sharing it without copying,
+     * which supports ordered access and atomic operations like an {@linkplain #allocate(int) allocated} heap buffer.
+     * Index 0 of the buffer is the first byte of element {@code offset}, and the capacity is 8 bytes per element.
+     * <p>
+     * Unlike wrapping a flyweight, this allocates: the buffer, and for some memory access mechanisms its view of the
+     * array. To access ranges of the array without allocating, also ranges not starting at an element, wrap
+     * flyweights around the returned buffer.
+     *
+     * @param array the array
+     * @param offset the index of the first element
+     * @param length the number of elements
+     * @return the buffer
+     * @throws IndexOutOfBoundsException if the range is not within the array
+     * @throws IllegalArgumentException if the range has more than {@code Integer.MAX_VALUE / 8} elements
+     */
+    public static MutableMemoryBuffer wrap(final long[] array, final int offset, final int length) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /**
      * Allocates a direct buffer whose first byte is aligned to a cache line, freed by the garbage collector once the
      * buffer is no longer referenced.
      *
