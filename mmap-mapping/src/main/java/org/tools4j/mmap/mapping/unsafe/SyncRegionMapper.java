@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import static java.util.Objects.requireNonNull;

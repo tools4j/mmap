@@ -32,10 +32,10 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_ITERATOR_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.ENTRY_READER_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 public class ReaderConfiguratorImpl implements ReaderConfigurator {
     private final ReaderConfig defaults;

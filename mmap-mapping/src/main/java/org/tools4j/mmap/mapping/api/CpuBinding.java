@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.base.Closeable;
+
 /**
  * The binding of a thread to a CPU, returned by {@link CpuPinning#pinCurrentThread(int)}. It is closed by the bound
  * thread when it no longer needs to be pinned, restoring its previous affinity.

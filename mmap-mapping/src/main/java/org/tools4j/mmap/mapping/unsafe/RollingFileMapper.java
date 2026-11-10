@@ -25,12 +25,12 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.CloseHelper;
 import org.agrona.collections.LongArrayList;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.RollingFiles;
@@ -43,13 +43,13 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * A {@link FileMapper} that splits a logical stream across multiple physical files ("rolling"), creating a new file

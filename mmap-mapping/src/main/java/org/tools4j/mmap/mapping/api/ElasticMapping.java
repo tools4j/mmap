@@ -26,8 +26,8 @@ package org.tools4j.mmap.mapping.api;
 
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionState;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionOffset;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionOffset;
 
 /**
  * An elastic mapping is a {@link DynamicMapping} that starts at an {@linkplain #regionOffset() offset} from the

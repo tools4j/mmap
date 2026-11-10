@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.api;
+package org.tools4j.mmap.core.base;
 
 /**
  * Listener for errors that cannot be thrown to a caller, for instance exceptions thrown by an entry handler or by a

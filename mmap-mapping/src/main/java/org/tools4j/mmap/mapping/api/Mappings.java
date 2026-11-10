@@ -23,6 +23,9 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.AdaptiveMappingImpl;
@@ -41,7 +44,7 @@ import org.tools4j.mmap.mapping.unsafe.RegionMappers;
 import java.io.File;
 
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultInitialMappingPoolSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFixedMappingLength;
 
 /**
  * A facade class with static methods to create mappings and mapping pools.

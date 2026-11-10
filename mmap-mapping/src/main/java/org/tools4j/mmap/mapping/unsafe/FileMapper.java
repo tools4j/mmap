@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Closeable;
-import org.tools4j.mmap.mapping.api.Unsafe;
 
 import java.io.UncheckedIOException;
 

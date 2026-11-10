@@ -28,8 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.tools4j.mmap.core.internal.OS;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
-import org.tools4j.mmap.mapping.impl.OS;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.IOException;

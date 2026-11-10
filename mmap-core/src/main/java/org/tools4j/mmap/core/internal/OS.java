@@ -21,25 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.internal;
 
-import org.junit.jupiter.api.Test;
-import org.tools4j.mmap.mapping.api.Describable;
+public enum OS {
+    ;
+    public static final String NAME = java.lang.System.getProperty("os.name").toLowerCase();
+    public static final boolean WINDOWS = NAME.startsWith("win");
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-/**
- * Unit test for {@link ConstantDescribable}.
- */
-class ConstantDescribableTest {
-
-    @Test
-    void describesItselfWithConstantDescription() {
-        final ConstantDescribable describable = new ConstantDescribable("pinner");
-        assertEquals("pinner", describable.toString());
-        assertEquals("pinner", Describable.describe(describable));
-        assertEquals("x:pinner", describable.describeTo(new StringBuilder("x:")).toString());
-        assertThrows(NullPointerException.class, () -> new ConstantDescribable(null));
+    public static <T> T ifWindows(final T value, final T defaultValue) {
+        if (WINDOWS) {
+            return value;
+        }
+        return defaultValue;
     }
 }

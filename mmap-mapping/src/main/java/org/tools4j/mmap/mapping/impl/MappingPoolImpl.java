@@ -23,16 +23,16 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AdaptiveMapping;
-import org.tools4j.mmap.mapping.api.Describable;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.MappingPool;
 import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.unsafe.RegionMappers.createRefCountRegionMapper;
 
 public final class MappingPoolImpl implements MappingPool, Describable {

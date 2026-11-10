@@ -23,14 +23,14 @@
  */
 package org.tools4j.mmap.queue.api;
 
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.impl.QueueImpl;
-import org.tools4j.mmap.mapping.api.Closeable;
-import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
 

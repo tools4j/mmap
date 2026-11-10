@@ -26,10 +26,10 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFileSizes;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFileSizes;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * Immutable {@link QueueLayoutConfig queue layout}, as stored in the queue's {@link QueueMetaFile meta file}; it

@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.config;
 
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mappings;
 
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;

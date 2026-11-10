@@ -40,8 +40,8 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappi
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeThreadFactory;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionsToMapAhead;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAheadMappingCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionsToMapAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionsToMapAhead;
 
 public class AsyncMappingConfiguratorImpl implements AsyncMappingConfigurator {
 

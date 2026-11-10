@@ -25,32 +25,32 @@ package org.tools4j.mmap.mapping.config;
 
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.SystemProperties.PropertyInstance;
+import org.tools4j.mmap.core.logging.LoggingErrorListener;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.CpuPinning;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
+import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.mapping.impl.CpuLists;
-import org.tools4j.mmap.mapping.impl.Constraints;
-import org.tools4j.mmap.mapping.impl.LoggingErrorListener;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
 import org.tools4j.mmap.mapping.impl.StandardFileInitialiser;
-import org.tools4j.mmap.mapping.impl.SystemProperties.PropertyInstance;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static org.tools4j.mmap.core.internal.SystemProperties.booleanProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.enumProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.instanceProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.intProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.longProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.namedOrClassInstanceProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.supplierProperty;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.booleanProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.enumProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.instanceProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.intProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.longProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.namedOrClassInstanceProperty;
-import static org.tools4j.mmap.mapping.impl.SystemProperties.supplierProperty;
 
 /**
  * Defines default configuration values for mappings and system property names to override them. The
@@ -261,7 +261,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#minFileSize()
      */
     public static long defaultMinFileSize() {
-        return longProperty(MIN_FILE_SIZE_PROPERTY, Constraints::validateMinFileSize, MIN_FILE_SIZE_DEFAULT);
+        return longProperty(MIN_FILE_SIZE_PROPERTY, MappingValidations::validateMinFileSize, MIN_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -273,7 +273,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#maxFileSize()
      */
     public static long defaultMaxFileSize() {
-        return longProperty(MAX_FILE_SIZE_PROPERTY, Constraints::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
+        return longProperty(MAX_FILE_SIZE_PROPERTY, MappingValidations::validateMaxFileSize, MAX_FILE_SIZE_DEFAULT);
     }
 
     /**
@@ -309,7 +309,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#maxOpenFiles()
      */
     public static int defaultMaxOpenFiles() {
-        return intProperty(MAX_OPEN_FILES_PROPERTY, Constraints::validateMaxOpenFiles, MAX_OPEN_FILES_DEFAULT);
+        return intProperty(MAX_OPEN_FILES_PROPERTY, MappingValidations::validateMaxOpenFiles, MAX_OPEN_FILES_DEFAULT);
     }
 
     /**
@@ -321,7 +321,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#filesToCreateAhead()
      */
     public static int defaultFilesToCreateAhead() {
-        return intProperty(FILES_TO_CREATE_AHEAD_PROPERTY, Constraints::validateFilesToCreateAhead, FILES_TO_CREATE_AHEAD_DEFAULT);
+        return intProperty(FILES_TO_CREATE_AHEAD_PROPERTY, MappingValidations::validateFilesToCreateAhead, FILES_TO_CREATE_AHEAD_DEFAULT);
     }
 
     /**
@@ -348,7 +348,7 @@ public enum MappingConfigurations {
      * @see MappingConfig#regionSize()
      */
     public static int defaultRegionSize() {
-        return intProperty(REGION_SIZE_PROPERTY, Constraints::validateRegionSize, REGION_SIZE_DEFAULT);
+        return intProperty(REGION_SIZE_PROPERTY, MappingValidations::validateRegionSize, REGION_SIZE_DEFAULT);
     }
 
     /**
@@ -361,7 +361,7 @@ public enum MappingConfigurations {
      *         {@value #INITIAL_MAPPING_POOL_SIZE_DEFAULT} otherwise
      */
     public static int defaultInitialMappingPoolSize() {
-        return intProperty(INITIAL_MAPPING_POOL_SIZE_PROPERTY, Constraints::validateInitialPoolSize, INITIAL_MAPPING_POOL_SIZE_DEFAULT);
+        return intProperty(INITIAL_MAPPING_POOL_SIZE_PROPERTY, MappingValidations::validateInitialPoolSize, INITIAL_MAPPING_POOL_SIZE_DEFAULT);
     }
 
     /**
@@ -373,7 +373,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#cacheSize()
      */
     public static int defaultRegionCacheSize() {
-        return intProperty(REGION_CACHE_SIZE_PROPERTY, Constraints::validateRegionCacheSize, REGION_CACHE_SIZE_DEFAULT);
+        return intProperty(REGION_CACHE_SIZE_PROPERTY, MappingValidations::validateRegionCacheSize, REGION_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -385,7 +385,7 @@ public enum MappingConfigurations {
      * @see MappingStrategyConfig#lruCacheSize()
      */
     public static int defaultRegionLruCacheSize() {
-        return intProperty(REGION_LRU_CACHE_SIZE_PROPERTY, Constraints::validateRegionLruCacheSize, REGION_LRU_CACHE_SIZE_DEFAULT);
+        return intProperty(REGION_LRU_CACHE_SIZE_PROPERTY, MappingValidations::validateRegionLruCacheSize, REGION_LRU_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -433,7 +433,7 @@ public enum MappingConfigurations {
      * @see AsyncMappingConfig#regionsToMapAhead()
      */
     public static int defaultRegionsToMapAhead() {
-        return intProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, Constraints::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
+        return intProperty(REGIONS_TO_MAP_AHEAD_PROPERTY, MappingValidations::validateRegionsToMapAhead, REGIONS_TO_MAP_AHEAD_DEFAULT);
     }
 
     /**
@@ -445,7 +445,7 @@ public enum MappingConfigurations {
      * @see AsyncMappingConfig#aheadMappingCacheSize()
      */
     public static int defaultAheadMappingCacheSize() {
-        return intProperty(AHEAD_MAPPING_CACHE_SIZE_PROPERTY, Constraints::validateAheadMappingCacheSize, AHEAD_MAPPING_CACHE_SIZE_DEFAULT);
+        return intProperty(AHEAD_MAPPING_CACHE_SIZE_PROPERTY, MappingValidations::validateAheadMappingCacheSize, AHEAD_MAPPING_CACHE_SIZE_DEFAULT);
     }
 
     /**
@@ -457,7 +457,7 @@ public enum MappingConfigurations {
      * @see AsyncUnmappingConfig#unmappingCacheSize()
      */
     public static int defaultUnmappingCacheSize() {
-        return intProperty(UNMAPPING_CACHE_SIZE_PROPERTY, Constraints::validateUnmappingCacheSize, UNMAPPING_CACHE_SIZE_DEFAULT);
+        return intProperty(UNMAPPING_CACHE_SIZE_PROPERTY, MappingValidations::validateUnmappingCacheSize, UNMAPPING_CACHE_SIZE_DEFAULT);
     }
 
     /**

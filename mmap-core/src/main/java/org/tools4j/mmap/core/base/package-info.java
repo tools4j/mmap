@@ -21,17 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-public enum OS {
-    ;
-    public static final String NAME = java.lang.System.getProperty("os.name").toLowerCase();
-    public static final boolean WINDOWS = NAME.startsWith("win");
-
-    public static <T> T ifWindows(final T value, final T defaultValue) {
-        if (WINDOWS) {
-            return value;
-        }
-        return defaultValue;
-    }
-}
+/**
+ * Basic types shared by all mmap modules: {@linkplain Closeable closeable} resources that {@linkplain Describable
+ * describe} themselves, and the {@linkplain LifecycleListener lifecycle} and {@linkplain ErrorListener error}
+ * listeners receiving their events.
+ */
+package org.tools4j.mmap.core.base;

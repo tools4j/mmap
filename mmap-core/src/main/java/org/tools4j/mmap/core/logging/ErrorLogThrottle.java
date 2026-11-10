@@ -21,14 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
-import org.agrona.concurrent.EpochClock;
-import org.agrona.concurrent.SystemEpochClock;
-import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.core.base.Describable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +63,7 @@ final class ErrorLogThrottle {
     }
 
     private final ErrorLog log;
-    private final EpochClock clock;
+    private final LongSupplier clock;
     private final long repeatIntervalMillis;
     private final RecentError[] recentErrors = new RecentError[RECENT_ERRORS];
     private int nextIndex;
@@ -89,10 +88,10 @@ final class ErrorLogThrottle {
     }
 
     public ErrorLogThrottle(final ErrorLog log) {
-        this(log, SystemEpochClock.INSTANCE, DEFAULT_REPEAT_INTERVAL_MILLIS);
+        this(log, System::currentTimeMillis, DEFAULT_REPEAT_INTERVAL_MILLIS);
     }
 
-    public ErrorLogThrottle(final ErrorLog log, final EpochClock clock, final long repeatIntervalMillis) {
+    public ErrorLogThrottle(final ErrorLog log, final LongSupplier clock, final long repeatIntervalMillis) {
         this.log = requireNonNull(log);
         this.clock = requireNonNull(clock);
         this.repeatIntervalMillis = repeatIntervalMillis;
@@ -106,7 +105,7 @@ final class ErrorLogThrottle {
      * @param error   the error
      */
     public void error(final Describable source, final String message, final Throwable error) {
-        final long time = clock.time();
+        final long time = clock.getAsLong();
         final RecentError recent = find(source, message, error);
         if (recent == null) {
             final RecentError evicted = recentErrors[nextIndex];

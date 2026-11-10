@@ -27,10 +27,10 @@ package org.tools4j.mmap.mapping.api;
 import org.agrona.DirectBuffer;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAdaptiveMappingLength;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateLimit;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionDelta;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionState;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateLimit;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
 /**
  * An adaptive mapping is a {@link DynamicMapping} that represents an arbitrary slice of the underlying file that lies

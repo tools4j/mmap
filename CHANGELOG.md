@@ -8,6 +8,10 @@ Notable changes per release. Entries are curated from the commits since the prev
 ## 2.1 (2026-11-14)
 
 ### Breaking changes
+- The basic types `Closeable`, `Describable`, `ErrorListener` and `LifecycleListener` moved from
+  `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.base`, the `@Unsafe` annotation to
+  `org.tools4j.mmap.core.unsafe`, and `LoggingErrorListener` from `org.tools4j.mmap.mapping.impl` to
+  `org.tools4j.mmap.core.logging`, in the new module `mmap-core`, which `mmap-mapping` depends on.
 - Pollers and entry iterators no longer idle while the queue or its first entry does not exist yet; idling is left to
   the application's poll or iteration loop. Removed `ReaderConfigurator.pendingIdleStrategy(..)`,
   `pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, the corresponding `ReaderConfig` getters, and the

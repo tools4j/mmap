@@ -25,7 +25,7 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.LangUtil;
 import org.agrona.UnsafeApi;
-import org.tools4j.mmap.mapping.api.Unsafe;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 
 import java.io.FileDescriptor;
 import java.io.IOException;

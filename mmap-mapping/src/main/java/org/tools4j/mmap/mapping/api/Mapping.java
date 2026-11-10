@@ -26,6 +26,8 @@ package org.tools4j.mmap.mapping.api;
 
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 

@@ -26,12 +26,12 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 
 import java.io.File;
 import java.io.IOException;

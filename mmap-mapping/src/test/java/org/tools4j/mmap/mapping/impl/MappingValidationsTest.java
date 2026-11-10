@@ -25,7 +25,6 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -33,35 +32,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAdaptiveMappingLength;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAddress;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAheadMappingCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFileSizeIncrement;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLength;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateGreaterThanZero;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateInitialPoolSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateLimit;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePosition;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionDelta;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionState;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionOffset;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionPosition;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionsToMapAhead;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateUnmappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAddress;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFileSizeIncrement;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFixedMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateInitialPoolSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateLimit;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePosition;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionLruCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionOffset;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPosition;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionsToMapAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateUnmappingCacheSize;
 
 /**
- * Unit test for the validation methods in {@link Constraints}.
+ * Unit test for the validation methods in {@link MappingValidations}.
  */
-class ConstraintsTest {
+class MappingValidationsTest {
 
     private static final int GRANULARITY = (int) REGION_SIZE_GRANULARITY;
     private static final int REGION_SIZE = 4096;
@@ -73,17 +69,6 @@ class ConstraintsTest {
 
     private static void invalid(final Executable validation) {
         assertThrows(IllegalArgumentException.class, validation);
-    }
-
-    @Test
-    void signConstraints() {
-        valid(() -> validateNonNegative("x", 0));
-        invalid(() -> validateNonNegative("x", -1));
-        valid(() -> validateGreaterThanZero("x", 1));
-        invalid(() -> validateGreaterThanZero("x", 0));
-        invalid(() -> validateGreaterThanZero("x", -1));
-        assertEquals("x value must be positive, but was 0",
-                assertThrows(IllegalArgumentException.class, () -> validateGreaterThanZero("x", 0)).getMessage());
     }
 
     @Test
@@ -185,32 +170,5 @@ class ConstraintsTest {
         valid(() -> validateUnmappingCacheSize(32));
         invalid(() -> validateUnmappingCacheSize(0));
         invalid(() -> validateUnmappingCacheSize(3));
-    }
-
-    @Test
-    void notClosedConstraint() {
-        valid(() -> validateNotClosed(closeable(false)));
-        final IllegalStateException e = assertThrows(IllegalStateException.class,
-                () -> validateNotClosed(closeable(true)));
-        assertEquals("Already closed: closeable", e.getMessage());
-    }
-
-    private static Closeable closeable(final boolean closed) {
-        return new Closeable() {
-            @Override
-            public boolean isClosed() {
-                return closed;
-            }
-
-            @Override
-            public void close() {
-                //no-op
-            }
-
-            @Override
-            public String toString() {
-                return "closeable";
-            }
-        };
     }
 }

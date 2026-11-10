@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.queue.impl;
 
+import org.tools4j.mmap.core.internal.FileLocks;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.impl.FileLocks;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
 import java.io.File;

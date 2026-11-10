@@ -24,8 +24,8 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.junit.jupiter.api.Test;
-import org.tools4j.mmap.mapping.api.ErrorListener;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;

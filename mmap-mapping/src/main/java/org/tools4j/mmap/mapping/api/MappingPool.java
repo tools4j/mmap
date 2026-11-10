@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.base.Closeable;
+
 
 /**
  * A mapping pool provides mappings that share the same file, {@linkplain #accessMode() access mode} and mapping

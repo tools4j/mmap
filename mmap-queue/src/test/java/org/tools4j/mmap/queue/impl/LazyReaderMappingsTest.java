@@ -25,9 +25,9 @@ package org.tools4j.mmap.queue.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.ErrorListener;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Queue;

@@ -262,11 +262,11 @@ subprojects {
             options.links("https://docs.oracle.com/en/java/javase/${buildJavaVersion}/docs/api/")
         }
         //doclint checks the packages that application code uses: in mmap-mapping and mmap-queue the api and config
-        //packages, in mmap-core all feature packages but their impl subpackages, and all of mmap-perf
+        //packages, in mmap-core all packages but internal and impl ones, and all of mmap-perf
         def basePackage = 'org.tools4j.' + project.name.replace('-', '.')
         def doclintPackages = [
                 'mmap-perf': basePackage,
-                'mmap-core': "${basePackage}.*,-${basePackage}.buffer.impl"
+                'mmap-core': "${basePackage}.*,-${basePackage}.internal,-${basePackage}.buffer.impl"
         ].getOrDefault(project.name, "${basePackage}.api,${basePackage}.config")
         options.addBooleanOption('Xdoclint:all', true)
         options.addBooleanOption("Xdoclint/package:${doclintPackages}", true)
@@ -290,6 +290,13 @@ subprojects {
 }
 
 project(':mmap-core') {
+    dependencies {
+        //optional: logging listeners use SLF4J if present on the class path, and java.util.logging otherwise
+        compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+        testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
+        testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    }
+
     jar {
         bundle {
             // workaround for https://github.com/bndtools/bnd/issues/6346
@@ -301,6 +308,7 @@ project(':mmap-core') {
                 Implementation-Title:   mmap
                 Implementation-Vendor:  tools4j.org
                 Implementation-Version: ${projVersion}
+                Import-Package:         org.slf4j.*;resolution:=optional, *
                 -exportcontents: org.tools4j.mmap.core.*
                 # Suppress headers that reduce reproducibility.
                 -reproducible: true
@@ -308,13 +316,18 @@ project(':mmap-core') {
             """
         }
     }
+
+    mavenPublishing {
+        publishToMavenCentral()
+        signAllPublications()
+        pom(projectPom)
+    }
 }
 
 project(':mmap-mapping') {
     dependencies {
+        api project(':mmap-core')
         api "org.agrona:agrona:${agronaVersion}"
-        //optional: logging listeners use SLF4J if present on the class path, and java.util.logging otherwise
-        compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
         testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
     }
@@ -330,7 +343,6 @@ project(':mmap-mapping') {
                 Implementation-Title:   mmap
                 Implementation-Vendor:  tools4j.org
                 Implementation-Version: ${projVersion}
-                Import-Package:         org.slf4j.*;resolution:=optional, *
                 -exportcontents: org.tools4j.mmap, org.tools4j.mmap.*
                 # Suppress headers that reduce reproducibility.
                 -reproducible: true

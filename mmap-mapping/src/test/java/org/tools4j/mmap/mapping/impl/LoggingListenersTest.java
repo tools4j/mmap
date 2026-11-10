@@ -24,7 +24,8 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
-import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.logging.LoggingErrorListener;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import static org.assertj.core.api.Assertions.assertThat;

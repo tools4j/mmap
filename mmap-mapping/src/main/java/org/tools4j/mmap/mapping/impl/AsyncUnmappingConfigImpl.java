@@ -30,7 +30,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateUnmappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateUnmappingCacheSize;
 
 public record AsyncUnmappingConfigImpl(int unmappingCacheSize,
                                        Supplier<? extends AsyncRuntime> unmappingRuntimeSupplier) implements AsyncUnmappingConfig {

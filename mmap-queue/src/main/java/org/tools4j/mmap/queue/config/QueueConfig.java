@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.queue.config;
 
-import org.tools4j.mmap.mapping.api.ErrorListener;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 
 /**
  * Queue configuration, consisting of the {@link QueueLayoutConfig queue layout}, which is fixed when the queue is

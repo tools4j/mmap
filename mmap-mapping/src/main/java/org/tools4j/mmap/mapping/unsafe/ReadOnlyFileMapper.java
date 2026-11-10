@@ -23,12 +23,12 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
@@ -37,9 +37,9 @@ import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
 
 /**
  * A {@link FileMapper} for read-only access to an existing file.

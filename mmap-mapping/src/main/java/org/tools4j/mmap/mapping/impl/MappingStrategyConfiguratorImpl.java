@@ -40,9 +40,9 @@ import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegio
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultRegionLruCacheSize;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionLruCacheSize;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionLruCacheSize;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class MappingStrategyConfiguratorImpl implements MappingStrategyConfigurator {

@@ -30,8 +30,8 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.impl.AsyncMappingConfigDefaults.ASYNC_MAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAheadMappingCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionsToMapAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionsToMapAhead;
 
 public record AsyncMappingConfigImpl(int regionsToMapAhead,
                                      int aheadMappingCacheSize,
