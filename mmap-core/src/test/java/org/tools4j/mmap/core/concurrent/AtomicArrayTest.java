@@ -26,6 +26,8 @@ package org.tools4j.mmap.core.concurrent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.function.IntObjConsumer;
+import org.tools4j.mmap.core.function.IntObjPredicate;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -171,7 +173,7 @@ class AtomicArrayTest {
                 values.set(value);
             }
         };
-        final AtomicArray.IndexedConsumer<Object> indexCaptor = (index, obj) -> {
+        final IntObjConsumer<Object> indexCaptor = (index, obj) -> {
             indices.set(index);
             if (obj != null) {
                 values.set(index);
@@ -225,7 +227,7 @@ class AtomicArrayTest {
         final AtomicArray<Integer> array = new AtomicArray<>(initialLength);
         final BitSet values = new BitSet(n);
         final BitSet indices = new BitSet(n);
-        final AtomicArray.IndexedPredicate<Object> predicate = (index, obj) -> {
+        final IntObjPredicate<Object> predicate = (index, obj) -> {
             indices.set(index);
             if (obj == null) {
                 return false;
