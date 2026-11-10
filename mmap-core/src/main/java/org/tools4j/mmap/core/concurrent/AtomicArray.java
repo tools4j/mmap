@@ -23,6 +23,10 @@
  */
 package org.tools4j.mmap.core.concurrent;
 
+import org.tools4j.mmap.core.function.IntObjConsumer;
+import org.tools4j.mmap.core.function.IntObjFunction;
+import org.tools4j.mmap.core.function.IntObjPredicate;
+
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -37,57 +41,6 @@ import java.util.function.IntPredicate;
  * @param <E> the element type
  */
 public class AtomicArray<E> {
-    /**
-     * Consumer of an element and its index.
-     *
-     * @param <E> the element type
-     */
-    @FunctionalInterface
-    public interface IndexedConsumer<E> {
-        /**
-         * Consumes an element.
-         *
-         * @param index   the index of the element
-         * @param element the element
-         */
-        void accept(int index, E element);
-    }
-
-    /**
-     * Predicate on an element and its index.
-     *
-     * @param <E> the element type
-     */
-    @FunctionalInterface
-    public interface IndexedPredicate<E> {
-        /**
-         * Tests an element.
-         *
-         * @param index   the index of the element
-         * @param element the element
-         * @return true if the element matches
-         */
-        boolean test(int index, E element);
-    }
-
-    /**
-     * Function of an element and its index.
-     *
-     * @param <E> the element type
-     * @param <R> the result type
-     */
-    @FunctionalInterface
-    public interface IndexedFunction<E, R> {
-        /**
-         * Applies the function to an element.
-         *
-         * @param index   the index of the element
-         * @param element the element
-         * @return the result
-         */
-        R apply(int index, E element);
-    }
-
     /** The initial length used by the {@linkplain #AtomicArray() default constructor}. */
     public static final int DEFAULT_INITIAL_LENGTH = 64;
     private static final int MAX_BITS = Integer.SIZE - 1;
@@ -279,7 +232,7 @@ public class AtomicArray<E> {
      * @param valueAccumulator the function computing the new value from the index and the element
      * @return the new value, or null if the element was null
      */
-    public E computeIfPresent(final int index, final IndexedFunction<? super E, ? extends E> valueAccumulator) {
+    public E computeIfPresent(final int index, final IntObjFunction<? super E, ? extends E> valueAccumulator) {
         final int block = blockIndex(index);
         final int offset = blockOffset(index, block);
         final AtomicReferenceArray<E> blockData = blocks.get(block);
@@ -305,7 +258,7 @@ public class AtomicArray<E> {
         return block.getAndAccumulate(offset, newValue, (vOld, vNew) -> vOld == null ? null : vNew) != null;
     }
 
-    private static <E> E computeIfPresent(final AtomicReferenceArray<E> block, final int index, final int offset, final IndexedFunction<? super E, ? extends E> valueAccumulator) {
+    private static <E> E computeIfPresent(final AtomicReferenceArray<E> block, final int index, final int offset, final IntObjFunction<? super E, ? extends E> valueAccumulator) {
         E vOld = block.getAcquire(offset);
         while (vOld != null) {
             final E vNew = valueAccumulator.apply(index, vOld);
@@ -415,8 +368,8 @@ public class AtomicArray<E> {
      * @param consumer the consumer of the indices and elements
      * @return the number of elements passed to the consumer
      */
-    public int forEach(final IndexedConsumer<? super E> consumer) {
-        return loopCount(loopForward(indexedConsumerForEach(), consumer));
+    public int forEach(final IntObjConsumer<? super E> consumer) {
+        return loopCount(loopForward(intObjConsumerForEach(), consumer));
     }
 
     /**
@@ -438,8 +391,8 @@ public class AtomicArray<E> {
      * @param matcher the predicate on index and element
      * @return the first matching index, or -1 if none
      */
-    public int indexOf(final IndexedPredicate<? super E> matcher) {
-        final LoopCondition<E, IndexedPredicate<? super E>> untilMatching = untilMatching();
+    public int indexOf(final IntObjPredicate<? super E> matcher) {
+        final LoopCondition<E, IntObjPredicate<? super E>> untilMatching = untilMatching();
         return matchIndex(loopForward(untilMatching, matcher), untilMatching, matcher);
     }
 
@@ -459,7 +412,7 @@ public class AtomicArray<E> {
      * @param matcher the predicate on index and element
      * @return the last matching index, or -1 if none
      */
-    public int lastIndexOf(final IndexedPredicate<? super E> matcher) {
+    public int lastIndexOf(final IntObjPredicate<? super E> matcher) {
         return matchIndex(loopBackward(untilMatching(), matcher));
     }
 
@@ -535,7 +488,7 @@ public class AtomicArray<E> {
      * @param predicate the predicate on index and element
      * @return the number of elements for which the predicate held, the index of the first failing one
      */
-    public int forEachWhile(final IndexedPredicate<? super E> predicate) {
+    public int forEachWhile(final IntObjPredicate<? super E> predicate) {
         return loopCount(loopForward(whileMatching(), predicate));
     }
 
@@ -626,11 +579,11 @@ public class AtomicArray<E> {
         return (index, value, attendant) -> Objects.equals(value, attendant);
     }
 
-    private static <E> LoopCondition<E, IndexedPredicate<? super E>> untilMatching() {
+    private static <E> LoopCondition<E, IntObjPredicate<? super E>> untilMatching() {
         return (index, value, predicate) -> predicate.test(index, value);
     }
 
-    private static <E> LoopCondition<E, IndexedPredicate<? super E>> whileMatching() {
+    private static <E> LoopCondition<E, IntObjPredicate<? super E>> whileMatching() {
         return (index, value, predicate) -> !predicate.test(index, value);
     }
 
@@ -641,7 +594,7 @@ public class AtomicArray<E> {
         };
     }
 
-    private static <E> LoopCondition<E, IndexedConsumer<? super E>> indexedConsumerForEach() {
+    private static <E> LoopCondition<E, IntObjConsumer<? super E>> intObjConsumerForEach() {
         return (index, value, consumer) -> {
             consumer.accept(index, value);
             return false;
