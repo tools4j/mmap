@@ -23,17 +23,17 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.RegionAware;
-import org.tools4j.mmap.mapping.api.Unsafe;
 
 import java.io.UncheckedIOException;
 
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAddress;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionPosition;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAddress;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPosition;
 
 /**
  * Low level API to map regions with implementation dependant optimisations such as unmapping, caching and pre-mapping

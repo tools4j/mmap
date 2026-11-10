@@ -24,6 +24,9 @@
 package org.tools4j.mmap.mapping.api;
 
 import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 
 import java.util.concurrent.ThreadFactory;

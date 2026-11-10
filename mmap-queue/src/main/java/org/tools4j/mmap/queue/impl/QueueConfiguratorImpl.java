@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.mapping.api.ErrorListener;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
@@ -41,10 +41,9 @@ import org.tools4j.mmap.queue.config.ReaderConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.queue.impl.AppenderIdPool.validateMaxAppenders;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultHeaderRegionSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxAppenders;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeaderFileSize;
@@ -52,6 +51,7 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloa
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadRegionSize;
+import static org.tools4j.mmap.queue.impl.AppenderIdPool.validateMaxAppenders;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {

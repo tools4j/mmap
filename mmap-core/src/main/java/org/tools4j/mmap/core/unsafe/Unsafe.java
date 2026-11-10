@@ -21,33 +21,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.unsafe;
 
-import org.tools4j.mmap.mapping.api.Describable;
-
-import static java.util.Objects.requireNonNull;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Describable with a constant description, for instance a name used as source of reported events where no describable
- * object is at hand. As a named class it also gives the logging listeners a stable logger name, unlike a lambda.
+ * Annotation used for classes, methods or constructors that are potentially unsafe to use and could crash the JVM in
+ * the worst case.
  */
-public final class ConstantDescribable implements Describable {
-    private final String description;
-
-    /**
-     * @param description the constant description
-     */
-    public ConstantDescribable(final String description) {
-        this.description = requireNonNull(description);
-    }
-
-    @Override
-    public StringBuilder describeTo(final StringBuilder sb) {
-        return sb.append(description);
-    }
-
-    @Override
-    public String toString() {
-        return description;
-    }
+@Retention(RetentionPolicy.SOURCE)
+@Target({ElementType.METHOD, ElementType.TYPE, ElementType.CONSTRUCTOR})
+@Documented
+public @interface Unsafe {
 }

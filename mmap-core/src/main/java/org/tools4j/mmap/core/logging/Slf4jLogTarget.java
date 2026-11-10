@@ -21,23 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
-import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static java.util.Objects.requireNonNull;
 
 /**
- * Unit test for {@link OS}.
+ * Log target writing to SLF4J; only loaded if SLF4J is present on the class path.
  */
-public class OSTest {
-    @Test
-    public void ifWindows() {
-        boolean isWindows = System.getProperty("os.name", "unknown").toLowerCase().startsWith("win");
-        if (isWindows) {
-            assertEquals("win", OS.ifWindows("win", "nonwin"));
-        } else {
-            assertEquals("nonwin", OS.ifWindows("win", "nonwin"));
+final class Slf4jLogTarget implements LogTarget {
+    private final Logger logger;
+
+    private Slf4jLogTarget(final Logger logger) {
+        this.logger = requireNonNull(logger);
+    }
+
+    static LogTarget create(final Class<?> type) {
+        return new Slf4jLogTarget(LoggerFactory.getLogger(type));
+    }
+
+    @Override
+    public boolean isEnabled(final Level level) {
+        return switch (level) {
+            case DEBUG -> logger.isDebugEnabled();
+            case INFO -> logger.isInfoEnabled();
+            case WARN -> logger.isWarnEnabled();
+            case ERROR -> logger.isErrorEnabled();
+        };
+    }
+
+    @Override
+    public void log(final Level level, final String message, final Throwable error) {
+        switch (level) {
+            case DEBUG -> logger.debug(message, error);
+            case INFO -> logger.info(message, error);
+            case WARN -> logger.warn(message, error);
+            case ERROR -> logger.error(message, error);
         }
     }
 }

@@ -24,11 +24,11 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.AsyncMappingConfig;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfig;

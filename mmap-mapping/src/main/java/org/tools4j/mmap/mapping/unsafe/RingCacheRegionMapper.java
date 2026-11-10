@@ -23,17 +23,17 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 
 import java.util.Arrays;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * Region mapper with a bounded ring cache of mapped regions, where each region position maps to a fixed slot.

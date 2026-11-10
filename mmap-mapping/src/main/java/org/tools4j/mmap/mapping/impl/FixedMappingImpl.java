@@ -32,11 +32,11 @@ import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFixedMappingLength;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFixedMappingLength;
 
 public class FixedMappingImpl implements FixedMapping {
     private final FileMapper fileMapper;

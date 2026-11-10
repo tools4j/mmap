@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;

@@ -21,24 +21,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
-import org.tools4j.mmap.mapping.api.Describable;
+import org.tools4j.mmap.core.base.Describable;
 
 /**
  * Log target used by the logging listeners, writing to SLF4J if present on the class path, and to
  * {@link java.util.logging java.util.logging} otherwise.
  */
-interface LogTarget {
+public interface LogTarget {
+    /** Log levels, in increasing order of severity. */
     enum Level {
+        /** Detailed information for diagnosing problems. */
         DEBUG,
+        /** Information about the normal operation. */
         INFO,
+        /** A problem that does not stop the operation. */
         WARN,
+        /** A problem that stops an operation. */
         ERROR
     }
 
+    /**
+     * Returns whether messages at the given level are logged.
+     *
+     * @param level the level
+     * @return true if messages at the level are logged
+     */
     boolean isEnabled(Level level);
 
+    /**
+     * Logs a message at the given level.
+     *
+     * @param level   the level
+     * @param message the message
+     * @param error   the error to log with the message, or null for none
+     */
     void log(Level level, String message, Throwable error);
 
     /**

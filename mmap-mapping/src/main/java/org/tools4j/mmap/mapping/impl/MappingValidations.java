@@ -24,24 +24,16 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.BitUtil;
-import org.tools4j.mmap.mapping.api.Closeable;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
+import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
+import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
+import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
-public enum Constraints {
+public enum MappingValidations {
     ;
-    public static void validateNonNegative(final String name, final long value) {
-        if (value < 0) {
-            throw new IllegalArgumentException(name + " value cannot be negative, but was " + value);
-        }
-    }
-    public static void validateGreaterThanZero(final String name, final long value) {
-        if (value <= 0) {
-            throw new IllegalArgumentException(name + " value must be positive, but was " + value);
-        }
-    }
 
     public static void validateAddress(final long address) {
         if (address <= NULL_ADDRESS) {
@@ -214,21 +206,6 @@ public enum Constraints {
 
     public static void validateFilesToCreateAhead(final int filesToCreateAhead) {
         validateNonNegative("Files to create ahead", filesToCreateAhead);
-    }
-
-    public static void validatePowerOfTwo(final String name, final int value) {
-        if (!BitUtil.isPowerOfTwo(value)) {
-            throw new IllegalArgumentException(name + " must be a power of two but was " + value);
-        }
-    }
-
-    public static void validateNotClosed(final Closeable closeable) {
-        if (closeable.isClosed()) {
-            throw alreadyClosedException(closeable);
-        }
-    }
-    public static IllegalStateException alreadyClosedException(final Closeable closeable) {
-        return new IllegalStateException("Already closed: " + closeable);
     }
 
 }

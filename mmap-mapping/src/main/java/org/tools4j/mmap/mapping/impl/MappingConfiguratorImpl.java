@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
@@ -35,13 +35,13 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMinFileSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingConfigDefaults.MAPPING_CONFIG_DEFAULTS;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 public class MappingConfiguratorImpl implements MappingConfigurator {
     protected final MappingConfig defaults;

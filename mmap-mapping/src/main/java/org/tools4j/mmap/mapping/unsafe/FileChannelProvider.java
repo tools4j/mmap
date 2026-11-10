@@ -23,14 +23,14 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.FileLocks;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Closeable;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
-import org.tools4j.mmap.mapping.impl.FileLocks;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -42,7 +42,7 @@ import java.nio.channels.FileLock;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 
 final class FileChannelProvider implements Closeable {
     private final Describable owner;

@@ -25,19 +25,19 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.tools4j.mmap.mapping.api.AsyncRuntime;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
+import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
 import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
+import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePowerOfTwo;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * A direct region mapper that delegates mapping operations synchronously to the underlying {@link FileMapper} and

@@ -24,7 +24,7 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.CloseHelper;
-import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.core.base.Closeable;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicIntegerArray;

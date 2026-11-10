@@ -21,12 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.impl.ErrorLogThrottle.ErrorLog;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.logging.ErrorLogThrottle.ErrorLog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;

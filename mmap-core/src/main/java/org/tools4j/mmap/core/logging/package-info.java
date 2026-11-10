@@ -21,42 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import java.util.logging.Logger;
-
-import static java.util.Objects.requireNonNull;
-
 /**
- * Log target writing to {@link java.util.logging java.util.logging}, used if SLF4J is not present on the class path.
+ * Logging implementations of the listeners, such as the {@linkplain LoggingErrorListener logging error listener},
+ * writing to SLF4J if present on the class path, and to {@link java.util.logging java.util.logging} otherwise.
  */
-final class JulLogTarget implements LogTarget {
-    private final Logger logger;
-
-    private JulLogTarget(final Logger logger) {
-        this.logger = requireNonNull(logger);
-    }
-
-    static LogTarget create(final Class<?> type) {
-        return new JulLogTarget(Logger.getLogger(type.getName()));
-    }
-
-    private static java.util.logging.Level julLevel(final Level level) {
-        return switch (level) {
-            case DEBUG -> java.util.logging.Level.FINE;
-            case INFO -> java.util.logging.Level.INFO;
-            case WARN -> java.util.logging.Level.WARNING;
-            case ERROR -> java.util.logging.Level.SEVERE;
-        };
-    }
-
-    @Override
-    public boolean isEnabled(final Level level) {
-        return logger.isLoggable(julLevel(level));
-    }
-
-    @Override
-    public void log(final Level level, final String message, final Throwable error) {
-        logger.log(julLevel(level), message, error);
-    }
-}
+package org.tools4j.mmap.core.logging;

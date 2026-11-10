@@ -32,6 +32,8 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderFilesToCreateAhead;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderHeaderMappingStrategy;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderPayloadFilesToCreateAhead;
@@ -39,8 +41,6 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultAppenderP
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderHeaderFiles;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxOpenAppenderPayloadFiles;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateFilesToCreateAhead;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateMaxOpenFiles;
 
 public class AppenderConfiguratorImpl implements AppenderConfigurator {
     private final AppenderConfig defaults;

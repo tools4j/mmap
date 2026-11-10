@@ -21,44 +21,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.base;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Log target writing to SLF4J; only loaded if SLF4J is present on the class path.
+ * Describable with a constant description, for instance a name used as source of reported events where no describable
+ * object is at hand. As a named class it also gives the logging listeners a stable logger name, unlike a lambda.
  */
-final class Slf4jLogTarget implements LogTarget {
-    private final Logger logger;
+public final class ConstantDescribable implements Describable {
+    private final String description;
 
-    private Slf4jLogTarget(final Logger logger) {
-        this.logger = requireNonNull(logger);
-    }
-
-    static LogTarget create(final Class<?> type) {
-        return new Slf4jLogTarget(LoggerFactory.getLogger(type));
-    }
-
-    @Override
-    public boolean isEnabled(final Level level) {
-        return switch (level) {
-            case DEBUG -> logger.isDebugEnabled();
-            case INFO -> logger.isInfoEnabled();
-            case WARN -> logger.isWarnEnabled();
-            case ERROR -> logger.isErrorEnabled();
-        };
+    /**
+     * @param description the constant description
+     */
+    public ConstantDescribable(final String description) {
+        this.description = requireNonNull(description);
     }
 
     @Override
-    public void log(final Level level, final String message, final Throwable error) {
-        switch (level) {
-            case DEBUG -> logger.debug(message, error);
-            case INFO -> logger.info(message, error);
-            case WARN -> logger.warn(message, error);
-            case ERROR -> logger.error(message, error);
-        }
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append(description);
+    }
+
+    @Override
+    public String toString() {
+        return description;
     }
 }

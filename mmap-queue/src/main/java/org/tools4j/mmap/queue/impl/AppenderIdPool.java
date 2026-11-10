@@ -24,10 +24,10 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.agrona.CloseHelper;
-import org.tools4j.mmap.mapping.api.Closeable;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
@@ -37,7 +37,7 @@ import org.tools4j.mmap.mapping.impl.AtomicIdBitSet;
 import java.io.File;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 
 /**
  * The pool of appender IDs of a queue, up to 256 IDs in a memory-mapped file.

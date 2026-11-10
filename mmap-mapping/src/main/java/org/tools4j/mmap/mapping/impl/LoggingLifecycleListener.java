@@ -23,8 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.logging.LogTarget;
 import org.tools4j.mmap.mapping.unsafe.ConcurrentRollingFileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RollingFileMapper;

@@ -30,9 +30,9 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionCacheSize;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionLruCacheSize;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionLruCacheSize;
 
 public record MappingStrategyConfigImpl(int cacheSize, int lruCacheSize, boolean deferUnmapping,
                                         Optional<AsyncMappingConfig> asyncMapping,

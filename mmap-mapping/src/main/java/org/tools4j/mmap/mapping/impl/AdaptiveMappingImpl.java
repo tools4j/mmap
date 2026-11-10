@@ -25,20 +25,20 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AdaptiveMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateAdaptiveMappingLength;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePosition;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionDelta;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionState;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePosition;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
 public final class AdaptiveMappingImpl implements AdaptiveMapping {
     private final RegionMapper regionMapper;

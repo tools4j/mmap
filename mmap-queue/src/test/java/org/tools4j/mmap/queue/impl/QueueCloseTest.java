@@ -25,7 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.mapping.api.Closeable;
+import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;

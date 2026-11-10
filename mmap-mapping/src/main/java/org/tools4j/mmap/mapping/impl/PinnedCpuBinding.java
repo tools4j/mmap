@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.mapping.api.CpuBinding;
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
 
 import java.util.Arrays;
 

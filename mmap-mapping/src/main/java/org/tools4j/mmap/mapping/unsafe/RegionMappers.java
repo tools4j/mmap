@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
-import org.tools4j.mmap.mapping.api.LifecycleListener;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.config.AsyncMappingConfig;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfig;

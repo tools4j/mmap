@@ -33,10 +33,10 @@ import org.tools4j.mmap.mapping.config.SharingPolicy;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingCacheSize;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeSupplier;
 import static org.tools4j.mmap.mapping.impl.AsyncUnmappingConfigDefaults.ASYNC_UNMAPPING_CONFIG_DEFAULTS;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateUnmappingCacheSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateUnmappingCacheSize;
 
 public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurator {
 

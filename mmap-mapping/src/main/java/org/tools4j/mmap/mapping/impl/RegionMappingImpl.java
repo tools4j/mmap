@@ -25,17 +25,17 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.api.Unsafe;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNotClosed;
-import static org.tools4j.mmap.mapping.impl.Constraints.validateRegionPosition;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPosition;
 
 public final class RegionMappingImpl implements RegionMapping {
     private final RegionMapper regionMapper;

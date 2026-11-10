@@ -21,20 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.api;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
- * Annotation used for classes, methods or constructors that are potentially unsafe to use and could crash the JVM in
- * the worst case.
+ * Internal utilities shared by the mmap modules, such as {@linkplain SystemProperties system properties},
+ * {@linkplain FileLocks file locks} and {@linkplain Validations validations}. Public for the other mmap modules, but
+ * not intended for application code.
  */
-@Retention(RetentionPolicy.SOURCE)
-@Target({ElementType.METHOD, ElementType.TYPE, ElementType.CONSTRUCTOR})
-@Documented
-public @interface Unsafe {
-}
+package org.tools4j.mmap.core.internal;

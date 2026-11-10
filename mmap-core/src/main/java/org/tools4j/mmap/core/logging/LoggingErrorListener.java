@@ -21,13 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
-import org.tools4j.mmap.mapping.api.Describable;
-import org.tools4j.mmap.mapping.api.ErrorListener;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
 
-import static org.tools4j.mmap.mapping.impl.LogTarget.Level.ERROR;
-import static org.tools4j.mmap.mapping.impl.LogTarget.Level.WARN;
+import static org.tools4j.mmap.core.logging.LogTarget.Level.ERROR;
+import static org.tools4j.mmap.core.logging.LogTarget.Level.WARN;
 
 /**
  * Error listener logging errors and warnings to SLF4J if present on the class path, and to
@@ -36,6 +36,7 @@ import static org.tools4j.mmap.mapping.impl.LogTarget.Level.WARN;
  * Repetitions of recently logged errors are suppressed per thread, see {@link ErrorLogThrottle}.
  */
 public final class LoggingErrorListener implements ErrorListener {
+    /** The logging error listener, the only instance. */
     public static final LoggingErrorListener INSTANCE = new LoggingErrorListener();
 
     private final ThreadLocal<ErrorLogThrottle> throttle = ThreadLocal.withInitial(

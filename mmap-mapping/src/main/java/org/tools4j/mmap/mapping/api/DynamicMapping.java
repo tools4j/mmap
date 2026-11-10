@@ -29,9 +29,9 @@ import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import java.io.UncheckedIOException;
 import java.util.function.Predicate;
 
-import static org.tools4j.mmap.mapping.impl.Constraints.validateNonNegative;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionDelta;
-import static org.tools4j.mmap.mapping.impl.Constraints.validatePositionState;
+import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
 /**
  * A dynamic mapping is a {@link Mapping} whose {@linkplain #position() position} can be changed by
