@@ -290,6 +290,14 @@ subprojects {
 }
 
 project(':mmap-core') {
+    //memory access through jdk.internal.misc.Unsafe, exported at run time with the same flag Agrona needs
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs.addAll(['--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED'])
+    }
+    javadoc {
+        options.addStringOption('-add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED')
+    }
+
     dependencies {
         //optional: logging listeners use SLF4J if present on the class path, and java.util.logging otherwise
         compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"

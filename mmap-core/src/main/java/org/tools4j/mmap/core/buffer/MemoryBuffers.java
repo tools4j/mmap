@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.core.buffer;
 
+import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
+
 /**
  * Creates buffers and flyweights.
  * <p>
@@ -31,9 +33,10 @@ package org.tools4j.mmap.core.buffer;
  * {@value #MEMORY_ACCESS_PROPERTY}:
  * <ul>
  *     <li>{@code UNSAFE} (default): {@code jdk.internal.misc.Unsafe}, the fastest, on all supported Java versions;
- *     needs {@code --add-exports java.base/jdk.internal.misc=ALL-UNNAMED}</li>
+ *     needs {@code --add-exports java.base/jdk.internal.misc=ALL-UNNAMED} (or {@code --add-opens}), as Agrona
+ *     does</li>
  *     <li>{@code FFM}: the Foreign Function and Memory API, public API, Java 22 or later; needs
- *     {@code --enable-native-access=ALL-UNNAMED}</li>
+ *     {@code --enable-native-access=ALL-UNNAMED}; not available yet</li>
  * </ul>
  */
 public enum MemoryBuffers {
@@ -42,13 +45,16 @@ public enum MemoryBuffers {
     /** System property choosing the memory access mechanism, {@code UNSAFE} (default) or {@code FFM}. */
     public static final String MEMORY_ACCESS_PROPERTY = "mmap.core.memoryAccess";
 
+    /** The null address, invalid for direct memory. */
+    public static final long NULL_ADDRESS = 0;
+
     /**
      * Returns a new read-only flyweight, initially wrapping no memory (capacity 0).
      *
      * @return the flyweight
      */
     public static MemoryBufferFlyweight flyweight() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.flyweight();
     }
 
     /**
@@ -57,7 +63,7 @@ public enum MemoryBuffers {
      * @return the flyweight
      */
     public static MutableMemoryBufferFlyweight mutableFlyweight() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.mutableFlyweight();
     }
 
     /**
@@ -67,7 +73,7 @@ public enum MemoryBuffers {
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer allocate(final int capacity) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.allocate(capacity);
     }
 
     /**
@@ -82,7 +88,7 @@ public enum MemoryBuffers {
      * @throws IllegalArgumentException if the array has more than {@code Integer.MAX_VALUE / 8} elements
      */
     public static MutableMemoryBuffer wrap(final long[] array) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.wrap(array, 0, array.length);
     }
 
     /**
@@ -102,7 +108,7 @@ public enum MemoryBuffers {
      * @throws IllegalArgumentException if the range has more than {@code Integer.MAX_VALUE / 8} elements
      */
     public static MutableMemoryBuffer wrap(final long[] array, final int offset, final int length) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.wrap(array, offset, length);
     }
 
     /**
@@ -113,7 +119,7 @@ public enum MemoryBuffers {
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.allocateDirect(capacity);
     }
 
     /**
@@ -123,7 +129,7 @@ public enum MemoryBuffers {
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer expandable(final int initialCapacity) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.expandable(initialCapacity);
     }
 
     /**
@@ -134,6 +140,6 @@ public enum MemoryBuffers {
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return MemoryBufferImpl.expandableDirect(initialCapacity);
     }
 }
