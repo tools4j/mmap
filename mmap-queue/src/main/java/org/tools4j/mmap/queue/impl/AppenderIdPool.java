@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.CloseHelper;
 import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
@@ -130,7 +130,7 @@ public final class AppenderIdPool implements Closeable, Describable {
             this.name = requireNonNull(name);
             this.lifecycleListener = requireNonNull(lifecycleListener);
         } catch (final Throwable t) {
-            CloseHelper.quietClose(mapping);
+            Closeables.closeOnFailure(mapping, t);
             throw t;
         }
         this.ids = new AtomicIdBitSet(mapping.buffer(), maxIds);

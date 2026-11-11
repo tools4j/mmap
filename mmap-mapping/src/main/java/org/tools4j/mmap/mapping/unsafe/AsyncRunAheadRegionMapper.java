@@ -37,13 +37,13 @@ import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
-import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
-import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 import static org.agrona.BufferUtil.allocateDirectAligned;
+import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
+import static org.tools4j.mmap.mapping.impl.Constants.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
 
 /**
@@ -118,7 +118,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
 
     private static int mapAheadCacheSize(final int mapAhead, final int mapAheadCacheSize) {
         if (mapAheadCacheSize <= 0) {
-            return findNextPositivePowerOfTwo(mapAhead);
+            return ceilingPowerOfTwo(mapAhead);
         }
         validateAheadMappingCacheSize(mapAheadCacheSize);
         if (mapAhead > mapAheadCacheSize) {

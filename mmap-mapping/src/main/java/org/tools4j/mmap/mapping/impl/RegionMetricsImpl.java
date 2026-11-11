@@ -23,8 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.BitUtil;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
+
+import static org.tools4j.mmap.core.internal.PowersOfTwo.isPowerOfTwo;
 
 public final class RegionMetricsImpl implements RegionMetrics {
 
@@ -34,7 +35,7 @@ public final class RegionMetricsImpl implements RegionMetrics {
     private final int regionShift;
 
     public RegionMetricsImpl(final int regionSize) {
-        if (!BitUtil.isPowerOfTwo(regionSize)) {
+        if (!isPowerOfTwo(regionSize)) {
             throw new IllegalArgumentException("Region size must be a positive power of 2: " + regionSize);
         }
         this.regionSize = regionSize;

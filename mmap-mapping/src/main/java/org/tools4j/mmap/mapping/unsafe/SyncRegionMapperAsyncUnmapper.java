@@ -34,9 +34,9 @@ import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
-import static org.agrona.BitUtil.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.impl.Constants.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**

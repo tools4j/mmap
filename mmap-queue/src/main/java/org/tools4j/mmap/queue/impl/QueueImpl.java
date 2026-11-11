@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.CloseHelper;
 import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
@@ -232,8 +232,9 @@ public final class QueueImpl implements Queue, Describable {
             //      as both register-then-check and set-closed-then-close use volatile accesses, at least one of us
             //      closes it
             if (isClosed()) {
-                CloseHelper.quietClose(closeable);
-                throw queueClosedException();
+                final IllegalStateException closedException = queueClosedException();
+                Closeables.closeOnFailure(closeable, closedException);
+                throw closedException;
             }
             return closeable;
         };
@@ -318,11 +319,20 @@ public final class QueueImpl implements Queue, Describable {
     public void close() {
         if (closed.compareAndSet(false, true)) {
             for (final Registration registration : registrations) {
-                CloseHelper.quietClose(registration.closeable);
+                closeReportingError(registration.closeable);
             }
             registrations.clear();
-            CloseHelper.quietClose(idPool);
+            closeReportingError(idPool);
             lifecycleListener.onClosed(this);
+        }
+    }
+
+    /** Closes a resource of this queue, reporting an error rather than skipping the resources still to close */
+    private void closeReportingError(final Closeable resource) {
+        try {
+            resource.close();
+        } catch (final RuntimeException e) {
+            errorListener.onError(this, "Closing a queue resource failed", e);
         }
     }
 

@@ -23,14 +23,13 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.BitUtil;
-import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
@@ -39,6 +38,7 @@ import org.tools4j.mmap.queue.api.Index;
 import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 import static org.tools4j.mmap.queue.impl.Exceptions.headerMoveException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadPositionExceedsMaxException;
@@ -76,7 +76,7 @@ final class AppenderImpl implements Appender, Describable {
             this.lastOwnPayloadLength = -1;
             initialMoveToEnd();
         } catch (final Throwable t) {
-            CloseHelper.quietClose(mappings);
+            Closeables.closeOnFailure(mappings, t);
             throw t;
         }
         lifecycleListener.onOpened(this);
@@ -348,7 +348,7 @@ final class AppenderImpl implements Appender, Describable {
             if (copy != null && copy.capacity() >= length) {
                 return copy;
             }
-            final int capacity = BitUtil.findNextPositivePowerOfTwo(Math.max(MIN_COPY_BUFFER_CAPACITY, length));
+            final int capacity = ceilingPowerOfTwo(Math.max(MIN_COPY_BUFFER_CAPACITY, length));
             return copyBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(capacity));
         }
 

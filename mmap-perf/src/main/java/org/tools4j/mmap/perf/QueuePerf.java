@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.agrona.BitUtil;
 import org.tools4j.mmap.mapping.api.CpuPinning;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
@@ -45,6 +44,8 @@ import java.util.Properties;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 
 /**
  * Command line application measuring queue latencies with concurrent senders and receivers, for the mmap queue or for
@@ -227,7 +228,7 @@ public enum QueuePerf {
         strategy.asyncMapping().ifPresent(current -> strategy.asyncMapping(async -> async
                 .regionsToMapAhead(regionsToMapAhead)
                 .aheadMappingCacheSize(Math.max(current.aheadMappingCacheSize(),
-                        BitUtil.findNextPositivePowerOfTwo(regionsToMapAhead)))
+                        ceilingPowerOfTwo(regionsToMapAhead)))
         ));
     }
 

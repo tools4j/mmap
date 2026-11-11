@@ -23,9 +23,7 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.collections.Hashing;
-import org.agrona.collections.Long2LongCounterMap;
-import org.agrona.collections.Long2LongHashMap;
+import org.tools4j.mmap.core.collections.LongLongMap;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
@@ -40,13 +38,13 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 class RefCountRegionMapper implements RegionMapper {
 
     private final RegionMapper baseMapper;
-    private final Long2LongHashMap positionToAddress;
-    private final Long2LongCounterMap positionToRefCount;
+    private final LongLongMap positionToAddress;
+    private final LongLongMap positionToRefCount;
 
     public RefCountRegionMapper(final RegionMapper baseMapper, final int initialCacheSize) {
         this.baseMapper = requireNonNull(baseMapper);
-        this.positionToAddress = new Long2LongHashMap(initialCacheSize, Hashing.DEFAULT_LOAD_FACTOR, NULL_ADDRESS);
-        this.positionToRefCount = new Long2LongCounterMap(initialCacheSize, Hashing.DEFAULT_LOAD_FACTOR, 0);
+        this.positionToAddress = new LongLongMap(initialCacheSize, NULL_ADDRESS);
+        this.positionToRefCount = new LongLongMap(initialCacheSize, 0);
     }
 
     @Override
@@ -63,7 +61,7 @@ class RefCountRegionMapper implements RegionMapper {
     public long mapInternal(final long position, final int regionSize) {
         long addr = positionToAddress.get(position);
         if (addr != NULL_ADDRESS) {
-            positionToRefCount.incrementAndGet(position);
+            positionToRefCount.put(position, positionToRefCount.get(position) + 1);
             return addr;
         }
         addr = baseMapper.mapInternal(position, regionSize);
@@ -91,9 +89,12 @@ class RefCountRegionMapper implements RegionMapper {
             throw new IllegalArgumentException("Position " + position + " is mapped to " + addr +
                     " but provided address is " + address);
         }
-        final long remaining = positionToRefCount.decrementAndGet(position);
-        if (remaining <= 0) {
+        final long remaining = positionToRefCount.get(position) - 1;
+        if (remaining > 0) {
+            positionToRefCount.put(position, remaining);
+        } else {
             assert remaining == 0 : "remaining is negative";
+            positionToRefCount.remove(position);
             positionToAddress.remove(position);
             baseMapper.unmapInternal(position, address, regionSize);
         }
@@ -111,7 +112,7 @@ class RefCountRegionMapper implements RegionMapper {
                 if (!positionToAddress.isEmpty()) {
                     final int regionSize = regionSize();
                     //NOTE: some garbage here
-                    positionToAddress.forEachLong((pos, addr) -> {
+                    positionToAddress.forEach((pos, addr) -> {
                         if (pos != NULL_POSITION) {
                             baseMapper.unmapInternal(pos, addr, regionSize);
                         }

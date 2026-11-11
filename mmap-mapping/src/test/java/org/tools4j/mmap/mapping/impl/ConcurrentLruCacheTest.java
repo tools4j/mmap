@@ -26,8 +26,11 @@ package org.tools4j.mmap.mapping.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.mapping.impl.ConcurrentLruCache.Borrower;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -67,30 +70,36 @@ class ConcurrentLruCacheTest {
     private static final long SHORT_WAIT_MILLIS = 100;
 
     /** Cached test value recording how often it was closed and whether it is currently in use */
-    static final class Value implements AutoCloseable {
+    static final class Value implements Closeable {
         final int index;
         final AtomicInteger closeCount = new AtomicInteger();
         final AtomicInteger users = new AtomicInteger();
         final AtomicInteger closedWhileInUse = new AtomicInteger();
         AtomicInteger open;
+        /** Thrown by close() if set, after recording the close */
+        RuntimeException closeFailure;
 
         Value(final int index) {
             this.index = index;
         }
 
-        boolean isClosed() {
+        @Override
+        public boolean isClosed() {
             return closeCount.get() > 0;
         }
 
         @Override
         public void close() {
-            //NOTE: exceptions are swallowed by the cache, so we record misuse instead of throwing
+            //NOTE: we record misuse instead of throwing, which would only fail the thread evicting the value
             if (users.get() != 0) {
                 closedWhileInUse.incrementAndGet();
             }
             closeCount.incrementAndGet();
             if (open != null) {
                 open.decrementAndGet();
+            }
+            if (closeFailure != null) {
+                throw closeFailure;
             }
         }
 
@@ -304,6 +313,60 @@ class ConcurrentLruCacheTest {
         use(borrower, 2, factory);
         use(borrower, 3, factory);
         assertTrue(value.isClosed());
+    }
+
+    @Test
+    void closeExceptionIsThrownOnEvictionAndRemovalWithoutLeakingSlots() {
+        final ConcurrentLruCache<Value> cache = new ConcurrentLruCache<>(1);
+        final Borrower<Value> borrower = cache.newBorrower();
+        final IllegalStateException failure = new IllegalStateException("close failed");
+
+        final Value evicted = use(borrower, 1, factory);
+        evicted.closeFailure = failure;
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> borrower.acquire(2, factory)));
+        assertEquals(1, evicted.closeCount.get());
+        assertEquals(0, cache.size());
+
+        final Value removed = use(borrower, 2, factory);
+        assertEquals(1, cache.size());
+        removed.closeFailure = failure;
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> cache.remove(2)));
+        assertEquals(1, removed.closeCount.get());
+        assertEquals(0, cache.size());
+
+        use(borrower, 3, factory);
+        assertEquals(1, cache.size());
+    }
+
+    @Test
+    void checkedCloseExceptionsAreWrappedWithoutLeakingSlots() {
+        final ConcurrentLruCache<AutoCloseable> cache = new ConcurrentLruCache<>(1);
+        final Borrower<AutoCloseable> borrower = cache.newBorrower();
+        final IOException ioException = new IOException("close failed");
+        final Exception otherException = new Exception("close failed");
+
+        borrower.acquire(1, index -> () -> {
+            throw ioException;
+        });
+        borrower.release();
+        final UncheckedIOException unchecked = assertThrows(UncheckedIOException.class,
+                () -> borrower.acquire(2, index -> () -> {
+                    throw otherException;
+                }));
+        assertSame(ioException, unchecked.getCause());
+        assertEquals(0, cache.size());
+
+        borrower.acquire(2, index -> () -> {
+            throw otherException;
+        });
+        borrower.release();
+        final IllegalStateException illegalState = assertThrows(IllegalStateException.class, () -> cache.remove(2));
+        assertSame(otherException, illegalState.getCause());
+        assertEquals(0, cache.size());
+
+        borrower.acquire(3, index -> () -> {});
+        borrower.release();
+        assertEquals(1, cache.size());
     }
 
     @Test
