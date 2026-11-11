@@ -23,9 +23,10 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.CloseHelper;
 import org.tools4j.mmap.core.base.Closeable;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLong;
@@ -87,6 +88,11 @@ import java.util.function.IntFunction;
  * borrower claiming a slot hence holds nothing itself, and the other borrowers hold at most capacity - 1 slots, so an
  * EMPTY slot or an unheld entry always exists; the bound on claim attempts relies on this, see
  * CLAIM_ATTEMPTS_PER_CAPACITY.
+ * <p>
+ * Values that are {@link AutoCloseable} are closed when evicted or removed. An exception from closing one is thrown by
+ * the thread evicting or removing it, after the slot is left EMPTY, so that no slot stays EVICTING or CLAIMED for good;
+ * checked exceptions are wrapped, an {@link IOException} in an {@link UncheckedIOException}, others in
+ * an {@link IllegalStateException}.
  */
 public final class ConcurrentLruCache<E> {
     // --- Slot states ---
@@ -539,12 +545,23 @@ public final class ConcurrentLruCache<E> {
         return true;
     }
 
-    /** Closes and clears the value in slot; caller must own slot exclusively */
+    /** Closes and clears the value in slot, leaving it EMPTY if closing throws; caller must own slot exclusively */
     private void closeValue(final int slot) {
         final E value = values.getPlain(slot);
         values.setPlain(slot, null);
         if (value instanceof AutoCloseable) {
-            CloseHelper.quietClose((AutoCloseable) value);
+            try {
+                ((AutoCloseable) value).close();
+            } catch (final RuntimeException | Error e) {
+                meta.set(slot, EMPTY_META);
+                throw e;
+            } catch (final IOException e) {
+                meta.set(slot, EMPTY_META);
+                throw new UncheckedIOException("Closing cache value failed: " + value, e);
+            } catch (final Exception e) {
+                meta.set(slot, EMPTY_META);
+                throw new IllegalStateException("Closing cache value failed: " + value, e);
+            }
         }
     }
 

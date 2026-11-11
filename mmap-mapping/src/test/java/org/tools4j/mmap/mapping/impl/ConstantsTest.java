@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.BitUtil;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tools4j.mmap.core.internal.PowersOfTwo.isPowerOfTwo;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
@@ -38,7 +38,7 @@ class ConstantsTest {
     @Test
     void regionSizeGranularityIsPositivePowerOfTwo() {
         assertTrue(REGION_SIZE_GRANULARITY > 0, "granularity=" + REGION_SIZE_GRANULARITY);
-        assertTrue(BitUtil.isPowerOfTwo(REGION_SIZE_GRANULARITY), "granularity=" + REGION_SIZE_GRANULARITY);
+        assertTrue(isPowerOfTwo(REGION_SIZE_GRANULARITY), "granularity=" + REGION_SIZE_GRANULARITY);
         assertEquals(REGION_SIZE_GRANULARITY, Constants.regionSizeGranularity());
     }
 }

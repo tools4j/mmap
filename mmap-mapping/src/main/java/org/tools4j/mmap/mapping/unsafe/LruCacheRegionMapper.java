@@ -23,8 +23,7 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.collections.Hashing;
-import org.agrona.collections.Long2LongHashMap;
+import org.tools4j.mmap.core.collections.LongLongMap;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
@@ -59,7 +58,7 @@ class LruCacheRegionMapper implements RegionMapper {
 
     private final RegionMapper baseMapper;
     private final boolean deferUnmapping;
-    private final Long2LongHashMap positionToIndex;
+    private final LongLongMap positionToIndex;
     private final long[] positions;//need to store positions for deferred unmapping of LRU position
     private final long[] addresses;
     private final int[] prevIndex;
@@ -70,7 +69,7 @@ class LruCacheRegionMapper implements RegionMapper {
     public LruCacheRegionMapper(final RegionMapper baseMapper, final int cacheSize, final boolean deferUnmapping) {
         this.baseMapper = requireNonNull(baseMapper);
         this.deferUnmapping = deferUnmapping;
-        this.positionToIndex = new Long2LongHashMap(cacheSize, Hashing.DEFAULT_LOAD_FACTOR, -1);
+        this.positionToIndex = new LongLongMap(cacheSize, -1);
         this.positions = new long[cacheSize];
         this.addresses = new long[cacheSize];
         this.prevIndex = new int[cacheSize];
@@ -274,7 +273,7 @@ class LruCacheRegionMapper implements RegionMapper {
                 if (!positionToIndex.isEmpty()) {
                     final int regionSize = regionSize();
                     //NOTE: some garbage here
-                    positionToIndex.forEachLong((pos, index) -> {
+                    positionToIndex.forEach((pos, index) -> {
                         final long addr = addresses[(int)index];
                         assert pos != NULL_POSITION && addr != NULL_ADDRESS;
                         baseMapper.unmapInternal(pos & USED_MASK, addr, regionSize);

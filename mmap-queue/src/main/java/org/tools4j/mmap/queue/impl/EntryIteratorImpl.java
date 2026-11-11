@@ -23,12 +23,12 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
@@ -61,7 +61,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             this.lifecycleListener = requireNonNull(lifecycleListener);
             this.context = new IterableContextImpl(this);
         } catch (final Throwable t) {
-            CloseHelper.quietClose(mappings);
+            Closeables.closeOnFailure(mappings, t);
             throw t;
         }
         lifecycleListener.onOpened(this);

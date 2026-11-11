@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FixedMapping;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
@@ -80,7 +80,7 @@ public class FixedMappingImpl implements FixedMapping {
             this.mappedPosition = offset;
         } catch (final Throwable t) {
             if (closeFileMapperOnClose) {
-                CloseHelper.quietClose(fileMapper);
+                Closeables.closeOnFailure(fileMapper, t);
             }
             throw t;
         }
@@ -93,7 +93,7 @@ public class FixedMappingImpl implements FixedMapping {
             validateFixedMappingLength(offset, fileSize);
             return (int) (fileSize - offset);
         } catch (final Throwable t) {
-            CloseHelper.quietClose(fileMapper);
+            Closeables.closeOnFailure(fileMapper, t);
             throw t;
         }
     }

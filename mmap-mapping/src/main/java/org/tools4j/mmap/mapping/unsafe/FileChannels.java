@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.LangUtil;
 import org.agrona.UnsafeApi;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 
@@ -73,10 +72,12 @@ public enum FileChannels {
         } catch (final IOException ex) {
             throw new UncheckedIOException("Failed to map " + length + " bytes at offset " + offset + " with mode " +
                     mode, ex);
+        } catch (final RuntimeException | Error ex) {
+            throw ex;
         } catch (final Throwable ex) {
-            LangUtil.rethrowUnchecked(ex);
+            throw new IllegalStateException("Failed to map " + length + " bytes at offset " + offset + " with mode " +
+                    mode, ex);
         }
-        return 0;
     }
     /**
      * Unmap a region of a file.
@@ -94,8 +95,10 @@ public enum FileChannels {
             }
         } catch (final IOException ex) {
             throw new UncheckedIOException("Failed to unmap " + length + " bytes at address " + address, ex);
+        } catch (final RuntimeException | Error ex) {
+            throw ex;
         } catch (final Throwable ex) {
-            LangUtil.rethrowUnchecked(ex);
+            throw new IllegalStateException("Failed to unmap " + length + " bytes at address " + address, ex);
         }
     }
 

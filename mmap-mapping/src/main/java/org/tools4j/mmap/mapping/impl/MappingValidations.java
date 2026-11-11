@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.BitUtil;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
+import static org.tools4j.mmap.core.internal.PowersOfTwo.isPowerOfTwo;
 import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
 import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
@@ -54,7 +54,7 @@ public enum MappingValidations {
     }
 
     public static void validatePosition(final long position, final long positionStepSize) {
-        assert BitUtil.isPowerOfTwo(positionStepSize);
+        assert isPowerOfTwo(positionStepSize);
         if (position < 0 || 0 != (position & (positionStepSize - 1))) {
             throw new IllegalArgumentException("Invalid position " + position +
                     " for mapping with position step size " + positionStepSize);
@@ -66,7 +66,7 @@ public enum MappingValidations {
     }
 
     public static void validateRegionPosition(final long position, final int regionSize) {
-        assert BitUtil.isPowerOfTwo(regionSize);
+        assert isPowerOfTwo(regionSize);
         if (position < 0 || 0 != (position & (regionSize - 1))) {
             throw new IllegalArgumentException("Invalid region position " + position + " for region size " + regionSize);
         }
@@ -91,7 +91,7 @@ public enum MappingValidations {
 
     public static void validatePositionDelta(final long position, final long delta, final long positionStepSize) {
         assert position >= 0;
-        assert BitUtil.isPowerOfTwo(positionStepSize);
+        assert isPowerOfTwo(positionStepSize);
         final long pos = position + delta;
         if (pos < 0 || 0 != (pos & (positionStepSize - 1))) {
             throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position +
@@ -120,7 +120,7 @@ public enum MappingValidations {
     }
 
     public static void validateRegionSize(final int regionSize) {
-        if (!BitUtil.isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
+        if (!isPowerOfTwo(regionSize) || regionSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Region size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + regionSize);
         }
@@ -131,14 +131,14 @@ public enum MappingValidations {
     }
 
     public static void validateMinFileSize(final long minFileSize) {
-        if (minFileSize != 0 && (!BitUtil.isPowerOfTwo(minFileSize) || minFileSize % REGION_SIZE_GRANULARITY != 0)) {
+        if (minFileSize != 0 && (!isPowerOfTwo(minFileSize) || minFileSize % REGION_SIZE_GRANULARITY != 0)) {
             throw new IllegalArgumentException("Min file size must be zero or a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + minFileSize);
         }
     }
 
     public static void validateMaxFileSize(final long maxFileSize) {
-        if (!BitUtil.isPowerOfTwo(maxFileSize) || maxFileSize % REGION_SIZE_GRANULARITY != 0) {
+        if (!isPowerOfTwo(maxFileSize) || maxFileSize % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("Max file size must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + maxFileSize);
         }
@@ -169,7 +169,7 @@ public enum MappingValidations {
     }
 
     public static void validateFileSizeIncrement(final long fileSizeIncrement) {
-        if (!BitUtil.isPowerOfTwo(fileSizeIncrement) || fileSizeIncrement % REGION_SIZE_GRANULARITY != 0) {
+        if (!isPowerOfTwo(fileSizeIncrement) || fileSizeIncrement % REGION_SIZE_GRANULARITY != 0) {
             throw new IllegalArgumentException("File size increment must be a power of two and a multiple of " +
                     REGION_SIZE_GRANULARITY + " but was " + fileSizeIncrement);
         }

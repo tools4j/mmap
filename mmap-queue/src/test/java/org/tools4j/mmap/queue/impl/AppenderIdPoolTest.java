@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.LangUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -315,8 +314,9 @@ class IdPoolTest {
     private static void await(final CountDownLatch latch) {
         try {
             latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-        } catch (final Exception e) {
-            LangUtil.rethrowUnchecked(e);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting", e);
         }
     }
 

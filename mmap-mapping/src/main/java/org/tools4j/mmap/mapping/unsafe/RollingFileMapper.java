@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.CloseHelper;
-import org.agrona.collections.LongArrayList;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
@@ -37,6 +35,7 @@ import org.tools4j.mmap.mapping.impl.RollingFiles;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -76,7 +75,7 @@ public class RollingFileMapper implements FileMapper, Describable {
 
     private final List<File> files = new ArrayList<>(DEFAULT_CAPACITY);
     private final List<FileMapper> fileMappers = new ArrayList<>(DEFAULT_CAPACITY);
-    private final LongArrayList timeStamps = new LongArrayList(DEFAULT_CAPACITY, 0);
+    private long[] timeStamps = new long[DEFAULT_CAPACITY];
     private final IntFunction<File> fileFactory = this::fileForIndex;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -222,10 +221,10 @@ public class RollingFileMapper implements FileMapper, Describable {
             fileMappers.add(null);
         }
         fileMappers.set(fileIndex, fileMapper);
-        for (int i = timeStamps.size(); i <= fileIndex; i++) {
-            timeStamps.addLong(0);
+        if (fileIndex >= timeStamps.length) {
+            timeStamps = Arrays.copyOf(timeStamps, Math.max(fileIndex + 1, 2 * timeStamps.length));
         }
-        timeStamps.setLong(fileIndex, ++clock);
+        timeStamps[fileIndex] = ++clock;
         openFiles++;
         if (isClosed()) {
             close(fileIndex);
@@ -239,7 +238,7 @@ public class RollingFileMapper implements FileMapper, Describable {
         int lruIndex = -1;
         for (int fileIndex = 0; fileIndex < fileMappers.size(); fileIndex++) {
             if (fileMappers.get(fileIndex) != null) {
-                final long timeStamp = timeStamps.getLong(fileIndex);
+                final long timeStamp = timeStamps[fileIndex];
                 if (timeStamp < lruTime) {
                     lruTime = timeStamp;
                     lruIndex = fileIndex;
@@ -250,7 +249,7 @@ public class RollingFileMapper implements FileMapper, Describable {
     }
 
     private void touch(final int fileIndex) {
-        timeStamps.setLong(fileIndex, ++clock);
+        timeStamps[fileIndex] = ++clock;
     }
 
     private File fileForIndex(final int index) {
@@ -348,11 +347,11 @@ public class RollingFileMapper implements FileMapper, Describable {
     private void close(final int fileIndex) {
         final FileMapper fileMapper = fileMappers.set(fileIndex, null);
         if (fileMapper != null) {
-            CloseHelper.quietClose(fileMapper);
+            fileMapper.close();
             openFiles--;
         }
         files.set(fileIndex, null);
-        timeStamps.setLong(fileIndex, 0);
+        timeStamps[fileIndex] = 0;
     }
 
     @Override

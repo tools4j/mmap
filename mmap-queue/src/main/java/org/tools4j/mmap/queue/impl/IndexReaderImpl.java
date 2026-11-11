@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.CloseHelper;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IndexReader;
@@ -47,7 +47,7 @@ final class IndexReaderImpl implements IndexReader, Describable {
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
         } catch (final Throwable t) {
-            CloseHelper.quietClose(mappings);
+            Closeables.closeOnFailure(mappings, t);
             throw t;
         }
         lifecycleListener.onOpened(this);
