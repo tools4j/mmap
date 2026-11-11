@@ -26,7 +26,6 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.queue.config.AppenderConfig;
@@ -35,6 +34,7 @@ import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfigurator;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.QueueConfigurations;
 import org.tools4j.mmap.queue.config.QueueConfigurator;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 import org.tools4j.mmap.queue.config.ReaderConfigurator;
@@ -510,7 +510,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             lifecycleListener = defaults.lifecycleListener();
         }
         if (lifecycleListener == null) {
-            lifecycleListener = MappingConfigurations.defaultLifecycleListener();
+            lifecycleListener = QueueConfigurations.defaultLifecycleListener();
         }
         return lifecycleListener;
     }

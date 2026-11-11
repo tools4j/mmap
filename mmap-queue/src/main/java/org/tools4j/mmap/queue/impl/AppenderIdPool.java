@@ -32,8 +32,8 @@ import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.AtomicIdBitSet;
+import org.tools4j.mmap.queue.config.QueueConfigurations;
 
 import java.io.File;
 
@@ -77,7 +77,7 @@ public final class AppenderIdPool implements Closeable, Describable {
     }
 
     public AppenderIdPool(final File file, final int maxIds) {
-        this(file, maxIds, MappingConfigurations.defaultLifecycleListener(),
+        this(file, maxIds, QueueConfigurations.defaultLifecycleListener(),
                 CoreConfigurations.defaultErrorListener());
     }
 
@@ -102,7 +102,7 @@ public final class AppenderIdPool implements Closeable, Describable {
      * @param maxIds    the max IDs of this pool, only IDs below this value are acquired
      */
     public AppenderIdPool(final String name, final Mapping mapping, final int maxIds) {
-        this(name, mapping, maxIds, MappingConfigurations.defaultLifecycleListener());
+        this(name, mapping, maxIds, QueueConfigurations.defaultLifecycleListener());
     }
 
     /**
