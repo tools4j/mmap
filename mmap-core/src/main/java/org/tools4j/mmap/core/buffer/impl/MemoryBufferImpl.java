@@ -85,7 +85,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.mutableFlyweight = mutableFlyweight;
         this.expandable = expandable;
         this.expandableDirect = expandableDirect;
-        wrapHeap(NO_BYTES, 0, 0, 0, NO_BYTES);
+        unwrap();
     }
 
     private static MemoryAccess memoryAccess() {
@@ -260,8 +260,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         if (capacity < 0) {
             throw new IllegalArgumentException("Capacity cannot be negative: " + capacity);
         }
-        if (address == MemoryBuffers.NULL_ADDRESS && capacity > 0) {
-            throw new IllegalArgumentException("Cannot wrap " + capacity + " bytes at the null address");
+        if (address == MemoryBuffers.NULL_ADDRESS) {
+            if (capacity > 0) {
+                throw new IllegalArgumentException("Cannot wrap " + capacity + " bytes at the null address");
+            }
+            unwrap();
+            return;
         }
         wrapDirect(address, capacity, 0, null);
     }
@@ -335,6 +339,11 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.owner = source.owner;
         this.orderedAccess = source.orderedAccess;
         this.alignmentBase = source.alignmentBase + index;
+    }
+
+    @Override
+    public void unwrap() {
+        wrapHeap(NO_BYTES, 0, 0, 0, NO_BYTES);
     }
 
     //--- properties ---
