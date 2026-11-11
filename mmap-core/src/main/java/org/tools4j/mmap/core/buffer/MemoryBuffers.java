@@ -29,23 +29,10 @@ import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
  * Creates buffers and flyweights.
  * <p>
  * All buffers are instances of one internal class, so that call sites using them stay monomorphic, whatever memory
- * they access. Which mechanism accesses the memory is chosen once per JVM with the system property
- * {@value #MEMORY_ACCESS_PROPERTY}:
- * <ul>
- *     <li>{@code UNSAFE} (default): {@code jdk.internal.misc.Unsafe}, the fastest, on all supported Java versions;
- *     needs {@code --add-exports java.base/jdk.internal.misc=ALL-UNNAMED} (or {@code --add-opens}), as Agrona
- *     does</li>
- *     <li>{@code FFM}: the Foreign Function and Memory API, public API, Java 22 or later; needs
- *     {@code --enable-native-access=ALL-UNNAMED}, otherwise the JVM warns about the restricted method creating the
- *     segment for direct memory. Wrapping a direct {@code ByteBuffer} creates a segment to find out its address,
- *     unless the flyweight already wraps it, and so does copying from or to one.</li>
- * </ul>
+ * they access. Which mechanism accesses the memory is chosen once per JVM, see {@link MemoryAccessMode}.
  */
 public enum MemoryBuffers {
     ;
-
-    /** System property choosing the memory access mechanism, {@code UNSAFE} (default) or {@code FFM}. */
-    public static final String MEMORY_ACCESS_PROPERTY = "mmap.core.memoryAccess";
 
     /** The null address, invalid for direct memory. */
     public static final long NULL_ADDRESS = 0;

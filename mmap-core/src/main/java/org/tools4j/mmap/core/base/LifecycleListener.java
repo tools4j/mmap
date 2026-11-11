@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.core.base;
 
+import java.util.function.Predicate;
+
 /**
  * Listener for lifecycle events of resources such as files, file mappers, ID pools, async runtimes, queues, appenders
  * and readers. Listeners can identify the resource type with {@code instanceof}, for instance to track file rolls with
@@ -60,4 +62,20 @@ public interface LifecycleListener {
      * @param resource the closed resource
      */
     default void onClosed(final Describable resource) {}
+
+    /**
+     * Returns a listener passing each event on to one of two listeners, depending on the resource, for instance to log
+     * internal resources at a lower level: {@code conditional(isInternal, LoggingLifecycleListener.DEBUG,
+     * LoggingLifecycleListener.INFO)}.
+     *
+     * @param condition the condition on the resource choosing the listener
+     * @param matching  the listener for events of resources matching the condition
+     * @param other     the listener for events of all other resources
+     * @return a listener invoking {@code matching} for resources matching the condition, and {@code other} otherwise
+     */
+    static LifecycleListener conditional(final Predicate<? super Describable> condition,
+                                         final LifecycleListener matching,
+                                         final LifecycleListener other) {
+        return new ConditionalLifecycleListener(condition, matching, other);
+    }
 }
