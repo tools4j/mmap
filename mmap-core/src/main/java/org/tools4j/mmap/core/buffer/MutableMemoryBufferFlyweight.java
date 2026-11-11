@@ -39,7 +39,8 @@ import java.nio.ByteBuffer;
 public interface MutableMemoryBufferFlyweight extends MutableMemoryBuffer {
 
     /**
-     * Wraps direct memory at a raw address.
+     * Wraps direct memory at a raw address; {@link MemoryBuffers#NULL_ADDRESS} with capacity 0 is the same as
+     * {@link #unwrap()}.
      *
      * @param address the address of the first byte
      * @param capacity the number of bytes
@@ -106,6 +107,11 @@ public interface MutableMemoryBufferFlyweight extends MutableMemoryBuffer {
      * @param length the number of bytes
      */
     void wrap(MutableMemoryBuffer buffer, int index, int length);
+
+    /**
+     * Wraps no memory, as a new flyweight: the capacity is 0, and the memory wrapped before is no longer referenced.
+     */
+    void unwrap();
 
     /**
      * Returns the offset of index 0 within the wrapped array or {@code ByteBuffer}: index {@code i} of this

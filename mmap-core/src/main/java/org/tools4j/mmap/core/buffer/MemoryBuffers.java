@@ -51,7 +51,7 @@ public enum MemoryBuffers {
     public static final long NULL_ADDRESS = 0;
 
     /**
-     * Returns a new read-only flyweight, initially wrapping no memory (capacity 0).
+     * Returns a new read-only flyweight, initially wrapping no memory, see {@link MemoryBufferFlyweight#unwrap()}.
      *
      * @return the flyweight
      */
@@ -60,7 +60,7 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Returns a new mutable flyweight, initially wrapping no memory (capacity 0).
+     * Returns a new mutable flyweight, initially wrapping no memory, see {@link MutableMemoryBufferFlyweight#unwrap()}.
      *
      * @return the flyweight
      */

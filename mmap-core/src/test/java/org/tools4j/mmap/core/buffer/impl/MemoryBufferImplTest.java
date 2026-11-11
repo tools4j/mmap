@@ -301,6 +301,35 @@ class MemoryBufferImplTest {
     }
 
     @Test
+    void unwrappedFlyweightsWrapNoMemoryAsNewOnes() {
+        final MutableMemoryBufferFlyweight buffer = MemoryBuffers.mutableFlyweight();
+        assertWrapsNoMemory(buffer);
+        buffer.wrap(ByteBuffer.allocateDirect(16), 8, 8);
+        buffer.unwrap();
+        assertWrapsNoMemory(buffer);
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.putByte(0, (byte) 1));
+
+        final MemoryBufferFlyweight readOnly = MemoryBuffers.flyweight();
+        readOnly.wrap(MemoryBuffers.allocate(16), 8, 8);
+        readOnly.unwrap();
+        assertWrapsNoMemory(readOnly);
+    }
+
+    private static void assertWrapsNoMemory(final MemoryBufferFlyweight buffer) {
+        assertEquals(0, buffer.capacity());
+        assertEquals(0, buffer.wrapOffset());
+        assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
+    }
+
+    private static void assertWrapsNoMemory(final MutableMemoryBufferFlyweight buffer) {
+        assertEquals(0, buffer.capacity());
+        assertEquals(0, buffer.wrapOffset());
+        assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
+    }
+
+    @Test
     void wrapOffsetAndAddressOfFlyweights() {
         final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         buffer.wrap(new byte[10], 3, 5);
@@ -310,9 +339,7 @@ class MemoryBufferImplTest {
         assertThrows(IllegalArgumentException.class, () -> buffer.wrap(buffer.address(), 5));
         assertEquals(3, buffer.wrapOffset(), "unchanged");
         buffer.wrap(MemoryBuffers.NULL_ADDRESS, 0);
-        assertTrue(buffer.isDirect());
-        assertEquals(0, buffer.capacity());
-        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
+        assertWrapsNoMemory(buffer);
 
         buffer.wrap(ByteBuffer.allocate(10), 4, 5);
         assertEquals(4, buffer.wrapOffset());
