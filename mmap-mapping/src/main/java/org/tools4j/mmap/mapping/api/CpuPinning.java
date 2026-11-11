@@ -26,7 +26,7 @@ package org.tools4j.mmap.mapping.api;
 import org.tools4j.mmap.core.base.ConstantDescribable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.mapping.impl.PinnedCpuBinding;
 import org.tools4j.mmap.mapping.impl.PinnedThreadFactory;
 import org.tools4j.mmap.mapping.impl.ThreadAffinities;
@@ -65,7 +65,7 @@ public enum CpuPinning {
 
     /**
      * Pins the calling thread to the given CPU, reporting warnings to the
-     * {@linkplain MappingConfigurations#defaultErrorListener() default error listener}.
+     * {@linkplain CoreConfigurations#defaultErrorListener() default error listener}.
      *
      * @param cpu the CPU to pin the calling thread to
      * @return the binding, to be closed by the same thread when it no longer needs to be pinned; unbound if the
@@ -73,7 +73,7 @@ public enum CpuPinning {
      * @throws IllegalArgumentException if the CPU is negative or larger than {@link #MAX_CPU}
      */
     public static CpuBinding pinCurrentThread(final int cpu) {
-        return pinCurrentThread(cpu, SOURCE, MappingConfigurations.defaultErrorListener());
+        return pinCurrentThread(cpu, SOURCE, CoreConfigurations.defaultErrorListener());
     }
 
     /**
@@ -109,7 +109,7 @@ public enum CpuPinning {
 
     /**
      * Returns a factory creating threads pinned to the given CPUs, each thread to a different CPU, reporting warnings
-     * to the {@linkplain MappingConfigurations#defaultErrorListener() default error listener}. Threads are named with
+     * to the {@linkplain CoreConfigurations#defaultErrorListener() default error listener}. Threads are named with
      * the given prefix followed by a dash and a sequence number starting at 1, for instance {@code mapper-1}.
      *
      * @param namePrefix the prefix of the names of created threads

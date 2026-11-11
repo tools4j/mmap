@@ -27,6 +27,7 @@ import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
@@ -77,7 +78,7 @@ public final class AppenderIdPool implements Closeable, Describable {
 
     public AppenderIdPool(final File file, final int maxIds) {
         this(file, maxIds, MappingConfigurations.defaultLifecycleListener(),
-                MappingConfigurations.defaultErrorListener());
+                CoreConfigurations.defaultErrorListener());
     }
 
     public AppenderIdPool(final File file,

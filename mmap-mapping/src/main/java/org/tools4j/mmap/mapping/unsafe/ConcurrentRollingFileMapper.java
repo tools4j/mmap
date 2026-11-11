@@ -27,6 +27,7 @@ import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.concurrent.AtomicArray;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
@@ -140,7 +141,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser) {
         return forReadOnly(baseFile, maxFileSize, regionSize, maxOpenFiles, fileInitialiser,
-                MappingConfigurations.defaultLifecycleListener(), MappingConfigurations.defaultErrorListener());
+                MappingConfigurations.defaultLifecycleListener(), CoreConfigurations.defaultErrorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
@@ -177,7 +178,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                                           final FileInitialiser fileInitialiser) {
         return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize,
                 filesToCreateAhead, maxOpenFiles, fileInitialiser, MappingConfigurations.defaultLifecycleListener(),
-                MappingConfigurations.defaultErrorListener());
+                CoreConfigurations.defaultErrorListener());
     }
 
     public static FileMapper forReadWrite(final File baseFile,

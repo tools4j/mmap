@@ -10,6 +10,13 @@ Notable changes per release. Entries are curated from the commits since the prev
   `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.base`, the `@Unsafe` annotation to
   `org.tools4j.mmap.core.unsafe`, and `LoggingErrorListener` from `org.tools4j.mmap.mapping.impl` to
   `org.tools4j.mmap.core.logging`, in the new module `mmap-core`, which `mmap-mapping` depends on.
+- The default error listener is configured for all modules with the system property `mmap.core.errorListener`
+  (`LOGGING`, the default, `NO_OP` or a class name), replacing `mmap.mapping.errorListener`; `ERROR_LISTENER_PROPERTY`,
+  `ERROR_LISTENER_DEFAULT`, `LOGGING_LISTENER` and `defaultErrorListener()` moved from `MappingConfigurations` to
+  `org.tools4j.mmap.core.config.CoreConfigurations`. `LoggingLifecycleListener` moved from
+  `org.tools4j.mmap.mapping.impl` to `org.tools4j.mmap.core.logging` and logs all resources at its level; the
+  `LOG_INFO` and `LOG_WARN` values of `mmap.mapping.lifecycleListener` still log internal resources at debug level,
+  combining two logging listeners with the new `LifecycleListener.conditional(condition, matching, other)`.
 - Async runtimes wait with mmap-core's `Idler` (`org.tools4j.mmap.core.idle`) instead of Agrona's `IdleStrategy`:
   `AsyncRuntime.create(..)`, `AsyncRuntimeInstances.newMappingRuntime(..)` and `newUnmappingRuntime(..)`, and the
   configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler` or a `Supplier` of idlers,

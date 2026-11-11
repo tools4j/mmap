@@ -21,22 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.core.logging.LogTarget;
-import org.tools4j.mmap.mapping.unsafe.ConcurrentRollingFileMapper;
-import org.tools4j.mmap.mapping.unsafe.RegionMapper;
-import org.tools4j.mmap.mapping.unsafe.RollingFileMapper;
-
 
 /**
- * Lifecycle listener logging events to SLF4J if present on the class path, and to
+ * Lifecycle listener logging events at its level to SLF4J if present on the class path, and to
  * {@link java.util.logging java.util.logging} otherwise, using a logger named after the resource class.
  * <p>
- * Events are logged at the level of the listener, except for events of internal resources (region mappers, and
- * rolling file mappers whose individual files are logged as well), which are always logged at debug level.
+ * To log some resources at another level, such as internal ones at debug level, combine two logging listeners with
+ * {@link LifecycleListener#conditional(java.util.function.Predicate, LifecycleListener, LifecycleListener)}.
  */
 public final class LoggingLifecycleListener implements LifecycleListener {
     /** Listener logging events at debug level */
@@ -45,11 +40,32 @@ public final class LoggingLifecycleListener implements LifecycleListener {
     public static final LoggingLifecycleListener INFO = new LoggingLifecycleListener(LogTarget.Level.INFO);
     /** Listener logging events at warn level */
     public static final LoggingLifecycleListener WARN = new LoggingLifecycleListener(LogTarget.Level.WARN);
+    /** Listener logging events at error level */
+    public static final LoggingLifecycleListener ERROR = new LoggingLifecycleListener(LogTarget.Level.ERROR);
 
     private final LogTarget.Level level;
 
     private LoggingLifecycleListener(final LogTarget.Level level) {
         this.level = level;
+    }
+
+    /**
+     * Returns the listener logging events at the given level.
+     *
+     * @param level the log level
+     * @return the listener for the level, one of the constants of this class
+     */
+    public static LoggingLifecycleListener forLevel(final LogTarget.Level level) {
+        switch (level) {
+            case DEBUG:
+                return DEBUG;
+            case INFO:
+                return INFO;
+            case WARN:
+                return WARN;
+            default:
+                return ERROR;
+        }
     }
 
     @Override
@@ -69,15 +85,9 @@ public final class LoggingLifecycleListener implements LifecycleListener {
 
     private void log(final String event, final Describable resource) {
         final LogTarget target = LogTarget.forClass(resource.getClass());
-        final LogTarget.Level level = isInternal(resource) ? LogTarget.Level.DEBUG : this.level;
         if (target.isEnabled(level)) {
             target.log(level, LogTarget.message(event, " ", resource, ""), null);
         }
-    }
-
-    private static boolean isInternal(final Describable resource) {
-        return resource instanceof RegionMapper || resource instanceof RollingFileMapper ||
-                resource instanceof ConcurrentRollingFileMapper;
     }
 
     @Override

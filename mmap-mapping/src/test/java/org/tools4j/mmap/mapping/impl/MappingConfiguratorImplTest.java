@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.impl;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -127,7 +128,7 @@ class MappingConfiguratorImplTest {
         assertSame(MappingConfigurations.defaultFileInitialiser(), config.fileInitialiser());
         assertSame(MAPPING_STRATEGY_CONFIG_DEFAULTS, config.mappingStrategy());
         assertSame(MappingConfigurations.defaultLifecycleListener(), config.lifecycleListener());
-        assertSame(MappingConfigurations.defaultErrorListener(), config.errorListener());
+        assertSame(CoreConfigurations.defaultErrorListener(), config.errorListener());
     }
 
     @Test

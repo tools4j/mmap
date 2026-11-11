@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.api;
 
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -112,7 +113,7 @@ public enum Mappings {
                                             final long offset,
                                             final int length) {
         return fixedMapping(file, openMode, offset, length, MappingConfigurations.defaultLifecycleListener(),
-                MappingConfigurations.defaultErrorListener());
+                CoreConfigurations.defaultErrorListener());
     }
 
     /**

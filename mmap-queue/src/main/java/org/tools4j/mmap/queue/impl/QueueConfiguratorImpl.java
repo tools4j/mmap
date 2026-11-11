@@ -25,6 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
@@ -526,7 +527,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
             errorListener = defaults.errorListener();
         }
         if (errorListener == null) {
-            errorListener = MappingConfigurations.defaultErrorListener();
+            errorListener = CoreConfigurations.defaultErrorListener();
         }
         return errorListener;
     }

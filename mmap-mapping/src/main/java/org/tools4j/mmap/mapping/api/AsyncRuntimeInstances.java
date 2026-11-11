@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 
@@ -30,7 +31,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultErrorListener;
+import static org.tools4j.mmap.core.config.CoreConfigurations.defaultErrorListener;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultLifecycleListener;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdlerSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeThreadFactory;

@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.impl;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -58,7 +59,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
                             final Idler idler,
                             final boolean autoStopOnLastDeregister) {
         this(name, idler, autoStopOnLastDeregister, MappingConfigurations.defaultLifecycleListener(),
-                MappingConfigurations.defaultErrorListener());
+                CoreConfigurations.defaultErrorListener());
     }
 
     public AsyncRuntimeImpl(final String name,

@@ -23,12 +23,12 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
+
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.mapping.api.CpuBinding;
 import org.tools4j.mmap.mapping.api.CpuPinning;
-
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -57,7 +57,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
 
     /**
      * Creates a factory pinning threads to the CPUs from the given first CPU up to the highest online CPU, reporting
-     * warnings to the {@linkplain MappingConfigurations#defaultErrorListener() default error listener}.
+     * warnings to the {@linkplain CoreConfigurations#defaultErrorListener() default error listener}.
      *
      * @param namePrefix the prefix of the names of created threads
      * @param daemon     true to create daemon threads
@@ -70,7 +70,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
 
     /**
      * Creates a factory pinning threads to the CPUs of the given range, reporting warnings to the
-     * {@linkplain MappingConfigurations#defaultErrorListener() default error listener}.
+     * {@linkplain CoreConfigurations#defaultErrorListener() default error listener}.
      *
      * @param namePrefix the prefix of the names of created threads
      * @param daemon     true to create daemon threads
@@ -80,7 +80,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      *                                  first CPU is larger than the last
      */
     public PinnedThreadFactory(final String namePrefix, final boolean daemon, final int firstCpu, final int lastCpu) {
-        this(namePrefix, daemon, firstCpu, lastCpu, MappingConfigurations.defaultErrorListener());
+        this(namePrefix, daemon, firstCpu, lastCpu, CoreConfigurations.defaultErrorListener());
     }
 
     /**
@@ -104,7 +104,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
 
     /**
      * Creates a factory pinning threads to the given CPUs, reporting warnings to the
-     * {@linkplain MappingConfigurations#defaultErrorListener() default error listener}.
+     * {@linkplain CoreConfigurations#defaultErrorListener() default error listener}.
      *
      * @param namePrefix the prefix of the names of created threads
      * @param daemon     true to create daemon threads
@@ -113,7 +113,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      *                                  than {@link CpuPinning#MAX_CPU}
      */
     public PinnedThreadFactory(final String namePrefix, final boolean daemon, final int[] cpus) {
-        this(namePrefix, daemon, cpus, MappingConfigurations.defaultErrorListener());
+        this(namePrefix, daemon, cpus, CoreConfigurations.defaultErrorListener());
     }
 
     /**
