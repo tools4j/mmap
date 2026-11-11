@@ -305,10 +305,17 @@ class MemoryBufferImplTest {
         buffer.wrap(new byte[10], 3, 5);
         assertEquals(3, buffer.wrapOffset());
         assertFalse(buffer.isDirect());
-        assertThrows(IllegalStateException.class, buffer::address);
+        assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
+        assertThrows(IllegalArgumentException.class, () -> buffer.wrap(buffer.address(), 5));
+        assertEquals(3, buffer.wrapOffset(), "unchanged");
+        buffer.wrap(MemoryBuffers.NULL_ADDRESS, 0);
+        assertTrue(buffer.isDirect());
+        assertEquals(0, buffer.capacity());
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
 
         buffer.wrap(ByteBuffer.allocate(10), 4, 5);
         assertEquals(4, buffer.wrapOffset());
+        assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
 
         final MutableMemoryBuffer longs = MemoryBuffers.wrap(new long[4], 1, 2);
         buffer.wrap(longs, 4, 8);

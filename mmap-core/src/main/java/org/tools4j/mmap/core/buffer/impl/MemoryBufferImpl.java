@@ -259,6 +259,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         if (capacity < 0) {
             throw new IllegalArgumentException("Capacity cannot be negative: " + capacity);
         }
+        if (address == MemoryBuffers.NULL_ADDRESS && capacity > 0) {
+            throw new IllegalArgumentException("Cannot wrap " + capacity + " bytes at the null address");
+        }
         wrapDirect(address, capacity, 0, null);
     }
 
@@ -368,10 +371,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public long address() {
-        if (heapBase != null) {
-            throw new IllegalStateException("Heap memory has no address");
-        }
-        return offset;
+        return heapBase == null ? offset : MemoryBuffers.NULL_ADDRESS;
     }
 
     //--- checks ---
