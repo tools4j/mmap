@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.config;
 
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.idle.IdleMode;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.core.internal.SystemProperties.PropertyInstance;
 import org.tools4j.mmap.core.logging.LoggingErrorListener;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
@@ -34,9 +34,9 @@ import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.CpuPinning;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
-import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
+import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.mapping.impl.StandardFileInitialiser;
 
 import java.util.concurrent.ThreadFactory;
@@ -169,12 +169,13 @@ public enum MappingConfigurations {
     /** The default unmapping cache size, used if system property {@value #UNMAPPING_CACHE_SIZE_PROPERTY} is not set. */
     public static final int UNMAPPING_CACHE_SIZE_DEFAULT = 32;
     /**
-     * Name of the system property to override the idle strategy of mapping runtimes created by default, with the class
-     * name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a public no-arg constructor).
+     * Name of the system property to override the idler of mapping runtimes created by default, with the name of an
+     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler}
+     * or of a {@link Supplier} of idlers (with a public no-arg constructor).
      */
-    public static final String MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.mapping.async.mappingRuntimeIdleStrategy";
-    /** Supplier of the default idle strategy of mapping runtimes, used if the idle strategy property is not set. */
-    public static final Supplier<IdleStrategy> MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
+    public static final String MAPPING_RUNTIME_IDLER_PROPERTY = "mmap.mapping.async.mappingRuntimeIdler";
+    /** The default idle mode of mapping runtimes, used if the idler property is not set. */
+    public static final IdleMode MAPPING_RUNTIME_IDLER_DEFAULT = IdleMode.BACKOFF;
     /**
      * Name of the system property to pin the threads of mapping runtimes created by default to CPUs, with a CPU list
      * in Linux cpulist format such as {@code 4-7}, {@code 0,2,4,6}, {@code 4-} for CPU 4 up to the highest online
@@ -192,13 +193,13 @@ public enum MappingConfigurations {
     /** The default sharing policy of the mapping runtime, used if the sharing policy property is not set. */
     public static final SharingPolicy MAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
     /**
-     * Name of the system property to override the idle strategy of unmapping runtimes created by default, with the
-     * class
-     * name of an {@link IdleStrategy} or of a {@link Supplier} of idle strategies (with a public no-arg constructor).
+     * Name of the system property to override the idler of unmapping runtimes created by default, with the name of an
+     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler}
+     * or of a {@link Supplier} of idlers (with a public no-arg constructor).
      */
-    public static final String UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY = "mmap.mapping.async.unmappingRuntimeIdleStrategy";
-    /** Supplier of the default idle strategy of unmapping runtimes, used if the idle strategy property is not set. */
-    public static final Supplier<IdleStrategy> UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT = BackoffIdleStrategy::new;
+    public static final String UNMAPPING_RUNTIME_IDLER_PROPERTY = "mmap.mapping.async.unmappingRuntimeIdler";
+    /** The default idle mode of unmapping runtimes, used if the idler property is not set. */
+    public static final IdleMode UNMAPPING_RUNTIME_IDLER_DEFAULT = IdleMode.BACKOFF;
     /** Name of the system property to override the {@link SharingPolicy} of the default unmapping runtime. */
     public static final String UNMAPPING_RUNTIME_SHARING_POLICY_PROPERTY = "mmap.mapping.async.unmappingRuntimeSharingPolicy";
     /** The default sharing policy of the unmapping runtime, used if the sharing policy property is not set. */
@@ -461,32 +462,35 @@ public enum MappingConfigurations {
     }
 
     /**
-     * Returns the supplier of idle strategies for mapping runtimes created by default. Every invocation of the returned
-     * supplier provides a new idle strategy instance, unless the configured supplier itself returns shared instances.
+     * Returns the supplier of idlers for mapping runtimes created by default. Every invocation of the returned
+     * supplier provides an idler for one runtime thread, see {@link IdleMode#newIdler()}, unless a configured
+     * supplier returns shared instances.
      *
-     * @return a supplier for the idle strategy class (or supplier class) given by system property
-     *         {@value #MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY} if set, and
-     *         {@link #MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT} otherwise
+     * @return a supplier for the idle mode, idler class or supplier class given by system property
+     *         {@value #MAPPING_RUNTIME_IDLER_PROPERTY} if set, and {@link #MAPPING_RUNTIME_IDLER_DEFAULT} otherwise
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
-    public static Supplier<? extends IdleStrategy> defaultMappingRuntimeIdleStrategySupplier() {
-        return supplierProperty(MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
-                MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+    public static Supplier<? extends Idler> defaultMappingRuntimeIdlerSupplier() {
+        return idlerProperty(MAPPING_RUNTIME_IDLER_PROPERTY, MAPPING_RUNTIME_IDLER_DEFAULT);
     }
 
     /**
-     * Returns the supplier of idle strategies for unmapping runtimes created by default. Every invocation of the
-     * returned supplier provides a new idle strategy instance, unless the configured supplier itself returns shared
-     * instances.
+     * Returns the supplier of idlers for unmapping runtimes created by default. Every invocation of the returned
+     * supplier provides an idler for one runtime thread, see {@link IdleMode#newIdler()}, unless a configured
+     * supplier returns shared instances.
      *
-     * @return a supplier for the idle strategy class (or supplier class) given by system property
-     *         {@value #UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY} if set, and
-     *         {@link #UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT} otherwise
+     * @return a supplier for the idle mode, idler class or supplier class given by system property
+     *         {@value #UNMAPPING_RUNTIME_IDLER_PROPERTY} if set, and {@link #UNMAPPING_RUNTIME_IDLER_DEFAULT} otherwise
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
-    public static Supplier<? extends IdleStrategy> defaultUnmappingRuntimeIdleStrategySupplier() {
-        return supplierProperty(UNMAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, IdleStrategy.class,
-                UNMAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT);
+    public static Supplier<? extends Idler> defaultUnmappingRuntimeIdlerSupplier() {
+        return idlerProperty(UNMAPPING_RUNTIME_IDLER_PROPERTY, UNMAPPING_RUNTIME_IDLER_DEFAULT);
+    }
+
+    private static Supplier<? extends Idler> idlerProperty(final String propertyName, final IdleMode defaultMode) {
+        final String propVal = System.getProperty(propertyName);
+        final IdleMode mode = propVal == null ? defaultMode : IdleMode.forName(propVal);
+        return mode != null ? mode::newIdler : supplierProperty(propertyName, Idler.class, defaultMode::newIdler);
     }
 
     /**

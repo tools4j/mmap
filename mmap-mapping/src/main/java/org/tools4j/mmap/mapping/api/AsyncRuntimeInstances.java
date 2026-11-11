@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 
 import java.util.concurrent.ThreadFactory;
@@ -32,9 +32,9 @@ import java.util.function.Supplier;
 
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultErrorListener;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultLifecycleListener;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdlerSupplier;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeThreadFactory;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier;
 
 /**
  * Defines factory and accessor methods to create new or retrieve shared {@link AsyncRuntime} instances.
@@ -61,89 +61,89 @@ public enum AsyncRuntimeInstances {
 
     /**
      * Creates a new mapping runtime instance that automatically stops after the last task de-registration and uses the
-     * default idle strategy.
+     * default idler.
      *
      * @return a new mapping runtime instance
-     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeIdleStrategySupplier()
+     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeIdlerSupplier()
      */
     public static AsyncRuntime newMappingRuntime() {
-        return newMappingRuntime(defaultMappingRuntimeIdleStrategySupplier().get());
+        return newMappingRuntime(defaultMappingRuntimeIdlerSupplier().get());
     }
 
     /**
      * Creates a new mapping runtime instance that automatically stops after the last task de-registration and uses the
-     * specified idle strategy.
+     * specified idler.
      *
-     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param idler the idler used by the new runtime instance
      * @return a new mapping runtime instance
      */
-    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy) {
-        return newMappingRuntime(idleStrategy, true);
+    public static AsyncRuntime newMappingRuntime(final Idler idler) {
+        return newMappingRuntime(idler, true);
     }
 
     /**
-     * Creates a new mapping runtime instance with the specified idle strategy and auto-stop behavior, and a thread
+     * Creates a new mapping runtime instance with the specified idler and auto-stop behavior, and a thread
      * pinned to CPUs as defined by the
      * {@linkplain org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeThreadFactory() default}.
      *
-     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param idler the idler used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
      * @return a new mapping runtime instance
      */
-    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
+    public static AsyncRuntime newMappingRuntime(final Idler idler,
                                                  final boolean autoStopOnLastDeregister) {
-        return newMappingRuntime(idleStrategy, autoStopOnLastDeregister, defaultMappingRuntimeThreadFactory());
+        return newMappingRuntime(idler, autoStopOnLastDeregister, defaultMappingRuntimeThreadFactory());
     }
 
     /**
-     * Creates a new mapping runtime instance with the specified idle strategy, auto-stop behavior and thread factory,
+     * Creates a new mapping runtime instance with the specified idler, auto-stop behavior and thread factory,
      * for instance a {@linkplain CpuPinning#threadFactory(String, boolean, int[]) pinned thread factory} to pin the
      * runtime thread to a CPU.
      *
-     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param idler the idler used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
      * @param threadFactory the factory creating the runtime thread
      * @return a new mapping runtime instance
      */
-    public static AsyncRuntime newMappingRuntime(final IdleStrategy idleStrategy,
+    public static AsyncRuntime newMappingRuntime(final Idler idler,
                                                  final boolean autoStopOnLastDeregister,
                                                  final ThreadFactory threadFactory) {
-        return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister,
+        return AsyncRuntime.create("mapper-" + mapperCount.incrementAndGet(), idler, autoStopOnLastDeregister,
                 threadFactory, defaultLifecycleListener(), defaultErrorListener());
     }
 
     /**
      * Creates a new unmapping runtime instance that automatically stops after the last task de-registration and uses the
-     * default idle strategy.
+     * default idler.
      *
      * @return a new unmapping runtime instance
-     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultUnmappingRuntimeIdleStrategySupplier()
+     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultUnmappingRuntimeIdlerSupplier()
      */
     public static AsyncRuntime newUnmappingRuntime() {
-        return newUnmappingRuntime(defaultUnmappingRuntimeIdleStrategySupplier().get());
+        return newUnmappingRuntime(defaultUnmappingRuntimeIdlerSupplier().get());
     }
 
     /**
      * Creates a new unmapping runtime instance that automatically stops after the last task de-registration and uses the
-     * specified idle strategy.
+     * specified idler.
      *
-     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param idler the idler used by the new runtime instance
      * @return a new unmapping runtime instance
      */
-    public static AsyncRuntime newUnmappingRuntime(final IdleStrategy idleStrategy) {
-        return newUnmappingRuntime(idleStrategy, true);
+    public static AsyncRuntime newUnmappingRuntime(final Idler idler) {
+        return newUnmappingRuntime(idler, true);
     }
 
     /**
-     * Creates a new unmapping runtime instance with the specified idle strategy and auto-stop behavior.
+     * Creates a new unmapping runtime instance with the specified idler and auto-stop behavior.
      *
-     * @param idleStrategy the idle strategy used by the new runtime instance
+     * @param idler the idler used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration
      * @return a new unmapping runtime instance
      */
-    public static AsyncRuntime newUnmappingRuntime(final IdleStrategy idleStrategy,
+    public static AsyncRuntime newUnmappingRuntime(final Idler idler,
                                                    final boolean autoStopOnLastDeregister) {
-        return AsyncRuntime.create("unmapper-" + unmapperCount.incrementAndGet(), idleStrategy, autoStopOnLastDeregister);
+        return AsyncRuntime.create("unmapper-" + unmapperCount.incrementAndGet(), idler, autoStopOnLastDeregister);
     }
 
     /**
@@ -214,13 +214,13 @@ public enum AsyncRuntimeInstances {
     //lazy init through nested class which is only loaded when needed
     private static class MappingInstance {
         static final AsyncRuntime SHARED = AsyncRuntime.create("mapper-shared",
-                defaultMappingRuntimeIdleStrategySupplier().get(), false, defaultMappingRuntimeThreadFactory(),
+                defaultMappingRuntimeIdlerSupplier().get(), false, defaultMappingRuntimeThreadFactory(),
                 defaultLifecycleListener(), defaultErrorListener());
     }
 
     //lazy init through nested class which is only loaded when needed
     private static class UnmappingInstance {
         static final AsyncRuntime SHARED = AsyncRuntime.create("unmapper-shared",
-                defaultUnmappingRuntimeIdleStrategySupplier().get(), false);
+                defaultUnmappingRuntimeIdlerSupplier().get(), false);
     }
 }

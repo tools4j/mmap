@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
 import org.tools4j.mmap.mapping.impl.ThreadAffinities;
@@ -53,6 +53,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * runtimes are created on a separate thread so that the stopped runtime is not seen by other tests.
  */
 class AsyncRuntimeInstancesTest {
+    /** Idler parking for 1 ms, so that test runtimes don't keep a CPU busy */
+    private static Idler parkingIdler() {
+        return Idler.backoff(0, 0, 1_000_000, 1_000_000);
+    }
 
     private static final long STOP_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10);
     private static final long POLL_INTERVAL_MILLIS = 10;
@@ -88,8 +92,8 @@ class AsyncRuntimeInstancesTest {
     void newRuntimesAreIndividualAndCanBeStopped() throws InterruptedException {
         assertIndividualRuntimes(AsyncRuntimeInstances::newMappingRuntime);
         assertIndividualRuntimes(AsyncRuntimeInstances::newUnmappingRuntime);
-        assertIndividualRuntimes(() -> AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1)));
-        assertIndividualRuntimes(() -> AsyncRuntimeInstances.newUnmappingRuntime(new SleepingMillisIdleStrategy(1)));
+        assertIndividualRuntimes(() -> AsyncRuntimeInstances.newMappingRuntime(parkingIdler()));
+        assertIndividualRuntimes(() -> AsyncRuntimeInstances.newUnmappingRuntime(parkingIdler()));
     }
 
     @Test
@@ -107,12 +111,12 @@ class AsyncRuntimeInstancesTest {
     @Test
     void autoStopOnLastDeregister() throws InterruptedException {
         final AsyncRuntime.Recurring task = () -> 0;
-        final AsyncRuntime autoStop = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), true);
+        final AsyncRuntime autoStop = AsyncRuntimeInstances.newMappingRuntime(parkingIdler(), true);
         autoStop.register(task);
         autoStop.deregister(task);
         awaitStopped(autoStop);
 
-        final AsyncRuntime noAutoStop = AsyncRuntimeInstances.newUnmappingRuntime(new SleepingMillisIdleStrategy(1),
+        final AsyncRuntime noAutoStop = AsyncRuntimeInstances.newUnmappingRuntime(parkingIdler(),
                 false);
         try {
             noAutoStop.register(task);
@@ -185,7 +189,7 @@ class AsyncRuntimeInstancesTest {
         };
 
         //when
-        final AsyncRuntime runtime = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), false,
+        final AsyncRuntime runtime = AsyncRuntimeInstances.newMappingRuntime(parkingIdler(), false,
                 threadFactory);
 
         //then
@@ -210,7 +214,7 @@ class AsyncRuntimeInstancesTest {
         final AsyncRuntime runtime;
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, String.valueOf(cpu));
         try {
-            runtime = AsyncRuntimeInstances.newMappingRuntime(new SleepingMillisIdleStrategy(1), false);
+            runtime = AsyncRuntimeInstances.newMappingRuntime(parkingIdler(), false);
         } finally {
             System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
         }

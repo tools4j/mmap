@@ -10,6 +10,15 @@ Notable changes per release. Entries are curated from the commits since the prev
   `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.base`, the `@Unsafe` annotation to
   `org.tools4j.mmap.core.unsafe`, and `LoggingErrorListener` from `org.tools4j.mmap.mapping.impl` to
   `org.tools4j.mmap.core.logging`, in the new module `mmap-core`, which `mmap-mapping` depends on.
+- Async runtimes wait with mmap-core's `Idler` (`org.tools4j.mmap.core.idle`) instead of Agrona's `IdleStrategy`:
+  `AsyncRuntime.create(..)`, `AsyncRuntimeInstances.newMappingRuntime(..)` and `newUnmappingRuntime(..)`, and the
+  configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler` or a `Supplier` of idlers,
+  e.g. `Idler.backoff()`, `Idler.backoff(maxSpins, maxYields, minParkNanos, maxParkNanos)` or
+  `IdleMode.BUSY_SPIN.newIdler()`. The system properties `mmap.mapping.async.mappingRuntimeIdleStrategy` and
+  `mmap.mapping.async.unmappingRuntimeIdleStrategy` are renamed to `mmap.mapping.async.mappingRuntimeIdler` and
+  `mmap.mapping.async.unmappingRuntimeIdler`, accepting `NO_OP`, `BUSY_SPIN`, `YIELDING` or `BACKOFF` (the default)
+  besides class names, and `MappingConfigurations.default(Un)mappingRuntimeIdleStrategySupplier()` to
+  `default(Un)mappingRuntimeIdlerSupplier()`.
 - Pollers and entry iterators no longer idle while the queue or its first entry does not exist yet; idling is left to
   the application's poll or iteration loop. Removed `ReaderConfigurator.pendingIdleStrategy(..)`,
   `pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, the corresponding `ReaderConfig` getters, and the

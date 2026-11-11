@@ -23,9 +23,8 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.IdleStrategy;
-import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.config.AsyncMappingConfig;
@@ -51,6 +50,10 @@ import static org.mockito.Mockito.mock;
  * Unit test for {@link AsyncMappingConfiguratorImpl} and {@link AsyncUnmappingConfiguratorImpl} value resolution.
  */
 class AsyncConfiguratorImplTest {
+    /** Idler parking for 1 ms, so that test runtimes don't keep a CPU busy */
+    private static Idler parkingIdler() {
+        return Idler.backoff(0, 0, 1_000_000, 1_000_000);
+    }
 
     /** Async mapping defaults returning the "unset" sentinel for every value, forcing fallback to system defaults */
     private static final AsyncMappingConfig UNSET_MAPPING_DEFAULTS = new AsyncMappingConfig() {
@@ -192,8 +195,8 @@ class AsyncConfiguratorImplTest {
         final AsyncMappingConfigurator config = AsyncMappingConfigurator.configure();
         assertThrows(NullPointerException.class, () -> config.mappingRuntime((AsyncRuntime) null));
         assertThrows(NullPointerException.class, () -> config.mappingRuntimeSupplier(null));
-        assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((IdleStrategy) null));
-        assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((Supplier<IdleStrategy>) null));
+        assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((Idler) null));
+        assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((Supplier<Idler>) null));
         assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((ThreadFactory) null));
     }
 
@@ -207,65 +210,65 @@ class AsyncConfiguratorImplTest {
         final AsyncUnmappingConfigurator config = AsyncUnmappingConfigurator.configure();
         assertThrows(NullPointerException.class, () -> config.unmappingRuntime((AsyncRuntime) null));
         assertThrows(NullPointerException.class, () -> config.unmappingRuntimeSupplier(null));
-        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((IdleStrategy) null));
-        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((Supplier<IdleStrategy>) null));
+        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((Idler) null));
+        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((Supplier<Idler>) null));
     }
 
     @Test
-    void mappingRuntimeUsingIdleStrategyCreatesNewRuntimes() {
+    void mappingRuntimeUsingIdlerCreatesNewRuntimes() {
         assertCreatesNewRuntimes("mapper-", AsyncMappingConfigurator.configure()
-                .mappingRuntimeUsing(new SleepingMillisIdleStrategy(1)).mappingRuntimeSupplier());
+                .mappingRuntimeUsing(parkingIdler()).mappingRuntimeSupplier());
         assertCreatesNewRuntimes("mapper-", AsyncMappingConfigurator.configure()
-                .mappingRuntimeUsing(() -> new SleepingMillisIdleStrategy(1)).mappingRuntimeSupplier());
+                .mappingRuntimeUsing(() -> parkingIdler()).mappingRuntimeSupplier());
     }
 
     @Test
-    void mappingRuntimeUsingCombinesIdleStrategyAndThreadFactoryInAnyOrder() {
+    void mappingRuntimeUsingCombinesIdlerAndThreadFactoryInAnyOrder() {
         final AtomicInteger threads = new AtomicInteger();
         final ThreadFactory threadFactory = runnable -> {
             threads.incrementAndGet();
             return new Thread(runnable);
         };
-        final Supplier<IdleStrategy> idleStrategy = () -> new SleepingMillisIdleStrategy(1);
+        final Supplier<Idler> idler = () -> parkingIdler();
         for (final AsyncMappingConfigurator config : new AsyncMappingConfigurator[]{
                 AsyncMappingConfigurator.configure()
-                        .mappingRuntimeUsing(idleStrategy).mappingRuntimeUsing(threadFactory),
+                        .mappingRuntimeUsing(idler).mappingRuntimeUsing(threadFactory),
                 AsyncMappingConfigurator.configure()
-                        .mappingRuntimeUsing(threadFactory).mappingRuntimeUsing(idleStrategy)}) {
+                        .mappingRuntimeUsing(threadFactory).mappingRuntimeUsing(idler)}) {
             try (final AsyncRuntime runtime = config.mappingRuntimeSupplier().get()) {
-                assertTrue(runtime.toString().contains("|idleStrategy=sleep-ms|"), runtime::toString);
+                assertTrue(runtime.toString().contains("|idler=" + parkingIdler() + "|"), runtime::toString);
             }
         }
         assertEquals(2, threads.get());
 
-        //thread factory only: default idle strategy
+        //thread factory only: default idler
         try (final AsyncRuntime runtime = AsyncMappingConfigurator.configure().mappingRuntimeUsing(threadFactory)
                 .mappingRuntimeSupplier().get()) {
-            assertTrue(runtime.toString().contains("|idleStrategy=" +
-                    MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier().get().alias() + "|"),
+            assertTrue(runtime.toString().contains("|idler=" +
+                    MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get() + "|"),
                     runtime::toString);
         }
         assertEquals(3, threads.get());
 
         //another runtime setter discards the combined values
         final AsyncRuntime mockRuntime = mock(AsyncRuntime.class);
-        final AsyncMappingConfigurator config = AsyncMappingConfigurator.configure().mappingRuntimeUsing(idleStrategy)
+        final AsyncMappingConfigurator config = AsyncMappingConfigurator.configure().mappingRuntimeUsing(idler)
                 .mappingRuntime(mockRuntime);
         assertSame(mockRuntime, config.mappingRuntimeSupplier().get());
         try (final AsyncRuntime runtime = config.mappingRuntimeUsing(threadFactory).mappingRuntimeSupplier().get()) {
-            assertTrue(runtime.toString().contains("|idleStrategy=" +
-                    MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier().get().alias() + "|"),
+            assertTrue(runtime.toString().contains("|idler=" +
+                    MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get() + "|"),
                     runtime::toString);
         }
         assertEquals(4, threads.get());
     }
 
     @Test
-    void unmappingRuntimeUsingIdleStrategyCreatesNewRuntimes() {
+    void unmappingRuntimeUsingIdlerCreatesNewRuntimes() {
         assertCreatesNewRuntimes("unmapper-", AsyncUnmappingConfigurator.configure()
-                .unmappingRuntimeUsing(new SleepingMillisIdleStrategy(1)).unmappingRuntimeSupplier());
+                .unmappingRuntimeUsing(parkingIdler()).unmappingRuntimeSupplier());
         assertCreatesNewRuntimes("unmapper-", AsyncUnmappingConfigurator.configure()
-                .unmappingRuntimeUsing(() -> new SleepingMillisIdleStrategy(1)).unmappingRuntimeSupplier());
+                .unmappingRuntimeUsing(() -> parkingIdler()).unmappingRuntimeSupplier());
     }
 
     private static void assertCreatesNewRuntimes(final String namePrefix,

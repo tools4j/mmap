@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.SleepingMillisIdleStrategy;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
@@ -51,6 +51,10 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
  * and reads back data, and is assembled from the expected mappers.
  */
 class RegionMapperChainTest {
+    /** Idler parking for 1 ms, so that test runtimes don't keep a CPU busy */
+    private static Idler parkingIdler() {
+        return Idler.backoff(0, 0, 1_000_000, 1_000_000);
+    }
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final int REGIONS = 8;
@@ -88,10 +92,10 @@ class RegionMapperChainTest {
                 .asyncUnmapping(false);
         if (asyncMapping) {
             config.asyncMapping(cfg -> cfg.regionsToMapAhead(2)
-                    .mappingRuntimeUsing(() -> new SleepingMillisIdleStrategy(1)));
+                    .mappingRuntimeUsing(() -> parkingIdler()));
         }
         if (asyncUnmapping) {
-            config.asyncUnmapping(cfg -> cfg.unmappingRuntimeUsing(() -> new SleepingMillisIdleStrategy(1)));
+            config.asyncUnmapping(cfg -> cfg.unmappingRuntimeUsing(() -> parkingIdler()));
         }
         return config.toImmutableConfig();
     }
