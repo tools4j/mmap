@@ -50,8 +50,9 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
  * Memory is a heap base and an offset for the {@link MemoryAccess} chosen once per JVM: a null base and the address
  * for direct memory, else the base and offset of a {@code byte[]} or {@code long[]}. Every access branches on the
  * base, so that each branch compiles to a pure off-heap or on-heap access; the branch is moved out of loops.
- * Multi-byte values are little endian: on big-endian platforms they are reversed, which constant-folds away on
- * little-endian ones.
+ * Multi-byte values are little endian unless another byte order is given. Each accessor has one implementation
+ * taking the byte order, which converts a value at most once, only if the order is not the native one; the default
+ * passes little endian, so that the comparison constant-folds away on all platforms.
  * <p>
  * Bounds are checked with the intrinsic {@link Objects#checkIndex(int, int)}, which C2 eliminates in loops.
  * Expandable buffers grow before the bounds check of a write, so that the check stays the same for all buffers.
@@ -61,7 +62,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     private static final int FFM_JAVA_VERSION = 22;
     private static final String FFM_MEMORY_ACCESS = "org.tools4j.mmap.core.unsafe.FfmMemoryAccess";
     private static final MemoryAccess ACCESS = memoryAccess();
-    private static final boolean NATIVE_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
+    private static final ByteOrder NATIVE_ORDER = ByteOrder.nativeOrder();
     private static final byte[] NO_BYTES = {};
     private static final int DIRECT_ALIGNMENT = 64;
     private static final int MAX_CAPACITY = Integer.MAX_VALUE - DIRECT_ALIGNMENT;
@@ -425,36 +426,21 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     //--- byte order ---
 
-    private static short littleEndian(final short value) {
-        return NATIVE_LITTLE_ENDIAN ? value : Short.reverseBytes(value);
+    /** Converts a value between native byte order and the given one, in either direction. */
+    private static short reorder(final short value, final ByteOrder byteOrder) {
+        return byteOrder == NATIVE_ORDER ? value : Short.reverseBytes(value);
     }
 
-    private static char littleEndian(final char value) {
-        return NATIVE_LITTLE_ENDIAN ? value : Character.reverseBytes(value);
+    private static char reorder(final char value, final ByteOrder byteOrder) {
+        return byteOrder == NATIVE_ORDER ? value : Character.reverseBytes(value);
     }
 
-    private static int littleEndian(final int value) {
-        return NATIVE_LITTLE_ENDIAN ? value : Integer.reverseBytes(value);
+    private static int reorder(final int value, final ByteOrder byteOrder) {
+        return byteOrder == NATIVE_ORDER ? value : Integer.reverseBytes(value);
     }
 
-    private static long littleEndian(final long value) {
-        return NATIVE_LITTLE_ENDIAN ? value : Long.reverseBytes(value);
-    }
-
-    private static short ordered(final short value, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? value : Short.reverseBytes(value);
-    }
-
-    private static char ordered(final char value, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? value : Character.reverseBytes(value);
-    }
-
-    private static int ordered(final int value, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? value : Integer.reverseBytes(value);
-    }
-
-    private static long ordered(final long value, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? value : Long.reverseBytes(value);
+    private static long reorder(final long value, final ByteOrder byteOrder) {
+        return byteOrder == NATIVE_ORDER ? value : Long.reverseBytes(value);
     }
 
     //--- plain reads ---
@@ -472,54 +458,54 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public short getShort(final int index) {
-        checkBounds(index, Short.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getShort(null, offset + index) :
-                ACCESS.getShort(base, offset + index));
+        return getShort(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public short getShort(final int index, final ByteOrder byteOrder) {
-        return ordered(getShort(index), byteOrder);
+        checkBounds(index, Short.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getShort(null, offset + index) :
+                ACCESS.getShort(base, offset + index), byteOrder);
     }
 
     @Override
     public char getChar(final int index) {
-        checkBounds(index, Character.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getChar(null, offset + index) :
-                ACCESS.getChar(base, offset + index));
+        return getChar(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public char getChar(final int index, final ByteOrder byteOrder) {
-        return ordered(getChar(index), byteOrder);
+        checkBounds(index, Character.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getChar(null, offset + index) :
+                ACCESS.getChar(base, offset + index), byteOrder);
     }
 
     @Override
     public int getInt(final int index) {
-        checkBounds(index, Integer.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getInt(null, offset + index) :
-                ACCESS.getInt(base, offset + index));
+        return getInt(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public int getInt(final int index, final ByteOrder byteOrder) {
-        return ordered(getInt(index), byteOrder);
+        checkBounds(index, Integer.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getInt(null, offset + index) :
+                ACCESS.getInt(base, offset + index), byteOrder);
     }
 
     @Override
     public long getLong(final int index) {
-        checkBounds(index, Long.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getLong(null, offset + index) :
-                ACCESS.getLong(base, offset + index));
+        return getLong(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public long getLong(final int index, final ByteOrder byteOrder) {
-        return ordered(getLong(index), byteOrder);
+        checkBounds(index, Long.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getLong(null, offset + index) :
+                ACCESS.getLong(base, offset + index), byteOrder);
     }
 
     @Override
@@ -564,78 +550,82 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putShort(final int index, final short value) {
+        putShort(index, value, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public void putShort(final int index, final short value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Short.BYTES);
         }
         checkBounds(index, Short.BYTES);
         final Object base = heapBase;
+        final short reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putShort(null, offset + index, littleEndian(value));
+            ACCESS.putShort(null, offset + index, reordered);
         } else {
-            ACCESS.putShort(base, offset + index, littleEndian(value));
+            ACCESS.putShort(base, offset + index, reordered);
         }
     }
 
     @Override
-    public void putShort(final int index, final short value, final ByteOrder byteOrder) {
-        putShort(index, ordered(value, byteOrder));
+    public void putChar(final int index, final char value) {
+        putChar(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
-    public void putChar(final int index, final char value) {
+    public void putChar(final int index, final char value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Character.BYTES);
         }
         checkBounds(index, Character.BYTES);
         final Object base = heapBase;
+        final char reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putChar(null, offset + index, littleEndian(value));
+            ACCESS.putChar(null, offset + index, reordered);
         } else {
-            ACCESS.putChar(base, offset + index, littleEndian(value));
+            ACCESS.putChar(base, offset + index, reordered);
         }
     }
 
     @Override
-    public void putChar(final int index, final char value, final ByteOrder byteOrder) {
-        putChar(index, ordered(value, byteOrder));
+    public void putInt(final int index, final int value) {
+        putInt(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
-    public void putInt(final int index, final int value) {
+    public void putInt(final int index, final int value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Integer.BYTES);
         }
         checkBounds(index, Integer.BYTES);
         final Object base = heapBase;
+        final int reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putInt(null, offset + index, littleEndian(value));
+            ACCESS.putInt(null, offset + index, reordered);
         } else {
-            ACCESS.putInt(base, offset + index, littleEndian(value));
+            ACCESS.putInt(base, offset + index, reordered);
         }
     }
 
     @Override
-    public void putInt(final int index, final int value, final ByteOrder byteOrder) {
-        putInt(index, ordered(value, byteOrder));
+    public void putLong(final int index, final long value) {
+        putLong(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
-    public void putLong(final int index, final long value) {
+    public void putLong(final int index, final long value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Long.BYTES);
         }
         checkBounds(index, Long.BYTES);
         final Object base = heapBase;
+        final long reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putLong(null, offset + index, littleEndian(value));
+            ACCESS.putLong(null, offset + index, reordered);
         } else {
-            ACCESS.putLong(base, offset + index, littleEndian(value));
+            ACCESS.putLong(base, offset + index, reordered);
         }
-    }
-
-    @Override
-    public void putLong(final int index, final long value, final ByteOrder byteOrder) {
-        putLong(index, ordered(value, byteOrder));
     }
 
     @Override
@@ -684,236 +674,239 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public short getShortVolatile(final int index) {
-        checkBounds(index, Short.BYTES);
-        checkOrdered(index, Short.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getShortVolatile(null, offset + index) :
-                ACCESS.getShortVolatile(base, offset + index));
+        return getShortVolatile(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public short getShortVolatile(final int index, final ByteOrder byteOrder) {
-        return ordered(getShortVolatile(index), byteOrder);
+        checkBounds(index, Short.BYTES);
+        checkOrdered(index, Short.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getShortVolatile(null, offset + index) :
+                ACCESS.getShortVolatile(base, offset + index), byteOrder);
     }
 
     @Override
     public void putShortVolatile(final int index, final short value) {
+        putShortVolatile(index, value, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public void putShortVolatile(final int index, final short value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Short.BYTES);
         }
         checkBounds(index, Short.BYTES);
         checkOrdered(index, Short.BYTES);
         final Object base = heapBase;
+        final short reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putShortVolatile(null, offset + index, littleEndian(value));
+            ACCESS.putShortVolatile(null, offset + index, reordered);
         } else {
-            ACCESS.putShortVolatile(base, offset + index, littleEndian(value));
+            ACCESS.putShortVolatile(base, offset + index, reordered);
         }
     }
 
     @Override
-    public void putShortVolatile(final int index, final short value, final ByteOrder byteOrder) {
-        putShortVolatile(index, ordered(value, byteOrder));
-    }
-
-    @Override
     public char getCharVolatile(final int index) {
-        checkBounds(index, Character.BYTES);
-        checkOrdered(index, Character.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getCharVolatile(null, offset + index) :
-                ACCESS.getCharVolatile(base, offset + index));
+        return getCharVolatile(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public char getCharVolatile(final int index, final ByteOrder byteOrder) {
-        return ordered(getCharVolatile(index), byteOrder);
+        checkBounds(index, Character.BYTES);
+        checkOrdered(index, Character.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getCharVolatile(null, offset + index) :
+                ACCESS.getCharVolatile(base, offset + index), byteOrder);
     }
 
     @Override
     public void putCharVolatile(final int index, final char value) {
+        putCharVolatile(index, value, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public void putCharVolatile(final int index, final char value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Character.BYTES);
         }
         checkBounds(index, Character.BYTES);
         checkOrdered(index, Character.BYTES);
         final Object base = heapBase;
+        final char reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putCharVolatile(null, offset + index, littleEndian(value));
+            ACCESS.putCharVolatile(null, offset + index, reordered);
         } else {
-            ACCESS.putCharVolatile(base, offset + index, littleEndian(value));
+            ACCESS.putCharVolatile(base, offset + index, reordered);
         }
-    }
-
-    @Override
-    public void putCharVolatile(final int index, final char value, final ByteOrder byteOrder) {
-        putCharVolatile(index, ordered(value, byteOrder));
     }
 
     //--- ordered and atomic int access ---
 
     @Override
     public int getIntOpaque(final int index) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getIntOpaque(null, offset + index) :
-                ACCESS.getIntOpaque(base, offset + index));
+        return getIntOpaque(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public int getIntOpaque(final int index, final ByteOrder byteOrder) {
-        return ordered(getIntOpaque(index), byteOrder);
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getIntOpaque(null, offset + index) :
+                ACCESS.getIntOpaque(base, offset + index), byteOrder);
     }
 
     @Override
     public int getIntAcquire(final int index) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getIntAcquire(null, offset + index) :
-                ACCESS.getIntAcquire(base, offset + index));
+        return getIntAcquire(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public int getIntAcquire(final int index, final ByteOrder byteOrder) {
-        return ordered(getIntAcquire(index), byteOrder);
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getIntAcquire(null, offset + index) :
+                ACCESS.getIntAcquire(base, offset + index), byteOrder);
     }
 
     @Override
     public int getIntVolatile(final int index) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getIntVolatile(null, offset + index) :
-                ACCESS.getIntVolatile(base, offset + index));
+        return getIntVolatile(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public int getIntVolatile(final int index, final ByteOrder byteOrder) {
-        return ordered(getIntVolatile(index), byteOrder);
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getIntVolatile(null, offset + index) :
+                ACCESS.getIntVolatile(base, offset + index), byteOrder);
     }
 
     @Override
     public void putIntOpaque(final int index, final int value) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
-        }
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putIntOpaque(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putIntOpaque(base, offset + index, littleEndian(value));
-        }
+        putIntOpaque(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putIntOpaque(final int index, final int value, final ByteOrder byteOrder) {
-        putIntOpaque(index, ordered(value, byteOrder));
+        if (expandable) {
+            ensureCapacity(index, Integer.BYTES);
+        }
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        final int reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putIntOpaque(null, offset + index, reordered);
+        } else {
+            ACCESS.putIntOpaque(base, offset + index, reordered);
+        }
     }
 
     @Override
     public void putIntRelease(final int index, final int value) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
-        }
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putIntRelease(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putIntRelease(base, offset + index, littleEndian(value));
-        }
+        putIntRelease(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putIntRelease(final int index, final int value, final ByteOrder byteOrder) {
-        putIntRelease(index, ordered(value, byteOrder));
+        if (expandable) {
+            ensureCapacity(index, Integer.BYTES);
+        }
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        final int reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putIntRelease(null, offset + index, reordered);
+        } else {
+            ACCESS.putIntRelease(base, offset + index, reordered);
+        }
     }
 
     @Override
     public void putIntVolatile(final int index, final int value) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
-        }
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putIntVolatile(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putIntVolatile(base, offset + index, littleEndian(value));
-        }
+        putIntVolatile(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putIntVolatile(final int index, final int value, final ByteOrder byteOrder) {
-        putIntVolatile(index, ordered(value, byteOrder));
-    }
-
-    @Override
-    public boolean compareAndSetInt(final int index, final int expectedValue, final int updateValue) {
         if (expandable) {
             ensureCapacity(index, Integer.BYTES);
         }
         checkBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
-        return base == null ?
-                ACCESS.compareAndSetInt(null, offset + index, littleEndian(expectedValue), littleEndian(updateValue)) :
-                ACCESS.compareAndSetInt(base, offset + index, littleEndian(expectedValue), littleEndian(updateValue));
+        final int reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putIntVolatile(null, offset + index, reordered);
+        } else {
+            ACCESS.putIntVolatile(base, offset + index, reordered);
+        }
+    }
+
+    @Override
+    public boolean compareAndSetInt(final int index, final int expectedValue, final int updateValue) {
+        return compareAndSetInt(index, expectedValue, updateValue, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public boolean compareAndSetInt(final int index, final int expectedValue, final int updateValue,
                                     final ByteOrder byteOrder) {
-        return compareAndSetInt(index, ordered(expectedValue, byteOrder), ordered(updateValue, byteOrder));
-    }
-
-    @Override
-    public int compareAndExchangeInt(final int index, final int expectedValue, final int updateValue) {
         if (expandable) {
             ensureCapacity(index, Integer.BYTES);
         }
         checkBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
-        final int expected = littleEndian(expectedValue);
-        final int update = littleEndian(updateValue);
-        return littleEndian(base == null ? ACCESS.compareAndExchangeInt(null, offset + index, expected, update) :
-                ACCESS.compareAndExchangeInt(base, offset + index, expected, update));
+        final int expected = reorder(expectedValue, byteOrder);
+        final int update = reorder(updateValue, byteOrder);
+        return base == null ? ACCESS.compareAndSetInt(null, offset + index, expected, update) :
+                ACCESS.compareAndSetInt(base, offset + index, expected, update);
+    }
+
+    @Override
+    public int compareAndExchangeInt(final int index, final int expectedValue, final int updateValue) {
+        return compareAndExchangeInt(index, expectedValue, updateValue, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public int compareAndExchangeInt(final int index, final int expectedValue, final int updateValue,
                                      final ByteOrder byteOrder) {
-        final int found = compareAndExchangeInt(index, ordered(expectedValue, byteOrder),
-                ordered(updateValue, byteOrder));
-        return ordered(found, byteOrder);
+        if (expandable) {
+            ensureCapacity(index, Integer.BYTES);
+        }
+        checkBounds(index, Integer.BYTES);
+        checkOrdered(index, Integer.BYTES);
+        final Object base = heapBase;
+        final int expected = reorder(expectedValue, byteOrder);
+        final int update = reorder(updateValue, byteOrder);
+        return reorder(base == null ? ACCESS.compareAndExchangeInt(null, offset + index, expected, update) :
+                ACCESS.compareAndExchangeInt(base, offset + index, expected, update), byteOrder);
     }
 
     @Override
     public int getAndAddInt(final int index, final int delta) {
-        if (!NATIVE_LITTLE_ENDIAN) {
-            return getAndAddIntByCompareAndSet(index, delta, ByteOrder.LITTLE_ENDIAN);
-        }
+        return getAndAddInt(index, delta, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public int getAndAddInt(final int index, final int delta, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Integer.BYTES);
+        }
+        if (byteOrder != NATIVE_ORDER) {
+            return getAndAddIntByCompareAndSet(index, delta, byteOrder);
         }
         checkBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddInt(null, offset + index, delta) :
                 ACCESS.getAndAddInt(base, offset + index, delta);
-    }
-
-    @Override
-    public int getAndAddInt(final int index, final int delta, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? getAndAddInt(index, delta) :
-                getAndAddIntByCompareAndSet(index, delta, byteOrder);
     }
 
     private int getAndAddIntByCompareAndSet(final int index, final int delta, final ByteOrder byteOrder) {
@@ -926,185 +919,187 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public int getAndSetInt(final int index, final int value) {
+        return getAndSetInt(index, value, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public int getAndSetInt(final int index, final int value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Integer.BYTES);
         }
         checkBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getAndSetInt(null, offset + index, littleEndian(value)) :
-                ACCESS.getAndSetInt(base, offset + index, littleEndian(value)));
-    }
-
-    @Override
-    public int getAndSetInt(final int index, final int value, final ByteOrder byteOrder) {
-        return ordered(getAndSetInt(index, ordered(value, byteOrder)), byteOrder);
+        final int reordered = reorder(value, byteOrder);
+        return reorder(base == null ? ACCESS.getAndSetInt(null, offset + index, reordered) :
+                ACCESS.getAndSetInt(base, offset + index, reordered), byteOrder);
     }
 
     //--- ordered and atomic long access ---
 
     @Override
     public long getLongOpaque(final int index) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getLongOpaque(null, offset + index) :
-                ACCESS.getLongOpaque(base, offset + index));
+        return getLongOpaque(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public long getLongOpaque(final int index, final ByteOrder byteOrder) {
-        return ordered(getLongOpaque(index), byteOrder);
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getLongOpaque(null, offset + index) :
+                ACCESS.getLongOpaque(base, offset + index), byteOrder);
     }
 
     @Override
     public long getLongAcquire(final int index) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getLongAcquire(null, offset + index) :
-                ACCESS.getLongAcquire(base, offset + index));
+        return getLongAcquire(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public long getLongAcquire(final int index, final ByteOrder byteOrder) {
-        return ordered(getLongAcquire(index), byteOrder);
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getLongAcquire(null, offset + index) :
+                ACCESS.getLongAcquire(base, offset + index), byteOrder);
     }
 
     @Override
     public long getLongVolatile(final int index) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getLongVolatile(null, offset + index) :
-                ACCESS.getLongVolatile(base, offset + index));
+        return getLongVolatile(index, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public long getLongVolatile(final int index, final ByteOrder byteOrder) {
-        return ordered(getLongVolatile(index), byteOrder);
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        return reorder(base == null ? ACCESS.getLongVolatile(null, offset + index) :
+                ACCESS.getLongVolatile(base, offset + index), byteOrder);
     }
 
     @Override
     public void putLongOpaque(final int index, final long value) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
-        }
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putLongOpaque(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putLongOpaque(base, offset + index, littleEndian(value));
-        }
+        putLongOpaque(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putLongOpaque(final int index, final long value, final ByteOrder byteOrder) {
-        putLongOpaque(index, ordered(value, byteOrder));
+        if (expandable) {
+            ensureCapacity(index, Long.BYTES);
+        }
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        final long reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putLongOpaque(null, offset + index, reordered);
+        } else {
+            ACCESS.putLongOpaque(base, offset + index, reordered);
+        }
     }
 
     @Override
     public void putLongRelease(final int index, final long value) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
-        }
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putLongRelease(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putLongRelease(base, offset + index, littleEndian(value));
-        }
+        putLongRelease(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putLongRelease(final int index, final long value, final ByteOrder byteOrder) {
-        putLongRelease(index, ordered(value, byteOrder));
+        if (expandable) {
+            ensureCapacity(index, Long.BYTES);
+        }
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        final long reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putLongRelease(null, offset + index, reordered);
+        } else {
+            ACCESS.putLongRelease(base, offset + index, reordered);
+        }
     }
 
     @Override
     public void putLongVolatile(final int index, final long value) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
-        }
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
-        final Object base = heapBase;
-        if (base == null) {
-            ACCESS.putLongVolatile(null, offset + index, littleEndian(value));
-        } else {
-            ACCESS.putLongVolatile(base, offset + index, littleEndian(value));
-        }
+        putLongVolatile(index, value, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public void putLongVolatile(final int index, final long value, final ByteOrder byteOrder) {
-        putLongVolatile(index, ordered(value, byteOrder));
-    }
-
-    @Override
-    public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
         if (expandable) {
             ensureCapacity(index, Long.BYTES);
         }
         checkBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
-        return base == null ?
-                ACCESS.compareAndSetLong(null, offset + index, littleEndian(expectedValue), littleEndian(updateValue)) :
-                ACCESS.compareAndSetLong(base, offset + index, littleEndian(expectedValue), littleEndian(updateValue));
+        final long reordered = reorder(value, byteOrder);
+        if (base == null) {
+            ACCESS.putLongVolatile(null, offset + index, reordered);
+        } else {
+            ACCESS.putLongVolatile(base, offset + index, reordered);
+        }
+    }
+
+    @Override
+    public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue) {
+        return compareAndSetLong(index, expectedValue, updateValue, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue,
                                      final ByteOrder byteOrder) {
-        return compareAndSetLong(index, ordered(expectedValue, byteOrder), ordered(updateValue, byteOrder));
-    }
-
-    @Override
-    public long compareAndExchangeLong(final int index, final long expectedValue, final long updateValue) {
         if (expandable) {
             ensureCapacity(index, Long.BYTES);
         }
         checkBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
-        final long expected = littleEndian(expectedValue);
-        final long update = littleEndian(updateValue);
-        return littleEndian(base == null ? ACCESS.compareAndExchangeLong(null, offset + index, expected, update) :
-                ACCESS.compareAndExchangeLong(base, offset + index, expected, update));
+        final long expected = reorder(expectedValue, byteOrder);
+        final long update = reorder(updateValue, byteOrder);
+        return base == null ? ACCESS.compareAndSetLong(null, offset + index, expected, update) :
+                ACCESS.compareAndSetLong(base, offset + index, expected, update);
+    }
+
+    @Override
+    public long compareAndExchangeLong(final int index, final long expectedValue, final long updateValue) {
+        return compareAndExchangeLong(index, expectedValue, updateValue, ByteOrder.LITTLE_ENDIAN);
     }
 
     @Override
     public long compareAndExchangeLong(final int index, final long expectedValue, final long updateValue,
                                        final ByteOrder byteOrder) {
-        final long found = compareAndExchangeLong(index, ordered(expectedValue, byteOrder),
-                ordered(updateValue, byteOrder));
-        return ordered(found, byteOrder);
+        if (expandable) {
+            ensureCapacity(index, Long.BYTES);
+        }
+        checkBounds(index, Long.BYTES);
+        checkOrdered(index, Long.BYTES);
+        final Object base = heapBase;
+        final long expected = reorder(expectedValue, byteOrder);
+        final long update = reorder(updateValue, byteOrder);
+        return reorder(base == null ? ACCESS.compareAndExchangeLong(null, offset + index, expected, update) :
+                ACCESS.compareAndExchangeLong(base, offset + index, expected, update), byteOrder);
     }
 
     @Override
     public long getAndAddLong(final int index, final long delta) {
-        if (!NATIVE_LITTLE_ENDIAN) {
-            return getAndAddLongByCompareAndSet(index, delta, ByteOrder.LITTLE_ENDIAN);
-        }
+        return getAndAddLong(index, delta, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public long getAndAddLong(final int index, final long delta, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Long.BYTES);
+        }
+        if (byteOrder != NATIVE_ORDER) {
+            return getAndAddLongByCompareAndSet(index, delta, byteOrder);
         }
         checkBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddLong(null, offset + index, delta) :
                 ACCESS.getAndAddLong(base, offset + index, delta);
-    }
-
-    @Override
-    public long getAndAddLong(final int index, final long delta, final ByteOrder byteOrder) {
-        return byteOrder == ByteOrder.LITTLE_ENDIAN ? getAndAddLong(index, delta) :
-                getAndAddLongByCompareAndSet(index, delta, byteOrder);
     }
 
     private long getAndAddLongByCompareAndSet(final int index, final long delta, final ByteOrder byteOrder) {
@@ -1117,19 +1112,20 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public long getAndSetLong(final int index, final long value) {
+        return getAndSetLong(index, value, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @Override
+    public long getAndSetLong(final int index, final long value, final ByteOrder byteOrder) {
         if (expandable) {
             ensureCapacity(index, Long.BYTES);
         }
         checkBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
-        return littleEndian(base == null ? ACCESS.getAndSetLong(null, offset + index, littleEndian(value)) :
-                ACCESS.getAndSetLong(base, offset + index, littleEndian(value)));
-    }
-
-    @Override
-    public long getAndSetLong(final int index, final long value, final ByteOrder byteOrder) {
-        return ordered(getAndSetLong(index, ordered(value, byteOrder)), byteOrder);
+        final long reordered = reorder(value, byteOrder);
+        return reorder(base == null ? ACCESS.getAndSetLong(null, offset + index, reordered) :
+                ACCESS.getAndSetLong(base, offset + index, reordered), byteOrder);
     }
 
     //--- bulk copies ---

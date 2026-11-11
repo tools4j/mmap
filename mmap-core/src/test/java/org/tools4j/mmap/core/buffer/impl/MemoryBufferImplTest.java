@@ -37,6 +37,7 @@ import org.tools4j.mmap.core.buffer.MutableMemoryBufferFlyweight;
 import java.lang.management.ManagementFactory;
 import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 import java.util.Arrays;
 import java.util.function.Consumer;
@@ -391,6 +392,10 @@ class MemoryBufferImplTest {
         buffer.putBytes(1000, new byte[24]);
         assertThat(buffer.capacity()).isGreaterThanOrEqualTo(1024);
         assertTrue(buffer.compareAndSetLong(2048, 0, 1));
+        //the non-native order adds with compare-and-set, after growing as well
+        final ByteOrder nonNative = ByteOrder.nativeOrder() == LITTLE_ENDIAN ? BIG_ENDIAN : LITTLE_ENDIAN;
+        assertEquals(0, buffer.getAndAddLong(3000, 5, nonNative));
+        assertEquals(5, buffer.getLong(3000, nonNative));
         buffer.putTextAscii(4000, "abc");
         assertEquals("abc", buffer.getTextAscii(4000, 3));
         assertEquals(99, buffer.getByte(0));
