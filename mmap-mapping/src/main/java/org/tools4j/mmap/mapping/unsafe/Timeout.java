@@ -23,15 +23,14 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.idle.Idler;
 
 import java.util.concurrent.atomic.AtomicReference;
 
 final class Timeout {
     public static final long GRACEFUL_TIMEOUT_MILLIS = 4000;
     public static final long TOTAL_TIMEOUT_MILLIS = 5000;
-    private final IdleStrategy idleStrategy = new BackoffIdleStrategy();
+    private final Idler idler = Idler.backoff();
 
     enum Termination {
         STOP_GRACEFULLY,
@@ -96,7 +95,7 @@ final class Timeout {
         if (termination.get() == null) {
             throw new IllegalStateException("Must stop before awaiting");
         }
-        idleStrategy.reset();
+        idler.reset();
         long end = System.currentTimeMillis() + timeoutMillis;
         while (termination.get() != Termination.STOPPED) {
             if (System.currentTimeMillis() > end || !sleep()) {
@@ -107,7 +106,7 @@ final class Timeout {
     }
 
     private boolean sleep() {
-        idleStrategy.idle();
+        idler.idle();
         return !Thread.interrupted();
     }
 }

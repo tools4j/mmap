@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.config.AsyncUnmappingConfig;
@@ -109,15 +109,15 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     }
 
     @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final IdleStrategy idleStrategy) {
-        requireNonNull(idleStrategy);
-        return unmappingRuntimeUsing(() -> idleStrategy);
+    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Idler idler) {
+        requireNonNull(idler);
+        return unmappingRuntimeUsing(() -> idler);
     }
 
     @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Supplier<? extends IdleStrategy> idleStrategy) {
-        requireNonNull(idleStrategy);
-        return unmappingRuntimeSupplier(() -> AsyncRuntimeInstances.newUnmappingRuntime(idleStrategy.get()));
+    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Supplier<? extends Idler> idler) {
+        requireNonNull(idler);
+        return unmappingRuntimeSupplier(() -> AsyncRuntimeInstances.newUnmappingRuntime(idler.get()));
     }
 
     @Override

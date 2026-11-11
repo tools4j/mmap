@@ -23,13 +23,12 @@
  */
 package org.tools4j.mmap.mapping.config;
 
-import org.agrona.concurrent.IdleStrategy;
-import org.agrona.concurrent.NoOpIdleStrategy;
-import org.agrona.concurrent.YieldingIdleStrategy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.idle.IdleMode;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.core.logging.LoggingErrorListener;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
@@ -55,11 +54,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class MappingConfigurationsTest {
 
-    /** Supplier returning the same idle strategy every time, instantiated via the idle strategy property */
-    public static final class NoOpIdleStrategySupplier implements Supplier<IdleStrategy> {
+    /** Custom idler, instantiated via the idler property */
+    public static final class CustomIdler implements Idler {
         @Override
-        public IdleStrategy get() {
-            return NoOpIdleStrategy.INSTANCE;
+        public void idle() {
+            Thread.onSpinWait();
+        }
+    }
+
+    /** Supplier returning the same idler every time, instantiated via the idler property */
+    public static final class BusySpinIdlerSupplier implements Supplier<Idler> {
+        @Override
+        public Idler get() {
+            return Idler.busySpin();
         }
     }
 
@@ -87,7 +94,8 @@ class MappingConfigurationsTest {
         System.clearProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY);
         System.clearProperty(MappingConfigurations.MAX_FILE_SIZE_PROPERTY);
         System.clearProperty(MappingConfigurations.INITIAL_MAPPING_POOL_SIZE_PROPERTY);
-        System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY);
+        System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY);
+        System.clearProperty(MappingConfigurations.UNMAPPING_RUNTIME_IDLER_PROPERTY);
         System.clearProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY);
         System.clearProperty(MappingConfigurations.ERROR_LISTENER_PROPERTY);
         System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
@@ -180,9 +188,9 @@ class MappingConfigurationsTest {
     }
 
     @Test
-    void defaultUnmappingIdleStrategySupplierReturnsNewInstances() {
-        assertNotSame(MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get(),
-                MappingConfigurations.defaultUnmappingRuntimeIdleStrategySupplier().get());
+    void defaultUnmappingIdlerSupplierReturnsNewInstances() {
+        assertNotSame(MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get(),
+                MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get());
     }
 
     @Test
@@ -222,39 +230,52 @@ class MappingConfigurationsTest {
     }
 
     @Test
-    void idleStrategyPropertyDefault() {
-        assertSame(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_DEFAULT,
-                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier());
+    void idlerPropertyDefaultsToBackoff() {
+        assertSame(IdleMode.BACKOFF, MappingConfigurations.MAPPING_RUNTIME_IDLER_DEFAULT);
+        assertEquals(Idler.backoff().toString(),
+                MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get().toString());
+        assertEquals(Idler.backoff().toString(),
+                MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get().toString());
     }
 
     @Test
-    void idleStrategyPropertyWithIdleStrategyClassCreatesNewInstances() {
-        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
-                YieldingIdleStrategy.class.getName());
-        final Supplier<? extends IdleStrategy> supplier = MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier();
-        final IdleStrategy first = supplier.get();
-        assertInstanceOf(YieldingIdleStrategy.class, first);
-        assertInstanceOf(YieldingIdleStrategy.class, supplier.get());
+    void idlerPropertyWithIdleModeName() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "BUSY_SPIN");
+        assertSame(Idler.busySpin(), MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get());
+        System.setProperty(MappingConfigurations.UNMAPPING_RUNTIME_IDLER_PROPERTY, "YIELDING");
+        assertSame(Idler.yielding(), MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get());
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "BACKOFF");
+        final Supplier<? extends Idler> backoff = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
+        assertNotSame(backoff.get(), backoff.get());
+    }
+
+    @Test
+    void idlerPropertyWithIdlerClassCreatesNewInstances() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, CustomIdler.class.getName());
+        final Supplier<? extends Idler> supplier = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
+        final Idler first = supplier.get();
+        assertInstanceOf(CustomIdler.class, first);
+        assertInstanceOf(CustomIdler.class, supplier.get());
         assertNotSame(first, supplier.get());
     }
 
     @Test
-    void idleStrategyPropertyWithSupplierClassDelegatesToSupplier() {
-        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY,
-                NoOpIdleStrategySupplier.class.getName());
-        final Supplier<? extends IdleStrategy> supplier = MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier();
-        assertSame(NoOpIdleStrategy.INSTANCE, supplier.get());
-        assertSame(NoOpIdleStrategy.INSTANCE, supplier.get());
+    void idlerPropertyWithSupplierClassDelegatesToSupplier() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, BusySpinIdlerSupplier.class.getName());
+        final Supplier<? extends Idler> supplier = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
+        assertSame(Idler.busySpin(), supplier.get());
+        assertSame(Idler.busySpin(), supplier.get());
     }
 
     @Test
-    void idleStrategyPropertyWithInvalidClassFailsOnFirstUse() {
-        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, "no.such.IdleStrategy");
-        assertThrows(IllegalArgumentException.class,
-                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier()::get);
-        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLE_STRATEGY_PROPERTY, String.class.getName());
-        assertThrows(IllegalArgumentException.class,
-                MappingConfigurations.defaultMappingRuntimeIdleStrategySupplier()::get);
+    void idlerPropertyWithInvalidValueFailsOnFirstUse() {
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "no.such.Idler");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get);
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, String.class.getName());
+        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get);
+        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "backoff");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get,
+                "mode names are case-sensitive");
     }
 
     @Test

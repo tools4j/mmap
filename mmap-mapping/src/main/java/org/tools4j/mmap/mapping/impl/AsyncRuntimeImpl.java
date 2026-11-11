@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
@@ -42,7 +42,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
     public static final ThreadFactory DEFAULT_THREAD_FACTORY = Thread::new;
 
     private final String name;
-    private final String idleStrategyAlias;
+    private final String idlerName;
     private final boolean autoStopOnLastDeregister;
     private final ThreadFactory threadFactory;
     private final AtomicReference<Recurring[]> executables = new AtomicReference<>(EMPTY);
@@ -55,35 +55,35 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
     private final AtomicReference<StopStatus> stop = new AtomicReference<>(null);
 
     public AsyncRuntimeImpl(final String name,
-                            final IdleStrategy idleStrategy,
+                            final Idler idler,
                             final boolean autoStopOnLastDeregister) {
-        this(name, idleStrategy, autoStopOnLastDeregister, MappingConfigurations.defaultLifecycleListener(),
+        this(name, idler, autoStopOnLastDeregister, MappingConfigurations.defaultLifecycleListener(),
                 MappingConfigurations.defaultErrorListener());
     }
 
     public AsyncRuntimeImpl(final String name,
-                            final IdleStrategy idleStrategy,
+                            final Idler idler,
                             final boolean autoStopOnLastDeregister,
                             final LifecycleListener lifecycleListener,
                             final ErrorListener errorListener) {
-        this(name, idleStrategy, autoStopOnLastDeregister, DEFAULT_THREAD_FACTORY, lifecycleListener, errorListener);
+        this(name, idler, autoStopOnLastDeregister, DEFAULT_THREAD_FACTORY, lifecycleListener, errorListener);
     }
 
     public AsyncRuntimeImpl(final String name,
-                            final IdleStrategy idleStrategy,
+                            final Idler idler,
                             final boolean autoStopOnLastDeregister,
                             final ThreadFactory threadFactory,
                             final LifecycleListener lifecycleListener,
                             final ErrorListener errorListener) {
         this.name = requireNonNull(name);
         this.threadFactory = requireNonNull(threadFactory);
-        this.idleStrategyAlias = idleStrategy.alias();
+        this.idlerName = idler.toString();
         this.autoStopOnLastDeregister = autoStopOnLastDeregister;
         requireNonNull(lifecycleListener);
         requireNonNull(errorListener);
         final Thread thread = threadFactory.newThread(() -> {
             lifecycleListener.onOpened(this);
-            idleStrategy.reset();
+            idler.reset();
             StopStatus stopSignal;
             int workCount = 0;
             while ((stopSignal = stop.get()) == null || (stopSignal == StopStatus.WHEN_IDLE && workCount != 0)) {
@@ -95,7 +95,11 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
                         errorListener.onError(this, "Uncaught error", ex);
                     }
                 }
-                idleStrategy.idle(workCount);
+                if (workCount > 0) {
+                    idler.reset();
+                } else {
+                    idler.idle();
+                }
             }
             stop.set(StopStatus.STOPPED);
             lifecycleListener.onClosed(this);
@@ -174,7 +178,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
         final StopStatus stopStatus = stop.get();
         sb.append("AsyncRuntimeImpl")
                 .append(":thread=").append(name)
-                .append("|idleStrategy=").append(idleStrategyAlias);
+                .append("|idler=").append(idlerName);
         if (threadFactory != DEFAULT_THREAD_FACTORY) {
             sb.append("|threadFactory=").append(threadFactory);
         }

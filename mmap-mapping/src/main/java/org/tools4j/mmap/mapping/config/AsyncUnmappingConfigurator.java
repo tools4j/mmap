@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.mapping.config;
 
-import org.agrona.concurrent.IdleStrategy;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.impl.AsyncUnmappingConfiguratorImpl;
 
@@ -76,24 +76,24 @@ public interface AsyncUnmappingConfigurator extends AsyncUnmappingConfig {
 
     /**
      * Configures a new runtime for every region mapper created with this configuration, all of them using the given
-     * idle strategy instance. The runtimes stop automatically when their last region mapper is closed.
+     * idler instance. The runtimes stop automatically when their last region mapper is closed.
      * <p>
-     * Note that the same idle strategy instance is used by all runtimes; use
-     * {@link #unmappingRuntimeUsing(Supplier)} instead for idle strategies that hold state.
+     * Note that the same idler instance is used by all runtimes; use
+     * {@link #unmappingRuntimeUsing(Supplier)} instead for idlers that hold state.
      *
-     * @param idleStrategy the idle strategy used by all runtimes
+     * @param idler the idler used by all runtimes
      * @return this configurator for method chaining
      */
-    AsyncUnmappingConfigurator unmappingRuntimeUsing(IdleStrategy idleStrategy);
+    AsyncUnmappingConfigurator unmappingRuntimeUsing(Idler idler);
 
     /**
-     * Configures a new runtime for every region mapper created with this configuration, each with an idle strategy
+     * Configures a new runtime for every region mapper created with this configuration, each with an idler
      * obtained from the given supplier. The runtimes stop automatically when their last region mapper is closed.
      *
-     * @param idleStrategy the supplier of an idle strategy for every new runtime
+     * @param idler the supplier of an idler for every new runtime
      * @return this configurator for method chaining
      */
-    AsyncUnmappingConfigurator unmappingRuntimeUsing(Supplier<? extends IdleStrategy> idleStrategy);
+    AsyncUnmappingConfigurator unmappingRuntimeUsing(Supplier<? extends Idler> idler);
 
     /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this configurator

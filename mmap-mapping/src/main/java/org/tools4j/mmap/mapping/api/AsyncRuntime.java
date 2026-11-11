@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.agrona.concurrent.IdleStrategy;
 import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 
 import java.util.concurrent.ThreadFactory;
@@ -65,32 +65,32 @@ public interface AsyncRuntime extends Closeable {
      * Creates an async runtime backed by a thread watching to execute registered mapping tasks.
      *
      * @param name                      the name for the runtime
-     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param idler                     the idler used by the runtime thread when it found no work
      * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
-     * @return a new async runtime for the given idle strategy
+     * @return a new async runtime for the given idler
      */
     static AsyncRuntime create(final String name,
-                               final IdleStrategy idleStrategy,
+                               final Idler idler,
                                final boolean autoStopOnLastDeregister) {
-        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister);
+        return new AsyncRuntimeImpl(name, idler, autoStopOnLastDeregister);
     }
 
     /**
      * Creates an async runtime backed by a thread watching to execute registered mapping tasks.
      *
      * @param name                      the name for the runtime
-     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param idler                     the idler used by the runtime thread when it found no work
      * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
      * @param lifecycleListener         the listener notified when the runtime is started and stopped
      * @param errorListener             the listener notified about errors thrown by registered tasks
-     * @return a new async runtime for the given idle strategy
+     * @return a new async runtime for the given idler
      */
     static AsyncRuntime create(final String name,
-                               final IdleStrategy idleStrategy,
+                               final Idler idler,
                                final boolean autoStopOnLastDeregister,
                                final LifecycleListener lifecycleListener,
                                final ErrorListener errorListener) {
-        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister, lifecycleListener, errorListener);
+        return new AsyncRuntimeImpl(name, idler, autoStopOnLastDeregister, lifecycleListener, errorListener);
     }
 
     /**
@@ -99,20 +99,20 @@ public interface AsyncRuntime extends Closeable {
      * a CPU. The runtime sets name, daemon flag and uncaught exception handler of the created thread.
      *
      * @param name                      the name for the runtime, also used as thread name
-     * @param idleStrategy              the strategy to use by the runtime when it is idle
+     * @param idler                     the idler used by the runtime thread when it found no work
      * @param autoStopOnLastDeregister  if true the runtime is stopped after the last de-registration
      * @param threadFactory             the factory creating the runtime thread
      * @param lifecycleListener         the listener notified when the runtime is started and stopped
      * @param errorListener             the listener notified about errors thrown by registered tasks
-     * @return a new async runtime for the given idle strategy
+     * @return a new async runtime for the given idler
      */
     static AsyncRuntime create(final String name,
-                               final IdleStrategy idleStrategy,
+                               final Idler idler,
                                final boolean autoStopOnLastDeregister,
                                final ThreadFactory threadFactory,
                                final LifecycleListener lifecycleListener,
                                final ErrorListener errorListener) {
-        return new AsyncRuntimeImpl(name, idleStrategy, autoStopOnLastDeregister, threadFactory, lifecycleListener,
+        return new AsyncRuntimeImpl(name, idler, autoStopOnLastDeregister, threadFactory, lifecycleListener,
                 errorListener);
     }
 
