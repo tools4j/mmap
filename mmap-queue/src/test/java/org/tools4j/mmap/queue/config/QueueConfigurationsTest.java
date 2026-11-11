@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.impl.MappingStrategyConfigImpl;
@@ -134,6 +135,9 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.ROLL_PAYLOAD_FIL
  * Unit test for system property handling in {@link QueueConfigurations}.
  */
 class QueueConfigurationsTest {
+
+    /** Custom lifecycle listener, instantiated via the queue lifecycle listener property */
+    public static final class CustomQueueLifecycleListener implements LifecycleListener {}
 
     private final List<String> properties = new ArrayList<>();
 
@@ -429,5 +433,31 @@ class QueueConfigurationsTest {
                 MappingStrategy.SyncMappingStrategyWithAsyncUnmapping.mappingStrategyConfig());
         assertSame(MappingStrategyConfig.getDefaultAsyncMapAhead(),
                 MappingStrategy.AsyncMapAheadStrategy.mappingStrategyConfig());
+    }
+
+    @Test
+    void lifecycleListenerDefaultsToTheMappingModuleDefault() {
+        assertSame(MappingConfigurations.defaultLifecycleListener(), QueueConfigurations.defaultLifecycleListener());
+        setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.NO_OP_LISTENER);
+        assertSame(LifecycleListener.NO_OP, QueueConfigurations.defaultLifecycleListener());
+    }
+
+    @Test
+    void lifecycleListenerPropertyOverridesTheMappingModuleDefault() {
+        setProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.NO_OP_LISTENER);
+        setProperty(QueueConfigurations.LIFECYCLE_LISTENER_PROPERTY, MappingConfigurations.LOG_INFO_LISTENER);
+        assertSame(MappingConfigurations.lifecycleListenerForName(MappingConfigurations.LOG_INFO_LISTENER),
+                QueueConfigurations.defaultLifecycleListener());
+        setProperty(QueueConfigurations.LIFECYCLE_LISTENER_PROPERTY, CustomQueueLifecycleListener.class.getName());
+        final LifecycleListener custom = QueueConfigurations.defaultLifecycleListener();
+        assertInstanceOf(CustomQueueLifecycleListener.class, custom);
+        assertSame(custom, QueueConfigurations.defaultLifecycleListener());
+        assertSame(LifecycleListener.NO_OP, MappingConfigurations.defaultLifecycleListener());
+    }
+
+    @Test
+    void lifecycleListenerPropertyWithInvalidValueIsRejected() {
+        setProperty(QueueConfigurations.LIFECYCLE_LISTENER_PROPERTY, "no.such.Listener");
+        assertThrows(IllegalArgumentException.class, QueueConfigurations::defaultLifecycleListener);
     }
 }

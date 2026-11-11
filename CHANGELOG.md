@@ -41,6 +41,9 @@ Notable changes per release. Entries are curated from the commits since the prev
   `FileInitialiser` are removed, and `FileMappers.create(..)` takes the initialiser from the config.
 
 ### Added
+- Queues can log lifecycle events differently from the mapping module, with the system property
+  `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
+  set.
 - Appenders can prefill new space of header and payload files, reserving the disk space so that appending cannot
   fault on a full disk: `AppenderConfigurator.prefillFiles(..)`, `prefillHeaderFiles(..)` and `prefillPayloadFiles(..)`,
   or the system properties `mmap.queue.appenderPrefillHeaderFiles` and `mmap.queue.appenderPrefillPayloadFiles`

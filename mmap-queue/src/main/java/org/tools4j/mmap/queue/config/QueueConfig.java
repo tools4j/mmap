@@ -89,7 +89,7 @@ public interface QueueConfig extends QueueLayoutConfig {
     /**
      * Returns the listener for lifecycle events of the queue, its appenders and readers, and of the files and other
      * resources they use. It is not part of the queue layout. The default is defined by system property, see
-     * {@link org.tools4j.mmap.mapping.config.MappingConfigurations#defaultLifecycleListener()}.
+     * {@link QueueConfigurations#defaultLifecycleListener()}.
      *
      * @return the lifecycle listener
      */

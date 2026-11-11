@@ -23,18 +23,22 @@
  */
 package org.tools4j.mmap.queue.config;
 
+import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.internal.SystemProperties.PropertyInstance;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.queue.impl.AppenderIdPool;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 
 import static org.tools4j.mmap.core.internal.SystemProperties.booleanProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.enumProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.intProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.longProperty;
+import static org.tools4j.mmap.core.internal.SystemProperties.namedOrClassInstanceProperty;
 import static org.tools4j.mmap.queue.config.MappingStrategy.AsyncMapAheadStrategy;
 import static org.tools4j.mmap.queue.config.MappingStrategy.SyncMappingStrategyWithAsyncUnmapping;
 import static org.tools4j.mmap.queue.impl.AppenderConfigDefaults.APPENDER_CONFIG_DEFAULTS;
@@ -55,6 +59,8 @@ import static org.tools4j.mmap.queue.impl.ReaderConfigDefaults.POLLER_CONFIG_DEF
  */
 public enum QueueConfigurations {
     ;
+    private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
+
     /**
      * The default maximum number of rolled header or payload files kept open at once by an appender or reader: one each
      * for the accessing thread, the async mapping thread and the async unmapping thread, plus one for a file created
@@ -72,6 +78,13 @@ public enum QueueConfigurations {
      * {@value #MAX_APPENDERS_PROPERTY} is not set.
      */
     public static final int MAX_APPENDERS_DEFAULT = AppenderIdPool.MAX_IDS;
+    /**
+     * Name of the system property to override the default lifecycle listener of queues and their appenders and
+     * readers, with the values of {@value MappingConfigurations#LIFECYCLE_LISTENER_PROPERTY}, see
+     * {@link MappingConfigurations#lifecycleListenerForName(String)}; if not set, queues use the
+     * {@linkplain MappingConfigurations#defaultLifecycleListener() default lifecycle listener of the mapping module}.
+     */
+    public static final String LIFECYCLE_LISTENER_PROPERTY = "mmap.queue.lifecycleListener";
     /**
      * Name of the system property to override the default
      * {@linkplain QueueLayoutConfig#minHeaderFileSize() minimum header file size}.
@@ -496,6 +509,21 @@ public enum QueueConfigurations {
      */
     public static int defaultMaxAppenders() {
         return intProperty(MAX_APPENDERS_PROPERTY, AppenderIdPool::validateMaxAppenders, MAX_APPENDERS_DEFAULT);
+    }
+
+    /**
+     * Returns the default lifecycle listener of queues and their appenders and readers. A listener class given by
+     * system property is instantiated once and reused while the property value is unchanged.
+     *
+     * @return the listener given by system property {@value #LIFECYCLE_LISTENER_PROPERTY} if set, and the
+     *         {@linkplain MappingConfigurations#defaultLifecycleListener() mapping module's default} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
+     *                                  instantiated
+     */
+    public static LifecycleListener defaultLifecycleListener() {
+        return namedOrClassInstanceProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class,
+                MappingConfigurations::defaultLifecycleListener, MappingConfigurations::lifecycleListenerForName,
+                LIFECYCLE_LISTENER_INSTANCE);
     }
 
     /**

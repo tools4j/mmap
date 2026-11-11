@@ -26,10 +26,10 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.queue.config.AppenderConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
 import org.tools4j.mmap.queue.config.QueueConfig;
+import org.tools4j.mmap.queue.config.QueueConfigurations;
 import org.tools4j.mmap.queue.config.ReaderConfig;
 
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultExpandHeaderFile;
@@ -134,7 +134,7 @@ public enum QueueConfigDefaults implements QueueConfig {
 
     @Override
     public LifecycleListener lifecycleListener() {
-        return MappingConfigurations.defaultLifecycleListener();
+        return QueueConfigurations.defaultLifecycleListener();
     }
 
     @Override
