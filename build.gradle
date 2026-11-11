@@ -132,7 +132,15 @@ subprojects {
         includeEmptyDirs = false
     }
 
+    //class files for Java 17 whatever JDK builds them; not --release 17, which forbids the --add-exports below, and
+    //without its warning that -source 17 does not check the API against Java 17 (the Java 17 build on CI does)
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     tasks.withType(JavaCompile) {
+        options.compilerArgs.add('-Xlint:-options')
         if (JavaVersion.current().isJava9Compatible()) {
             options.compilerArgs.addAll(['--add-exports', 'java.base/java.lang.reflect=ALL-UNNAMED'])
             options.compilerArgs.addAll(['--add-exports', 'java.base/java.net=ALL-UNNAMED'])
