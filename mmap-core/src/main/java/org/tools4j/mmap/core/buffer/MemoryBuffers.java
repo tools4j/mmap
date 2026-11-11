@@ -36,7 +36,9 @@ import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
  *     needs {@code --add-exports java.base/jdk.internal.misc=ALL-UNNAMED} (or {@code --add-opens}), as Agrona
  *     does</li>
  *     <li>{@code FFM}: the Foreign Function and Memory API, public API, Java 22 or later; needs
- *     {@code --enable-native-access=ALL-UNNAMED}; not available yet</li>
+ *     {@code --enable-native-access=ALL-UNNAMED}, otherwise the JVM warns about the restricted method creating the
+ *     segment for direct memory. Wrapping a direct {@code ByteBuffer} creates a segment to find out its address,
+ *     unless the flyweight already wraps it, and so does copying from or to one.</li>
  * </ul>
  */
 public enum MemoryBuffers {

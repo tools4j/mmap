@@ -298,6 +298,54 @@ project(':mmap-core') {
         options.addStringOption('-add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED')
     }
 
+    //memory access through FFM (Java 22 or later): compiled only when building with Java 22 or later, into the same
+    //jar, and loaded by name only when running on Java 22 or later; releases must therefore be built with Java 22 or
+    //later, which publishing checks
+    if (buildJavaVersion >= 22) {
+        sourceSets {
+            ffm {
+                compileClasspath += sourceSets.main.output
+            }
+            test {
+                runtimeClasspath += ffm.output
+            }
+        }
+
+        tasks.named('compileFfmJava') {
+            options.compilerArgs.clear() //FFM is public API, and --release forbids --add-exports
+            options.release = 22
+        }
+
+        jar {
+            from sourceSets.ffm.output
+        }
+
+        tasks.register('ffmTest', Test) {
+            description = 'Runs the buffer tests with memory access through FFM'
+            group = 'verification'
+            testClassesDirs = sourceSets.test.output.classesDirs
+            classpath = sourceSets.test.runtimeClasspath
+            filter {
+                includeTestsMatching 'org.tools4j.mmap.core.buffer.*'
+            }
+            systemProperty 'mmap.core.memoryAccess', 'FFM'
+            jvmArgs = ['--enable-native-access=ALL-UNNAMED'] //and no --add-opens: FFM needs no JDK internals
+        }
+
+        tasks.named('check') {
+            dependsOn 'ffmTest'
+        }
+    }
+
+    tasks.matching { it.name.startsWith('publish') }.configureEach {
+        doFirst {
+            if (isReleaseVersion && buildJavaVersion < 22) {
+                throw new GradleException("Releases of mmap-core must be built with Java 22 or later, to " +
+                        "include memory access through FFM, not with Java ${buildJavaVersion}")
+            }
+        }
+    }
+
     dependencies {
         //optional: logging listeners use SLF4J if present on the class path, and java.util.logging otherwise
         compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
@@ -316,7 +364,10 @@ project(':mmap-core') {
                 Implementation-Title:   mmap
                 Implementation-Vendor:  tools4j.org
                 Implementation-Version: ${projVersion}
-                Import-Package:         org.slf4j.*;resolution:=optional, *
+                Import-Package:         org.slf4j.*;resolution:=optional, java.lang.foreign;resolution:=optional, *
+                # Java 17, not derived from the classes, as memory access through FFM is loaded on Java 22+ only
+                Require-Capability:     osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=17))"
+                -noee: true
                 -exportcontents: org.tools4j.mmap.core.*
                 # Suppress headers that reduce reproducibility.
                 -reproducible: true

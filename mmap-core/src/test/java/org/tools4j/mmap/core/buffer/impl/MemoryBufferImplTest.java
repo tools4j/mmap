@@ -485,6 +485,8 @@ class MemoryBufferImplTest {
         final byte[] array = new byte[CAPACITY];
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(CAPACITY);
         final MutableMemoryBufferFlyweight flyweight = MemoryBuffers.mutableFlyweight();
+        //re-wrapping the same direct byte buffer, as wrapping another one creates a segment with FFM
+        final MutableMemoryBufferFlyweight byteBufferFlyweight = MemoryBuffers.mutableFlyweight();
         final StringBuilder text = new StringBuilder(64);
         final Consumer<Integer> rounds = n -> {
             for (int i = 0; i < n; i++) {
@@ -494,11 +496,11 @@ class MemoryBufferImplTest {
                 flyweight.getAndAddInt(4, 1);
                 flyweight.wrap(array, 8, 16);
                 flyweight.putInt(4, flyweight.getInt(0) + 1);
-                flyweight.wrap(byteBuffer);
-                flyweight.putLongRelease(16, flyweight.getLongAcquire(16) + 1);
-                flyweight.putTextUtf8(24, "abc");
+                byteBufferFlyweight.wrap(byteBuffer, i % 2 * 8, 32);
+                byteBufferFlyweight.putLongRelease(16, byteBufferFlyweight.getLongAcquire(16) + 1);
+                byteBufferFlyweight.putTextUtf8(24, "abc");
                 text.setLength(0);
-                flyweight.getTextUtf8(24, 3, text);
+                byteBufferFlyweight.getTextUtf8(24, 3, text);
                 heap.putBytes(32, direct, 0, 16);
             }
         };

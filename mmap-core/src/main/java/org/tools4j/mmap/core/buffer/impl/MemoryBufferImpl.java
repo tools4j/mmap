@@ -58,6 +58,8 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
  */
 public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMemoryBufferFlyweight {
 
+    private static final int FFM_JAVA_VERSION = 22;
+    private static final String FFM_MEMORY_ACCESS = "org.tools4j.mmap.core.unsafe.FfmMemoryAccess";
     private static final MemoryAccess ACCESS = memoryAccess();
     private static final boolean NATIVE_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     private static final byte[] NO_BYTES = {};
@@ -91,10 +93,23 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
             case "UNSAFE":
                 return UnsafeMemoryAccess.INSTANCE;
             case "FFM":
-                throw new IllegalStateException("Memory access through FFM is not available yet");
+                return ffmMemoryAccess();
             default:
                 throw new IllegalArgumentException("Invalid value for system property " +
                         MemoryBuffers.MEMORY_ACCESS_PROPERTY + ": " + name + ", must be UNSAFE or FFM");
+        }
+    }
+
+    private static MemoryAccess ffmMemoryAccess() {
+        if (Runtime.version().feature() < FFM_JAVA_VERSION) {
+            throw new IllegalStateException("Memory access through FFM needs Java " + FFM_JAVA_VERSION +
+                    " or later, running on " + Runtime.version());
+        }
+        try {
+            return (MemoryAccess) Class.forName(FFM_MEMORY_ACCESS).getEnumConstants()[0];
+        } catch (final ClassNotFoundException e) {
+            throw new IllegalStateException("Memory access through FFM is not in this build of mmap-core, " +
+                    "built with Java " + (FFM_JAVA_VERSION - 1) + " or earlier", e);
         }
     }
 
@@ -270,12 +285,20 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
             throw new ReadOnlyBufferException();
         }
         if (buffer.isDirect()) {
-            wrapDirect(ACCESS.address(buffer) + offset, length, offset, buffer);
+            wrapDirect(directAddress(buffer) + offset, length, offset, buffer);
         } else if (buffer.hasArray()) {
             wrapHeap(buffer.array(), buffer.arrayOffset() + offset, length, offset, buffer);
         } else {
             throw new IllegalArgumentException("Cannot wrap a heap byte buffer without accessible array: " + buffer);
         }
+    }
+
+    /**
+     * Returns the address of a direct byte buffer, without asking the memory access again if it is already wrapped,
+     * since FFM creates a segment to find it out.
+     */
+    private long directAddress(final ByteBuffer buffer) {
+        return buffer == owner ? offset - wrapOffset : ACCESS.address(buffer);
     }
 
     @Override
