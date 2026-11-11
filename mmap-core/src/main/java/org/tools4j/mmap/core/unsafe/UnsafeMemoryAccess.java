@@ -30,6 +30,14 @@ import static org.tools4j.mmap.core.unsafe.UnsafeAccess.UNSAFE;
 
 /**
  * Memory access through {@code jdk.internal.misc.Unsafe}, the default.
+ * <p>
+ * A heap base is a {@code byte[]} or a {@code long[]}, and each plain access passes it to Unsafe cast to its array
+ * type: the JIT compiler treats a plain access through a base of unknown type as one that may touch any field of any
+ * object, so in a loop it reloads the buffer's own fields on every access and doesn't unroll or vectorise it, which
+ * made loops over heap memory, and over direct memory at call sites that also see heap memory, three to six times
+ * slower. For direct memory, the caller's literal null folds the type check away. Ordered and atomic accesses pass
+ * the base as it is: their barriers make each access load the fields again anyway, and the type check would add a
+ * load of the array's class to each of them.
  */
 @Unsafe
 public enum UnsafeMemoryAccess implements MemoryAccess {
@@ -67,52 +75,77 @@ public enum UnsafeMemoryAccess implements MemoryAccess {
 
     @Override
     public byte getByte(final Object base, final long offset) {
-        return UNSAFE.getByte(base, offset);
+        return base instanceof long[] ? UNSAFE.getByte((long[]) base, offset)
+                : UNSAFE.getByte((byte[]) base, offset);
     }
 
     @Override
     public void putByte(final Object base, final long offset, final byte value) {
-        UNSAFE.putByte(base, offset, value);
+        if (base instanceof long[]) {
+            UNSAFE.putByte((long[]) base, offset, value);
+        } else {
+            UNSAFE.putByte((byte[]) base, offset, value);
+        }
     }
 
     @Override
     public short getShort(final Object base, final long offset) {
-        return UNSAFE.getShortUnaligned(base, offset);
+        return base instanceof long[] ? UNSAFE.getShortUnaligned((long[]) base, offset)
+                : UNSAFE.getShortUnaligned((byte[]) base, offset);
     }
 
     @Override
     public void putShort(final Object base, final long offset, final short value) {
-        UNSAFE.putShortUnaligned(base, offset, value);
+        if (base instanceof long[]) {
+            UNSAFE.putShortUnaligned((long[]) base, offset, value);
+        } else {
+            UNSAFE.putShortUnaligned((byte[]) base, offset, value);
+        }
     }
 
     @Override
     public char getChar(final Object base, final long offset) {
-        return UNSAFE.getCharUnaligned(base, offset);
+        return base instanceof long[] ? UNSAFE.getCharUnaligned((long[]) base, offset)
+                : UNSAFE.getCharUnaligned((byte[]) base, offset);
     }
 
     @Override
     public void putChar(final Object base, final long offset, final char value) {
-        UNSAFE.putCharUnaligned(base, offset, value);
+        if (base instanceof long[]) {
+            UNSAFE.putCharUnaligned((long[]) base, offset, value);
+        } else {
+            UNSAFE.putCharUnaligned((byte[]) base, offset, value);
+        }
     }
 
     @Override
     public int getInt(final Object base, final long offset) {
-        return UNSAFE.getIntUnaligned(base, offset);
+        return base instanceof long[] ? UNSAFE.getIntUnaligned((long[]) base, offset)
+                : UNSAFE.getIntUnaligned((byte[]) base, offset);
     }
 
     @Override
     public void putInt(final Object base, final long offset, final int value) {
-        UNSAFE.putIntUnaligned(base, offset, value);
+        if (base instanceof long[]) {
+            UNSAFE.putIntUnaligned((long[]) base, offset, value);
+        } else {
+            UNSAFE.putIntUnaligned((byte[]) base, offset, value);
+        }
     }
 
     @Override
     public long getLong(final Object base, final long offset) {
-        return UNSAFE.getLongUnaligned(base, offset);
+        return base instanceof long[] ? UNSAFE.getLongUnaligned((long[]) base, offset)
+                : UNSAFE.getLongUnaligned((byte[]) base, offset);
     }
 
     @Override
     public void putLong(final Object base, final long offset, final long value) {
-        UNSAFE.putLongUnaligned(base, offset, value);
+        if (base instanceof long[]) {
+            UNSAFE.putLongUnaligned((long[]) base, offset, value);
+        } else {
+            UNSAFE.putLongUnaligned((byte[]) base, offset, value);
+        }
     }
 
     @Override
