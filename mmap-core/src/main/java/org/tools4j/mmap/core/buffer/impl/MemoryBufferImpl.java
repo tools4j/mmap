@@ -68,6 +68,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     private static final int DIRECT_ALIGNMENT = 64;
     private static final int MAX_CAPACITY = Integer.MAX_VALUE - DIRECT_ALIGNMENT;
     private static final int MIN_EXPANDED_CAPACITY = 64;
+    /** The bits of {@link #alignmentBits} holding the misalignment of index 0, i.e. its address modulo 8. */
+    private static final int MISALIGNMENT_MASK = Long.BYTES - 1;
+    /** The bit of {@link #alignmentBits} set for memory without ordered access, above the misalignment bits. */
+    private static final int UNORDERED = Long.BYTES;
     private static final char REPLACEMENT_CHARACTER = '�';
 
     private final boolean mutableFlyweight;
@@ -79,8 +83,11 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     private int capacity;
     private int wrapOffset;
     private Object owner;
-    private boolean orderedAccess;
-    private long alignmentBase;
+    /**
+     * The misalignment of index 0 and the {@link #UNORDERED} bit, in one field so that an ordered access checks both
+     * with one load and one branch: the barrier of the access makes the next access load the fields again.
+     */
+    private int alignmentBits;
 
     private MemoryBufferImpl(final boolean mutableFlyweight, final boolean expandable, final boolean expandableDirect) {
         this.mutableFlyweight = mutableFlyweight;
@@ -221,8 +228,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.capacity = length;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
-        this.orderedAccess = false;
-        this.alignmentBase = 0;
+        this.alignmentBits = UNORDERED;
     }
 
     private void wrapHeap(final long[] array, final int byteOffset, final int length) {
@@ -231,8 +237,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.capacity = length;
         this.wrapOffset = byteOffset;
         this.owner = array;
-        this.orderedAccess = true;
-        this.alignmentBase = byteOffset;
+        this.alignmentBits = byteOffset & MISALIGNMENT_MASK;
     }
 
     private void wrapDirect(final long address, final int capacity, final int wrapOffset, final Object owner) {
@@ -241,8 +246,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.capacity = capacity;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
-        this.orderedAccess = true;
-        this.alignmentBase = address;
+        this.alignmentBits = (int) address & MISALIGNMENT_MASK;
     }
 
     private void wrapAllocatedDirect(final int capacity) {
@@ -334,8 +338,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.capacity = length;
         this.wrapOffset = source.wrapOffset + index;
         this.owner = source.owner;
-        this.orderedAccess = source.orderedAccess;
-        this.alignmentBase = source.alignmentBase + index;
+        this.alignmentBits = (source.alignmentBits & UNORDERED) | ((source.alignmentBits + index) & MISALIGNMENT_MASK);
     }
 
     @Override
@@ -363,12 +366,13 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public long alignment() {
         if (heapBase == null) {
-            return Long.lowestOneBit(alignmentBase);
+            return Long.lowestOneBit(offset);
         }
-        if (!orderedAccess) {
+        if ((alignmentBits & UNORDERED) != 0) {
             return 1;
         }
-        return alignmentBase == 0 ? Long.BYTES : Math.min(Long.BYTES, Long.lowestOneBit(alignmentBase));
+        final int misalignment = alignmentBits & MISALIGNMENT_MASK;
+        return misalignment == 0 ? Long.BYTES : Integer.lowestOneBit(misalignment);
     }
 
     @Override
@@ -388,12 +392,14 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     }
 
     private void checkOrdered(final int index, final int size) {
-        if (!orderedAccess) {
-            throw unsupportedOrderedAccess();
+        final int bits = alignmentBits;
+        if ((((bits + index) & (size - 1)) | (bits & UNORDERED)) != 0) {
+            throw orderedAccessFailure(index, size);
         }
-        if (((alignmentBase + index) & (size - 1)) != 0) {
-            throw misalignedAccess(index, size);
-        }
+    }
+
+    private RuntimeException orderedAccessFailure(final int index, final int size) {
+        return (alignmentBits & UNORDERED) != 0 ? unsupportedOrderedAccess() : misalignedAccess(index, size);
     }
 
     private static UnsupportedOperationException unsupportedOrderedAccess() {
