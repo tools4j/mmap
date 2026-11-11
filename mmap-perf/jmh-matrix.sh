@@ -25,7 +25,7 @@ Environment (defaults in brackets):
 
 Gradle itself must run on Java 22 or later (JAVA_HOME), so that the build includes the memory access through FFM.
 
-With the defaults a run takes about 1 hour 45 minutes; keep the machine otherwise idle. On macOS the run prevents
+With the defaults a run takes about 2 hours 10 minutes; keep the machine otherwise idle. On macOS the run prevents
 idle sleep with caffeinate, but closing the lid still puts the machine to sleep and invalidates the run. A quick smoke
 run of a few minutes: FORKS=1 WARMUP=0 MEASUREMENT=1 ITERATION_TIME=100ms $0 run
 
@@ -51,7 +51,9 @@ for file in sorted(glob.glob(os.path.join(sys.argv[1], '*.json'))):
         rows.setdefault(key, {})[params['implementation']] = (metric['score'], metric['scoreError'], alloc)
 if not rows:
     sys.exit(f"No results in {sys.argv[1]}")
-print(f"JDK {jvm}, ns/op ± error (99.9%), allocated bytes per operation shown where non-zero\n")
+print(f"JDK {jvm}, ns/op ± error (99.9%), allocated bytes per operation shown where non-zero")
+print("readLongsAcquire and writeLongsRelease magnify the per-access overhead of ordered accesses, publish and consume"
+      " are the use case\n")
 print(f"{'benchmark':30} {'size':>5} {'memory':6} {'polluted/profile':16} " + ' '.join(f"{i:>20}" for i in implementations))
 for key in sorted(rows):
     cells = []

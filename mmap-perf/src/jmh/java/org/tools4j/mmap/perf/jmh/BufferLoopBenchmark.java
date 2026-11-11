@@ -41,6 +41,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * Loops of plain and ordered long accesses over a buffer, and copies between two buffers, per implementation and
  * memory kind; with {@code polluted}, the call sites have seen the other memory kind first.
+ * <p>
+ * The loops of ordered accesses magnify their per-access overhead, since each barrier makes the next access load the
+ * buffer's fields and check bounds and alignment again; they catch regressions in the checks, but real code seldom
+ * has such loops. {@code publish} and {@code consume} are the use case: a payload written with plain writes and
+ * published with one release write of a header, and read after one acquire read of the header.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -107,6 +112,16 @@ public class BufferLoopBenchmark {
     @Benchmark
     public void writeLongsRelease() {
         BufferOperations.writeLongsRelease(buffer, size, value++);
+    }
+
+    @Benchmark
+    public void publish() {
+        BufferOperations.publish(buffer, size, value++);
+    }
+
+    @Benchmark
+    public long consume() {
+        return BufferOperations.consume(buffer, size);
     }
 
     @Benchmark

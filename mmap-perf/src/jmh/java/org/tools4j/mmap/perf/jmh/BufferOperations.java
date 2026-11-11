@@ -61,6 +61,23 @@ public enum BufferOperations {
         }
     }
 
+    /** Writes a payload with plain writes after the header at index 0, then publishes it with a release write. */
+    static void publish(final BenchBuffer buffer, final int size, final long value) {
+        for (int index = Long.BYTES; index < size; index += Long.BYTES) {
+            buffer.putLong(index, value + index);
+        }
+        buffer.putLongRelease(0, value);
+    }
+
+    /** Reads the header at index 0 with an acquire read, then the payload after it with plain reads. */
+    static long consume(final BenchBuffer buffer, final int size) {
+        long sum = buffer.getLongAcquire(0);
+        for (int index = Long.BYTES; index < size; index += Long.BYTES) {
+            sum += buffer.getLong(index);
+        }
+        return sum;
+    }
+
     static void copy(final BenchBuffer target, final BenchBuffer source, final int size) {
         target.putBytes(0, source, 0, size);
     }
@@ -126,6 +143,8 @@ public enum BufferOperations {
             sum += readLongs(buffer, size);
             writeLongsRelease(buffer, size, round);
             sum += readLongsAcquire(buffer, size);
+            publish(buffer, size, round);
+            sum += consume(buffer, size);
             copy(buffer, source, size);
             if (compareAndSet) {
                 sum += increment(buffer) ? 1 : 0;
@@ -144,6 +163,8 @@ public enum BufferOperations {
         check(readLongs(buffer, size) == expectedSum(size, 1), "putLong/getLong");
         writeLongsRelease(buffer, size, 2);
         check(readLongsAcquire(buffer, size) == expectedSum(size, 2), "putLongRelease/getLongAcquire");
+        publish(buffer, size, 4);
+        check(consume(buffer, size) == expectedSum(size, 4), "publish/consume");
         writeLongs(source, size, 3);
         copy(buffer, source, size);
         check(readLongs(buffer, size) == expectedSum(size, 3), "putBytes");
