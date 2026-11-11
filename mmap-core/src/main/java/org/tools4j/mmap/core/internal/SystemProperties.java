@@ -185,6 +185,30 @@ public enum SystemProperties {
     }
 
     /**
+     * Returns the instance for the value of the given system property as
+     * {@link #namedOrClassInstanceProperty(String, Class, String, Function, AtomicReference)} does, or a default
+     * instance if the property is not set, for instance the default of another, more general property.
+     *
+     * @param propertyName    the system property name
+     * @param type            the type of the instance
+     * @param defaultInstance supplies the instance to return if the property is not set
+     * @param namedInstances  returns the instance for a name, or null if the value is not a known name
+     * @param instance        holds the instance created for the last property value
+     * @param <T>             the type of the instance
+     * @return the named instance, the instance of the class given by the property value, or the default instance
+     * @throws IllegalArgumentException if the class cannot be instantiated or is not of the expected type
+     */
+    public static <T> T namedOrClassInstanceProperty(final String propertyName,
+                                                     final Class<T> type,
+                                                     final Supplier<? extends T> defaultInstance,
+                                                     final Function<? super String, ? extends T> namedInstances,
+                                                     final AtomicReference<PropertyInstance> instance) {
+        final String propVal = System.getProperty(propertyName, null);
+        return propVal == null ? defaultInstance.get() :
+                namedOrClassInstanceProperty(propertyName, type, propVal, namedInstances, instance);
+    }
+
+    /**
      * Returns the instance for the given property value, created with the factory once and reused while the property
      * value is unchanged.
      *

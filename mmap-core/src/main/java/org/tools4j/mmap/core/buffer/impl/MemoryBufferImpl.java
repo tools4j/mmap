@@ -28,6 +28,7 @@ import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.buffer.MutableMemoryBufferFlyweight;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.text.Utf8;
 import org.tools4j.mmap.core.unsafe.MemoryAccess;
 import org.tools4j.mmap.core.unsafe.UnsafeMemoryAccess;
@@ -89,15 +90,11 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     }
 
     private static MemoryAccess memoryAccess() {
-        final String name = System.getProperty(MemoryBuffers.MEMORY_ACCESS_PROPERTY, "UNSAFE");
-        switch (name) {
-            case "UNSAFE":
-                return UnsafeMemoryAccess.INSTANCE;
-            case "FFM":
+        switch (CoreConfigurations.defaultMemoryAccessMode()) {
+            case FFM:
                 return ffmMemoryAccess();
             default:
-                throw new IllegalArgumentException("Invalid value for system property " +
-                        MemoryBuffers.MEMORY_ACCESS_PROPERTY + ": " + name + ", must be UNSAFE or FFM");
+                return UnsafeMemoryAccess.INSTANCE;
         }
     }
 
