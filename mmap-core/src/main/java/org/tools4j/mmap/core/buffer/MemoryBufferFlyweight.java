@@ -45,6 +45,8 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
      *
      * @param address the address of the first byte
      * @param capacity the number of bytes
+     * @throws IllegalArgumentException if the capacity is negative, or positive at {@link MemoryBuffers#NULL_ADDRESS},
+     *                                  as returned by {@link #address()} for heap memory
      */
     void wrap(long address, int capacity);
 
@@ -121,10 +123,10 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
     int wrapOffset();
 
     /**
-     * Returns the address of the first byte of the wrapped direct memory.
+     * Returns the address of the first byte of the wrapped direct memory, or {@link MemoryBuffers#NULL_ADDRESS} if
+     * this flyweight wraps heap memory, see {@link #isDirect()}.
      *
-     * @return the address
-     * @throws IllegalStateException if this flyweight wraps heap memory, see {@link #isDirect()}
+     * @return the address, or {@link MemoryBuffers#NULL_ADDRESS} for heap memory
      */
     long address();
 }
