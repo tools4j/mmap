@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.config;
 
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
@@ -167,7 +168,7 @@ public interface MappingConfigurator extends MappingConfig {
      *
      * @param errorListener the error listener, for instance {@link ErrorListener#NO_OP}
      * @return this configurator for method chaining
-     * @see MappingConfigurations#defaultErrorListener()
+     * @see CoreConfigurations#defaultErrorListener()
      */
     MappingConfigurator errorListener(ErrorListener errorListener);
 

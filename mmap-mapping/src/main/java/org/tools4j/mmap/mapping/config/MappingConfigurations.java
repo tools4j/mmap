@@ -23,19 +23,19 @@
  */
 package org.tools4j.mmap.mapping.config;
 
-import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.idle.IdleMode;
 import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.core.internal.SystemProperties.PropertyInstance;
-import org.tools4j.mmap.core.logging.LoggingErrorListener;
+import org.tools4j.mmap.core.logging.LoggingLifecycleListener;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.CpuPinning;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 import org.tools4j.mmap.mapping.impl.CpuLists;
-import org.tools4j.mmap.mapping.impl.LoggingLifecycleListener;
+import org.tools4j.mmap.mapping.impl.MappingResources;
 import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.mapping.impl.StandardFileInitialiser;
 
@@ -205,22 +205,24 @@ public enum MappingConfigurations {
     /** The default sharing policy of the unmapping runtime, used if the sharing policy property is not set. */
     public static final SharingPolicy UNMAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
 
-    /** Listener property value for listeners ignoring all events. */
+    /** Lifecycle listener property value for a listener ignoring all events. */
     public static final String NO_OP_LISTENER = "NO_OP";
     /**
      * Lifecycle listener property value for a listener logging lifecycle events at debug level to SLF4J if present on
-     * the class path, and to {@link java.util.logging java.util.logging} otherwise.
+     * the class path, and to {@link java.util.logging java.util.logging} otherwise, see
+     * {@link LoggingLifecycleListener}.
      */
     public static final String LOG_DEBUG_LISTENER = "LOG_DEBUG";
-    /** As {@link #LOG_DEBUG_LISTENER}, but logging at info level (internal resources still at debug level). */
-    public static final String LOG_INFO_LISTENER = "LOG_INFO";
-    /** As {@link #LOG_DEBUG_LISTENER}, but logging at warn level (internal resources still at debug level). */
-    public static final String LOG_WARN_LISTENER = "LOG_WARN";
     /**
-     * Error listener property value for a listener logging errors and warnings to SLF4J if present on the class path,
-     * and to {@link java.util.logging java.util.logging} otherwise.
+     * As {@link #LOG_DEBUG_LISTENER}, but logging at info level, except for {@linkplain MappingResources#INTERNAL
+     * internal resources}, which are logged at debug level.
      */
-    public static final String LOGGING_LISTENER = "LOGGING";
+    public static final String LOG_INFO_LISTENER = "LOG_INFO";
+    /**
+     * As {@link #LOG_DEBUG_LISTENER}, but logging at warn level, except for {@linkplain MappingResources#INTERNAL
+     * internal resources}, which are logged at debug level.
+     */
+    public static final String LOG_WARN_LISTENER = "LOG_WARN";
     /**
      * Name of the system property to override the default lifecycle listener, with {@value #LOG_DEBUG_LISTENER},
      * {@value #LOG_INFO_LISTENER}, {@value #LOG_WARN_LISTENER}, {@value #NO_OP_LISTENER} or the class name of a
@@ -229,13 +231,6 @@ public enum MappingConfigurations {
     public static final String LIFECYCLE_LISTENER_PROPERTY = "mmap.mapping.lifecycleListener";
     /** The default lifecycle listener, used if the lifecycle listener property is not set. */
     public static final String LIFECYCLE_LISTENER_DEFAULT = LOG_DEBUG_LISTENER;
-    /**
-     * Name of the system property to override the default error listener, with {@value #LOGGING_LISTENER},
-     * {@value #NO_OP_LISTENER} or the class name of an {@link ErrorListener} with a public no-arg constructor.
-     */
-    public static final String ERROR_LISTENER_PROPERTY = "mmap.mapping.errorListener";
-    /** The default error listener, used if the error listener property is not set. */
-    public static final String ERROR_LISTENER_DEFAULT = LOGGING_LISTENER;
 
     /**
      * Name of the system property to override the default file initialiser, with the name of a standard initialiser,
@@ -247,7 +242,10 @@ public enum MappingConfigurations {
     public static final String FILE_INITIALISER_DEFAULT = StandardFileInitialiser.LAZY.name();
 
     private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
-    private static final AtomicReference<PropertyInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
+    private static final LifecycleListener LOG_INFO = LifecycleListener.conditional(MappingResources.INTERNAL,
+            LoggingLifecycleListener.DEBUG, LoggingLifecycleListener.INFO);
+    private static final LifecycleListener LOG_WARN = LifecycleListener.conditional(MappingResources.INTERNAL,
+            LoggingLifecycleListener.DEBUG, LoggingLifecycleListener.WARN);
     private static final AtomicReference<PropertyInstance> FILE_INITIALISER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE =
             new AtomicReference<>();
@@ -515,7 +513,7 @@ public enum MappingConfigurations {
     private static ThreadFactory mappingRuntimeThreadFactory(final String propName, final String propVal) {
         try {
             return CpuPinning.threadFactory(MAPPING_RUNTIME_THREAD_NAME_PREFIX, true, CpuLists.parse(propVal),
-                    defaultErrorListener());
+                    CoreConfigurations.defaultErrorListener());
         } catch (final IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid value for system property: " + propName + "=" + propVal +
                     ", expected " + MAPPING_RUNTIME_CPUS_NONE + " or a CPU list such as 4-7, 0,2,4,6 or 4-", e);
@@ -559,23 +557,7 @@ public enum MappingConfigurations {
      */
     public static LifecycleListener defaultLifecycleListener() {
         return namedOrClassInstanceProperty(LIFECYCLE_LISTENER_PROPERTY, LifecycleListener.class, LIFECYCLE_LISTENER_DEFAULT,
-                MappingConfigurations::lifecycleListenerByName, LIFECYCLE_LISTENER_INSTANCE);
-    }
-
-    /**
-     * Returns the default error listener, also used by the shared async runtimes. The logging listener logs errors and
-     * warnings to SLF4J if present on the class path, and to {@link java.util.logging java.util.logging} otherwise,
-     * suppressing repetitions of recently logged errors. A listener class given by system property is instantiated
-     * once and reused while the property value is unchanged.
-     *
-     * @return the listener given by system property {@value #ERROR_LISTENER_PROPERTY} if set, and by
-     *         {@link #ERROR_LISTENER_DEFAULT} otherwise
-     * @throws IllegalArgumentException if the system property value is invalid, or the listener class cannot be
-     *                                  instantiated
-     */
-    public static ErrorListener defaultErrorListener() {
-        return namedOrClassInstanceProperty(ERROR_LISTENER_PROPERTY, ErrorListener.class, ERROR_LISTENER_DEFAULT,
-                MappingConfigurations::errorListenerByName, ERROR_LISTENER_INSTANCE);
+                MappingConfigurations::lifecycleListenerForName, LIFECYCLE_LISTENER_INSTANCE);
     }
 
     /**
@@ -602,22 +584,23 @@ public enum MappingConfigurations {
         return AsyncRuntimeInstances.unmappingRuntimeSupplier(defaultUnmappingRuntimeSharingPolicy());
     }
 
-    /** Returns the lifecycle listener for the given property value, or null if it is not one of the named values */
-    private static LifecycleListener lifecycleListenerByName(final String name) {
+    /**
+     * Returns the lifecycle listener for a name accepted by the lifecycle listener property, also accepted by the queue
+     * module's lifecycle listener property.
+     *
+     * @param name the name, {@value #LOG_DEBUG_LISTENER}, {@value #LOG_INFO_LISTENER}, {@value #LOG_WARN_LISTENER} or
+     *             {@value #NO_OP_LISTENER}
+     * @return the listener for the name, or null if it is not the name of a listener
+     */
+    public static LifecycleListener lifecycleListenerForName(final String name) {
+        if (name == null) {
+            return null;
+        }
         return switch (name) {
             case LOG_DEBUG_LISTENER -> LoggingLifecycleListener.DEBUG;
-            case LOG_INFO_LISTENER -> LoggingLifecycleListener.INFO;
-            case LOG_WARN_LISTENER -> LoggingLifecycleListener.WARN;
+            case LOG_INFO_LISTENER -> LOG_INFO;
+            case LOG_WARN_LISTENER -> LOG_WARN;
             case NO_OP_LISTENER -> LifecycleListener.NO_OP;
-            default -> null;
-        };
-    }
-
-    /** Returns the error listener for the given property value, or null if it is not one of the named values */
-    private static ErrorListener errorListenerByName(final String name) {
-        return switch (name) {
-            case LOGGING_LISTENER -> LoggingErrorListener.INSTANCE;
-            case NO_OP_LISTENER -> ErrorListener.NO_OP;
             default -> null;
         };
     }

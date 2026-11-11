@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
@@ -66,7 +67,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
                                     final int regionSize,
                                     final FileInitialiser fileInitialiser) {
         this(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
-                MappingConfigurations.defaultLifecycleListener(), MappingConfigurations.defaultErrorListener());
+                MappingConfigurations.defaultLifecycleListener(), CoreConfigurations.defaultErrorListener());
     }
 
     public ExpandableSizeFileMapper(final File file,

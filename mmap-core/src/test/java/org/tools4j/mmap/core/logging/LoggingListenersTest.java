@@ -21,12 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.logging;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.Describable;
-import org.tools4j.mmap.core.logging.LoggingErrorListener;
-import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -38,16 +36,20 @@ class LoggingListenersTest {
     private static final Describable RESOURCE = sb -> sb.append("Resource:name=test");
 
     @Test
-    void loggingListenersAreTheDefaults() {
-        assertThat(MappingConfigurations.defaultLifecycleListener()).isSameAs(LoggingLifecycleListener.DEBUG);
-        assertThat(MappingConfigurations.defaultErrorListener()).isSameAs(LoggingErrorListener.INSTANCE);
+    void forLevelReturnsTheListenerOfTheLevel() {
+        assertThat(LoggingLifecycleListener.forLevel(LogTarget.Level.DEBUG)).isSameAs(LoggingLifecycleListener.DEBUG);
+        assertThat(LoggingLifecycleListener.forLevel(LogTarget.Level.INFO)).isSameAs(LoggingLifecycleListener.INFO);
+        assertThat(LoggingLifecycleListener.forLevel(LogTarget.Level.WARN)).isSameAs(LoggingLifecycleListener.WARN);
+        assertThat(LoggingLifecycleListener.forLevel(LogTarget.Level.ERROR)).isSameAs(LoggingLifecycleListener.ERROR);
+        assertThat(LoggingLifecycleListener.INFO).hasToString("LoggingLifecycleListener:level=INFO");
     }
 
     @Test
     void lifecycleEventsAreLogged() {
         assertThatCode(() -> {
             for (final LoggingLifecycleListener listener : new LoggingLifecycleListener[] {
-                    LoggingLifecycleListener.DEBUG, LoggingLifecycleListener.INFO, LoggingLifecycleListener.WARN}) {
+                    LoggingLifecycleListener.DEBUG, LoggingLifecycleListener.INFO, LoggingLifecycleListener.WARN,
+                    LoggingLifecycleListener.ERROR}) {
                 listener.onCreated(RESOURCE);
                 listener.onOpened(RESOURCE);
                 listener.onClosed(RESOURCE);

@@ -98,7 +98,7 @@ public interface QueueConfig extends QueueLayoutConfig {
     /**
      * Returns the listener for errors that cannot be thrown to the caller, such as exceptions thrown by entry handlers
      * of pollers, and for warnings. It is not part of the queue layout. The default is defined by system property,
-     * see {@link org.tools4j.mmap.mapping.config.MappingConfigurations#defaultErrorListener()}.
+     * see {@link org.tools4j.mmap.core.config.CoreConfigurations#defaultErrorListener()}.
      *
      * @return the error listener
      */
