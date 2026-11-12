@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.core.buffer.impl;
 
-import org.tools4j.mmap.core.buffer.MemoryBuffer;
-import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryAccessMode;
 import org.tools4j.mmap.core.buffer.MemoryBinding;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.config.CoreConfigurations;
@@ -366,7 +366,14 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     private void wrapRange(final MemoryBuffer buffer, final int index, final int length) {
-        final MemoryBufferImpl source = (MemoryBufferImpl) buffer;
+        if (!(buffer instanceof MemoryBufferImpl source)) {
+            throw new IllegalArgumentException("Cannot wrap a buffer of another implementation, such as a test " +
+                    "double, whose memory is unknown: wrap its memory directly, e.g. its address or array: " + buffer);
+        }
+        wrapRange(source, index, length);
+    }
+
+    private void wrapRange(final MemoryBufferImpl source, final int index, final int length) {
         Objects.checkFromIndexSize(index, length, source.capacity);
         this.heapBase = source.heapBase;
         this.offset = source.offset + index;
@@ -1329,14 +1336,27 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public void putBytes(final int index, final MemoryBuffer source, final int sourceIndex, final int length) {
-        final MemoryBufferImpl buffer = (MemoryBufferImpl) source;
-        Objects.checkFromIndexSize(sourceIndex, length, buffer.capacity);
+        Objects.checkFromIndexSize(sourceIndex, length, source.capacity());
         if (binding == EXPANDABLE) {
             expandFor(index, length);
         }
         checkWriteRange(index, length);
-        ACCESS.copyMemory(buffer.heapBase, buffer.offset + sourceIndex, heapBase, offset + index, length);
-        Reference.reachabilityFence(buffer.owner);
+        if (source instanceof MemoryBufferImpl buffer) {
+            ACCESS.copyMemory(buffer.heapBase, buffer.offset + sourceIndex, heapBase, offset + index, length);
+            Reference.reachabilityFence(buffer.owner);
+        } else {
+            putOtherBytes(index, source, sourceIndex, length);
+        }
+    }
+
+    /**
+     * Copies from a buffer of another implementation, such as a test double, byte by byte through its API: its address
+     * may not be the address of its memory, and copying from there could crash the JVM.
+     */
+    private void putOtherBytes(final int index, final MemoryBuffer source, final int sourceIndex, final int length) {
+        for (int i = 0; i < length; i++) {
+            rawPutByte(index + i, source.getByte(sourceIndex + i));
+        }
     }
 
     @Override

@@ -48,7 +48,7 @@ enum TestMemory {
             capacity -> flyweight(buffer -> buffer.wrap(ByteBuffer.allocateDirect(capacity + 8), 8, capacity))),
     RAW_ADDRESS(true, false, capacity -> {
         final MutableMemoryBuffer memory = keepAlive(MemoryBuffers.allocateDirect(capacity));
-        return flyweight(buffer -> buffer.wrap(((MemoryBufferFlyweight) memory).address(), capacity));
+        return flyweight(buffer -> buffer.wrap(memory.address(), capacity));
     }),
     HEAP_RANGE(true, false, capacity -> flyweight(buffer -> buffer.wrap(MemoryBuffers.allocate(capacity + 16), 8,
             capacity))),
