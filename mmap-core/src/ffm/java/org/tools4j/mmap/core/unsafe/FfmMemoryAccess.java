@@ -23,9 +23,13 @@
  */
 package org.tools4j.mmap.core.unsafe;
 
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.config.CoreConfigurations;
+
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -48,14 +52,27 @@ import static java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED;
  * segment; creating that segment is a restricted operation, warning unless {@code --enable-native-access} allows it.
  * A {@code byte[]} is its own heap base, accessed through byte array views, which only support plain access. A
  * {@code long[]} is represented by its heap segment, created once per array, which also supports ordered and atomic
- * access. A heap byte buffer without accessible array, read-only or over a segment, is represented by its segment.
+ * access.
+ * <p>
+ * Byte buffers are accessed through their fields, the address of a direct one and the array of a heap one, if
+ * {@code java.nio} is open to this class ({@code --add-opens java.base/java.nio=ALL-UNNAMED}); otherwise through a
+ * segment created per call, allocating unless the JIT compiler eliminates it, which it doesn't reliably do, warning
+ * once through the default error listener when this class is initialised, i.e. when the first buffer is created, so
+ * that a missing flag shows at startup. A heap byte buffer over a segment of an array other than
+ * a {@code byte[]} has no array and is always represented by its segment.
  */
 @Unsafe
-public enum FfmMemoryAccess implements MemoryAccess {
+public enum FfmMemoryAccess implements MemoryAccess, Describable {
     /** The only instance. */
     INSTANCE;
 
     private static final MemorySegment ALL = MemorySegment.NULL.reinterpret(Long.MAX_VALUE);
+
+    /** The fields of byte buffers, or null if {@code java.nio} is not open to this class. */
+    private static final VarHandle BUFFER_ADDRESS = nioField(Buffer.class, "address", long.class);
+    private static final VarHandle BYTE_BUFFER_ARRAY = nioField(ByteBuffer.class, "hb", byte[].class);
+    private static final VarHandle BYTE_BUFFER_ARRAY_OFFSET = nioField(ByteBuffer.class, "offset", int.class);
+
     private static final long BYTE_PATTERN = 0x0101010101010101L;
 
     private static final VarHandle BYTE = JAVA_BYTE.varHandle();
@@ -78,12 +95,33 @@ public enum FfmMemoryAccess implements MemoryAccess {
     private static final VarHandle BYTES_AS_LONG = MethodHandles.byteArrayViewVarHandle(long[].class,
             ByteOrder.nativeOrder());
 
+    static {
+        if (BUFFER_ADDRESS == null || BYTE_BUFFER_ARRAY == null || BYTE_BUFFER_ARRAY_OFFSET == null) {
+            CoreConfigurations.defaultErrorListener().onWarning(INSTANCE, "Byte buffers will be accessed through " +
+                    "a segment allocated per wrap or copy, if used, since java.nio is not open to mmap-core: add " +
+                    "--add-opens java.base/java.nio=ALL-UNNAMED to access them without allocating");
+        }
+    }
+
     /**
-     * Segment of direct or long[] memory, or of a heap byte buffer without accessible array: memory of a byte[] with
-     * accessible array never reaches the methods using it.
+     * Segment of direct or long[] memory, or of a heap byte buffer without array: byte[] memory never reaches the
+     * methods using it.
      */
     private static MemorySegment segment(final Object base) {
         return base == null ? ALL : (MemorySegment) base;
+    }
+
+    private static VarHandle nioField(final Class<?> owner, final String name, final Class<?> type) {
+        try {
+            return MethodHandles.privateLookupIn(owner, MethodHandles.lookup()).findVarHandle(owner, name, type);
+        } catch (final ReflectiveOperationException e) {
+            return null;//not open, or no such field in this JDK: falls back to segments
+        }
+    }
+
+    @Override
+    public StringBuilder describeTo(final StringBuilder sb) {
+        return sb.append("FfmMemoryAccess");
     }
 
     @Override
@@ -91,6 +129,11 @@ public enum FfmMemoryAccess implements MemoryAccess {
         return array;
     }
 
+    /**
+     * Returns the heap segment of the array, allocating it: only called when a {@code FIXED} or {@code EXPANDABLE}
+     * buffer is created, or an {@code EXPANDABLE} one expands, all allocating anyway; flyweights wrapping such a
+     * buffer share its segment.
+     */
     @Override
     public Object heapBase(final long[] array) {
         return MemorySegment.ofArray(array);
@@ -107,21 +150,46 @@ public enum FfmMemoryAccess implements MemoryAccess {
     }
 
     /**
-     * Returns the array of a heap byte buffer with accessible array, else the segment of the whole byte buffer, which
-     * FFM can access without the array, read-only for a read-only byte buffer, and created anew on each call.
+     * Returns the array of a heap byte buffer, else a segment of the whole byte buffer, read-only for a read-only one,
+     * allocating the segment and a duplicate of the byte buffer: only if the byte buffer hides its array, i.e. is
+     * read-only, and {@code java.nio} is not open, or if it is a segment of an array other than a {@code byte[]}; only
+     * called by a flyweight wrapping a byte buffer it doesn't wrap already.
      */
     @Override
     public Object heapBase(final ByteBuffer buffer) {
-        return buffer.hasArray() ? buffer.array() : MemorySegment.ofBuffer(buffer.duplicate().clear());
+        final byte[] array = array(buffer);
+        return array != null ? array : MemorySegment.ofBuffer(buffer.duplicate().clear());
     }
 
     @Override
     public long heapOffset(final ByteBuffer buffer, final int byteOffset) {
-        return buffer.hasArray() ? buffer.arrayOffset() + byteOffset : byteOffset;
+        return array(buffer) != null ? arrayOffset(buffer) + byteOffset : byteOffset;
     }
 
+    /** Returns the array of a heap byte buffer, or null if it has none or hides it. */
+    private static byte[] array(final ByteBuffer buffer) {
+        if (BYTE_BUFFER_ARRAY != null) {
+            return (byte[]) BYTE_BUFFER_ARRAY.get(buffer);
+        }
+        if (buffer.hasArray()) {
+            return buffer.array();
+        }
+        return null;
+    }
+
+    private static int arrayOffset(final ByteBuffer buffer) {
+        return BYTE_BUFFER_ARRAY_OFFSET != null ? (int) BYTE_BUFFER_ARRAY_OFFSET.get(buffer) : buffer.arrayOffset();
+    }
+
+    /**
+     * Returns the address of a direct byte buffer from its field, else from its segment, allocating it unless the
+     * JIT compiler eliminates it, if {@code java.nio} is not open.
+     */
     @Override
     public long address(final ByteBuffer buffer) {
+        if (BUFFER_ADDRESS != null) {
+            return (long) BUFFER_ADDRESS.get((Buffer) buffer);
+        }
         //the segment of a buffer starts at its position
         return MemorySegment.ofBuffer(buffer).address() - buffer.position();
     }

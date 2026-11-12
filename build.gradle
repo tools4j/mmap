@@ -177,7 +177,7 @@ subprojects {
         def testJava = JavaLanguageVersion.of(project.property('testJava') as String)
         tasks.withType(Test).configureEach {
             javaLauncher = javaToolchains.launcherFor { languageVersion = testJava }
-            enabled = name != 'ffmTest' || testJava.asInt() >= 22 //FFM needs Java 22 or later
+            enabled = !name.startsWith('ffm') || testJava.asInt() >= 22 //FFM needs Java 22 or later
         }
     }
 
@@ -332,8 +332,21 @@ project(':mmap-core') {
             jvmArgs = ['--enable-native-access=ALL-UNNAMED'] //and no --add-opens: FFM needs no JDK internals
         }
 
+        tasks.register('ffmOpenNioTest', Test) {
+            description = 'Runs the buffer tests with memory access through FFM, accessing byte buffers through ' +
+                    'their fields with java.nio open'
+            group = 'verification'
+            testClassesDirs = sourceSets.test.output.classesDirs
+            classpath = sourceSets.test.runtimeClasspath
+            filter {
+                includeTestsMatching 'org.tools4j.mmap.core.buffer.*'
+            }
+            systemProperty 'mmap.core.memoryAccess', 'FFM'
+            jvmArgs = ['--enable-native-access=ALL-UNNAMED', '--add-opens', 'java.base/java.nio=ALL-UNNAMED']
+        }
+
         tasks.named('check') {
-            dependsOn 'ffmTest'
+            dependsOn 'ffmTest', 'ffmOpenNioTest'
         }
     }
 

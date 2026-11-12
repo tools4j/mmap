@@ -39,6 +39,7 @@ import static org.tools4j.mmap.core.unsafe.UnsafeAccess.UNSAFE;
  * the base as it is: their barriers make each access load the fields again anyway, and the type check would add a
  * load of the array's class to each of them.
  */
+@SuppressWarnings("RedundantCast")
 @Unsafe
 public enum UnsafeMemoryAccess implements MemoryAccess {
     /** The only instance. */
