@@ -38,7 +38,9 @@ public enum MemoryAccessMode {
      * The Foreign Function and Memory API, public API, Java 22 or later; needs
      * {@code --enable-native-access=ALL-UNNAMED}, otherwise the JVM warns about the restricted method creating the
      * segment for direct memory. Wrapping a direct {@code ByteBuffer} creates a segment to find out its address,
-     * unless the flyweight already wraps it, and so does copying from or to one.
+     * unless the flyweight already wraps it, and so does copying from or to one; wrapping a read-only heap
+     * {@code ByteBuffer} creates a segment to access its memory, whose array FFM cannot get, unless the flyweight
+     * already wraps it.
      */
     FFM
 }

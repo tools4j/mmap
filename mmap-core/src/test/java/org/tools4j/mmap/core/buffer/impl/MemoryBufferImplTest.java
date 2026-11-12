@@ -28,11 +28,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBinding;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.core.buffer.MutableMemoryBufferFlyweight;
 
 import java.lang.management.ManagementFactory;
 import java.lang.ref.Reference;
@@ -53,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for {@link MemoryBufferImpl}, created through {@link MemoryBuffers}, over every {@link MemoryKind}.
+ * Unit test for {@link MemoryBufferImpl}, created through {@link MemoryBuffers}, over every {@link TestMemory}.
  */
 class MemoryBufferImplTest {
 
@@ -75,9 +76,9 @@ class MemoryBufferImplTest {
     //--- plain access ---
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void plainAccessRoundTripsAtEveryIndex(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void plainAccessRoundTripsAtEveryIndex(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         assertEquals(CAPACITY, buffer.capacity());
         for (int i = 0; i + Long.BYTES <= CAPACITY; i++) {
             buffer.putByte(i, (byte) i);
@@ -98,9 +99,9 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void multiByteValuesAreLittleEndianUnlessAByteOrderIsGiven(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void multiByteValuesAreLittleEndianUnlessAByteOrderIsGiven(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         buffer.putLong(3, LONG);
         for (int i = 0; i < Long.BYTES; i++) {
             assertEquals((byte) (8 - i), buffer.getByte(3 + i));
@@ -127,9 +128,9 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void accessesOutsideOfTheBufferThrowWithoutSideEffects(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void accessesOutsideOfTheBufferThrowWithoutSideEffects(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         fill(buffer, 7);
         final byte[] content = bytes(buffer);
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(-1));
@@ -140,7 +141,7 @@ class MemoryBufferImplTest {
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.putLong(-1, 1));
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.getBytes(CAPACITY - 2, new byte[3]));
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.putBytes(-1, new byte[3]));
-        if (!kind.expandable) {
+        if (!memory.expandable) {
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putLong(CAPACITY - 7, 1));
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putByte(CAPACITY, (byte) 1));
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putBytes(CAPACITY - 2, new byte[3]));
@@ -153,12 +154,12 @@ class MemoryBufferImplTest {
     //--- ordered access ---
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void orderedAccessWorksAtAlignedIndices(final MemoryKind kind) {
-        if (!kind.orderedAccess) {
+    @EnumSource(TestMemory.class)
+    void orderedAccessWorksAtAlignedIndices(final TestMemory memory) {
+        if (!memory.orderedAccess) {
             return;
         }
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         assertThat(buffer.alignment()).isGreaterThanOrEqualTo(Long.BYTES);
         buffer.putLongVolatile(8, LONG);
         assertEquals(LONG, buffer.getLong(8));
@@ -200,12 +201,12 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void orderedAccessWithBigEndianByteOrderReversesTheBytes(final MemoryKind kind) {
-        if (!kind.orderedAccess) {
+    @EnumSource(TestMemory.class)
+    void orderedAccessWithBigEndianByteOrderReversesTheBytes(final TestMemory memory) {
+        if (!memory.orderedAccess) {
             return;
         }
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         buffer.putLongVolatile(8, LONG, BIG_ENDIAN);
         assertEquals(Long.reverseBytes(LONG), buffer.getLong(8));
         assertEquals(LONG, buffer.getLongVolatile(8, BIG_ENDIAN));
@@ -242,12 +243,12 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void orderedAccessToMultiByteValuesOfByteArrayMemoryIsUnsupported(final MemoryKind kind) {
-        if (kind.orderedAccess) {
+    @EnumSource(TestMemory.class)
+    void orderedAccessToMultiByteValuesOfByteArrayMemoryIsUnsupported(final TestMemory memory) {
+        if (memory.orderedAccess) {
             return;
         }
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         assertEquals(1, buffer.alignment());
         assertThrows(UnsupportedOperationException.class, () -> buffer.getLongVolatile(8));
         assertThrows(UnsupportedOperationException.class, () -> buffer.putLongRelease(8, 1));
@@ -262,7 +263,7 @@ class MemoryBufferImplTest {
 
     @Test
     void misalignedOrderedAccessThrows() {
-        final MutableMemoryBufferFlyweight buffer = MemoryBuffers.mutableFlyweight();
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         buffer.wrap(MemoryBuffers.allocateDirect(CAPACITY), 1, CAPACITY - 8);
         assertEquals(1, buffer.alignment());
         assertThrows(IllegalStateException.class, () -> buffer.getLongVolatile(0));
@@ -283,47 +284,45 @@ class MemoryBufferImplTest {
     //--- properties and wrapping ---
 
     @Test
-    void propertiesOfTheMemoryKinds() {
+    void propertiesOfTheTestMemorys() {
         final MutableMemoryBuffer heap = MemoryBuffers.allocate(CAPACITY);
         assertFalse(heap.isDirect());
-        assertFalse(heap.isExpandable());
+        assertFalse(heap.isReadOnly());
+        assertEquals(MemoryBinding.FIXED, heap.binding());
         assertEquals(Long.BYTES, heap.alignment());
         final MutableMemoryBuffer direct = MemoryBuffers.allocateDirect(CAPACITY);
         assertTrue(direct.isDirect());
+        assertEquals(MemoryBinding.FIXED, direct.binding());
         assertThat(direct.alignment()).isGreaterThanOrEqualTo(64);
-        assertTrue(MemoryBuffers.expandable(CAPACITY).isExpandable());
+        assertEquals(MemoryBinding.EXPANDABLE, MemoryBuffers.expandable(CAPACITY).binding());
+        assertFalse(MemoryBuffers.expandable(CAPACITY).isDirect());
+        assertEquals(MemoryBinding.EXPANDABLE, MemoryBuffers.expandableDirect(CAPACITY).binding());
         assertTrue(MemoryBuffers.expandableDirect(CAPACITY).isDirect());
         assertEquals(17 * Long.BYTES, MemoryBuffers.wrap(new long[17]).capacity());
-        assertEquals(0, MemoryBuffers.mutableFlyweight().capacity());
+        assertEquals(MemoryBinding.FIXED, MemoryBuffers.wrap(new long[17]).binding());
         assertEquals(0, MemoryBuffers.flyweight().capacity());
+        assertEquals(MemoryBinding.WRAPPABLE, MemoryBuffers.flyweight().binding());
+        assertEquals(MemoryBinding.FIXED, MemoryBuffers.EMPTY.binding());
         assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocate(-1));
         assertThrows(IndexOutOfBoundsException.class, () -> MemoryBuffers.wrap(new long[2], 1, 2));
     }
 
     @Test
     void unwrappedFlyweightsWrapNoMemoryAsNewOnes() {
-        final MutableMemoryBufferFlyweight buffer = MemoryBuffers.mutableFlyweight();
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         assertWrapsNoMemory(buffer);
         buffer.wrap(ByteBuffer.allocateDirect(16), 8, 8);
         buffer.unwrap();
         assertWrapsNoMemory(buffer);
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.putByte(0, (byte) 1));
-
-        final MemoryBufferFlyweight readOnly = MemoryBuffers.flyweight();
-        readOnly.wrap(MemoryBuffers.allocate(16), 8, 8);
-        readOnly.unwrap();
-        assertWrapsNoMemory(readOnly);
+        buffer.wrap(ByteBuffer.allocate(16).asReadOnlyBuffer(), 8, 8);
+        buffer.unwrap();
+        assertWrapsNoMemory(buffer);
     }
 
     private static void assertWrapsNoMemory(final MemoryBufferFlyweight buffer) {
         assertEquals(0, buffer.capacity());
-        assertEquals(0, buffer.wrapOffset());
-        assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
-        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
-    }
-
-    private static void assertWrapsNoMemory(final MutableMemoryBufferFlyweight buffer) {
-        assertEquals(0, buffer.capacity());
+        assertFalse(buffer.isReadOnly());
         assertEquals(0, buffer.wrapOffset());
         assertEquals(MemoryBuffers.NULL_ADDRESS, buffer.address());
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.getByte(0));
@@ -360,8 +359,8 @@ class MemoryBufferImplTest {
         assertEquals(address, buffer.address());
         assertEquals(4, buffer.capacity());
 
-        final MutableMemoryBuffer bytes = MemoryBuffers.mutableFlyweight();
-        ((MutableMemoryBufferFlyweight) bytes).wrap(new byte[20], 2, 10);
+        final MemoryBufferFlyweight bytes = MemoryBuffers.flyweight();
+        bytes.wrap(new byte[20], 2, 10);
         buffer.wrap(bytes, 3, 4);
         assertEquals(5, buffer.wrapOffset());
         Reference.reachabilityFence(direct);
@@ -370,7 +369,7 @@ class MemoryBufferImplTest {
     @Test
     void flyweightsShareTheMemoryTheyWrap() {
         final byte[] array = new byte[16];
-        final MutableMemoryBufferFlyweight writer = MemoryBuffers.mutableFlyweight();
+        final MemoryBufferFlyweight writer = MemoryBuffers.flyweight();
         writer.wrap(array, 4, 8);
         final MemoryBufferFlyweight reader = MemoryBuffers.flyweight();
         reader.wrap(writer, 2, 4);
@@ -381,26 +380,274 @@ class MemoryBufferImplTest {
         assertThrows(IndexOutOfBoundsException.class, () -> reader.wrap(writer, 6, 4));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(booleans = {false, true})
+    void readOnlyByteBuffersAreWrappedReadOnly(final boolean direct) {
+        final ByteBuffer writable = (direct ? ByteBuffer.allocateDirect(24) : ByteBuffer.allocate(24))
+                .order(ByteOrder.LITTLE_ENDIAN);
+        final ByteBuffer readOnly = writable.asReadOnlyBuffer();
+        final MemoryBufferFlyweight flyweight = MemoryBuffers.flyweight();
+        flyweight.wrap(readOnly, 8, 16);
+        assertTrue(flyweight.isReadOnly());
+        assertEquals(direct, flyweight.isDirect());
+        assertEquals(8, flyweight.wrapOffset());
+        writable.putLong(8, LONG);
+        assertEquals(LONG, flyweight.getLong(0));
+        assertThrows(ReadOnlyBufferException.class, () -> flyweight.putLong(0, 1));
+        assertThrows(ReadOnlyBufferException.class, () -> flyweight.putBytes(0, new byte[8]));
+        assertThrows(IndexOutOfBoundsException.class, () -> flyweight.putLong(16, 1));
+        assertEquals(LONG, writable.getLong(8));
+        final MemoryBufferFlyweight range = MemoryBuffers.flyweight();
+        range.wrap(flyweight, 4, 8);
+        assertTrue(range.isReadOnly());
+        assertEquals(LONG >>> 32, range.getInt(0) & 0xFFFFFFFFL);
+        assertThrows(ReadOnlyBufferException.class, () -> range.putInt(0, 1));
+        flyweight.wrap(readOnly);
+        assertEquals(LONG, flyweight.getLong(8), "same byte buffer again");
+        assertTrue(flyweight.isReadOnly());
+
+        flyweight.wrap(writable, 8, 16);
+        assertFalse(flyweight.isReadOnly());
+        flyweight.putLong(0, 1);
+        assertEquals(1, writable.getLong(8));
+        flyweight.wrap(readOnly);
+        assertThrows(ReadOnlyBufferException.class, () -> flyweight.putByte(0, (byte) 1));
+        flyweight.wrap(new byte[8]);
+        assertFalse(flyweight.isReadOnly());
+        flyweight.putLong(0, 1);
+    }
+
+    //--- read-only memory ---
+
+    private static final int READ_ONLY_CAPACITY = 32;
+
+    /** Every kind of write, each to bytes 8 to 15 or fewer, with the method name. */
+    private static Stream<Arguments> writes() {
+        final byte[] source = new byte[8];
+        return Stream.of(
+                write("putByte", buffer -> buffer.putByte(8, (byte) 1)),
+                write("putShort", buffer -> buffer.putShort(8, (short) 1)),
+                write("putChar", buffer -> buffer.putChar(8, 'a')),
+                write("putInt", buffer -> buffer.putInt(8, 1)),
+                write("putLong", buffer -> buffer.putLong(8, 1)),
+                write("putFloat", buffer -> buffer.putFloat(8, 1)),
+                write("putDouble", buffer -> buffer.putDouble(8, 1)),
+                write("putLong big endian", buffer -> buffer.putLong(8, 1, BIG_ENDIAN)),
+                write("putByteVolatile", buffer -> buffer.putByteVolatile(8, (byte) 1)),
+                write("putShortVolatile", buffer -> buffer.putShortVolatile(8, (short) 1)),
+                write("putCharVolatile", buffer -> buffer.putCharVolatile(8, 'a')),
+                write("putIntOpaque", buffer -> buffer.putIntOpaque(8, 1)),
+                write("putIntRelease", buffer -> buffer.putIntRelease(8, 1)),
+                write("putIntVolatile", buffer -> buffer.putIntVolatile(8, 1)),
+                write("compareAndSetInt", buffer -> buffer.compareAndSetInt(8, 0, 1)),
+                write("compareAndExchangeInt", buffer -> buffer.compareAndExchangeInt(8, 0, 1)),
+                write("getAndAddInt", buffer -> buffer.getAndAddInt(8, 1)),
+                write("getAndSetInt", buffer -> buffer.getAndSetInt(8, 1)),
+                write("putLongOpaque", buffer -> buffer.putLongOpaque(8, 1)),
+                write("putLongRelease", buffer -> buffer.putLongRelease(8, 1)),
+                write("putLongVolatile", buffer -> buffer.putLongVolatile(8, 1)),
+                write("compareAndSetLong", buffer -> buffer.compareAndSetLong(8, 0, 1)),
+                write("compareAndExchangeLong", buffer -> buffer.compareAndExchangeLong(8, 0, 1)),
+                write("getAndAddLong", buffer -> buffer.getAndAddLong(8, 1)),
+                write("getAndSetLong", buffer -> buffer.getAndSetLong(8, 1)),
+                write("putBytes byte[]", buffer -> buffer.putBytes(8, source)),
+                write("putBytes byte[] range", buffer -> buffer.putBytes(8, source, 0, 8)),
+                write("putBytes buffer", buffer -> buffer.putBytes(8, MemoryBuffers.allocate(8), 0, 8)),
+                write("putBytes ByteBuffer range", buffer -> buffer.putBytes(8, ByteBuffer.allocate(8), 0, 8)),
+                write("putBytes ByteBuffer", buffer -> buffer.putBytes(8, ByteBuffer.allocate(8), 8)),
+                write("setMemory", buffer -> buffer.setMemory(8, 8, (byte) 1)),
+                write("putTextAscii", buffer -> buffer.putTextAscii(8, "abc")),
+                write("putTextAscii range", buffer -> buffer.putTextAscii(8, "abc", 1, 2)),
+                write("putTextUtf8", buffer -> buffer.putTextUtf8(8, "äbc")),
+                write("putTextUtf8 range", buffer -> buffer.putTextUtf8(8, "äbc", 1, 2))
+        );
+    }
+
+    private static Arguments write(final String name, final Consumer<MutableMemoryBuffer> write) {
+        return Arguments.of(name, write);
+    }
+
+    /** Returns direct memory filled with a pattern, and a flyweight wrapping it, made read-only. */
+    private static MutableMemoryBuffer[] readOnlyDirectMemory() {
+        final MutableMemoryBuffer memory = MemoryBuffers.allocateDirect(READ_ONLY_CAPACITY);
+        fill(memory, 7);
+        final MemoryBufferFlyweight readOnly = MemoryBuffers.flyweight();
+        readOnly.wrap(((MemoryBufferFlyweight) memory).address(), READ_ONLY_CAPACITY);
+        assertFalse(readOnly.isReadOnly());
+        readOnly.makeReadOnly();
+        assertTrue(readOnly.isReadOnly());
+        return new MutableMemoryBuffer[] {memory, readOnly};
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("writes")
+    void writesToReadOnlyMemoryThrowWithoutWriting(final String name, final Consumer<MutableMemoryBuffer> write) {
+        final MutableMemoryBuffer[] memoryAndReadOnly = readOnlyDirectMemory();
+        final MutableMemoryBuffer memory = memoryAndReadOnly[0];
+        final MutableMemoryBuffer readOnly = memoryAndReadOnly[1];
+        final byte[] before = bytes(memory);
+        assertThrows(ReadOnlyBufferException.class, () -> write.accept(readOnly), name);
+        assertArrayEquals(before, bytes(memory), name);
+        assertArrayEquals(before, bytes(readOnly), "reads " + name);
+    }
+
     @Test
-    void readOnlyByteBuffers() {
-        final ByteBuffer heap = ByteBuffer.allocate(16).put(0, (byte) 3).asReadOnlyBuffer();
-        final ByteBuffer direct = ByteBuffer.allocateDirect(16).put(0, (byte) 4).asReadOnlyBuffer();
-        final MemoryBufferFlyweight reader = MemoryBuffers.flyweight();
-        assertThrows(IllegalArgumentException.class, () -> reader.wrap(heap));
-        reader.wrap(direct);
-        assertEquals(4, reader.getByte(0));
-        final MutableMemoryBufferFlyweight writer = MemoryBuffers.mutableFlyweight();
-        assertThrows(ReadOnlyBufferException.class, () -> writer.wrap(heap));
-        assertThrows(ReadOnlyBufferException.class, () -> writer.wrap(direct, 0, 8));
-        assertEquals(0, writer.capacity());
+    void writesBeyondTheCapacityOfReadOnlyMemoryThrowIndexOutOfBounds() {
+        final MutableMemoryBuffer readOnly = readOnlyDirectMemory()[1];
+        final IndexOutOfBoundsException beyond = assertThrows(IndexOutOfBoundsException.class,
+                () -> readOnly.putLong(READ_ONLY_CAPACITY - 4, 1));
+        assertEquals(assertThrows(IndexOutOfBoundsException.class,
+                () -> readOnly.getLong(READ_ONLY_CAPACITY - 4)).getMessage(), beyond.getMessage(),
+                "same message as a read");
+        assertThrows(IndexOutOfBoundsException.class, () -> readOnly.putLong(-1, 1));
+        assertThrows(IndexOutOfBoundsException.class, () -> readOnly.putBytes(READ_ONLY_CAPACITY - 4, new byte[8]));
+        assertThrows(IndexOutOfBoundsException.class, () -> readOnly.setMemory(0, -1, (byte) 1));
+    }
+
+    @Test
+    void rangesOfReadOnlyMemoryStayReadOnly() {
+        final MutableMemoryBuffer[] memoryAndReadOnly = readOnlyDirectMemory();
+        final MemoryBufferFlyweight range = MemoryBuffers.flyweight();
+        range.wrap(memoryAndReadOnly[1], 8, 16);
+        assertTrue(range.isReadOnly());
+        assertEquals(memoryAndReadOnly[0].getLong(8), range.getLong(0));
+        assertThrows(ReadOnlyBufferException.class, () -> range.putLong(0, 1));
+        assertThrows(ReadOnlyBufferException.class, () -> range.putBytes(0, new byte[16]));
+    }
+
+    @Test
+    void wrappingWritableMemoryAgainMakesAFlyweightWritable() {
+        final MutableMemoryBuffer[] memoryAndReadOnly = readOnlyDirectMemory();
+        final MemoryBufferFlyweight flyweight = (MemoryBufferFlyweight) memoryAndReadOnly[1];
+        flyweight.wrap(flyweight.address(), READ_ONLY_CAPACITY);
+        assertFalse(flyweight.isReadOnly());
+        flyweight.putLong(8, LONG);
+        assertEquals(LONG, memoryAndReadOnly[0].getLong(8));
+        flyweight.makeReadOnly();
+        flyweight.unwrap();
+        assertWrapsNoMemory(flyweight);
+    }
+
+    @Test
+    void rangesOfWritableMemoryTypedAsReadableBuffersAreWritable() {
+        final MemoryBuffer memory = MemoryBuffers.allocate(16);
+        final MemoryBufferFlyweight flyweight = MemoryBuffers.flyweight();
+        flyweight.wrap(memory, 8, 8);
+        assertFalse(flyweight.isReadOnly());
+        flyweight.putLong(0, LONG);
+        assertEquals(LONG, memory.getLong(8));
+    }
+
+    //--- wrapping only flyweights ---
+
+    private static Stream<Arguments> buffersThatAreNoFlyweights() {
+        return Stream.of(
+                Arguments.of("allocate", MemoryBuffers.allocate(16)),
+                Arguments.of("allocateDirect", MemoryBuffers.allocateDirect(16)),
+                Arguments.of("wrap long[]", MemoryBuffers.wrap(new long[2])),
+                Arguments.of("expandable", MemoryBuffers.expandable(16)),
+                Arguments.of("expandableDirect", MemoryBuffers.expandableDirect(16)),
+                Arguments.of("EMPTY", MemoryBuffers.EMPTY)
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("buffersThatAreNoFlyweights")
+    void buffersThatAreNoFlyweightsCannotBeWrappedEvenWhenCast(final String name, final MutableMemoryBuffer buffer) {
+        final int capacity = buffer.capacity();
+        final MemoryBufferFlyweight flyweight = (MemoryBufferFlyweight) buffer;
+        final MutableMemoryBuffer other = MemoryBuffers.allocateDirect(32);
+        final long address = ((MemoryBufferFlyweight) other).address();
+        final Runnable[] wraps = {
+                () -> flyweight.wrap(address, 8),
+                () -> flyweight.wrap(new byte[8]),
+                () -> flyweight.wrap(new byte[8], 0, 8),
+                () -> flyweight.wrap(ByteBuffer.allocate(8)),
+                () -> flyweight.wrap(ByteBuffer.allocate(8), 0, 8),
+                () -> flyweight.wrap(other),
+                () -> flyweight.wrap(other, 0, 8),
+                flyweight::makeReadOnly,
+                flyweight::unwrap
+        };
+        for (final Runnable wrap : wraps) {
+            assertThrows(UnsupportedOperationException.class, wrap::run, name);
+            assertEquals(capacity, buffer.capacity(), name);
+            assertFalse(buffer.isReadOnly(), name);
+        }
+        Reference.reachabilityFence(other);
+    }
+
+    @Test
+    void emptyBufferHasNoCapacity() {
+        final MutableMemoryBuffer empty = MemoryBuffers.EMPTY;
+        assertEquals(0, empty.capacity());
+        assertThrows(IndexOutOfBoundsException.class, () -> empty.getByte(0));
+        assertThrows(IndexOutOfBoundsException.class, () -> empty.putByte(0, (byte) 1));
+        assertThrows(IndexOutOfBoundsException.class, () -> empty.putLongRelease(0, 1));
+        assertThrows(IndexOutOfBoundsException.class, () -> empty.putBytes(0, new byte[1]));
     }
 
     //--- expandable buffers ---
 
     @ParameterizedTest
-    @EnumSource(value = MemoryKind.class, names = {"EXPANDABLE", "EXPANDABLE_DIRECT"})
-    void expandableBuffersGrowOnWritesBeyondTheirCapacity(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(16);
+    @EnumSource(value = TestMemory.class, names = {"EXPANDABLE", "EXPANDABLE_DIRECT"})
+    void expandableBuffersGrowInAdvanceOnEnsuringCapacity(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(16);
+        fill(buffer, 3);
+        final byte[] content = bytes(buffer);
+        buffer.ensureCapacity(16);
+        assertEquals(16, buffer.capacity(), "sufficient");
+        buffer.ensureCapacity(100);
+        assertThat(buffer.capacity()).isGreaterThanOrEqualTo(100);
+        buffer.ensureCapacity(200, 8);
+        assertThat(buffer.capacity()).isGreaterThanOrEqualTo(208);
+        final byte[] grown = new byte[16];
+        buffer.getBytes(0, grown);
+        assertArrayEquals(content, grown);
+        assertThrows(IllegalArgumentException.class, () -> buffer.ensureCapacity(-1));
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.ensureCapacity(-1, 8));
+        assertThrows(IllegalArgumentException.class, () -> buffer.ensureCapacity(0, -1));
+        assertThrows(IllegalArgumentException.class, () -> buffer.ensureCapacity(Integer.MAX_VALUE));
+        assertThrows(IllegalArgumentException.class, () -> buffer.ensureCapacity(Integer.MAX_VALUE, 8));
+    }
+
+    @Test
+    void ensuringCapacityOfBuffersThatAreNotExpandableThrowsOnlyIfTheyAreTooSmall() {
+        final MemoryBufferFlyweight readOnly = MemoryBuffers.flyweight();
+        readOnly.wrap(ByteBuffer.allocate(16).asReadOnlyBuffer());
+        final MutableMemoryBuffer[] buffers = {
+                MemoryBuffers.allocate(16), MemoryBuffers.allocateDirect(16), TestMemory.BYTE_ARRAY_RANGE.create(16),
+                readOnly
+        };
+        for (final MutableMemoryBuffer buffer : buffers) {
+            buffer.ensureCapacity(16);
+            buffer.ensureCapacity(8, 8);
+            assertThrows(UnsupportedOperationException.class, () -> buffer.ensureCapacity(17), buffer.toString());
+            assertThrows(UnsupportedOperationException.class, () -> buffer.ensureCapacity(8, 9), buffer.toString());
+            assertEquals(16, buffer.capacity(), buffer.toString());
+        }
+        MemoryBuffers.EMPTY.ensureCapacity(0);
+        assertThrows(UnsupportedOperationException.class, () -> MemoryBuffers.EMPTY.ensureCapacity(1));
+    }
+
+    @Test
+    void expandableBuffersGrowIntoMemoryLikeTheirOwnEvenFromCapacity0() {
+        final MutableMemoryBuffer heap = MemoryBuffers.expandable(0);
+        final MutableMemoryBuffer direct = MemoryBuffers.expandableDirect(0);
+        assertFalse(heap.isReadOnly());
+        assertFalse(direct.isReadOnly());
+        heap.putLong(100, LONG);
+        direct.putLong(100, LONG);
+        assertFalse(heap.isDirect());
+        assertTrue(direct.isDirect());
+        assertEquals(LONG, heap.getLong(100));
+        assertEquals(LONG, direct.getLong(100));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TestMemory.class, names = {"EXPANDABLE", "EXPANDABLE_DIRECT"})
+    void expandableBuffersGrowOnWritesBeyondTheirCapacity(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(16);
         fill(buffer, 1);
         final byte[] content = bytes(buffer);
         final MemoryBufferFlyweight oldMemory = MemoryBuffers.flyweight();
@@ -431,16 +678,16 @@ class MemoryBufferImplTest {
 
     //--- bulk copies ---
 
-    static Stream<Arguments> kindPairs() {
-        return Arrays.stream(MemoryKind.values())
-                .flatMap(source -> Arrays.stream(MemoryKind.values()).map(target -> Arguments.of(source, target)));
+    static Stream<Arguments> memoryPairs() {
+        return Arrays.stream(TestMemory.values())
+                .flatMap(source -> Arrays.stream(TestMemory.values()).map(target -> Arguments.of(source, target)));
     }
 
     @ParameterizedTest
-    @MethodSource("kindPairs")
-    void copiesBetweenAllKindsOfMemory(final MemoryKind sourceKind, final MemoryKind targetKind) {
-        final MutableMemoryBuffer source = sourceKind.create(CAPACITY);
-        final MutableMemoryBuffer target = targetKind.create(CAPACITY);
+    @MethodSource("memoryPairs")
+    void copiesBetweenAllKindsOfMemory(final TestMemory sourceMemory, final TestMemory targetMemory) {
+        final MutableMemoryBuffer source = sourceMemory.create(CAPACITY);
+        final MutableMemoryBuffer target = targetMemory.create(CAPACITY);
         fill(source, 11);
         target.putBytes(5, source, 3, 40);
         for (int i = 0; i < 40; i++) {
@@ -453,9 +700,9 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void copiesToAndFromArraysAndByteBuffers(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void copiesToAndFromArraysAndByteBuffers(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         final byte[] array = new byte[CAPACITY];
         for (int i = 0; i < CAPACITY; i++) {
             array[i] = (byte) (i * 3);
@@ -494,9 +741,9 @@ class MemoryBufferImplTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void copiesWithinTheSameBufferAndSetsMemory(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void copiesWithinTheSameBufferAndSetsMemory(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         fill(buffer, 0);
         buffer.putBytes(2, buffer, 0, 10);
         for (int i = 0; i < 10; i++) {
@@ -523,9 +770,9 @@ class MemoryBufferImplTest {
         final MutableMemoryBuffer direct = MemoryBuffers.allocateDirect(CAPACITY);
         final byte[] array = new byte[CAPACITY];
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(CAPACITY);
-        final MutableMemoryBufferFlyweight flyweight = MemoryBuffers.mutableFlyweight();
+        final MemoryBufferFlyweight flyweight = MemoryBuffers.flyweight();
         //re-wrapping the same direct byte buffer, as wrapping another one creates a segment with FFM
-        final MutableMemoryBufferFlyweight byteBufferFlyweight = MemoryBuffers.mutableFlyweight();
+        final MemoryBufferFlyweight byteBufferFlyweight = MemoryBuffers.flyweight();
         final StringBuilder text = new StringBuilder(64);
         final Consumer<Integer> rounds = n -> {
             for (int i = 0; i < n; i++) {

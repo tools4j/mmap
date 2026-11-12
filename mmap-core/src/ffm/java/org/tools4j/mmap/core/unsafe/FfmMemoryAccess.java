@@ -48,7 +48,7 @@ import static java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED;
  * segment; creating that segment is a restricted operation, warning unless {@code --enable-native-access} allows it.
  * A {@code byte[]} is its own heap base, accessed through byte array views, which only support plain access. A
  * {@code long[]} is represented by its heap segment, created once per array, which also supports ordered and atomic
- * access.
+ * access. A heap byte buffer without accessible array, read-only or over a segment, is represented by its segment.
  */
 @Unsafe
 public enum FfmMemoryAccess implements MemoryAccess {
@@ -78,7 +78,10 @@ public enum FfmMemoryAccess implements MemoryAccess {
     private static final VarHandle BYTES_AS_LONG = MethodHandles.byteArrayViewVarHandle(long[].class,
             ByteOrder.nativeOrder());
 
-    /** Segment of direct or long[] memory: byte[] memory never reaches the methods using it. */
+    /**
+     * Segment of direct or long[] memory, or of a heap byte buffer without accessible array: memory of a byte[] with
+     * accessible array never reaches the methods using it.
+     */
     private static MemorySegment segment(final Object base) {
         return base == null ? ALL : (MemorySegment) base;
     }
@@ -101,6 +104,20 @@ public enum FfmMemoryAccess implements MemoryAccess {
     @Override
     public long heapOffset(final long[] array, final int byteOffset) {
         return byteOffset;
+    }
+
+    /**
+     * Returns the array of a heap byte buffer with accessible array, else the segment of the whole byte buffer, which
+     * FFM can access without the array, read-only for a read-only byte buffer, and created anew on each call.
+     */
+    @Override
+    public Object heapBase(final ByteBuffer buffer) {
+        return buffer.hasArray() ? buffer.array() : MemorySegment.ofBuffer(buffer.duplicate().clear());
+    }
+
+    @Override
+    public long heapOffset(final ByteBuffer buffer, final int byteOffset) {
+        return buffer.hasArray() ? buffer.arrayOffset() + byteOffset : byteOffset;
     }
 
     @Override

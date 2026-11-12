@@ -63,11 +63,20 @@ public interface MemoryBuffer {
     boolean isDirect();
 
     /**
-     * Returns whether this buffer grows on writes beyond its capacity; see {@link MutableMemoryBuffer}.
+     * Returns whether this buffer's memory is read-only: writes to it throw {@link java.nio.ReadOnlyBufferException},
+     * see {@link MutableMemoryBuffer}. A buffer with capacity 0 is not read-only, since a write to it is out of bounds
+     * like a write beyond the capacity of any buffer, or grows an expandable one.
      *
-     * @return true for an expandable buffer, false otherwise, in particular for every flyweight
+     * @return true for read-only memory, false for writable memory
      */
-    boolean isExpandable();
+    boolean isReadOnly();
+
+    /**
+     * Returns how this buffer is bound to its memory, fixed when it was created.
+     *
+     * @return the binding
+     */
+    MemoryBinding binding();
 
     /**
      * Returns the guaranteed alignment of the address of index 0, the largest power of two dividing it: for direct
