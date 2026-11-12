@@ -104,3 +104,33 @@ jobs:
         with:
           parallel-finished: true
           fail-on-error: false
+
+  # built on Java 25 like a release, tested on Java 17: class files compiled against a newer JDK may call JDK
+  # internals whose signatures differ on older versions, which the builds above, each testing on its own JDK, miss
+  release-build-on-java-17:
+    name: Java 25 build tested on Java 17 (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-caches-
+      - name: Cache Gradle wrappers
+        uses: actions/cache@v6
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Setup java 17 for the tests and 25 for the build
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: |
+            17
+            25
+      - name: Build with Gradle on Java 25, testing on Java 17
+        run: ./gradlew -PtestJava=17 -Porg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64

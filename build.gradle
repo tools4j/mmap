@@ -172,6 +172,16 @@ subprojects {
         reports.html.required = false // Disable individual test reports
     }
 
+    //runs the tests on another Java version than the build's, e.g. built on Java 25 like a release and tested on 17:
+    //./gradlew build -PtestJava=17 (class files compiled against a newer JDK may call JDK internals that differ)
+    if (project.hasProperty('testJava')) {
+        def testJava = JavaLanguageVersion.of(project.property('testJava') as String)
+        tasks.withType(Test).configureEach {
+            javaLauncher = javaToolchains.launcherFor { languageVersion = testJava }
+            enabled = name != 'ffmTest' || testJava.asInt() >= 22 //FFM needs Java 22 or later
+        }
+    }
+
     task perfTest(type: Test) {
         maxParallelForks = 1
         testClassesDirs = sourceSets.test.output.classesDirs
