@@ -27,6 +27,7 @@ package org.tools4j.mmap.core.unsafe;
  * Access to {@code jdk.internal.misc.Unsafe}, which needs the package exported to the caller, as Agrona does, with
  * {@code --add-exports java.base/jdk.internal.misc=ALL-UNNAMED} (or {@code --add-opens}).
  */
+@Unsafe
 enum UnsafeAccess {
     ;
     static final jdk.internal.misc.Unsafe UNSAFE = unsafe();

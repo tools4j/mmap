@@ -40,6 +40,11 @@ public interface Entry {
     /**
      * The buffer with entry data; valid bytes are in the range {@code [0..(n-1)]} where {@code n} is equal to the
      * buffer's {@link DirectBuffer#capacity() capacity}.
+     * <p>
+     * The buffer itself is always safe to use, as the reader or iterator re-wraps or unwraps it, but after the move
+     * to another entry it accesses that entry's data, and after the close none (zero capacity). Another buffer
+     * wrapping it is not safe: don't keep such a wrap beyond the move to another entry or the close of the reader or
+     * iterator, as its memory may then be unmapped, and accessing it could crash the JVM.
      *
      * @return buffer with entry data, with zero capacity if entry has no data or no entry is available
      */

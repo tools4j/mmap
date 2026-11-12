@@ -32,6 +32,7 @@ import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.text.Utf8;
 import org.tools4j.mmap.core.unsafe.MemoryAccess;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.core.unsafe.UnsafeMemoryAccess;
 
 import java.io.IOException;
@@ -281,6 +282,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         wrapDirect(aligned, capacity, 0, memory);
     }
 
+    @Unsafe
     @Override
     public void wrap(final long address, final int capacity) {
         checkWrappable();
@@ -446,6 +448,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         return wrapOffset;
     }
 
+    @Unsafe
     @Override
     public long address() {
         return heapBase == null ? offset : MemoryBuffers.NULL_ADDRESS;

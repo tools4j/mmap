@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.core.buffer;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -52,6 +54,7 @@ public interface MemoryBufferFlyweight extends MutableMemoryBuffer {
      * @throws IllegalArgumentException if the capacity is negative, or positive at {@link MemoryBuffers#NULL_ADDRESS},
      *                                  as returned by {@link #address()} for heap memory
      */
+    @Unsafe
     void wrap(long address, int capacity);
 
     /**

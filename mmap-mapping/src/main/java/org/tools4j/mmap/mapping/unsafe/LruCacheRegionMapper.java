@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.LongLongMap;
@@ -52,6 +53,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * Unmap requests for regions that are not cached, or that are cached with a different address (a region evicted
  * while in use and mapped again since), are always passed through to the underlying mapper.
  */
+@Unsafe
 class LruCacheRegionMapper implements RegionMapper {
     private static final long UNUSED_BIT = 0x8000000000000000L;
     private static final long USED_MASK = 0x7fffffffffffffffL;

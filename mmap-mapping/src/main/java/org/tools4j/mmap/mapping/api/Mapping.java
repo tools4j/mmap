@@ -116,10 +116,13 @@ public interface Mapping extends Closeable {
      * {@linkplain DirectBuffer#capacity() capacity}.
      * <p>
      * <br>
-     * <b>NOTE:</b> Re-wrapping the returned buffer through
-     * {@link DirectBuffer#wrap(DirectBuffer) DirectBuffer.wrap(..)} is potentially unsafe and could result in a JVM
-     * crash when this mapping is unmapped (e.g. because it is {@link #close() closed} or
-     * {@link DynamicMapping#moveTo(long) moved} to a new position).
+     * <b>NOTE:</b> The returned buffer follows this mapping: it is re-wrapped when the mapping moves, so it is always
+     * safe to use, but then accesses the data at the new position, or none (zero capacity) once the mapping is
+     * closed or not mapped. Another buffer wrapping it, or a range of it, through
+     * {@link DirectBuffer#wrap(DirectBuffer) DirectBuffer.wrap(..)}, does not: it keeps accessing the memory mapped
+     * when it was wrapped, which is unmapped when this mapping is {@link #close() closed} or
+     * {@link DynamicMapping#moveTo(long) moved} to a new position, and accessing it then could crash the JVM. Don't
+     * re-wrap the returned buffer, or at least don't keep such a wrap beyond the next move of this mapping.
      *
      * @return the buffer to read and/or write mapping data.
      */
