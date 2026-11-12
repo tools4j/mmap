@@ -19,10 +19,12 @@ Usage:
   $0 run [output-dir]
       builds mmap-perf, runs every scenario RUNS times, writes the outputs to output-dir (default
       mmap-perf/results/perf/<timestamp>), then prints the summary
-  $0 table <dir>
-      prints the summary of an earlier run
+  $0 table <dir>...
+      prints the summary of earlier runs, pooling several directories into one
   $0 compare <before-dir> <after-dir>
-      prints the medians of two runs side by side, with the change in percent
+  $0 compare <before-dir>... -- <after-dir>...
+      prints the medians of two runs side by side, with the change in percent, pooling the directories on each side
+      of --
   $0 -h | --help
       prints this help
 
@@ -42,7 +44,7 @@ run at a time (length-1000 being the largest); keep the machine otherwise idle. 
 sleep with caffeinate, but closing the lid still puts the machine to sleep and invalidates the run.
 
 The summary pools the receivers of all runs of a scenario: the median of each percentile, and its range from the
-best to the worst receiver.
+best to the worst receiver. Comparing two baselines of the same code shows how large a change must be to be real.
 EOF
 }
 
@@ -52,10 +54,11 @@ import glob, os, re, statistics, sys
 
 PERCENTILES = ['50%', '90%', '99%', '99.9%', '99.99%', 'max']
 
-def load(directory):
+def load(directories):
     scenarios = {}
     #named <position>-<scenario>-run<run>.txt, so that sorting keeps the order of the scenarios
-    for file in sorted(glob.glob(os.path.join(directory, '*-run*.txt'))):
+    files = [file for directory in directories for file in glob.glob(os.path.join(directory, '*-run*.txt'))]
+    for file in sorted(files, key=os.path.basename):
         scenario = re.sub(r'^\d+-|-run\d+\.txt$', '', os.path.basename(file))
         text = open(file).read()
         data = scenarios.setdefault(scenario, {'runs': 0, 'rates': [], 'percentiles': {p: [] for p in PERCENTILES}})
@@ -67,7 +70,7 @@ def load(directory):
                 if percentile in values:
                     data['percentiles'][percentile].append(float(values[percentile]))
     if not scenarios:
-        sys.exit(f"No results in {directory}")
+        sys.exit(f"No results in {' '.join(directories)}")
     return scenarios
 
 def short(value):
@@ -85,18 +88,24 @@ def info(directory):
     return open(path).read().strip() if os.path.exists(path) else ''
 
 if sys.argv[1] == 'table':
-    directory = sys.argv[2]
-    print(info(directory) + '\n')
+    directories = sys.argv[2:]
+    for directory in directories:
+        print(f"{directory}\n  " + info(directory).replace('\n', '\n  ') + '\n')
     print('latency in microseconds: median over all receivers of all runs, below it the range from best to worst\n')
     print(header('scenario'))
-    for scenario, data in load(directory).items():
+    for scenario, data in load(directories).items():
         rate = statistics.median(data['rates']) if data['rates'] else float('nan')
         print(f"{scenario:14} {data['runs']:>4} {rate:>11.0f} " + ' '.join(f"{m:>9.3f}" for m in medians(data)))
         ranges = [f"{short(min(v))}-{short(max(v))}" if v else '-' for v in (data['percentiles'][p] for p in PERCENTILES)]
         print(f"{'':14} {'':>4} {'':>11} " + ' '.join(f"{r:>9}" for r in ranges))
 else:
-    before, after = load(sys.argv[2]), load(sys.argv[3])
-    print(f"before: {sys.argv[2]}\nafter:  {sys.argv[3]}\n")
+    arguments = sys.argv[2:]
+    separator = arguments.index('--') if '--' in arguments else 1
+    before_directories, after_directories = arguments[:separator], arguments[separator + 1:] or arguments[1:]
+    if '--' not in arguments and len(arguments) != 2 or not before_directories or not after_directories:
+        sys.exit('compare takes <before-dir> <after-dir>, or <before-dir>... -- <after-dir>...')
+    before, after = load(before_directories), load(after_directories)
+    print(f"before: {' '.join(before_directories)}\nafter:  {' '.join(after_directories)}\n")
     print('latency in microseconds, medians over all receivers of all runs: before, after, change\n')
     print(header('scenario'))
     for scenario in before:
@@ -169,11 +178,11 @@ case "${1:-}" in
         ;;
     table)
         [[ -n "${2:-}" ]] || { usage >&2; exit 1; }
-        summarize table "$2"
+        summarize "$@"
         ;;
     compare)
         [[ -n "${2:-}" && -n "${3:-}" ]] || { usage >&2; exit 1; }
-        summarize compare "$2" "$3"
+        summarize "$@"
         ;;
     -h | --help)
         usage
