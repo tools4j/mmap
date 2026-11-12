@@ -26,6 +26,9 @@ package org.tools4j.mmap.core.logging;
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.Describable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Handler;
@@ -36,7 +39,7 @@ import java.util.logging.Logger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit test for {@link LogTarget} with {@link Slf4jLogTarget} and {@link JulLogTarget}.
+ * Unit test for {@link LogTarget} with {@link Slf4jLogTarget}, {@link JulLogTarget} and {@link SystemErrLogTarget}.
  */
 class LogTargetTest {
     private static final Describable DESCRIBABLE = sb -> sb.append("Resource:name=test");
@@ -54,6 +57,26 @@ class LogTargetTest {
         assertThat(target).isInstanceOf(Slf4jLogTarget.class);
         assertThat(LogTarget.forClass(LogTargetTest.class)).isSameAs(target);
         target.log(LogTarget.Level.INFO, "slf4j target test message", null);
+    }
+
+    @Test
+    void systemErrTargetLogsInfoAndAboveWithThreadLevelNameAndStackTrace() {
+        final LogTarget target = SystemErrLogTarget.create(LogTargetTest.class);
+        assertThat(target.isEnabled(LogTarget.Level.DEBUG)).isFalse();
+        assertThat(target.isEnabled(LogTarget.Level.INFO)).isTrue();
+        assertThat(target.isEnabled(LogTarget.Level.ERROR)).isTrue();
+        final PrintStream err = System.err;
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(output, true, StandardCharsets.UTF_8));
+        try {
+            target.log(LogTarget.Level.ERROR, "error message", new RuntimeException("test error"));
+        } finally {
+            System.setErr(err);
+        }
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .startsWith("[" + Thread.currentThread().getName() + "] ERROR " + LogTargetTest.class.getName() +
+                        " - error message" + System.lineSeparator() + "java.lang.RuntimeException: test error")
+                .contains("at " + LogTargetTest.class.getName());
     }
 
     @Test

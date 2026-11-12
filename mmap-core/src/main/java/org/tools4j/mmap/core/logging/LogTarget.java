@@ -26,8 +26,9 @@ package org.tools4j.mmap.core.logging;
 import org.tools4j.mmap.core.base.Describable;
 
 /**
- * Log target used by the logging listeners, writing to SLF4J if present on the class path, and to
- * {@link java.util.logging java.util.logging} otherwise.
+ * Log target used by the logging listeners, writing to SLF4J if present on the class path, to
+ * {@link java.util.logging java.util.logging} otherwise, and to {@link System#err} if neither is present, e.g. in a
+ * runtime image without the {@code java.logging} module.
  */
 public interface LogTarget {
     /** Log levels, in increasing order of severity. */
@@ -97,14 +98,22 @@ enum LogTargets {
     static final ClassValue<LogTarget> TARGETS = new ClassValue<>() {
         @Override
         protected LogTarget computeValue(final Class<?> type) {
-            return SLF4J_PRESENT ? Slf4jLogTarget.create(type) : JulLogTarget.create(type);
+            return SLF4J_PRESENT ? Slf4jLogTarget.create(type) :
+                    JUL_PRESENT ? JulLogTarget.create(type) : SystemErrLogTarget.create(type);
         }
     };
-    private static final boolean SLF4J_PRESENT = isSlf4jPresent();
+    static final ClassValue<LogTarget> SYSTEM_ERR_TARGETS = new ClassValue<>() {
+        @Override
+        protected LogTarget computeValue(final Class<?> type) {
+            return SystemErrLogTarget.create(type);
+        }
+    };
+    private static final boolean SLF4J_PRESENT = isPresent("org.slf4j.LoggerFactory");
+    private static final boolean JUL_PRESENT = isPresent("java.util.logging.Logger");
 
-    private static boolean isSlf4jPresent() {
+    private static boolean isPresent(final String className) {
         try {
-            Class.forName("org.slf4j.LoggerFactory", false, LogTargets.class.getClassLoader());
+            Class.forName(className, false, LogTargets.class.getClassLoader());
             return true;
         } catch (final ClassNotFoundException | LinkageError e) {
             return false;
