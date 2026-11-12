@@ -31,13 +31,25 @@ import org.agrona.MutableDirectBuffer;
  * implementations. Writers and readers are created by, and used from, the thread that uses them.
  */
 public interface PerfQueue extends AutoCloseable {
-    /** @return a writer for the calling thread */
+    /**
+     * Creates a writer for the calling thread.
+     *
+     * @return a writer for the calling thread
+     */
     Writer createWriter();
 
-    /** @return a reader for the calling thread, starting at the first message */
+    /**
+     * Creates a reader for the calling thread.
+     *
+     * @return a reader for the calling thread, starting at the first message
+     */
     Reader createReader();
 
-    /** @param sb the string builder to append the queue settings to, one setting per line */
+    /**
+     * Appends the settings of the queue.
+     *
+     * @param sb the string builder to append the queue settings to, one setting per line
+     */
     void describeSettings(StringBuilder sb);
 
     @Override
@@ -46,6 +58,8 @@ public interface PerfQueue extends AutoCloseable {
     /** Zero-copy writer: {@link #claim(int) claim}, encode, {@link #commit() commit}. */
     interface Writer extends AutoCloseable {
         /**
+         * Claims a message of the given length.
+         *
          * @param length the message length
          * @return a buffer to encode the message into, at offset zero and with the given length
          */
@@ -61,6 +75,8 @@ public interface PerfQueue extends AutoCloseable {
     /** Zero-copy reader invoking a handler with the next message if one is available. */
     interface Reader extends AutoCloseable {
         /**
+         * Polls the next message.
+         *
          * @param handler the handler invoked with the next message if one is available
          * @return true if a message was handled
          */
@@ -74,6 +90,8 @@ public interface PerfQueue extends AutoCloseable {
     @FunctionalInterface
     interface MessageHandler {
         /**
+         * Handles a message.
+         *
          * @param buffer the buffer containing the message
          * @param offset the message offset in the buffer
          * @param length the message length

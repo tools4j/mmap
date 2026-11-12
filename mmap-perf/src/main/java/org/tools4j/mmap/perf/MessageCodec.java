@@ -62,7 +62,11 @@ public final class MessageCodec {
         this.payloadLength = messageLength - PAYLOAD_OFFSET;
     }
 
-    /** @return the payload length in bytes */
+    /**
+     * Returns the payload length.
+     *
+     * @return the payload length in bytes
+     */
     public int payloadLength() {
         return payloadLength;
     }
@@ -80,12 +84,20 @@ public final class MessageCodec {
         return this;
     }
 
-    /** @return the send time in nanoseconds, from {@link System#nanoTime()} */
+    /**
+     * Returns the send time of the message.
+     *
+     * @return the send time in nanoseconds, from {@link System#nanoTime()}
+     */
     public long timestamp() {
         return buffer.getLong(TIMESTAMP_OFFSET);
     }
 
-    /** @return the ID of the sender of the message */
+    /**
+     * Returns the sender ID of the message.
+     *
+     * @return the ID of the sender of the message
+     */
     public byte senderId() {
         return buffer.getByte(SENDER_ID_OFFSET);
     }
@@ -100,6 +112,8 @@ public final class MessageCodec {
     }
 
     /**
+     * Sets the send time of the message.
+     *
      * @param timestamp the send time in nanoseconds, from {@link System#nanoTime()}
      * @return this codec
      */
@@ -109,6 +123,8 @@ public final class MessageCodec {
     }
 
     /**
+     * Sets the sender ID of the message.
+     *
      * @param senderId the ID of the sender of the message
      * @return this codec
      */

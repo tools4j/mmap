@@ -50,6 +50,8 @@ public final class Receiver {
     private long received;
 
     /**
+     * Creates a receiver reading all messages from the queue on a thread of its own.
+     *
      * @param receiverId    the receiver ID used in the thread name
      * @param threadFactory the factory for the receiver thread
      * @param queue         the queue to read from

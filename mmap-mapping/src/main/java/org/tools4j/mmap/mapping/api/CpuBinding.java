@@ -54,10 +54,18 @@ public interface CpuBinding extends Closeable {
         }
     };
 
-    /** @return the CPU the thread is pinned to, or {@link #NO_CPU} if it was not pinned */
+    /**
+     * Returns the CPU the thread is pinned to.
+     *
+     * @return the CPU the thread is pinned to, or {@link #NO_CPU} if it was not pinned
+     */
     int cpu();
 
-    /** @return true if the thread was pinned */
+    /**
+     * Returns whether the thread was pinned.
+     *
+     * @return true if the thread was pinned
+     */
     default boolean isBound() {
         return cpu() != NO_CPU;
     }

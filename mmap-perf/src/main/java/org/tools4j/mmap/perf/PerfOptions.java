@@ -104,12 +104,20 @@ public record PerfOptions(QueueType queue,
             this.payload = payload;
         }
 
-        /** @return true if new header file space is prefilled */
+        /**
+         * Returns whether new header file space is prefilled.
+         *
+         * @return true if new header file space is prefilled
+         */
         public boolean header() {
             return header;
         }
 
-        /** @return true if new payload file space is prefilled */
+        /**
+         * Returns whether new payload file space is prefilled.
+         *
+         * @return true if new payload file space is prefilled
+         */
         public boolean payload() {
             return payload;
         }

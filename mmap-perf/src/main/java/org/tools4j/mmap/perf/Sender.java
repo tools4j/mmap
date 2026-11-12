@@ -45,6 +45,8 @@ public final class Sender {
     private volatile double achievedMessagesPerSecond;
 
     /**
+     * Creates a sender writing messages to the queue on a thread of its own.
+     *
      * @param senderId          the sender ID, encoded in each message
      * @param threadFactory     the factory for the sender thread
      * @param queue             the queue to write to
