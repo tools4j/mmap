@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Unit test for {@link MemoryBufferImpl}, created through {@link MemoryBuffers}, over every {@link TestMemory}.
@@ -797,5 +798,37 @@ class MemoryBufferImplTest {
         //NOTE: tolerate sporadic bytes, e.g. objects rematerialized when the JIT deoptimizes, while a single
         //      allocation per round would amount to at least 160 KB
         assertThat(allocated).isLessThan(10_000);
+    }
+
+    @Test
+    void wrappingAndCopyingDifferentByteBuffersDoesNotAllocateUnlessFfmCannotAccessTheirFields() {
+        assumeTrue(!"FFM".equals(System.getProperty("mmap.core.memoryAccess")) ||
+                ByteBuffer.class.getModule().isOpen("java.nio", MemoryBufferImplTest.class.getModule()),
+                "FFM allocates a segment per byte buffer unless java.nio is open");
+        final com.sun.management.ThreadMXBean threads =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        final ByteBuffer[] byteBuffers = {
+                ByteBuffer.allocateDirect(CAPACITY), ByteBuffer.allocateDirect(CAPACITY),
+                ByteBuffer.allocate(CAPACITY).asReadOnlyBuffer(), ByteBuffer.allocateDirect(CAPACITY).asReadOnlyBuffer()
+        };
+        final MemoryBufferFlyweight flyweight = MemoryBuffers.flyweight();
+        final MutableMemoryBuffer heap = MemoryBuffers.allocate(CAPACITY);
+        final long[] sum = {0};
+        final Consumer<Integer> rounds = n -> {
+            for (int i = 0; i < n; i++) {
+                final ByteBuffer byteBuffer = byteBuffers[i & 3];
+                flyweight.wrap(byteBuffer, 8, 16);
+                sum[0] += flyweight.getLong(0);
+                heap.getBytes(0, byteBuffers[i & 1], 8, 8);
+                heap.putBytes(8, byteBuffer, 0, 8);
+            }
+        };
+        rounds.accept(100_000);
+        final long before = threads.getCurrentThreadAllocatedBytes();
+        rounds.accept(10_000);
+        final long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+        //NOTE: tolerate sporadic bytes as above, while a segment per round would amount to at least 720 KB
+        assertThat(allocated).isLessThan(10_000);
+        assertEquals(0, sum[0]);
     }
 }
