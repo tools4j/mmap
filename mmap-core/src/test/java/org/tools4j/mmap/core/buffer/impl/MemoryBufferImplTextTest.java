@@ -97,9 +97,9 @@ class MemoryBufferImplTextTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void asciiTextRoundTrips(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
+    @EnumSource(TestMemory.class)
+    void asciiTextRoundTrips(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
         assertEquals(5, buffer.putTextAscii(3, "Hello"));
         assertEquals("Hello", buffer.getTextAscii(3, 5));
         final StringBuilder builder = new StringBuilder("> ");
@@ -115,10 +115,10 @@ class MemoryBufferImplTextTest {
     }
 
     @ParameterizedTest
-    @EnumSource(MemoryKind.class)
-    void utf8TextIsEncodedAndDecodedAsByTheJdk(final MemoryKind kind) {
-        final MutableMemoryBuffer buffer = kind.create(CAPACITY);
-        final Random random = new Random(kind.ordinal());
+    @EnumSource(TestMemory.class)
+    void utf8TextIsEncodedAndDecodedAsByTheJdk(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
+        final Random random = new Random(memory.ordinal());
         for (int round = 0; round < 2_000; round++) {
             final String text = randomText(random, 40);
             final byte[] expected = text.getBytes(UTF_8);

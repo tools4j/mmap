@@ -47,6 +47,8 @@ public enum UnsafeMemoryAccess implements MemoryAccess {
     private static final long BYTE_ARRAY_BASE_OFFSET = arrayBaseOffset(byte[].class);
     private static final long LONG_ARRAY_BASE_OFFSET = arrayBaseOffset(long[].class);
     private static final long BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(Buffer.class, "address");
+    private static final long BYTE_BUFFER_ARRAY_OFFSET = UNSAFE.objectFieldOffset(ByteBuffer.class, "hb");
+    private static final long BYTE_BUFFER_ARRAY_OFFSET_OFFSET = UNSAFE.objectFieldOffset(ByteBuffer.class, "offset");
 
     /**
      * Calls {@code Unsafe.arrayBaseOffset} reflectively: it returns an int up to Java 22 and a long since Java 23, and
@@ -79,6 +81,21 @@ public enum UnsafeMemoryAccess implements MemoryAccess {
     @Override
     public long heapOffset(final long[] array, final int byteOffset) {
         return LONG_ARRAY_BASE_OFFSET + byteOffset;
+    }
+
+    /** Reads the array of a heap byte buffer from its field, since read-only ones hide it. */
+    @Override
+    public Object heapBase(final ByteBuffer buffer) {
+        final Object array = UNSAFE.getReference(buffer, BYTE_BUFFER_ARRAY_OFFSET);
+        if (array == null) {
+            throw new IllegalArgumentException("Cannot wrap a heap byte buffer not backed by a byte[]: " + buffer);
+        }
+        return array;
+    }
+
+    @Override
+    public long heapOffset(final ByteBuffer buffer, final int byteOffset) {
+        return BYTE_ARRAY_BASE_OFFSET + UNSAFE.getInt(buffer, BYTE_BUFFER_ARRAY_OFFSET_OFFSET) + byteOffset;
     }
 
     @Override

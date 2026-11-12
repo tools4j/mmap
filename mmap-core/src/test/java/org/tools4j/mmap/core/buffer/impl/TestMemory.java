@@ -25,7 +25,7 @@ package org.tools4j.mmap.core.buffer.impl;
 
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.core.buffer.MutableMemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -34,10 +34,10 @@ import java.util.function.Consumer;
 import java.util.function.IntFunction;
 
 /**
- * The kinds of memory a {@link MutableMemoryBuffer} of {@link MemoryBufferImpl} can access in the tests, each created
+ * The memory a {@link MutableMemoryBuffer} of {@link MemoryBufferImpl} can access in the tests, each created
  * with a given capacity, a multiple of 8.
  */
-enum MemoryKind {
+enum TestMemory {
     HEAP(true, false, MemoryBuffers::allocate),
     DIRECT(true, false, MemoryBuffers::allocateDirect),
     LONG_ARRAY_RANGE(true, false, capacity -> MemoryBuffers.wrap(new long[capacity / 8 + 2], 1, capacity / 8)),
@@ -48,7 +48,7 @@ enum MemoryKind {
             capacity -> flyweight(buffer -> buffer.wrap(ByteBuffer.allocateDirect(capacity + 8), 8, capacity))),
     RAW_ADDRESS(true, false, capacity -> {
         final MutableMemoryBuffer memory = keepAlive(MemoryBuffers.allocateDirect(capacity));
-        return flyweight(buffer -> buffer.wrap(((MutableMemoryBufferFlyweight) memory).address(), capacity));
+        return flyweight(buffer -> buffer.wrap(((MemoryBufferFlyweight) memory).address(), capacity));
     }),
     HEAP_RANGE(true, false, capacity -> flyweight(buffer -> buffer.wrap(MemoryBuffers.allocate(capacity + 16), 8,
             capacity))),
@@ -61,7 +61,7 @@ enum MemoryKind {
     final boolean expandable;
     private final IntFunction<MutableMemoryBuffer> factory;
 
-    MemoryKind(final boolean orderedAccess, final boolean expandable,
+    TestMemory(final boolean orderedAccess, final boolean expandable,
                final IntFunction<MutableMemoryBuffer> factory) {
         this.orderedAccess = orderedAccess;
         this.expandable = expandable;
@@ -72,8 +72,8 @@ enum MemoryKind {
         return factory.apply(capacity);
     }
 
-    private static MutableMemoryBuffer flyweight(final Consumer<MutableMemoryBufferFlyweight> wrapping) {
-        final MutableMemoryBufferFlyweight buffer = MemoryBuffers.mutableFlyweight();
+    private static MutableMemoryBuffer flyweight(final Consumer<MemoryBufferFlyweight> wrapping) {
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         wrapping.accept(buffer);
         return buffer;
     }

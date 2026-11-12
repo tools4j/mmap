@@ -29,7 +29,9 @@ import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
  * Creates buffers and flyweights.
  * <p>
  * All buffers are instances of one internal class, so that call sites using them stay monomorphic, whatever memory
- * they access. Which mechanism accesses the memory is chosen once per JVM, see {@link MemoryAccessMode}.
+ * they access. Which mechanism accesses the memory is chosen once per JVM, see {@link MemoryAccessMode}. Only
+ * {@linkplain MemoryBinding#WRAPPABLE flyweights} can be wrapped and unwrapped: the other buffers throw
+ * {@link UnsupportedOperationException}, even when cast to {@link MemoryBufferFlyweight}.
  */
 public enum MemoryBuffers {
     ;
@@ -38,21 +40,18 @@ public enum MemoryBuffers {
     public static final long NULL_ADDRESS = 0;
 
     /**
-     * Returns a new read-only flyweight, initially wrapping no memory, see {@link MemoryBufferFlyweight#unwrap()}.
+     * A buffer with capacity 0, which cannot be wrapped, not even after a cast to {@link MemoryBufferFlyweight}, so
+     * that it can be shared, e.g. as the buffer of something not ready for data access.
+     */
+    public static final MutableMemoryBuffer EMPTY = MemoryBufferImpl.empty();
+
+    /**
+     * Returns a new flyweight, initially wrapping no memory, see {@link MemoryBufferFlyweight#unwrap()}.
      *
      * @return the flyweight
      */
     public static MemoryBufferFlyweight flyweight() {
         return MemoryBufferImpl.flyweight();
-    }
-
-    /**
-     * Returns a new mutable flyweight, initially wrapping no memory, see {@link MutableMemoryBufferFlyweight#unwrap()}.
-     *
-     * @return the flyweight
-     */
-    public static MutableMemoryBufferFlyweight mutableFlyweight() {
-        return MemoryBufferImpl.mutableFlyweight();
     }
 
     /**

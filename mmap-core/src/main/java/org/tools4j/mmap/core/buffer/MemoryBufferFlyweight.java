@@ -26,23 +26,26 @@ package org.tools4j.mmap.core.buffer;
 import java.nio.ByteBuffer;
 
 /**
- * A read-only {@link MemoryBuffer} that can be wrapped around any memory, and re-wrapped as often as needed without
+ * A {@link MutableMemoryBuffer} that can be wrapped around any memory, and re-wrapped as often as needed without
  * allocating: a raw address, an array, a {@code ByteBuffer} or a range of another buffer.
  * <p>
- * A flyweight only reads the wrapped memory; it never writes, even if the memory is writable. To write, use a
- * {@link MutableMemoryBufferFlyweight}, which deliberately is no subtype of this interface, so that a read-only buffer
- * cannot be wrapped into a mutable one.
+ * Whether it can write follows from the wrapped memory: wrapping a read-only {@code ByteBuffer}, or a range of a
+ * buffer that {@linkplain #isReadOnly() is read-only}, makes it read-only, as does {@link #makeReadOnly()}, until it
+ * wraps writable memory again. Writes to read-only memory throw {@link java.nio.ReadOnlyBufferException} instead of
+ * crashing the JVM. Read-only is a property of the memory or a request of the user, not a lifetime guarantee: code
+ * that must never write keeps the flyweight to itself, or hands it out typed as a {@link MemoryBuffer}.
  * <p>
  * A flyweight wrapping an array or a {@code ByteBuffer} keeps a reference to it, so that its memory stays valid as
  * long as the flyweight wraps it. Wrapping a raw address leaves the validity of the memory to the caller.
  * <p>
  * Created with {@link MemoryBuffers#flyweight()}.
  */
-public interface MemoryBufferFlyweight extends MemoryBuffer {
+public interface MemoryBufferFlyweight extends MutableMemoryBuffer {
 
     /**
-     * Wraps direct memory at a raw address; {@link MemoryBuffers#NULL_ADDRESS} with capacity 0 is the same as
-     * {@link #unwrap()}.
+     * Wraps writable direct memory at a raw address; {@link MemoryBuffers#NULL_ADDRESS} with capacity 0 is the same
+     * as {@link #unwrap()}. Read-only memory, such as a read-only memory mapping, must be made read-only with
+     * {@link #makeReadOnly()} right after wrapping it.
      *
      * @param address the address of the first byte
      * @param capacity the number of bytes
@@ -68,29 +71,33 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
     void wrap(byte[] array, int offset, int length);
 
     /**
-     * Wraps a {@code ByteBuffer} from 0 to its capacity, ignoring its position, limit and byte order.
+     * Wraps a {@code ByteBuffer} from 0 to its capacity, ignoring its position, limit and byte order; read-only if the
+     * byte buffer is read-only.
      *
-     * @param buffer a direct byte buffer, or a heap byte buffer with an {@linkplain ByteBuffer#hasArray() accessible
-     *               array}; ordered access only for direct ones
-     * @throws IllegalArgumentException if the byte buffer is a heap buffer without accessible array, i.e. a read-only
-     *                                  heap buffer
+     * @param buffer a direct or heap byte buffer, writable or read-only; ordered access and atomic operations only for
+     *               direct ones
+     * @throws IllegalArgumentException for a heap byte buffer over memory other than a {@code byte[]}, such as a
+     *                                  {@code MemorySegment} of another array type, unless the memory is accessed
+     *                                  through FFM, see {@link MemoryAccessMode}
      */
     void wrap(ByteBuffer buffer);
 
     /**
-     * Wraps a range of a {@code ByteBuffer} at an absolute offset, ignoring its position, limit and byte order.
+     * Wraps a range of a {@code ByteBuffer} at an absolute offset, ignoring its position, limit and byte order;
+     * read-only if the byte buffer is read-only.
      *
-     * @param buffer a direct byte buffer, or a heap byte buffer with an {@linkplain ByteBuffer#hasArray() accessible
-     *               array}; ordered access only for direct ones
+     * @param buffer a direct or heap byte buffer, writable or read-only; ordered access and atomic operations only for
+     *               direct ones
      * @param offset the absolute offset of the first byte in the byte buffer
      * @param length the number of bytes
-     * @throws IllegalArgumentException if the byte buffer is a heap buffer without accessible array, i.e. a read-only
-     *                                  heap buffer
+     * @throws IllegalArgumentException for a heap byte buffer over memory other than a {@code byte[]}, such as a
+     *                                  {@code MemorySegment} of another array type, unless the memory is accessed
+     *                                  through FFM, see {@link MemoryAccessMode}
      */
     void wrap(ByteBuffer buffer, int offset, int length);
 
     /**
-     * Wraps the memory of another buffer as a whole.
+     * Wraps the memory of another buffer as a whole, read-only if the other buffer is read-only.
      * <p>
      * The flyweight wraps the other buffer's memory, not the buffer itself: if an expandable buffer grows later, the
      * flyweight still wraps its old memory.
@@ -100,7 +107,8 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
     void wrap(MemoryBuffer buffer);
 
     /**
-     * Wraps a range of another buffer's memory, as a view of an entry within a larger buffer, for instance.
+     * Wraps a range of another buffer's memory, as a view of an entry within a larger buffer, for instance; read-only
+     * if the other buffer is read-only.
      * <p>
      * The flyweight wraps the other buffer's memory, not the buffer itself: if an expandable buffer grows later, the
      * flyweight still wraps its old memory.
@@ -110,6 +118,12 @@ public interface MemoryBufferFlyweight extends MemoryBuffer {
      * @param length the number of bytes
      */
     void wrap(MemoryBuffer buffer, int index, int length);
+
+    /**
+     * Makes the wrapped memory read-only for this flyweight, and for flyweights wrapping a range of it later, until
+     * it wraps other memory: writes then throw {@link java.nio.ReadOnlyBufferException}.
+     */
+    void makeReadOnly();
 
     /**
      * Wraps no memory, as a new flyweight: the capacity is 0, and the memory wrapped before is no longer referenced.

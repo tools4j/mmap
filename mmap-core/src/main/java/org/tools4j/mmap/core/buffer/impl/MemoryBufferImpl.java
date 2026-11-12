@@ -25,9 +25,9 @@ package org.tools4j.mmap.core.buffer.impl;
 
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBinding;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.core.buffer.MutableMemoryBufferFlyweight;
 import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.text.Utf8;
 import org.tools4j.mmap.core.unsafe.MemoryAccess;
@@ -43,6 +43,9 @@ import java.util.Arrays;
 import java.util.Objects;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.tools4j.mmap.core.buffer.MemoryBinding.EXPANDABLE;
+import static org.tools4j.mmap.core.buffer.MemoryBinding.FIXED;
+import static org.tools4j.mmap.core.buffer.MemoryBinding.WRAPPABLE;
 
 /**
  * The one implementation of all memory buffer interfaces, so that call sites stay monomorphic whatever memory they
@@ -57,8 +60,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
  * <p>
  * Bounds are checked with the intrinsic {@link Objects#checkIndex(int, int)}, which C2 eliminates in loops.
  * Expandable buffers grow before the bounds check of a write, so that the check stays the same for all buffers.
+ * Writes check against a write capacity of their own, the capacity or 0 for read-only memory, so that writing to
+ * read-only memory, such as a read-only memory mapping, throws instead of crashing the JVM, at no extra cost. The
+ * write capacity is set on every wrap, from the wrapped memory, so read-only is a property of the memory, not of the
+ * buffer.
+ * <p>
+ * Only flyweights can be wrapped: all buffers are instances of this class, and a cast must not let anyone re-wrap an
+ * allocated buffer or a shared constant such as {@link MemoryBuffers#EMPTY}.
  */
-public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMemoryBufferFlyweight {
+public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     private static final int FFM_JAVA_VERSION = 22;
     private static final String FFM_MEMORY_ACCESS = "org.tools4j.mmap.core.unsafe.FfmMemoryAccess";
@@ -74,13 +84,16 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     private static final int UNORDERED = Long.BYTES;
     private static final char REPLACEMENT_CHARACTER = '�';
 
-    private final boolean mutableFlyweight;
-    private final boolean expandable;
-    private final boolean expandableDirect;
+    private final MemoryBinding binding;
 
     private Object heapBase;
     private long offset;
     private int capacity;
+    /**
+     * The capacity for writes, checked by every write instead of the capacity: equal to it, or 0 for read-only memory,
+     * so that a write to read-only memory throws instead of crashing the JVM, at no extra cost.
+     */
+    private int writeCapacity;
     private int wrapOffset;
     private Object owner;
     /**
@@ -89,11 +102,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
      */
     private int alignmentBits;
 
-    private MemoryBufferImpl(final boolean mutableFlyweight, final boolean expandable, final boolean expandableDirect) {
-        this.mutableFlyweight = mutableFlyweight;
-        this.expandable = expandable;
-        this.expandableDirect = expandableDirect;
-        unwrap();
+    private MemoryBufferImpl(final MemoryBinding binding) {
+        this.binding = binding;
+        clear();
     }
 
     private static MemoryAccess memoryAccess() {
@@ -121,21 +132,21 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     //--- factories, used by MemoryBuffers ---
 
     /**
-     * Returns a new read-only flyweight wrapping no memory.
+     * Returns a new flyweight wrapping no memory.
      *
      * @return the flyweight
      */
     public static MemoryBufferFlyweight flyweight() {
-        return new MemoryBufferImpl(false, false, false);
+        return new MemoryBufferImpl(WRAPPABLE);
     }
 
     /**
-     * Returns a new mutable flyweight wrapping no memory.
+     * Returns a new buffer with capacity 0 that cannot be wrapped, to be shared as a constant.
      *
-     * @return the flyweight
+     * @return the buffer
      */
-    public static MutableMemoryBufferFlyweight mutableFlyweight() {
-        return new MemoryBufferImpl(true, false, false);
+    public static MutableMemoryBuffer empty() {
+        return new MemoryBufferImpl(FIXED);
     }
 
     /**
@@ -146,7 +157,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
      */
     public static MutableMemoryBuffer allocate(final int capacity) {
         validateCapacity(capacity);
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(true, false, false);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(FIXED);
         buffer.wrapHeap(new long[longsFor(capacity)], 0, capacity);
         return buffer;
     }
@@ -164,7 +175,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         if (length > Integer.MAX_VALUE / Long.BYTES) {
             throw new IllegalArgumentException("Too many elements for a buffer: " + length);
         }
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(true, false, false);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(FIXED);
         buffer.wrapHeap(array, offset * Long.BYTES, length * Long.BYTES);
         return buffer;
     }
@@ -177,7 +188,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity) {
         validateCapacity(capacity);
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(true, false, false);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(FIXED);
         buffer.wrapAllocatedDirect(capacity);
         return buffer;
     }
@@ -190,7 +201,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
      */
     public static MutableMemoryBuffer expandable(final int initialCapacity) {
         validateCapacity(initialCapacity);
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(true, true, false);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(EXPANDABLE);
         buffer.wrapHeap(new long[longsFor(initialCapacity)], 0, initialCapacity);
         return buffer;
     }
@@ -203,7 +214,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity) {
         validateCapacity(initialCapacity);
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(true, true, true);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(EXPANDABLE);
         buffer.wrapAllocatedDirect(initialCapacity);
         return buffer;
     }
@@ -226,6 +237,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.heapBase = ACCESS.heapBase(array);
         this.offset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
+        this.writeCapacity = length;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
         this.alignmentBits = UNORDERED;
@@ -235,6 +247,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.heapBase = array == owner ? heapBase : ACCESS.heapBase(array);
         this.offset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
+        this.writeCapacity = length;
         this.wrapOffset = byteOffset;
         this.owner = array;
         this.alignmentBits = byteOffset & MISALIGNMENT_MASK;
@@ -244,6 +257,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.heapBase = null;
         this.offset = address;
         this.capacity = capacity;
+        this.writeCapacity = capacity;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
         this.alignmentBits = (int) address & MISALIGNMENT_MASK;
@@ -258,6 +272,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void wrap(final long address, final int capacity) {
+        checkWrappable();
         if (capacity < 0) {
             throw new IllegalArgumentException("Capacity cannot be negative: " + capacity);
         }
@@ -265,7 +280,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
             if (capacity > 0) {
                 throw new IllegalArgumentException("Cannot wrap " + capacity + " bytes at the null address");
             }
-            unwrap();
+            clear();
             return;
         }
         wrapDirect(address, capacity, 0, null);
@@ -273,33 +288,50 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void wrap(final byte[] array) {
+        checkWrappable();
         wrapHeap(array, 0, array.length, 0, array);
     }
 
     @Override
     public void wrap(final byte[] array, final int offset, final int length) {
+        checkWrappable();
         Objects.checkFromIndexSize(offset, length, array.length);
         wrapHeap(array, offset, length, offset, array);
     }
 
     @Override
     public void wrap(final ByteBuffer buffer) {
+        checkWrappable();
         wrap(buffer, 0, buffer.capacity());
     }
 
     @Override
     public void wrap(final ByteBuffer buffer, final int offset, final int length) {
+        checkWrappable();
         Objects.checkFromIndexSize(offset, length, buffer.capacity());
-        if (mutableFlyweight && buffer.isReadOnly()) {
-            throw new ReadOnlyBufferException();
-        }
         if (buffer.isDirect()) {
             wrapDirect(directAddress(buffer) + offset, length, offset, buffer);
-        } else if (buffer.hasArray()) {
-            wrapHeap(buffer.array(), buffer.arrayOffset() + offset, length, offset, buffer);
         } else {
-            throw new IllegalArgumentException("Cannot wrap a heap byte buffer without accessible array: " + buffer);
+            wrapHeap(buffer, offset, length);
         }
+        if (buffer.isReadOnly()) {
+            this.writeCapacity = 0;
+        }
+    }
+
+    /**
+     * Wraps the memory of a heap byte buffer, readable through the memory access even if the byte buffer is
+     * read-only, i.e. without accessible array; plain access only, as for a {@code byte[]}.
+     */
+    private void wrapHeap(final ByteBuffer buffer, final int offset, final int length) {
+        final Object base = buffer == owner ? heapBase : ACCESS.heapBase(buffer);
+        this.offset = ACCESS.heapOffset(buffer, offset);
+        this.heapBase = base;
+        this.capacity = length;
+        this.writeCapacity = length;
+        this.wrapOffset = offset;
+        this.owner = buffer;
+        this.alignmentBits = UNORDERED;
     }
 
     /**
@@ -312,21 +344,13 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void wrap(final MemoryBuffer buffer) {
+        checkWrappable();
         wrapRange(buffer, 0, buffer.capacity());
     }
 
     @Override
     public void wrap(final MemoryBuffer buffer, final int index, final int length) {
-        wrapRange(buffer, index, length);
-    }
-
-    @Override
-    public void wrap(final MutableMemoryBuffer buffer) {
-        wrapRange(buffer, 0, buffer.capacity());
-    }
-
-    @Override
-    public void wrap(final MutableMemoryBuffer buffer, final int index, final int length) {
+        checkWrappable();
         wrapRange(buffer, index, length);
     }
 
@@ -336,14 +360,33 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         this.heapBase = source.heapBase;
         this.offset = source.offset + index;
         this.capacity = length;
+        this.writeCapacity = source.writeCapacity < source.capacity ? 0 : length;
         this.wrapOffset = source.wrapOffset + index;
         this.owner = source.owner;
         this.alignmentBits = (source.alignmentBits & UNORDERED) | ((source.alignmentBits + index) & MISALIGNMENT_MASK);
     }
 
     @Override
+    public void makeReadOnly() {
+        checkWrappable();
+        this.writeCapacity = 0;
+    }
+
+    @Override
     public void unwrap() {
+        checkWrappable();
+        clear();
+    }
+
+    private void clear() {
         wrapHeap(NO_BYTES, 0, 0, 0, NO_BYTES);
+    }
+
+    private void checkWrappable() {
+        if (binding != WRAPPABLE) {
+            throw new UnsupportedOperationException("Only flyweights can be wrapped and unwrapped, not this " +
+                    binding.name().toLowerCase() + " buffer");
+        }
     }
 
     //--- properties ---
@@ -359,8 +402,13 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     }
 
     @Override
-    public boolean isExpandable() {
-        return expandable;
+    public boolean isReadOnly() {
+        return writeCapacity < capacity;
+    }
+
+    @Override
+    public MemoryBinding binding() {
+        return binding;
     }
 
     @Override
@@ -391,6 +439,37 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         Objects.checkIndex(index, capacity - size + 1);
     }
 
+    /**
+     * Checks the bounds of a write against the write capacity, the failure being on a path of its own, so that the
+     * check costs the same as a read's and the exception tells read-only memory apart from an index out of bounds.
+     */
+    private void checkWriteBounds(final int index, final int size) {
+        try {
+            Objects.checkIndex(index, writeCapacity - size + 1);
+        } catch (final IndexOutOfBoundsException e) {
+            throw readOnlyFailure(index, size);
+        }
+    }
+
+    private void checkWriteRange(final int index, final int length) {
+        try {
+            Objects.checkFromIndexSize(index, length, writeCapacity);
+        } catch (final IndexOutOfBoundsException e) {
+            throw readOnlyRangeFailure(index, length);
+        }
+    }
+
+    /** Throws the exception of a read beyond the capacity, else returns the one for a write to read-only memory. */
+    private ReadOnlyBufferException readOnlyFailure(final int index, final int size) {
+        checkBounds(index, size);
+        return new ReadOnlyBufferException();
+    }
+
+    private ReadOnlyBufferException readOnlyRangeFailure(final int index, final int length) {
+        Objects.checkFromIndexSize(index, length, capacity);
+        return new ReadOnlyBufferException();
+    }
+
     private void checkOrdered(final int index, final int size) {
         final int bits = alignmentBits;
         if ((((bits + index) & (size - 1)) | (bits & UNORDERED)) != 0) {
@@ -412,7 +491,40 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
                 " with alignment " + alignment());
     }
 
-    private void ensureCapacity(final int index, final int size) {
+    @Override
+    public void ensureCapacity(final int capacity) {
+        if (capacity < 0) {
+            throw new IllegalArgumentException("Capacity cannot be negative: " + capacity);
+        }
+        ensureCapacity((long) capacity);
+    }
+
+    @Override
+    public void ensureCapacity(final int index, final int size) {
+        if (index < 0) {
+            throw new IndexOutOfBoundsException("Index cannot be negative: " + index);
+        }
+        if (size < 0) {
+            throw new IllegalArgumentException("Size cannot be negative: " + size);
+        }
+        ensureCapacity((long) index + size);
+    }
+
+    private void ensureCapacity(final long required) {
+        if (required <= capacity) {
+            return;
+        }
+        if (binding != EXPANDABLE) {
+            throw new UnsupportedOperationException("Cannot grow this " + binding.name().toLowerCase() +
+                    " buffer from capacity " + capacity + " to " + required);
+        }
+        if (required > MAX_CAPACITY) {
+            throw new IllegalArgumentException("Capacity " + required + " exceeds the maximum " + MAX_CAPACITY);
+        }
+        grow(required);
+    }
+
+    private void expandFor(final int index, final int size) {
         if (index >= 0 && size >= 0 && index > capacity - size) {
             grow((long) index + size);
         }
@@ -424,7 +536,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
         }
         final int newCapacity = (int) Math.min(MAX_CAPACITY,
                 Math.max(required, Math.max(MIN_EXPANDED_CAPACITY, 2L * capacity)));
-        if (expandableDirect) {
+        if (heapBase == null) {
             final long oldAddress = offset;
             final int oldCapacity = capacity;
             final Object oldOwner = owner;
@@ -544,10 +656,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putByte(final int index, final byte value) {
-        if (expandable) {
-            ensureCapacity(index, Byte.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Byte.BYTES);
         }
-        checkBounds(index, Byte.BYTES);
+        checkWriteBounds(index, Byte.BYTES);
         rawPutByte(index, value);
     }
 
@@ -567,10 +679,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putShort(final int index, final short value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Short.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Short.BYTES);
         }
-        checkBounds(index, Short.BYTES);
+        checkWriteBounds(index, Short.BYTES);
         final Object base = heapBase;
         final short reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -587,10 +699,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putChar(final int index, final char value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Character.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Character.BYTES);
         }
-        checkBounds(index, Character.BYTES);
+        checkWriteBounds(index, Character.BYTES);
         final Object base = heapBase;
         final char reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -607,10 +719,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putInt(final int index, final int value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -627,10 +739,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putLong(final int index, final long value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -672,10 +784,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putByteVolatile(final int index, final byte value) {
-        if (expandable) {
-            ensureCapacity(index, Byte.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Byte.BYTES);
         }
-        checkBounds(index, Byte.BYTES);
+        checkWriteBounds(index, Byte.BYTES);
         final Object base = heapBase;
         if (base == null) {
             ACCESS.putByteVolatile(null, offset + index, value);
@@ -705,10 +817,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putShortVolatile(final int index, final short value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Short.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Short.BYTES);
         }
-        checkBounds(index, Short.BYTES);
+        checkWriteBounds(index, Short.BYTES);
         checkOrdered(index, Short.BYTES);
         final Object base = heapBase;
         final short reordered = reorder(value, byteOrder);
@@ -740,10 +852,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putCharVolatile(final int index, final char value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Character.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Character.BYTES);
         }
-        checkBounds(index, Character.BYTES);
+        checkWriteBounds(index, Character.BYTES);
         checkOrdered(index, Character.BYTES);
         final Object base = heapBase;
         final char reordered = reorder(value, byteOrder);
@@ -805,10 +917,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putIntOpaque(final int index, final int value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
@@ -826,10 +938,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putIntRelease(final int index, final int value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
@@ -847,10 +959,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putIntVolatile(final int index, final int value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
@@ -869,10 +981,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public boolean compareAndSetInt(final int index, final int expectedValue, final int updateValue,
                                     final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
@@ -889,10 +1001,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public int compareAndExchangeInt(final int index, final int expectedValue, final int updateValue,
                                      final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
@@ -908,13 +1020,13 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public int getAndAddInt(final int index, final int delta, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
         if (byteOrder != NATIVE_ORDER) {
             return getAndAddIntByCompareAndSet(index, delta, byteOrder);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddInt(null, offset + index, delta) :
@@ -936,10 +1048,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public int getAndSetInt(final int index, final int value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Integer.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Integer.BYTES);
         }
-        checkBounds(index, Integer.BYTES);
+        checkWriteBounds(index, Integer.BYTES);
         checkOrdered(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
@@ -998,10 +1110,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putLongOpaque(final int index, final long value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
@@ -1019,10 +1131,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putLongRelease(final int index, final long value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
@@ -1040,10 +1152,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void putLongVolatile(final int index, final long value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
@@ -1062,10 +1174,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public boolean compareAndSetLong(final int index, final long expectedValue, final long updateValue,
                                      final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
@@ -1082,10 +1194,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public long compareAndExchangeLong(final int index, final long expectedValue, final long updateValue,
                                        final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
@@ -1101,13 +1213,13 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public long getAndAddLong(final int index, final long delta, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
         if (byteOrder != NATIVE_ORDER) {
             return getAndAddLongByCompareAndSet(index, delta, byteOrder);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddLong(null, offset + index, delta) :
@@ -1129,10 +1241,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public long getAndSetLong(final int index, final long value, final ByteOrder byteOrder) {
-        if (expandable) {
-            ensureCapacity(index, Long.BYTES);
+        if (binding == EXPANDABLE) {
+            expandFor(index, Long.BYTES);
         }
-        checkBounds(index, Long.BYTES);
+        checkWriteBounds(index, Long.BYTES);
         checkOrdered(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
@@ -1196,10 +1308,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public void putBytes(final int index, final byte[] source, final int sourceOffset, final int length) {
         Objects.checkFromIndexSize(sourceOffset, length, source.length);
-        if (expandable) {
-            ensureCapacity(index, length);
+        if (binding == EXPANDABLE) {
+            expandFor(index, length);
         }
-        Objects.checkFromIndexSize(index, length, capacity);
+        checkWriteRange(index, length);
         ACCESS.copyMemory(ACCESS.heapBase(source), ACCESS.heapOffset(source, sourceOffset), heapBase,
                 offset + index, length);
     }
@@ -1208,10 +1320,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     public void putBytes(final int index, final MemoryBuffer source, final int sourceIndex, final int length) {
         final MemoryBufferImpl buffer = (MemoryBufferImpl) source;
         Objects.checkFromIndexSize(sourceIndex, length, buffer.capacity);
-        if (expandable) {
-            ensureCapacity(index, length);
+        if (binding == EXPANDABLE) {
+            expandFor(index, length);
         }
-        Objects.checkFromIndexSize(index, length, capacity);
+        checkWriteRange(index, length);
         ACCESS.copyMemory(buffer.heapBase, buffer.offset + sourceIndex, heapBase, offset + index, length);
         Reference.reachabilityFence(buffer.owner);
     }
@@ -1219,10 +1331,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public void putBytes(final int index, final ByteBuffer source, final int sourceOffset, final int length) {
         Objects.checkFromIndexSize(sourceOffset, length, source.capacity());
-        if (expandable) {
-            ensureCapacity(index, length);
+        if (binding == EXPANDABLE) {
+            expandFor(index, length);
         }
-        Objects.checkFromIndexSize(index, length, capacity);
+        checkWriteRange(index, length);
         if (source.isDirect()) {
             ACCESS.copyMemory(null, ACCESS.address(source) + sourceOffset, heapBase, offset + index, length);
             Reference.reachabilityFence(source);
@@ -1247,10 +1359,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
 
     @Override
     public void setMemory(final int index, final int length, final byte value) {
-        if (expandable) {
-            ensureCapacity(index, length);
+        if (binding == EXPANDABLE) {
+            expandFor(index, length);
         }
-        Objects.checkFromIndexSize(index, length, capacity);
+        checkWriteRange(index, length);
         ACCESS.setMemory(heapBase, offset + index, length, value);
     }
 
@@ -1297,10 +1409,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public int putTextAscii(final int index, final CharSequence value, final int valueOffset, final int length) {
         Objects.checkFromIndexSize(valueOffset, length, value.length());
-        if (expandable) {
-            ensureCapacity(index, length);
+        if (binding == EXPANDABLE) {
+            expandFor(index, length);
         }
-        Objects.checkFromIndexSize(index, length, capacity);
+        checkWriteRange(index, length);
         for (int i = 0; i < length; i++) {
             final char ch = value.charAt(valueOffset + i);
             rawPutByte(index + i, ch < 0x80 ? (byte) ch : (byte) '?');
@@ -1455,10 +1567,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public int putTextUtf8(final int index, final CharSequence value, final int valueOffset, final int length) {
         final int bytes = Utf8.length(value, valueOffset, length);
-        if (expandable) {
-            ensureCapacity(index, bytes);
+        if (binding == EXPANDABLE) {
+            expandFor(index, bytes);
         }
-        Objects.checkFromIndexSize(index, bytes, capacity);
+        checkWriteRange(index, bytes);
         final int end = valueOffset + length;
         int position = index;
         for (int i = valueOffset; i < end; i++) {
@@ -1488,6 +1600,6 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight, MutableMem
     @Override
     public String toString() {
         return "MemoryBuffer:" + (isDirect() ? "direct" : "heap") + "|capacity=" + capacity +
-                (expandable ? "|expandable" : "");
+                (isReadOnly() ? "|read-only" : "") + "|" + binding.name().toLowerCase();
     }
 }

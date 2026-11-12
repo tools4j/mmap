@@ -75,6 +75,26 @@ public interface MemoryAccess {
     long heapOffset(long[] array, int byteOffset);
 
     /**
+     * Returns the heap base of a heap byte buffer, writable or read-only, i.e. also without accessible array.
+     *
+     * @param buffer the heap byte buffer
+     * @return the heap base, to be used with {@link #heapOffset(ByteBuffer, int)}
+     * @throws IllegalArgumentException if the byte buffer's memory cannot be accessed, such as that of a
+     *                                  {@code MemorySegment} of an array other than a {@code byte[]}
+     */
+    Object heapBase(ByteBuffer buffer);
+
+    /**
+     * Returns the offset of a byte of a heap byte buffer, to be used with its
+     * {@linkplain #heapBase(ByteBuffer) heap base}.
+     *
+     * @param buffer the heap byte buffer
+     * @param byteOffset the absolute offset of the byte in the byte buffer
+     * @return the offset
+     */
+    long heapOffset(ByteBuffer buffer, int byteOffset);
+
+    /**
      * Returns the address of the first byte of a direct byte buffer.
      *
      * @param buffer the direct byte buffer

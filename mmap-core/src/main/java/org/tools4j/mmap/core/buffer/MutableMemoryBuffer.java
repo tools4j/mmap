@@ -31,9 +31,39 @@ import java.nio.ByteOrder;
  * described in {@link MemoryBuffer}; ordered writes and atomic operations follow the rules of ordered access.
  * <p>
  * Expandable buffers ({@link MemoryBuffers#expandable(int)}, {@link MemoryBuffers#expandableDirect(int)}) grow on
- * writes beyond their capacity instead of throwing; reads beyond the capacity throw as for any buffer.
+ * writes beyond their capacity instead of throwing, or in advance with {@link #ensureCapacity(int)}; reads beyond the
+ * capacity throw as for any buffer.
+ * <p>
+ * Writes to {@linkplain #isReadOnly() read-only} memory, wrapped by a {@link MemoryBufferFlyweight}, throw
+ * {@link java.nio.ReadOnlyBufferException}; writes beyond the capacity throw {@link IndexOutOfBoundsException} as for
+ * any buffer.
  */
 public interface MutableMemoryBuffer extends MemoryBuffer {
+
+    /**
+     * Ensures a capacity of at least the given number of bytes, growing an {@linkplain MemoryBinding#EXPANDABLE
+     * expandable} buffer if needed, possibly beyond it, as a write beyond the capacity would; does nothing if the
+     * capacity is already sufficient, for any buffer. Growing moves the memory, so flyweights wrapping the buffer
+     * still see the old memory.
+     *
+     * @param capacity the capacity needed in bytes
+     * @throws IllegalArgumentException if the capacity is negative, or exceeds the maximum capacity of a buffer
+     * @throws UnsupportedOperationException if this buffer is too small and not expandable
+     */
+    void ensureCapacity(int capacity);
+
+    /**
+     * Ensures that the given number of bytes at the given index fit into this buffer, as for
+     * {@link #ensureCapacity(int) ensureCapacity(index + size)}, e.g. before writing a message at the index.
+     *
+     * @param index the index of the first byte
+     * @param size the number of bytes
+     * @throws IndexOutOfBoundsException if the index is negative
+     * @throws IllegalArgumentException if the size is negative, or the capacity needed exceeds the maximum capacity of
+     *                                  a buffer
+     * @throws UnsupportedOperationException if this buffer is too small and not expandable
+     */
+    void ensureCapacity(int index, int size);
 
     /**
      * Writes a byte at the given index.
