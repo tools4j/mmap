@@ -103,6 +103,9 @@ public interface MemoryBufferFlyweight extends MutableMemoryBuffer {
      * flyweight still wraps its old memory.
      *
      * @param buffer the buffer whose memory to wrap
+     * @throws IllegalArgumentException if the buffer is not created by {@link MemoryBuffers}, such as a test double,
+     *                                  whose memory is unknown: wrap its memory directly instead, e.g. its address or
+     *                                  array, whichever the implementation provides
      */
     void wrap(MemoryBuffer buffer);
 
@@ -116,6 +119,9 @@ public interface MemoryBufferFlyweight extends MutableMemoryBuffer {
      * @param buffer the buffer whose memory to wrap
      * @param index the index of the first byte in the other buffer
      * @param length the number of bytes
+     * @throws IllegalArgumentException if the buffer is not created by {@link MemoryBuffers}, such as a test double,
+     *                                  whose memory is unknown: wrap its memory directly instead, e.g. its address or
+     *                                  array, whichever the implementation provides
      */
     void wrap(MemoryBuffer buffer, int index, int length);
 
@@ -129,24 +135,4 @@ public interface MemoryBufferFlyweight extends MutableMemoryBuffer {
      * Wraps no memory, as a new flyweight: the capacity is 0, and the memory wrapped before is no longer referenced.
      */
     void unwrap();
-
-    /**
-     * Returns the offset of index 0 within the wrapped array or {@code ByteBuffer}: index {@code i} of this
-     * flyweight is element {@code wrapOffset() + i} of the wrapped byte array or byte buffer. A flyweight wrapping
-     * a range of another buffer has the other buffer's offset plus the index of the range, so it stays relative to
-     * the underlying array or byte buffer; for a buffer created with {@link MemoryBuffers#wrap(long[], int, int)},
-     * it is the byte offset from the start of its {@code long[]}, 8 bytes per element. A buffer allocated by
-     * {@link MemoryBuffers}, and a flyweight wrapping a raw address, have offset 0.
-     *
-     * @return the offset in bytes
-     */
-    int wrapOffset();
-
-    /**
-     * Returns the address of the first byte of the wrapped direct memory, or {@link MemoryBuffers#NULL_ADDRESS} if
-     * this flyweight wraps heap memory, see {@link #isDirect()}.
-     *
-     * @return the address, or {@link MemoryBuffers#NULL_ADDRESS} for heap memory
-     */
-    long address();
 }

@@ -92,6 +92,26 @@ public interface MemoryBuffer {
     long alignment();
 
     /**
+     * Returns the address of the first byte of this buffer's direct memory, or {@link MemoryBuffers#NULL_ADDRESS} for
+     * heap memory, see {@link #isDirect()}.
+     *
+     * @return the address, or {@link MemoryBuffers#NULL_ADDRESS} for heap memory
+     */
+    long address();
+
+    /**
+     * Returns the offset of index 0 within the underlying array or {@code ByteBuffer}: index {@code i} of this buffer
+     * is element {@code wrapOffset() + i} of the wrapped byte array or byte buffer. A flyweight wrapping a range of
+     * another buffer has the other buffer's offset plus the index of the range, so it stays relative to the underlying
+     * array or byte buffer; for a buffer created with {@link MemoryBuffers#wrap(long[], int, int)}, it is the byte
+     * offset from the start of its {@code long[]}, 8 bytes per element. An allocated buffer, and a flyweight wrapping a
+     * raw address, have offset 0.
+     *
+     * @return the offset in bytes
+     */
+    int wrapOffset();
+
+    /**
      * Returns the byte at the given index.
      *
      * @param index the index of the byte

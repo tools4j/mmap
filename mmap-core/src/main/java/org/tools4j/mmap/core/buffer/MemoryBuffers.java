@@ -26,7 +26,14 @@ package org.tools4j.mmap.core.buffer;
 import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
 
 /**
- * Creates buffers and flyweights.
+ * Creates buffers and flyweights, each with its {@link MemoryBinding}:
+ * <ul>
+ *     <li>{@link MemoryBinding#WRAPPABLE WRAPPABLE}: {@link #flyweight()}, wrapping any memory, as often as needed,
+ *     without allocating</li>
+ *     <li>{@link MemoryBinding#FIXED FIXED}: {@link #allocate(int)}, {@link #allocateDirect(int)},
+ *     {@link #wrap(long[])}, {@link #wrap(long[], int, int)}, and {@link #EMPTY}</li>
+ *     <li>{@link MemoryBinding#EXPANDABLE EXPANDABLE}: {@link #expandable(int)}, {@link #expandableDirect(int)}</li>
+ * </ul>
  * <p>
  * All buffers are instances of one internal class, so that call sites using them stay monomorphic, whatever memory
  * they access. Which mechanism accesses the memory is chosen once per JVM, see {@link MemoryAccessMode}. Only
@@ -40,13 +47,15 @@ public enum MemoryBuffers {
     public static final long NULL_ADDRESS = 0;
 
     /**
-     * A buffer with capacity 0, which cannot be wrapped, not even after a cast to {@link MemoryBufferFlyweight}, so
-     * that it can be shared, e.g. as the buffer of something not ready for data access.
+     * A {@linkplain MemoryBinding#FIXED fixed} buffer with capacity 0, which cannot be wrapped, not even after a cast
+     * to {@link MemoryBufferFlyweight}, so that it can be shared, e.g. as the buffer of something not ready for data
+     * access.
      */
     public static final MutableMemoryBuffer EMPTY = MemoryBufferImpl.empty();
 
     /**
-     * Returns a new flyweight, initially wrapping no memory, see {@link MemoryBufferFlyweight#unwrap()}.
+     * Returns a new {@linkplain MemoryBinding#WRAPPABLE wrappable} flyweight, initially wrapping no memory, see
+     * {@link MemoryBufferFlyweight#unwrap()}.
      *
      * @return the flyweight
      */
@@ -55,7 +64,8 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates a heap buffer backed by a {@code long[]}, which supports ordered access and atomic operations.
+     * Allocates a {@linkplain MemoryBinding#FIXED fixed} heap buffer backed by a {@code long[]}, which supports ordered
+     * access and atomic operations.
      *
      * @param capacity the capacity in bytes, rounded up to a multiple of 8 for the array, but not for the buffer
      * @return the buffer, zeroed
@@ -65,8 +75,9 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Returns a new heap buffer over an existing {@code long[]}, sharing it without copying, which supports ordered
-     * access and atomic operations like an {@linkplain #allocate(int) allocated} heap buffer.
+     * Returns a new {@linkplain MemoryBinding#FIXED fixed} heap buffer over an existing {@code long[]}, sharing it
+     * without copying, which supports ordered access and atomic operations like an {@linkplain #allocate(int)
+     * allocated} heap buffer.
      * <p>
      * Unlike wrapping a flyweight, this allocates: the buffer, and for some memory access mechanisms its view of the
      * array. To access ranges of the array without allocating, wrap flyweights around the returned buffer.
@@ -80,9 +91,10 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Returns a new heap buffer over a range of elements of an existing {@code long[]}, sharing it without copying,
-     * which supports ordered access and atomic operations like an {@linkplain #allocate(int) allocated} heap buffer.
-     * Index 0 of the buffer is the first byte of element {@code offset}, and the capacity is 8 bytes per element.
+     * Returns a new {@linkplain MemoryBinding#FIXED fixed} heap buffer over a range of elements of an existing
+     * {@code long[]}, sharing it without copying, which supports ordered access and atomic operations like an
+     * {@linkplain #allocate(int) allocated} heap buffer. Index 0 of the buffer is the first byte of element
+     * {@code offset}, and the capacity is 8 bytes per element.
      * <p>
      * Unlike wrapping a flyweight, this allocates: the buffer, and for some memory access mechanisms its view of the
      * array. To access ranges of the array without allocating, also ranges not starting at an element, wrap
@@ -100,8 +112,8 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates a direct buffer whose first byte is aligned to a cache line, freed by the garbage collector once the
-     * buffer is no longer referenced.
+     * Allocates a {@linkplain MemoryBinding#FIXED fixed} direct buffer whose first byte is aligned to a cache line,
+     * freed by the garbage collector once the buffer is no longer referenced.
      *
      * @param capacity the capacity in bytes
      * @return the buffer, zeroed
@@ -111,7 +123,8 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates an expandable heap buffer backed by a {@code long[]}, growing on writes beyond its capacity.
+     * Allocates an {@linkplain MemoryBinding#EXPANDABLE expandable} heap buffer backed by a {@code long[]}, growing on
+     * writes beyond its capacity.
      *
      * @param initialCapacity the initial capacity in bytes
      * @return the buffer, zeroed
@@ -121,8 +134,8 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates an expandable direct buffer, growing on writes beyond its capacity; growing moves its memory, so
-     * flyweights wrapping it see the old memory.
+     * Allocates an {@linkplain MemoryBinding#EXPANDABLE expandable} direct buffer, growing on writes beyond its
+     * capacity; growing moves its memory, so flyweights wrapping it see the old memory.
      *
      * @param initialCapacity the initial capacity in bytes
      * @return the buffer, zeroed
