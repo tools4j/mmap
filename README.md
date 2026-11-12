@@ -247,6 +247,17 @@ Notes:
   aarch64) only; elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
   latencies.
 
+#### Microbenchmarks
+`mmap-perf` also contains [JMH](https://github.com/openjdk/jmh) microbenchmarks of the library's internals, e.g. the
+memory buffers compared with Agrona's `UnsafeBuffer` and the JDK's `ByteBuffer`. They are not published; run them from
+source, with Gradle on Java 22 or later (for the memory access through FFM):
+```
+./gradlew :mmap-perf:jmh -Pjmh='BufferLoopBenchmark -f 1'
+mmap-perf/jmh-matrix.sh
+```
+`-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh` runs all buffer benchmarks
+and prints one table; without arguments it prints its usage.
+
 ### Maven/Gradle
 
 Requires Java 17 or later, and the following JVM options:
