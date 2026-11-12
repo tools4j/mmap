@@ -30,6 +30,11 @@ import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.buffer.MemoryAccessMode;
 import org.tools4j.mmap.core.logging.LoggingErrorListener;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -63,6 +68,8 @@ class CoreConfigurationsTest {
         assertSame(LoggingErrorListener.INSTANCE, CoreConfigurations.defaultErrorListener());
         System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, CoreConfigurations.NO_OP_LISTENER);
         assertSame(ErrorListener.NO_OP, CoreConfigurations.defaultErrorListener());
+        System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, CoreConfigurations.SYSTEM_ERR_LISTENER);
+        assertSame(LoggingErrorListener.SYSTEM_ERR, CoreConfigurations.defaultErrorListener());
         System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, CoreConfigurations.LOGGING_LISTENER);
         assertSame(LoggingErrorListener.INSTANCE, CoreConfigurations.defaultErrorListener());
     }
@@ -76,17 +83,36 @@ class CoreConfigurationsTest {
     }
 
     @Test
-    void errorListenerPropertyWithInvalidValueIsRejected() {
-        System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, "no.such.Listener");
-        assertThrows(IllegalArgumentException.class, CoreConfigurations::defaultErrorListener);
-        System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, LifecycleListener.class.getName());
-        assertThrows(IllegalArgumentException.class, CoreConfigurations::defaultErrorListener);
+    void errorListenerPropertyWithInvalidValueFallsBackToSystemErrReportingTheValueOnce() {
+        final PrintStream err = System.err;
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(output, true, StandardCharsets.UTF_8));
+        try {
+            System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, "no.such.Listener");
+            assertSame(LoggingErrorListener.SYSTEM_ERR, CoreConfigurations.defaultErrorListener());
+            assertSame(LoggingErrorListener.SYSTEM_ERR, CoreConfigurations.defaultErrorListener());
+            System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, LifecycleListener.class.getName());
+            assertSame(LoggingErrorListener.SYSTEM_ERR, CoreConfigurations.defaultErrorListener());
+            System.setProperty(CoreConfigurations.ERROR_LISTENER_PROPERTY, CustomErrorListener.class.getName());
+            assertInstanceOf(CustomErrorListener.class, CoreConfigurations.defaultErrorListener());
+        } finally {
+            System.setErr(err);
+        }
+        final String reported = output.toString(StandardCharsets.UTF_8);
+        final String invalidValue = "Invalid value for system property: " +
+                CoreConfigurations.ERROR_LISTENER_PROPERTY + "=";
+        assertThat(reported)
+                .containsOnlyOnce(invalidValue + "no.such.Listener")
+                .containsOnlyOnce(invalidValue + LifecycleListener.class.getName())
+                .contains("ERROR", "Errors and warnings go to System.err because of an invalid value in system " +
+                        "property " + CoreConfigurations.ERROR_LISTENER_PROPERTY);
     }
 
     @Test
     void errorListenerForName() {
         assertSame(LoggingErrorListener.INSTANCE, CoreConfigurations.errorListenerForName("LOGGING"));
         assertSame(ErrorListener.NO_OP, CoreConfigurations.errorListenerForName("NO_OP"));
+        assertSame(LoggingErrorListener.SYSTEM_ERR, CoreConfigurations.errorListenerForName("SYSTEM_ERR"));
         assertNull(CoreConfigurations.errorListenerForName("logging"));
         assertNull(CoreConfigurations.errorListenerForName(null));
     }
