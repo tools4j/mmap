@@ -34,12 +34,14 @@ $(for scenario in "${SCENARIOS[@]}"; do printf '  %-12s %s\n' "${scenario%%|*}" 
 
 Environment (defaults in brackets):
   RUNS [5]                      runs per scenario
+  PAUSE [10]                    seconds of pause before each run but the first, so that the previous run's queue
+                                files are written back and deleted before the next run starts
   QUEUE_DIR [java.io.tmpdir]    parent directory of the temporary queue files, passed as --dir
   PERF_OPTS []                  further mmap-perf options for all scenarios, e.g. --pin 2-
   JAVA_OPTS []                  JVM options, e.g. -Dmmap.queue.pollerHeaderRegionCacheSize=4
   JAVA_HOME                     the JDK building and running mmap-perf
 
-With the defaults a run takes about 5 minutes and needs about 4 GB of free disk space for the queue files of one
+With the defaults a run takes about 8 minutes and needs about 4 GB of free disk space for the queue files of one
 run at a time (length-1000 being the largest); keep the machine otherwise idle. On macOS the run prevents idle
 sleep with caffeinate, but closing the lid still puts the machine to sleep and invalidates the run.
 
@@ -145,7 +147,7 @@ run_scenarios() {
         echo "date:   $(date '+%Y-%m-%d %H:%M')"
         echo "java:   $("$java" -version 2>&1 | tail -1)"
         echo "os:     $(uname -sm)"
-        echo "runs:   ${RUNS:-5}, PERF_OPTS: ${PERF_OPTS:-none}, JAVA_OPTS: ${JAVA_OPTS:-none}"
+        echo "runs:   ${RUNS:-5}, pause: ${PAUSE:-10} s, PERF_OPTS: ${PERF_OPTS:-none}, JAVA_OPTS: ${JAVA_OPTS:-none}"
     } > "$out/info.txt"
 
     echo "Writing results to $out"
@@ -154,6 +156,9 @@ run_scenarios() {
             local scenario="${SCENARIOS[$position]}"
             local name="${scenario%%|*}"
             local file="$out/$((position + 1))-$name-run$run.txt"
+            if [[ "$run" -gt 1 || "$position" -gt 0 ]]; then
+                sleep "${PAUSE:-10}"
+            fi
             echo "$(date +%T) run $run: $name"
             # shellcheck disable=SC2086 #the options are split into words on purpose
             "$java" ${JAVA_OPTS:-} -jar "$jar" --queue mmap --dir "$queue_dir" ${scenario#*|} ${PERF_OPTS:-} \
