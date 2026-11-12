@@ -44,9 +44,22 @@ public enum UnsafeMemoryAccess implements MemoryAccess {
     /** The only instance. */
     INSTANCE;
 
-    private static final long BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
-    private static final long LONG_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(long[].class);
+    private static final long BYTE_ARRAY_BASE_OFFSET = arrayBaseOffset(byte[].class);
+    private static final long LONG_ARRAY_BASE_OFFSET = arrayBaseOffset(long[].class);
     private static final long BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(Buffer.class, "address");
+
+    /**
+     * Calls {@code Unsafe.arrayBaseOffset} reflectively: it returns an int up to Java 22 and a long since Java 23, and
+     * a direct call compiles to the descriptor of the JDK compiling it, failing on the other versions.
+     */
+    private static long arrayBaseOffset(final Class<?> arrayClass) {
+        try {
+            return ((Number) jdk.internal.misc.Unsafe.class.getMethod("arrayBaseOffset", Class.class)
+                    .invoke(UNSAFE, arrayClass)).longValue();
+        } catch (final ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot get the base offset of " + arrayClass.getSimpleName(), e);
+        }
+    }
 
     @Override
     public Object heapBase(final byte[] array) {
