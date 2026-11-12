@@ -33,6 +33,11 @@ public interface AppendingContext extends Closeable {
     /**
      * Returns the buffer to write entry data directly to the queue. Returns a zero capacity buffer if context or
      * appender is closed.
+     * <p>
+     * The buffer itself is always safe to use, as the appender re-wraps or unwraps it, but after the commit or abort
+     * of the entry it accesses another entry's data, or none (zero capacity). Another buffer wrapping it is not safe:
+     * don't keep such a wrap beyond the commit or abort of the entry, as its memory may then be unmapped, and
+     * accessing it could crash the JVM.
      *
      * @return buffer to write the entry data directly to the queue
      */

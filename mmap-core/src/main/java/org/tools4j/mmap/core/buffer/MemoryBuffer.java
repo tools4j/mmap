@@ -23,6 +23,8 @@
  */
 package org.tools4j.mmap.core.buffer;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -97,6 +99,7 @@ public interface MemoryBuffer {
      *
      * @return the address, or {@link MemoryBuffers#NULL_ADDRESS} for heap memory
      */
+    @Unsafe
     long address();
 
     /**

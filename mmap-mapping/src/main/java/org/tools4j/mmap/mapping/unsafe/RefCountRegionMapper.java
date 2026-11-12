@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
+import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.LongLongMap;
@@ -35,6 +36,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * Region mapper with an unbounded cache and reference counting for mapped regions.  A region is unmapped when the count
  * reaches zero.  Actual mapping and unmapping operations are delegated to an underlying region mapper.
  */
+@Unsafe
 class RefCountRegionMapper implements RegionMapper {
 
     private final RegionMapper baseMapper;

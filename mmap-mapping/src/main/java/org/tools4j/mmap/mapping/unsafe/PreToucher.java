@@ -24,11 +24,13 @@
 package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.UnsafeApi;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
+@Unsafe
 final class PreToucher {
     /** The OS page size; not the mapping granularity, which is larger on Windows (64k with 4k pages) */
     private static final int PAGE_SIZE = UnsafeApi.pageSize();
