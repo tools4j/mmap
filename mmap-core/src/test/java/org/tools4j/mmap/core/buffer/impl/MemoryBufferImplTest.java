@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.buffer.MemoryAccessMode;
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBinding;
@@ -304,6 +305,8 @@ class MemoryBufferImplTest {
         assertEquals(0, MemoryBuffers.flyweight().capacity());
         assertEquals(MemoryBinding.WRAPPABLE, MemoryBuffers.flyweight().binding());
         assertEquals(MemoryBinding.FIXED, MemoryBuffers.EMPTY.binding());
+        assertEquals(MemoryAccessMode.valueOf(System.getProperty("mmap.core.memoryAccess", "UNSAFE")),
+                MemoryAccessMode.inUse());
         assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocate(-1));
         assertThrows(IndexOutOfBoundsException.class, () -> MemoryBuffers.wrap(new long[2], 1, 2));
     }
@@ -802,7 +805,7 @@ class MemoryBufferImplTest {
 
     @Test
     void wrappingAndCopyingDifferentByteBuffersDoesNotAllocateUnlessFfmCannotAccessTheirFields() {
-        assumeTrue(!"FFM".equals(System.getProperty("mmap.core.memoryAccess")) ||
+        assumeTrue(MemoryAccessMode.inUse() != MemoryAccessMode.FFM ||
                 ByteBuffer.class.getModule().isOpen("java.nio", MemoryBufferImplTest.class.getModule()),
                 "FFM allocates a segment per byte buffer unless java.nio is open");
         final com.sun.management.ThreadMXBean threads =

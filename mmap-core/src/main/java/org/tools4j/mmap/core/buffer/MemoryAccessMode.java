@@ -23,10 +23,13 @@
  */
 package org.tools4j.mmap.core.buffer;
 
+import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
+
 /**
  * The mechanism accessing the memory of all buffers, chosen once per JVM with the system property
- * {@value org.tools4j.mmap.core.config.CoreConfigurations#MEMORY_ACCESS_PROPERTY}, see
- * {@link org.tools4j.mmap.core.config.CoreConfigurations#defaultMemoryAccessMode()}.
+ * {@value org.tools4j.mmap.core.config.CoreConfigurations#MEMORY_ACCESS_PROPERTY} when the first buffer is created,
+ * see {@link org.tools4j.mmap.core.config.CoreConfigurations#systemMemoryAccessMode()}, and returned by
+ * {@link #inUse()}.
  */
 public enum MemoryAccessMode {
     /**
@@ -43,5 +46,19 @@ public enum MemoryAccessMode {
      * {@code ByteBuffer} creates a segment to access its memory; the first buffer created warns about the missing flag
      * through the default error listener.
      */
-    FFM
+    FFM;
+
+    /**
+     * Returns the mode in use by all buffers, chosen when the first buffer was created, or now if none was created yet;
+     * it doesn't change when the system property changes later.
+     *
+     * @return the mode in use
+     * @throws IllegalArgumentException if no buffer was created yet and the system property value is not the name of
+     *                                  a memory access mode
+     * @throws IllegalStateException if no buffer was created yet and the mode is not available, such as FFM before
+     *                               Java 22
+     */
+    public static MemoryAccessMode inUse() {
+        return MemoryBufferImpl.memoryAccessMode();
+    }
 }

@@ -73,13 +73,14 @@ public enum CoreConfigurations {
     private static final AtomicReference<PropertyInstance> ERROR_LISTENER_INSTANCE = new AtomicReference<>();
 
     /**
-     * Returns the memory access mode of all buffers.
+     * Returns the memory access mode configured by system property, read on each call; buffers use the mode read when
+     * the first buffer is created, see {@link MemoryAccessMode#inUse()}.
      *
      * @return the mode given by system property {@value #MEMORY_ACCESS_PROPERTY} if set, and
      *         {@link #MEMORY_ACCESS_DEFAULT} otherwise
      * @throws IllegalArgumentException if the system property value is not the name of a memory access mode
      */
-    public static MemoryAccessMode defaultMemoryAccessMode() {
+    public static MemoryAccessMode systemMemoryAccessMode() {
         return enumProperty(MEMORY_ACCESS_PROPERTY, MemoryAccessMode.class, MEMORY_ACCESS_DEFAULT);
     }
 
