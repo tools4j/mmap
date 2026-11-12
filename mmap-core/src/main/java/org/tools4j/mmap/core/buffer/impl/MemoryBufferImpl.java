@@ -25,6 +25,7 @@ package org.tools4j.mmap.core.buffer.impl;
 
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryAccessMode;
 import org.tools4j.mmap.core.buffer.MemoryBinding;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
@@ -72,6 +73,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     private static final int FFM_JAVA_VERSION = 22;
     private static final String FFM_MEMORY_ACCESS = "org.tools4j.mmap.core.unsafe.FfmMemoryAccess";
+    private static final MemoryAccessMode MODE = CoreConfigurations.systemMemoryAccessMode();
     private static final MemoryAccess ACCESS = memoryAccess();
     private static final ByteOrder NATIVE_ORDER = ByteOrder.nativeOrder();
     private static final byte[] NO_BYTES = {};
@@ -108,7 +110,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     private static MemoryAccess memoryAccess() {
-        switch (CoreConfigurations.defaultMemoryAccessMode()) {
+        switch (MODE) {
             case FFM:
                 return ffmMemoryAccess();
             default:
@@ -127,6 +129,15 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
             throw new IllegalStateException("Memory access through FFM is not in this build of mmap-core, " +
                     "built with Java " + (FFM_JAVA_VERSION - 1) + " or earlier", e);
         }
+    }
+
+    /**
+     * Returns the memory access mode of all buffers, chosen when this class is initialised.
+     *
+     * @return the mode
+     */
+    public static MemoryAccessMode memoryAccessMode() {
+        return MODE;
     }
 
     //--- factories, used by MemoryBuffers ---

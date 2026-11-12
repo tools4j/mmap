@@ -55,12 +55,12 @@ class CoreConfigurationsTest {
     }
 
     @Test
-    void memoryAccessModeDefaultsToUnsafe() {
-        assertSame(MemoryAccessMode.UNSAFE, CoreConfigurations.defaultMemoryAccessMode());
+    void systemMemoryAccessModeDefaultsToUnsafe() {
+        assertSame(MemoryAccessMode.UNSAFE, CoreConfigurations.systemMemoryAccessMode());
         System.setProperty(CoreConfigurations.MEMORY_ACCESS_PROPERTY, "FFM");
-        assertSame(MemoryAccessMode.FFM, CoreConfigurations.defaultMemoryAccessMode());
+        assertSame(MemoryAccessMode.FFM, CoreConfigurations.systemMemoryAccessMode());
         System.setProperty(CoreConfigurations.MEMORY_ACCESS_PROPERTY, "ffm");
-        assertThrows(IllegalArgumentException.class, CoreConfigurations::defaultMemoryAccessMode);
+        assertThrows(IllegalArgumentException.class, CoreConfigurations::systemMemoryAccessMode);
     }
 
     @Test
