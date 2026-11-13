@@ -29,20 +29,23 @@ Usage:
 Implementations:
   The memory buffers of mmap-core with Unsafe always run; --with adds a comma separated list of, in the order of the
   columns, those with Unsafe:
-      agrona        Agrona's UnsafeBuffer
-      chronicle     Chronicle Bytes
-      netty-unsafe  Netty's ByteBuf with Unsafe (-Dio.netty.noUnsafe=false), the default before Java 24
-      prototype     the fastest prototype of the earlier benchmarks
+      mmap-unchecked  the memory buffers without the alignment check of ordered accesses
+                      (-Dmmap.core.alignmentCheck=false), only in the benchmarks with ordered accesses
+      agrona          Agrona's UnsafeBuffer
+      chronicle       Chronicle Bytes
+      netty-unsafe    Netty's ByteBuf with Unsafe (-Dio.netty.noUnsafe=false), the default before Java 24
+      prototype       the fastest prototype of the earlier benchmarks
   and those with public JDK API only:
-      ffm           the memory buffers of mmap-core with FFM
-      netty         Netty's ByteBuf as by default on Java 24 and later
-      bytebuffer    the JDK's ByteBuffer
+      ffm             the memory buffers of mmap-core with FFM
+      netty           Netty's ByteBuf as by default on Java 24 and later
+      bytebuffer      the JDK's ByteBuffer
   or all. Each runs the benchmarks it supports: Netty has no ordered access and no compare-and-set, ByteBuffer no
   compare-and-set, and only the memory buffers are expandable.
 
 Running time, with the defaults about 16.5 s per case:
   run   about 40 minutes for the memory buffers with Unsafe, plus about 23 minutes each for agrona, chronicle and
-        prototype, 40 for ffm, 17 for bytebuffer and 8 each for the netty variants: about 3 hours with all
+        prototype, 40 for ffm, 17 for bytebuffer, 15 for mmap-unchecked and 8 each for the netty variants: about 3
+        hours 15 minutes with all
   gap   about 2.2 minutes per implementation for each of acquire, release and copy, and 1.1 minutes for wrap
 
 Environment (defaults in brackets):
@@ -67,8 +70,8 @@ print_table() {
 import glob, json, os, sys
 
 #in the order of the columns: with Unsafe, then with public JDK API only, from the first of PUBLIC_API on
-implementations = ['MEMORY_BUFFER_UNSAFE', 'AGRONA', 'CHRONICLE', 'NETTY_UNSAFE', 'UNSAFE_BRANCH',
-                   'MEMORY_BUFFER_FFM', 'NETTY', 'BYTE_BUFFER']
+implementations = ['MEMORY_BUFFER_UNSAFE', 'MEMORY_BUFFER_UNCHECKED', 'AGRONA', 'CHRONICLE', 'NETTY_UNSAFE',
+                   'UNSAFE_BRANCH', 'MEMORY_BUFFER_FFM', 'NETTY', 'BYTE_BUFFER']
 PUBLIC_API = {'MEMORY_BUFFER_FFM', 'NETTY', 'BYTE_BUFFER'}
 rows, jvm = {}, None
 for file in sorted(glob.glob(os.path.join(sys.argv[1], '*.json'))):
@@ -123,7 +126,7 @@ run() {
 }
 
 #The implementations to opt in to, as <name>:<JMH name> in the order of the columns
-OPT_INS="agrona:AGRONA chronicle:CHRONICLE netty-unsafe:NETTY_UNSAFE prototype:UNSAFE_BRANCH ffm:MEMORY_BUFFER_FFM
+OPT_INS="mmap-unchecked:MEMORY_BUFFER_UNCHECKED agrona:AGRONA chronicle:CHRONICLE netty-unsafe:NETTY_UNSAFE prototype:UNSAFE_BRANCH ffm:MEMORY_BUFFER_FFM
          netty:NETTY bytebuffer:BYTE_BUFFER"
 
 #Prints the JMH names of the memory buffers with Unsafe and of the opt-ins in the comma separated list (or all)
@@ -154,16 +157,18 @@ without() {
     echo "${list%,}"
 }
 
-#Netty has no ordered access, ByteBuffer and Netty no compare-and-set, and only the memory buffers are expandable
+#Netty has no ordered access, ByteBuffer and Netty no compare-and-set, and only the memory buffers are expandable; the
+#memory buffers without alignment check run only where accesses are ordered, as the other code is the same
 run_matrix() {
-    local ordered compare_and_set expandable
+    local plain ordered compare_and_set expandable
+    plain="$(without "$implementations" MEMORY_BUFFER_UNCHECKED)"
     ordered="$(without "$implementations" NETTY_UNSAFE NETTY)"
     compare_and_set="$(without "$ordered" BYTE_BUFFER)"
-    expandable="$(without "$compare_and_set" AGRONA CHRONICLE UNSAFE_BRANCH)"
+    expandable="$(without "$compare_and_set" MEMORY_BUFFER_UNCHECKED AGRONA CHRONICLE UNSAFE_BRANCH)"
     echo "Writing results to $out, comparing $implementations"
-    run loops "BufferLoopBenchmark.(readLongs|writeLongs|copy)\$ -p implementation=$implementations"
+    run loops "BufferLoopBenchmark.(readLongs|writeLongs|copy)\$ -p implementation=$plain"
     run loops-ordered "BufferLoopBenchmark.(readLongsAcquire|writeLongsRelease|publish|consume)\$ -p implementation=$ordered"
-    run wrap "BufferSingleOpBenchmark.wrapAndRead -prof gc -p implementation=$implementations"
+    run wrap "BufferSingleOpBenchmark.wrapAndRead -prof gc -p implementation=$plain"
     run increment "BufferSingleOpBenchmark.increment -prof gc -p implementation=$compare_and_set"
     run expandable-loops "ExpandableBenchmark.(writeLongs|writeLongsRelease|copy)\$ -p implementation=$expandable"
     #increment does not depend on the size
@@ -173,19 +178,21 @@ run_matrix() {
     print_table "$out"
 }
 
-#Runs the loop benchmarks, those with ordered access without Netty, and wrap, each in an invocation of its own
+#Runs the loop benchmarks, those with ordered access without Netty, and wrap, each in an invocation of its own; the
+#memory buffers without alignment check only where accesses are ordered
 run_gap() {
-    local loops="$1" ordered_loops="$2" wrap="$3"
+    local loops="$1" ordered_loops="$2" wrap="$3" plain
+    plain="$(without "$implementations" MEMORY_BUFFER_UNCHECKED)"
     echo "Writing results to $out, comparing $implementations"
     if [[ -n "$loops" ]]; then
-        run gap-loops "BufferLoopBenchmark.($loops)\$ -p implementation=$implementations"
+        run gap-loops "BufferLoopBenchmark.($loops)\$ -p implementation=$plain"
     fi
     if [[ -n "$ordered_loops" ]]; then
         run gap-loops-ordered "BufferLoopBenchmark.($ordered_loops)\$ -p implementation=$(without "$implementations" \
                 NETTY_UNSAFE NETTY)"
     fi
     if [[ -n "$wrap" ]]; then
-        run gap-wrap "BufferSingleOpBenchmark.wrapAndRead -prof gc -p implementation=$implementations"
+        run gap-wrap "BufferSingleOpBenchmark.wrapAndRead -prof gc -p implementation=$plain"
     fi
     echo "$(date +%T) done"
     echo

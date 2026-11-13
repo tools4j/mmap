@@ -28,13 +28,23 @@ import org.tools4j.mmap.core.config.CoreConfigurations;
 
 /**
  * The buffer implementations compared by the benchmarks, in the order of the columns of the results: those accessing
- * memory through Unsafe (the memory buffers of mmap-core, Agrona's, Chronicle's, Netty's with Unsafe and the fastest
- * prototype of the earlier benchmarks), then those through public JDK API only (the memory buffers with FFM, Netty's
- * default on Java 24 and later, and the JDK's ByteBuffer).
+ * memory through Unsafe (the memory buffers of mmap-core, with and without the alignment check of ordered accesses,
+ * Agrona's, Chronicle's, Netty's with Unsafe and the fastest prototype of the earlier benchmarks), then those through
+ * public JDK API only (the memory buffers with FFM, Netty's default on Java 24 and later, and the JDK's ByteBuffer).
  */
 public enum Implementation {
     /** The memory buffers of mmap-core with memory access through Unsafe, see {@link MemoryBufferBench} */
     MEMORY_BUFFER_UNSAFE {
+        @Override
+        BenchBuffer create(final BenchMemory kind) {
+            return MemoryBufferBench.flyweight();
+        }
+    },
+    /**
+     * The memory buffers of mmap-core with memory access through Unsafe, without the alignment check of ordered
+     * accesses, see {@link CoreConfigurations#ALIGNMENT_CHECK_PROPERTY}; only of interest where accesses are ordered
+     */
+    MEMORY_BUFFER_UNCHECKED {
         @Override
         BenchBuffer create(final BenchMemory kind) {
             return MemoryBufferBench.flyweight();
@@ -95,12 +105,16 @@ public enum Implementation {
     abstract BenchBuffer create(BenchMemory kind);
 
     /**
-     * Selects how the memory buffers and Netty access memory, which each chooses once per JVM: to be invoked before
-     * any buffer is created, which works because JMH runs every combination of parameters in JVMs of its own.
+     * Selects how the memory buffers and Netty access memory, and whether the memory buffers check the alignment of
+     * ordered accesses, which each chooses once per JVM: to be invoked before any buffer is created, which works
+     * because JMH runs every combination of parameters in JVMs of its own.
      */
     void selectMemoryAccess() {
         if (this == MEMORY_BUFFER_FFM) {
             System.setProperty(CoreConfigurations.MEMORY_ACCESS_PROPERTY, MemoryAccessMode.FFM.name());
+        }
+        if (this == MEMORY_BUFFER_UNCHECKED) {
+            System.setProperty(CoreConfigurations.ALIGNMENT_CHECK_PROPERTY, "false");
         }
         if (this == NETTY_UNSAFE) {
             System.setProperty(NETTY_NO_UNSAFE_PROPERTY, "false");

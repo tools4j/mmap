@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
 public class BufferLoopBenchmark {
     static volatile long pollutionResult;
 
-    @Param({"MEMORY_BUFFER_UNSAFE", "AGRONA", "CHRONICLE", "NETTY_UNSAFE", "UNSAFE_BRANCH",
+    @Param({"MEMORY_BUFFER_UNSAFE", "MEMORY_BUFFER_UNCHECKED", "AGRONA", "CHRONICLE", "NETTY_UNSAFE", "UNSAFE_BRANCH",
             "MEMORY_BUFFER_FFM", "NETTY", "BYTE_BUFFER"})
     public Implementation implementation;
 

@@ -261,8 +261,9 @@ mmap-perf/jmh-matrix.sh run --with all
 ```
 `-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh run` runs all buffer
 benchmarks and prints one table, `jmh-matrix.sh gap` only those where the memory buffers lagged behind; both measure
-the memory buffers with Unsafe, and add other implementations with `--with` (Agrona, Chronicle, Netty with and without
-Unsafe, the JDK's `ByteBuffer`, the memory buffers with FFM, or all). Without arguments it prints its usage.
+the memory buffers with Unsafe, and add other implementations with `--with` (the memory buffers without the alignment
+check of ordered accesses or with FFM, Agrona, Chronicle, Netty with and without Unsafe, the JDK's `ByteBuffer`, or
+all). Without arguments it prints its usage.
 
 ### Maven/Gradle
 
