@@ -84,19 +84,19 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private static final int DIRECT_ALIGNMENT = 64;
     private static final int MAX_CAPACITY = Integer.MAX_VALUE - DIRECT_ALIGNMENT;
     private static final int MIN_EXPANDED_CAPACITY = 64;
-    /** The bits of {@link #alignmentBits} holding the misalignment of index 0, i.e. its address modulo 8. */
+    /** The bits of {@link #addressOrOffset} holding the misalignment of index 0 of memory with ordered access. */
     private static final int MISALIGNMENT_MASK = Long.BYTES - 1;
-    /**
-     * The bit of {@link #alignmentBits} set for memory without ordered access, above the misalignment bits, telling the
-     * failures and {@link #alignment()} apart; ordered accesses are rejected by the ordered capacities.
-     */
-    private static final int UNORDERED = Long.BYTES;
     private static final char REPLACEMENT_CHARACTER = '�';
 
     private final MemoryBinding binding;
 
     private Object heapBase;
-    private long offset;
+    /**
+     * The address, or the offset in the heap base; its low bits are the misalignment of index 0 for all memory with
+     * ordered access, so that no field of its own holds it. The offset of a {@code long[]} is a multiple of 8, which
+     * the JDK's own atomic accesses to its elements require, e.g. by {@code AtomicLongArray}, and the tests check.
+     */
+    private long addressOrOffset;
     private int capacity;
     /**
      * The capacity for writes, checked by every write instead of the capacity: equal to it, or 0 for read-only memory,
@@ -115,8 +115,6 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private int orderedWriteCapacity;
     private int wrapOffset;
     private Object owner;
-    /** The misalignment of index 0, checked by ordered accesses unless disabled, and the {@link #UNORDERED} bit. */
-    private int alignmentBits;
 
     private MemoryBufferImpl(final MemoryBinding binding) {
         this.binding = binding;
@@ -260,38 +258,35 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private void wrapHeap(final byte[] array, final int byteOffset, final int length, final int wrapOffset,
                           final Object owner) {
         this.heapBase = ACCESS.heapBase(array);
-        this.offset = ACCESS.heapOffset(array, byteOffset);
+        this.addressOrOffset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
         this.writeCapacity = length;
         this.orderedCapacity = 0;
         this.orderedWriteCapacity = 0;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
-        this.alignmentBits = UNORDERED;
     }
 
     private void wrapHeap(final long[] array, final int byteOffset, final int length) {
         this.heapBase = array == owner ? heapBase : ACCESS.heapBase(array);
-        this.offset = ACCESS.heapOffset(array, byteOffset);
+        this.addressOrOffset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
         this.writeCapacity = length;
         this.orderedCapacity = length;
         this.orderedWriteCapacity = length;
         this.wrapOffset = byteOffset;
         this.owner = array;
-        this.alignmentBits = byteOffset & MISALIGNMENT_MASK;
     }
 
     private void wrapDirect(final long address, final int capacity, final int wrapOffset, final Object owner) {
         this.heapBase = null;
-        this.offset = address;
+        this.addressOrOffset = address;
         this.capacity = capacity;
         this.writeCapacity = capacity;
         this.orderedCapacity = capacity;
         this.orderedWriteCapacity = capacity;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
-        this.alignmentBits = (int) address & MISALIGNMENT_MASK;
     }
 
     private void wrapAllocatedDirect(final int capacity) {
@@ -358,7 +353,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      */
     private void wrapHeap(final ByteBuffer buffer, final int offset, final int length) {
         final Object base = buffer == owner ? heapBase : ACCESS.heapBase(buffer);
-        this.offset = ACCESS.heapOffset(buffer, offset);
+        this.addressOrOffset = ACCESS.heapOffset(buffer, offset);
         this.heapBase = base;
         this.capacity = length;
         this.writeCapacity = length;
@@ -366,7 +361,6 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.orderedWriteCapacity = 0;
         this.wrapOffset = offset;
         this.owner = buffer;
-        this.alignmentBits = UNORDERED;
     }
 
     /**
@@ -374,7 +368,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * since FFM creates a segment to find it out.
      */
     private long directAddress(final ByteBuffer buffer) {
-        return buffer == owner ? offset - wrapOffset : ACCESS.address(buffer);
+        return buffer == owner ? addressOrOffset - wrapOffset : ACCESS.address(buffer);
     }
 
     @Override
@@ -400,14 +394,14 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private void wrapRange(final MemoryBufferImpl source, final int index, final int length) {
         Objects.checkFromIndexSize(index, length, source.capacity);
         this.heapBase = source.heapBase;
-        this.offset = source.offset + index;
+        this.addressOrOffset = source.addressOrOffset + index;
         this.capacity = length;
-        this.writeCapacity = source.writeCapacity < source.capacity ? 0 : length;
-        this.orderedCapacity = source.orderedCapacity < source.capacity ? 0 : length;
-        this.orderedWriteCapacity = source.orderedWriteCapacity < source.capacity ? 0 : length;
+        //each capacity of the source is its capacity, at least index + length, or 0
+        this.writeCapacity = Math.min(source.writeCapacity, length);
+        this.orderedCapacity = Math.min(source.orderedCapacity, length);
+        this.orderedWriteCapacity = Math.min(source.orderedWriteCapacity, length);
         this.wrapOffset = source.wrapOffset + index;
         this.owner = source.owner;
-        this.alignmentBits = (source.alignmentBits & UNORDERED) | ((source.alignmentBits + index) & MISALIGNMENT_MASK);
     }
 
     @Override
@@ -459,12 +453,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     @Override
     public long alignment() {
         if (heapBase == null) {
-            return Long.lowestOneBit(offset);
+            return Long.lowestOneBit(addressOrOffset);
         }
-        if ((alignmentBits & UNORDERED) != 0) {
-            return 1;
+        if (!(owner instanceof long[])) {
+            return 1;//a byte[] or heap byte buffer
         }
-        final int misalignment = alignmentBits & MISALIGNMENT_MASK;
+        final int misalignment = (int) addressOrOffset & MISALIGNMENT_MASK;
         return misalignment == 0 ? Long.BYTES : Integer.lowestOneBit(misalignment);
     }
 
@@ -476,7 +470,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     @Unsafe
     @Override
     public long address() {
-        return heapBase == null ? offset : MemoryBuffers.NULL_ADDRESS;
+        return heapBase == null ? addressOrOffset : MemoryBuffers.NULL_ADDRESS;
     }
 
     //--- checks ---
@@ -541,7 +535,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     private void checkAlignment(final int index, final int size) {
-        if (((alignmentBits + index) & (size - 1)) != 0) {
+        if (((addressOrOffset + index) & (size - 1)) != 0) {
             throw misalignedAccess(index, size);
         }
     }
@@ -617,11 +611,11 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final int newCapacity = (int) Math.min(MAX_CAPACITY,
                 Math.max(required, Math.max(MIN_EXPANDED_CAPACITY, 2L * capacity)));
         if (heapBase == null) {
-            final long oldAddress = offset;
+            final long oldAddress = addressOrOffset;
             final int oldCapacity = capacity;
             final Object oldOwner = owner;
             wrapAllocatedDirect(newCapacity);
-            ACCESS.copyMemory(null, oldAddress, null, offset, oldCapacity);
+            ACCESS.copyMemory(null, oldAddress, null, addressOrOffset, oldCapacity);
             Reference.reachabilityFence(oldOwner);
         } else {
             wrapHeap(Arrays.copyOf((long[]) owner, longsFor(newCapacity)), 0, newCapacity);
@@ -657,7 +651,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     private byte rawGetByte(final int index) {
         final Object base = heapBase;
-        return base == null ? ACCESS.getByte(null, offset + index) : ACCESS.getByte(base, offset + index);
+        return base == null ? ACCESS.getByte(null, addressOrOffset + index) :
+                ACCESS.getByte(base, addressOrOffset + index);
     }
 
     @Override
@@ -669,8 +664,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public short getShort(final int index, final ByteOrder byteOrder) {
         checkBounds(index, Short.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getShort(null, offset + index) :
-                ACCESS.getShort(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getShort(null, addressOrOffset + index) :
+                ACCESS.getShort(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -682,8 +677,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public char getChar(final int index, final ByteOrder byteOrder) {
         checkBounds(index, Character.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getChar(null, offset + index) :
-                ACCESS.getChar(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getChar(null, addressOrOffset + index) :
+                ACCESS.getChar(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -695,8 +690,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public int getInt(final int index, final ByteOrder byteOrder) {
         checkBounds(index, Integer.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getInt(null, offset + index) :
-                ACCESS.getInt(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getInt(null, addressOrOffset + index) :
+                ACCESS.getInt(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -708,8 +703,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public long getLong(final int index, final ByteOrder byteOrder) {
         checkBounds(index, Long.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getLong(null, offset + index) :
-                ACCESS.getLong(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getLong(null, addressOrOffset + index) :
+                ACCESS.getLong(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -746,9 +741,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private void rawPutByte(final int index, final byte value) {
         final Object base = heapBase;
         if (base == null) {
-            ACCESS.putByte(null, offset + index, value);
+            ACCESS.putByte(null, addressOrOffset + index, value);
         } else {
-            ACCESS.putByte(base, offset + index, value);
+            ACCESS.putByte(base, addressOrOffset + index, value);
         }
     }
 
@@ -766,9 +761,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final short reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putShort(null, offset + index, reordered);
+            ACCESS.putShort(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putShort(base, offset + index, reordered);
+            ACCESS.putShort(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -786,9 +781,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final char reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putChar(null, offset + index, reordered);
+            ACCESS.putChar(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putChar(base, offset + index, reordered);
+            ACCESS.putChar(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -806,9 +801,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putInt(null, offset + index, reordered);
+            ACCESS.putInt(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putInt(base, offset + index, reordered);
+            ACCESS.putInt(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -826,9 +821,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putLong(null, offset + index, reordered);
+            ACCESS.putLong(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putLong(base, offset + index, reordered);
+            ACCESS.putLong(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -858,8 +853,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public byte getByteVolatile(final int index) {
         checkBounds(index, Byte.BYTES);
         final Object base = heapBase;
-        return base == null ? ACCESS.getByteVolatile(null, offset + index) :
-                ACCESS.getByteVolatile(base, offset + index);
+        return base == null ? ACCESS.getByteVolatile(null, addressOrOffset + index) :
+                ACCESS.getByteVolatile(base, addressOrOffset + index);
     }
 
     @Override
@@ -870,9 +865,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         checkWriteBounds(index, Byte.BYTES);
         final Object base = heapBase;
         if (base == null) {
-            ACCESS.putByteVolatile(null, offset + index, value);
+            ACCESS.putByteVolatile(null, addressOrOffset + index, value);
         } else {
-            ACCESS.putByteVolatile(base, offset + index, value);
+            ACCESS.putByteVolatile(base, addressOrOffset + index, value);
         }
     }
 
@@ -885,8 +880,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public short getShortVolatile(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Short.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getShortVolatile(null, offset + index) :
-                ACCESS.getShortVolatile(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getShortVolatile(null, addressOrOffset + index) :
+                ACCESS.getShortVolatile(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -903,9 +898,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final short reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putShortVolatile(null, offset + index, reordered);
+            ACCESS.putShortVolatile(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putShortVolatile(base, offset + index, reordered);
+            ACCESS.putShortVolatile(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -918,8 +913,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public char getCharVolatile(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Character.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getCharVolatile(null, offset + index) :
-                ACCESS.getCharVolatile(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getCharVolatile(null, addressOrOffset + index) :
+                ACCESS.getCharVolatile(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -936,9 +931,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final char reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putCharVolatile(null, offset + index, reordered);
+            ACCESS.putCharVolatile(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putCharVolatile(base, offset + index, reordered);
+            ACCESS.putCharVolatile(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -953,8 +948,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public int getIntOpaque(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getIntOpaque(null, offset + index) :
-                ACCESS.getIntOpaque(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getIntOpaque(null, addressOrOffset + index) :
+                ACCESS.getIntOpaque(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -966,8 +961,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public int getIntAcquire(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getIntAcquire(null, offset + index) :
-                ACCESS.getIntAcquire(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getIntAcquire(null, addressOrOffset + index) :
+                ACCESS.getIntAcquire(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -979,8 +974,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public int getIntVolatile(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getIntVolatile(null, offset + index) :
-                ACCESS.getIntVolatile(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getIntVolatile(null, addressOrOffset + index) :
+                ACCESS.getIntVolatile(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -997,9 +992,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putIntOpaque(null, offset + index, reordered);
+            ACCESS.putIntOpaque(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putIntOpaque(base, offset + index, reordered);
+            ACCESS.putIntOpaque(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1017,9 +1012,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putIntRelease(null, offset + index, reordered);
+            ACCESS.putIntRelease(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putIntRelease(base, offset + index, reordered);
+            ACCESS.putIntRelease(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1037,9 +1032,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putIntVolatile(null, offset + index, reordered);
+            ACCESS.putIntVolatile(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putIntVolatile(base, offset + index, reordered);
+            ACCESS.putIntVolatile(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1058,8 +1053,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
         final int update = reorder(updateValue, byteOrder);
-        return base == null ? ACCESS.compareAndSetInt(null, offset + index, expected, update) :
-                ACCESS.compareAndSetInt(base, offset + index, expected, update);
+        return base == null ? ACCESS.compareAndSetInt(null, addressOrOffset + index, expected, update) :
+                ACCESS.compareAndSetInt(base, addressOrOffset + index, expected, update);
     }
 
     @Override
@@ -1077,8 +1072,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
         final int update = reorder(updateValue, byteOrder);
-        return reorder(base == null ? ACCESS.compareAndExchangeInt(null, offset + index, expected, update) :
-                ACCESS.compareAndExchangeInt(base, offset + index, expected, update), byteOrder);
+        return reorder(base == null ? ACCESS.compareAndExchangeInt(null, addressOrOffset + index, expected, update) :
+                ACCESS.compareAndExchangeInt(base, addressOrOffset + index, expected, update), byteOrder);
     }
 
     @Override
@@ -1096,8 +1091,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
-        return base == null ? ACCESS.getAndAddInt(null, offset + index, delta) :
-                ACCESS.getAndAddInt(base, offset + index, delta);
+        return base == null ? ACCESS.getAndAddInt(null, addressOrOffset + index, delta) :
+                ACCESS.getAndAddInt(base, addressOrOffset + index, delta);
     }
 
     private int getAndAddIntByCompareAndSet(final int index, final int delta, final ByteOrder byteOrder) {
@@ -1121,8 +1116,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
-        return reorder(base == null ? ACCESS.getAndSetInt(null, offset + index, reordered) :
-                ACCESS.getAndSetInt(base, offset + index, reordered), byteOrder);
+        return reorder(base == null ? ACCESS.getAndSetInt(null, addressOrOffset + index, reordered) :
+                ACCESS.getAndSetInt(base, addressOrOffset + index, reordered), byteOrder);
     }
 
     //--- ordered and atomic long access ---
@@ -1136,8 +1131,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public long getLongOpaque(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getLongOpaque(null, offset + index) :
-                ACCESS.getLongOpaque(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getLongOpaque(null, addressOrOffset + index) :
+                ACCESS.getLongOpaque(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -1149,8 +1144,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public long getLongAcquire(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getLongAcquire(null, offset + index) :
-                ACCESS.getLongAcquire(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getLongAcquire(null, addressOrOffset + index) :
+                ACCESS.getLongAcquire(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -1162,8 +1157,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public long getLongVolatile(final int index, final ByteOrder byteOrder) {
         checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
-        return reorder(base == null ? ACCESS.getLongVolatile(null, offset + index) :
-                ACCESS.getLongVolatile(base, offset + index), byteOrder);
+        return reorder(base == null ? ACCESS.getLongVolatile(null, addressOrOffset + index) :
+                ACCESS.getLongVolatile(base, addressOrOffset + index), byteOrder);
     }
 
     @Override
@@ -1180,9 +1175,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putLongOpaque(null, offset + index, reordered);
+            ACCESS.putLongOpaque(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putLongOpaque(base, offset + index, reordered);
+            ACCESS.putLongOpaque(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1200,9 +1195,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putLongRelease(null, offset + index, reordered);
+            ACCESS.putLongRelease(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putLongRelease(base, offset + index, reordered);
+            ACCESS.putLongRelease(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1220,9 +1215,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
-            ACCESS.putLongVolatile(null, offset + index, reordered);
+            ACCESS.putLongVolatile(null, addressOrOffset + index, reordered);
         } else {
-            ACCESS.putLongVolatile(base, offset + index, reordered);
+            ACCESS.putLongVolatile(base, addressOrOffset + index, reordered);
         }
     }
 
@@ -1241,8 +1236,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
         final long update = reorder(updateValue, byteOrder);
-        return base == null ? ACCESS.compareAndSetLong(null, offset + index, expected, update) :
-                ACCESS.compareAndSetLong(base, offset + index, expected, update);
+        return base == null ? ACCESS.compareAndSetLong(null, addressOrOffset + index, expected, update) :
+                ACCESS.compareAndSetLong(base, addressOrOffset + index, expected, update);
     }
 
     @Override
@@ -1260,8 +1255,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
         final long update = reorder(updateValue, byteOrder);
-        return reorder(base == null ? ACCESS.compareAndExchangeLong(null, offset + index, expected, update) :
-                ACCESS.compareAndExchangeLong(base, offset + index, expected, update), byteOrder);
+        return reorder(base == null ? ACCESS.compareAndExchangeLong(null, addressOrOffset + index, expected, update) :
+                ACCESS.compareAndExchangeLong(base, addressOrOffset + index, expected, update), byteOrder);
     }
 
     @Override
@@ -1279,8 +1274,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
-        return base == null ? ACCESS.getAndAddLong(null, offset + index, delta) :
-                ACCESS.getAndAddLong(base, offset + index, delta);
+        return base == null ? ACCESS.getAndAddLong(null, addressOrOffset + index, delta) :
+                ACCESS.getAndAddLong(base, addressOrOffset + index, delta);
     }
 
     private long getAndAddLongByCompareAndSet(final int index, final long delta, final ByteOrder byteOrder) {
@@ -1304,8 +1299,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
-        return reorder(base == null ? ACCESS.getAndSetLong(null, offset + index, reordered) :
-                ACCESS.getAndSetLong(base, offset + index, reordered), byteOrder);
+        return reorder(base == null ? ACCESS.getAndSetLong(null, addressOrOffset + index, reordered) :
+                ACCESS.getAndSetLong(base, addressOrOffset + index, reordered), byteOrder);
     }
 
     //--- bulk copies ---
@@ -1319,7 +1314,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public void getBytes(final int index, final byte[] destination, final int destinationOffset, final int length) {
         Objects.checkFromIndexSize(index, length, capacity);
         Objects.checkFromIndexSize(destinationOffset, length, destination.length);
-        ACCESS.copyMemory(heapBase, offset + index, ACCESS.heapBase(destination),
+        ACCESS.copyMemory(heapBase, addressOrOffset + index, ACCESS.heapBase(destination),
                 ACCESS.heapOffset(destination, destinationOffset), length);
     }
 
@@ -1338,12 +1333,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
             throw new ReadOnlyBufferException();
         }
         if (destination.isDirect()) {
-            ACCESS.copyMemory(heapBase, offset + index, null, ACCESS.address(destination) + destinationOffset,
+            ACCESS.copyMemory(heapBase, addressOrOffset + index, null, ACCESS.address(destination) + destinationOffset,
                     length);
             Reference.reachabilityFence(destination);
         } else {
             final byte[] array = destination.array();
-            ACCESS.copyMemory(heapBase, offset + index, ACCESS.heapBase(array),
+            ACCESS.copyMemory(heapBase, addressOrOffset + index, ACCESS.heapBase(array),
                     ACCESS.heapOffset(array, destination.arrayOffset() + destinationOffset), length);
         }
     }
@@ -1369,7 +1364,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkWriteRange(index, length);
         ACCESS.copyMemory(ACCESS.heapBase(source), ACCESS.heapOffset(source, sourceOffset), heapBase,
-                offset + index, length);
+                addressOrOffset + index, length);
     }
 
     @Override
@@ -1380,7 +1375,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkWriteRange(index, length);
         if (source instanceof MemoryBufferImpl buffer) {
-            ACCESS.copyMemory(buffer.heapBase, buffer.offset + sourceIndex, heapBase, offset + index, length);
+            ACCESS.copyMemory(buffer.heapBase, buffer.addressOrOffset + sourceIndex, heapBase, addressOrOffset + index,
+                    length);
             Reference.reachabilityFence(buffer.owner);
         } else {
             putOtherBytes(index, source, sourceIndex, length);
@@ -1405,12 +1401,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkWriteRange(index, length);
         if (source.isDirect()) {
-            ACCESS.copyMemory(null, ACCESS.address(source) + sourceOffset, heapBase, offset + index, length);
+            ACCESS.copyMemory(null, ACCESS.address(source) + sourceOffset, heapBase, addressOrOffset + index, length);
             Reference.reachabilityFence(source);
         } else if (source.hasArray()) {
             final byte[] array = source.array();
             ACCESS.copyMemory(ACCESS.heapBase(array), ACCESS.heapOffset(array, source.arrayOffset() + sourceOffset),
-                    heapBase, offset + index, length);
+                    heapBase, addressOrOffset + index, length);
         } else {
             for (int i = 0; i < length; i++) {
                 rawPutByte(index + i, source.get(sourceOffset + i));
@@ -1432,7 +1428,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
             expandFor(index, length);
         }
         checkWriteRange(index, length);
-        ACCESS.setMemory(heapBase, offset + index, length, value);
+        ACCESS.setMemory(heapBase, addressOrOffset + index, length, value);
     }
 
     //--- ASCII text ---
