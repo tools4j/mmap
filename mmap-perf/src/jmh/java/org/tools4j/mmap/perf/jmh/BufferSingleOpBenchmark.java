@@ -57,7 +57,8 @@ public class BufferSingleOpBenchmark {
 
     static volatile long pollutionResult;
 
-    @Param({"AGRONA", "UNSAFE_BRANCH", "BYTE_BUFFER", "MEMORY_BUFFER_UNSAFE", "MEMORY_BUFFER_FFM"})
+    @Param({"MEMORY_BUFFER_UNSAFE", "AGRONA", "CHRONICLE", "NETTY_UNSAFE", "UNSAFE_BRANCH",
+            "MEMORY_BUFFER_FFM", "NETTY", "BYTE_BUFFER"})
     public Implementation implementation;
 
     @Param({"DIRECT", "HEAP"})
@@ -82,12 +83,13 @@ public class BufferSingleOpBenchmark {
         final BenchBuffer source = implementation.create(memory);
         blocks[1].wrapInto(source);
         blocks[0].wrapInto(buffer);
-        BufferOperations.verify(buffer, source, SIZE, implementation.supportsCompareAndSet(memory));
+        BufferOperations.verify(buffer, source, SIZE, implementation.supportsOrderedAccess(),
+                implementation.supportsCompareAndSet(memory));
     }
 
     /**
-     * Fails for heap memory with FFM and for ByteBuffer, which have no compare-and-set; exclude those combinations with
-     * {@code -p}.
+     * Fails for heap memory with FFM, for ByteBuffer and for Netty, which have no compare-and-set; exclude those
+     * combinations with {@code -p}.
      */
     @Benchmark
     public boolean increment() {

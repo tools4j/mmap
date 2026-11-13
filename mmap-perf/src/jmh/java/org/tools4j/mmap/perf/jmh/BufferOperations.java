@@ -124,12 +124,13 @@ public enum BufferOperations {
     }
 
     /**
-     * Runs all operations with buffers of the given implementation and memory kind, so that their call sites have
-     * seen this memory kind before the benchmark measures the other.
+     * Runs all operations the implementation supports with buffers of the given memory kind, so that their call sites
+     * have seen this memory kind before the benchmark measures the other.
      *
      * @return a sum of the results, to be consumed so that the work is not eliminated
      */
     static long pollute(final Implementation implementation, final BenchMemory kind, final int size) {
+        final boolean orderedAccess = implementation.supportsOrderedAccess();
         final boolean compareAndSet = implementation.supportsCompareAndSet(kind);
         final BenchBuffer buffer = implementation.create(kind);
         final BenchBuffer source = implementation.create(kind);
@@ -141,10 +142,12 @@ public enum BufferOperations {
             sum += wrapAndRead(buffer, block);
             writeLongs(buffer, size, round);
             sum += readLongs(buffer, size);
-            writeLongsRelease(buffer, size, round);
-            sum += readLongsAcquire(buffer, size);
-            publish(buffer, size, round);
-            sum += consume(buffer, size);
+            if (orderedAccess) {
+                writeLongsRelease(buffer, size, round);
+                sum += readLongsAcquire(buffer, size);
+                publish(buffer, size, round);
+                sum += consume(buffer, size);
+            }
             copy(buffer, source, size);
             if (compareAndSet) {
                 sum += increment(buffer) ? 1 : 0;
@@ -155,16 +158,19 @@ public enum BufferOperations {
     }
 
     /**
-     * Checks that the buffers read what was written, so that a broken implementation fails instead of measuring.
+     * Checks that the buffers read what was written, so that a broken implementation fails instead of measuring, with
+     * the ordered accesses and compare-and-set only if the implementation supports them.
      */
     static void verify(final BenchBuffer buffer, final BenchBuffer source, final int size,
-                       final boolean compareAndSet) {
+                       final boolean orderedAccess, final boolean compareAndSet) {
         writeLongs(buffer, size, 1);
         check(readLongs(buffer, size) == expectedSum(size, 1), "putLong/getLong");
-        writeLongsRelease(buffer, size, 2);
-        check(readLongsAcquire(buffer, size) == expectedSum(size, 2), "putLongRelease/getLongAcquire");
-        publish(buffer, size, 4);
-        check(consume(buffer, size) == expectedSum(size, 4), "publish/consume");
+        if (orderedAccess) {
+            writeLongsRelease(buffer, size, 2);
+            check(readLongsAcquire(buffer, size) == expectedSum(size, 2), "putLongRelease/getLongAcquire");
+            publish(buffer, size, 4);
+            check(consume(buffer, size) == expectedSum(size, 4), "publish/consume");
+        }
         writeLongs(source, size, 3);
         copy(buffer, source, size);
         check(readLongs(buffer, size) == expectedSum(size, 3), "putBytes");

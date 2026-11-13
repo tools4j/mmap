@@ -253,15 +253,16 @@ Notes:
 
 #### Microbenchmarks
 `mmap-perf` also contains [JMH](https://github.com/openjdk/jmh) microbenchmarks of the library's internals, e.g. the
-memory buffers compared with Agrona's `UnsafeBuffer` and the JDK's `ByteBuffer`. They are not published; run them from
-source, with Gradle on Java 22 or later (for the memory access through FFM):
+memory buffers compared with Agrona's `UnsafeBuffer`, Chronicle Bytes, Netty's `ByteBuf` and the JDK's `ByteBuffer`.
+They are not published; run them from source, with Gradle on Java 22 or later (for the memory access through FFM):
 ```
-./gradlew :mmap-perf:jmh -Pjmh='BufferLoopBenchmark -f 1'
-mmap-perf/jmh-matrix.sh
+./gradlew :mmap-perf:jmh -Pjmh='BufferLoopBenchmark -f 1 -p implementation=MEMORY_BUFFER_UNSAFE,AGRONA'
+mmap-perf/jmh-matrix.sh run --with all
 ```
-`-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh` runs all buffer benchmarks
-and prints one table, `jmh-matrix.sh gap` only those where the memory buffers lag behind, for fewer implementations;
-without arguments it prints its usage.
+`-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh run` runs all buffer
+benchmarks and prints one table, `jmh-matrix.sh gap` only those where the memory buffers lagged behind; both measure
+the memory buffers with Unsafe, and add other implementations with `--with` (Agrona, Chronicle, Netty with and without
+Unsafe, the JDK's `ByteBuffer`, the memory buffers with FFM, or all). Without arguments it prints its usage.
 
 ### Maven/Gradle
 

@@ -94,7 +94,7 @@ public class ExpandableBenchmark {
             buffer = implementation.create(memory);
             block.wrapInto(buffer);
         }
-        BufferOperations.verify(buffer, source, size, true);
+        BufferOperations.verify(buffer, source, size, true, true);
         if (buffer.capacity() != size) {
             throw new IllegalStateException("Buffer grew to " + buffer.capacity() + " bytes, expected " + size);
         }

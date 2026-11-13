@@ -45,7 +45,8 @@ import java.util.concurrent.TimeUnit;
  * The loops of ordered accesses magnify their per-access overhead, since each barrier makes the next access load the
  * buffer's fields and check bounds and alignment again; they catch regressions in the checks, but real code seldom
  * has such loops. {@code publish} and {@code consume} are the use case: a payload written with plain writes and
- * published with one release write of a header, and read after one acquire read of the header.
+ * published with one release write of a header, and read after one acquire read of the header. Netty has no ordered
+ * access, so these four fail for it; exclude it from them with {@code -p}.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -59,7 +60,8 @@ import java.util.concurrent.TimeUnit;
 public class BufferLoopBenchmark {
     static volatile long pollutionResult;
 
-    @Param({"AGRONA", "UNSAFE_BRANCH", "BYTE_BUFFER", "MEMORY_BUFFER_UNSAFE", "MEMORY_BUFFER_FFM"})
+    @Param({"MEMORY_BUFFER_UNSAFE", "AGRONA", "CHRONICLE", "NETTY_UNSAFE", "UNSAFE_BRANCH",
+            "MEMORY_BUFFER_FFM", "NETTY", "BYTE_BUFFER"})
     public Implementation implementation;
 
     @Param({"DIRECT", "HEAP"})
@@ -91,7 +93,8 @@ public class BufferLoopBenchmark {
         source = implementation.create(memory);
         block.wrapInto(buffer);
         sourceBlock.wrapInto(source);
-        BufferOperations.verify(buffer, source, size, implementation.supportsCompareAndSet(memory));
+        BufferOperations.verify(buffer, source, size, implementation.supportsOrderedAccess(),
+                implementation.supportsCompareAndSet(memory));
     }
 
     @Benchmark

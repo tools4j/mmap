@@ -27,6 +27,9 @@ def assertjVersion = '3.27.7'
 def hdrHistogramVersion = '2.2.2'
 def jmhVersion = '1.37'
 def chronicleVersion = '2026.8'
+//compared in the JMH benchmarks of mmap-perf only, see the jmh source set
+def chronicleBytesVersion = '2026.4'
+def nettyVersion = '4.2.20.Final'
 
 static def getBuildJavaVersion() {
     def buildJavaVersion = JavaVersion.current().getMajorVersion()
@@ -573,6 +576,8 @@ project(':mmap-perf') {
     dependencies {
         jmhImplementation project(':mmap-core')
         jmhImplementation "org.agrona:agrona:${agronaVersion}"
+        jmhImplementation "net.openhft:chronicle-bytes:${chronicleBytesVersion}"
+        jmhImplementation "io.netty:netty-buffer:${nettyVersion}"
         jmhImplementation "org.openjdk.jmh:jmh-core:${jmhVersion}"
         jmhAnnotationProcessor "org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}"
     }
