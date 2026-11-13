@@ -260,7 +260,8 @@ source, with Gradle on Java 22 or later (for the memory access through FFM):
 mmap-perf/jmh-matrix.sh
 ```
 `-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh` runs all buffer benchmarks
-and prints one table; without arguments it prints its usage.
+and prints one table, `jmh-matrix.sh gap` only those where the memory buffers lag behind, for fewer implementations;
+without arguments it prints its usage.
 
 ### Maven/Gradle
 
