@@ -1387,6 +1387,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * Copies memory with a constant null base for direct memory, branching on both bases like every access, so that
      * each branch compiles to a pure off-heap or on-heap copy; a {@code long[]} base is passed with its type, so that
      * the check of Unsafe that a heap base is a primitive array folds away, which it cannot for an {@code Object}.
+     * <p>
+     * Each branch is a call site of its own: C2 does not inline one that was rare when it compiled the caller (below
+     * {@code MinInlineFrequencyRatio}), e.g. direct copies after many heap copies, and keeps calling it as long as the
+     * compiled code lives. Such a branch costs about 2 ns more, but still less than a single call site for all kinds.
      */
     private static void copyMemory(final Object sourceBase, final long sourceAddressOrOffset,
                                    final Object targetBase, final long targetAddressOrOffset, final int length) {
