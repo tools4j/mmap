@@ -301,7 +301,7 @@ class MemoryBufferImplTest {
         assertFalse(heap.isDirect());
         assertFalse(heap.isReadOnly());
         assertEquals(MemoryBinding.FIXED, heap.binding());
-        assertEquals(Long.BYTES, heap.alignment());
+        assertEquals(Long.BYTES, heap.alignment(), "long[] elements 8-aligned, which ordered access relies on");
         final MutableMemoryBuffer direct = MemoryBuffers.allocateDirect(CAPACITY);
         assertTrue(direct.isDirect());
         assertEquals(MemoryBinding.FIXED, direct.binding());
