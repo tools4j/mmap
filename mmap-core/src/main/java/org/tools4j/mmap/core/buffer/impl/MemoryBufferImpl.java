@@ -1385,18 +1385,31 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     /**
      * Copies memory with a constant null base for direct memory, branching on both bases like every access, so that
-     * each branch compiles to a pure off-heap or on-heap copy.
+     * each branch compiles to a pure off-heap or on-heap copy; a {@code long[]} base is passed with its type, so that
+     * the check of Unsafe that a heap base is a primitive array folds away, which it cannot for an {@code Object}.
      */
     private static void copyMemory(final Object sourceBase, final long sourceAddressOrOffset,
                                    final Object targetBase, final long targetAddressOrOffset, final int length) {
         if (sourceBase == null) {
             if (targetBase == null) {
                 ACCESS.copyMemory(null, sourceAddressOrOffset, null, targetAddressOrOffset, length);
+            } else if (targetBase instanceof long[] target) {
+                ACCESS.copyMemory(null, sourceAddressOrOffset, target, targetAddressOrOffset, length);
             } else {
                 ACCESS.copyMemory(null, sourceAddressOrOffset, targetBase, targetAddressOrOffset, length);
             }
+        } else if (sourceBase instanceof long[] source) {
+            if (targetBase == null) {
+                ACCESS.copyMemory(source, sourceAddressOrOffset, null, targetAddressOrOffset, length);
+            } else if (targetBase instanceof long[] target) {
+                ACCESS.copyMemory(source, sourceAddressOrOffset, target, targetAddressOrOffset, length);
+            } else {
+                ACCESS.copyMemory(source, sourceAddressOrOffset, targetBase, targetAddressOrOffset, length);
+            }
         } else if (targetBase == null) {
             ACCESS.copyMemory(sourceBase, sourceAddressOrOffset, null, targetAddressOrOffset, length);
+        } else if (targetBase instanceof long[] target) {
+            ACCESS.copyMemory(sourceBase, sourceAddressOrOffset, target, targetAddressOrOffset, length);
         } else {
             ACCESS.copyMemory(sourceBase, sourceAddressOrOffset, targetBase, targetAddressOrOffset, length);
         }
