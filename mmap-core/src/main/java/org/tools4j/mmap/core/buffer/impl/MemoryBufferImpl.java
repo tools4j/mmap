@@ -1375,11 +1375,30 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         checkWriteRange(index, length);
         if (source instanceof MemoryBufferImpl buffer) {
-            ACCESS.copyMemory(buffer.heapBase, buffer.addressOrOffset + sourceIndex, heapBase, addressOrOffset + index,
+            copyMemory(buffer.heapBase, buffer.addressOrOffset + sourceIndex, heapBase, addressOrOffset + index,
                     length);
             Reference.reachabilityFence(buffer.owner);
         } else {
             putOtherBytes(index, source, sourceIndex, length);
+        }
+    }
+
+    /**
+     * Copies memory with a constant null base for direct memory, branching on both bases like every access, so that
+     * each branch compiles to a pure off-heap or on-heap copy.
+     */
+    private static void copyMemory(final Object sourceBase, final long sourceAddressOrOffset,
+                                   final Object targetBase, final long targetAddressOrOffset, final int length) {
+        if (sourceBase == null) {
+            if (targetBase == null) {
+                ACCESS.copyMemory(null, sourceAddressOrOffset, null, targetAddressOrOffset, length);
+            } else {
+                ACCESS.copyMemory(null, sourceAddressOrOffset, targetBase, targetAddressOrOffset, length);
+            }
+        } else if (targetBase == null) {
+            ACCESS.copyMemory(sourceBase, sourceAddressOrOffset, null, targetAddressOrOffset, length);
+        } else {
+            ACCESS.copyMemory(sourceBase, sourceAddressOrOffset, targetBase, targetAddressOrOffset, length);
         }
     }
 
