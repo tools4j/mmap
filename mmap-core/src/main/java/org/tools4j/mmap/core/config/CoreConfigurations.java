@@ -31,12 +31,14 @@ import org.tools4j.mmap.core.logging.LoggingErrorListener;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.tools4j.mmap.core.internal.SystemProperties.booleanProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.enumProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.namedOrClassInstanceProperty;
 
 /**
- * Defaults of mmap-core configured by system properties: the memory access mode of all buffers, and the error
- * listener, which the other modules use unless their own error listener property is set.
+ * Defaults of mmap-core configured by system properties: the memory access mode of all buffers, whether they check
+ * the alignment of ordered accesses, and the error listener, which the other modules use unless their own error
+ * listener property is set.
  */
 public enum CoreConfigurations {
     ;
@@ -48,6 +50,19 @@ public enum CoreConfigurations {
     public static final String MEMORY_ACCESS_PROPERTY = "mmap.core.memoryAccess";
     /** The default memory access mode, used if system property {@value #MEMORY_ACCESS_PROPERTY} is not set. */
     public static final MemoryAccessMode MEMORY_ACCESS_DEFAULT = MemoryAccessMode.UNSAFE;
+
+    /**
+     * Name of the system property enabling the alignment check of ordered accesses (opaque, acquire/release, volatile
+     * and atomic) by all buffers, read once per JVM when the first buffer is created: such an access must be aligned
+     * to its size. With {@code false}, a misaligned access is not detected: it may tear or, e.g. on aarch64, crash the
+     * JVM. Ordered accesses to memory backed by a {@code byte[]} are rejected either way.
+     */
+    public static final String ALIGNMENT_CHECK_PROPERTY = "mmap.core.alignmentCheck";
+    /**
+     * The default for the alignment check of ordered accesses, used if system property
+     * {@value #ALIGNMENT_CHECK_PROPERTY} is not set.
+     */
+    public static final boolean ALIGNMENT_CHECK_DEFAULT = true;
 
     /** Error listener property value for a listener ignoring all errors and warnings. */
     public static final String NO_OP_LISTENER = "NO_OP";
@@ -82,6 +97,18 @@ public enum CoreConfigurations {
      */
     public static MemoryAccessMode systemMemoryAccessMode() {
         return enumProperty(MEMORY_ACCESS_PROPERTY, MemoryAccessMode.class, MEMORY_ACCESS_DEFAULT);
+    }
+
+    /**
+     * Returns whether buffers check the alignment of ordered accesses, configured by system property, read on each
+     * call; buffers use the value read when the first buffer is created.
+     *
+     * @return the value of system property {@value #ALIGNMENT_CHECK_PROPERTY} if set, and
+     *         {@link #ALIGNMENT_CHECK_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is neither true nor false, ignoring case
+     */
+    public static boolean systemAlignmentCheck() {
+        return booleanProperty(ALIGNMENT_CHECK_PROPERTY, ALIGNMENT_CHECK_DEFAULT);
     }
 
     /**
