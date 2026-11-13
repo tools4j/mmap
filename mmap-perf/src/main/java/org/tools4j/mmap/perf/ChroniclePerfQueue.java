@@ -60,7 +60,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
 
     @Override
     public Writer createWriter() {
-        return new ChronicleWriter(queue.acquireAppender());
+        return new ChronicleWriter(queue.createAppender());
     }
 
     @Override

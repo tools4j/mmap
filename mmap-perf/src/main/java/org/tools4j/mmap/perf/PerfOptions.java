@@ -133,7 +133,7 @@ public record PerfOptions(QueueType queue,
             options, prints this help; to run with all defaults, pass e.g. --queue mmap. Numbers can have '_'
             separators and a k, m or g suffix, decimal for counts (1m = 1_000_000) and binary for sizes (64k = 65536).
 
-              --queue <mmap|chronicle>   queue implementation (default: mmap), chronicle requires Java 17 and
+              --queue <mmap|chronicle>   queue implementation (default: mmap), chronicle requires
                                          chronicle-queue on the class path
               --messages <n>             messages per sender, including warmup (default: 11m)
               --warmup <n>               warmup messages per sender, not measured (default: 1m)

@@ -239,7 +239,6 @@ Run `--help` for all options. Other mmap settings can be passed as system proper
 `java -Dmmap.queue.pollerHeaderRegionCacheSize=4 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap`.
 
 Notes:
-* The Chronicle Queue version used (5.21) runs on Java 17 only; use Java 17 when comparing the two queues.
 * Results depend heavily on the machine: for stable numbers use a quiet machine (or isolated cores), a fast local disk
   or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
 * `--pin` assigns one CPU per thread from the given CPU list (e.g. `2-7` or `2,4,6,8`; without a list from CPU 2 up to

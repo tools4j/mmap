@@ -37,7 +37,6 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Smoke test for {@link QueuePerf} with {@link PerfOptions} parsed from command line arguments.
@@ -62,8 +61,6 @@ public class QueuePerfTest {
     })
     public void runCompletesAndDeletesQueueFiles(final String args) throws Throwable {
         //given
-        assumeTrue(!args.contains("chronicle") || Runtime.version().feature() == 17,
-                "Chronicle Queue " + QueuePerf.chronicleQueueVersion() + " supports only Java 17");
         final PerfOptions options = PerfOptions.parse((args + " --messages 20k --warmup 1k --rate 200k --length 64" +
                 " --timeout 60 --dir " + tempDir).split(" "));
 
