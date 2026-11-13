@@ -145,7 +145,11 @@ class MemoryBufferImplTest {
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.putLong(-1, 1));
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.getBytes(CAPACITY - 2, new byte[3]));
         assertThrows(IndexOutOfBoundsException.class, () -> buffer.putBytes(-1, new byte[3]));
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getLongAcquire(CAPACITY), "ordered read");
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getIntVolatile(-4), "ordered read");
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.compareAndSetLong(-8, 0, 1), "ordered write");
         if (!memory.expandable) {
+            assertThrows(IndexOutOfBoundsException.class, () -> buffer.putLongRelease(CAPACITY, 1), "ordered write");
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putLong(CAPACITY - 7, 1));
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putByte(CAPACITY, (byte) 1));
             assertThrows(IndexOutOfBoundsException.class, () -> buffer.putBytes(CAPACITY - 2, new byte[3]));
@@ -263,6 +267,10 @@ class MemoryBufferImplTest {
         assertThrows(UnsupportedOperationException.class, () -> buffer.putCharVolatile(8, 'x'));
         buffer.putByteVolatile(3, (byte) 5);
         assertEquals((byte) 5, buffer.getByteVolatile(3));
+        final MemoryBufferFlyweight range = MemoryBuffers.flyweight();
+        range.wrap(buffer, 8, 16);
+        assertThrows(UnsupportedOperationException.class, () -> range.getLongAcquire(0), "range");
+        assertThrows(UnsupportedOperationException.class, () -> range.putLongRelease(0, 1), "range");
     }
 
     @Test
@@ -401,6 +409,13 @@ class MemoryBufferImplTest {
         assertEquals(LONG, flyweight.getLong(0));
         assertThrows(ReadOnlyBufferException.class, () -> flyweight.putLong(0, 1));
         assertThrows(ReadOnlyBufferException.class, () -> flyweight.putBytes(0, new byte[8]));
+        assertThrows(ReadOnlyBufferException.class, () -> flyweight.putLongRelease(0, 1),
+                "read-only before unsupported");
+        if (direct) {
+            assertEquals(LONG, flyweight.getLongAcquire(0));
+        } else {
+            assertThrows(UnsupportedOperationException.class, () -> flyweight.getLongAcquire(0));
+        }
         assertThrows(IndexOutOfBoundsException.class, () -> flyweight.putLong(16, 1));
         assertEquals(LONG, writable.getLong(8));
         final MemoryBufferFlyweight range = MemoryBuffers.flyweight();

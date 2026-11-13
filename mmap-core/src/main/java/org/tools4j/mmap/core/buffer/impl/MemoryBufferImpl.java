@@ -65,7 +65,9 @@ import static org.tools4j.mmap.core.buffer.MemoryBinding.WRAPPABLE;
  * Writes check against a write capacity of their own, the capacity or 0 for read-only memory, so that writing to
  * read-only memory, such as a read-only memory mapping, throws instead of crashing the JVM, at no extra cost. The
  * write capacity is set on every wrap, from the wrapped memory, so read-only is a property of the memory, not of the
- * buffer.
+ * buffer. Ordered accesses check against ordered capacities in the same way, 0 for memory backed by a {@code byte[]},
+ * which has no ordered access, so that rejecting it costs nothing either; their alignment check can be disabled, see
+ * {@link CoreConfigurations#ALIGNMENT_CHECK_PROPERTY}.
  * <p>
  * Only flyweights can be wrapped: all buffers are instances of this class, and a cast must not let anyone re-wrap an
  * allocated buffer or a shared constant such as {@link MemoryBuffers#EMPTY}.
@@ -76,6 +78,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private static final String FFM_MEMORY_ACCESS = "org.tools4j.mmap.core.unsafe.FfmMemoryAccess";
     private static final MemoryAccessMode MODE = CoreConfigurations.systemMemoryAccessMode();
     private static final MemoryAccess ACCESS = memoryAccess();
+    private static final boolean ALIGNMENT_CHECK = CoreConfigurations.systemAlignmentCheck();
     private static final ByteOrder NATIVE_ORDER = ByteOrder.nativeOrder();
     private static final byte[] NO_BYTES = {};
     private static final int DIRECT_ALIGNMENT = 64;
@@ -83,7 +86,10 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private static final int MIN_EXPANDED_CAPACITY = 64;
     /** The bits of {@link #alignmentBits} holding the misalignment of index 0, i.e. its address modulo 8. */
     private static final int MISALIGNMENT_MASK = Long.BYTES - 1;
-    /** The bit of {@link #alignmentBits} set for memory without ordered access, above the misalignment bits. */
+    /**
+     * The bit of {@link #alignmentBits} set for memory without ordered access, above the misalignment bits, telling the
+     * failures and {@link #alignment()} apart; ordered accesses are rejected by the ordered capacities.
+     */
     private static final int UNORDERED = Long.BYTES;
     private static final char REPLACEMENT_CHARACTER = '�';
 
@@ -97,12 +103,19 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * so that a write to read-only memory throws instead of crashing the JVM, at no extra cost.
      */
     private int writeCapacity;
+    /**
+     * The capacity for ordered reads, checked by them instead of the capacity: equal to it, or 0 for memory without
+     * ordered access, so that rejecting such an access costs no more than the bounds check it replaces.
+     */
+    private int orderedCapacity;
+    /**
+     * The capacity for ordered writes: equal to the capacity, or 0 for read-only memory or memory without ordered
+     * access.
+     */
+    private int orderedWriteCapacity;
     private int wrapOffset;
     private Object owner;
-    /**
-     * The misalignment of index 0 and the {@link #UNORDERED} bit, in one field so that an ordered access checks both
-     * with one load and one branch: the barrier of the access makes the next access load the fields again.
-     */
+    /** The misalignment of index 0, checked by ordered accesses unless disabled, and the {@link #UNORDERED} bit. */
     private int alignmentBits;
 
     private MemoryBufferImpl(final MemoryBinding binding) {
@@ -250,6 +263,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.offset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
         this.writeCapacity = length;
+        this.orderedCapacity = 0;
+        this.orderedWriteCapacity = 0;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
         this.alignmentBits = UNORDERED;
@@ -260,6 +275,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.offset = ACCESS.heapOffset(array, byteOffset);
         this.capacity = length;
         this.writeCapacity = length;
+        this.orderedCapacity = length;
+        this.orderedWriteCapacity = length;
         this.wrapOffset = byteOffset;
         this.owner = array;
         this.alignmentBits = byteOffset & MISALIGNMENT_MASK;
@@ -270,6 +287,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.offset = address;
         this.capacity = capacity;
         this.writeCapacity = capacity;
+        this.orderedCapacity = capacity;
+        this.orderedWriteCapacity = capacity;
         this.wrapOffset = wrapOffset;
         this.owner = owner;
         this.alignmentBits = (int) address & MISALIGNMENT_MASK;
@@ -329,6 +348,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         }
         if (buffer.isReadOnly()) {
             this.writeCapacity = 0;
+            this.orderedWriteCapacity = 0;
         }
     }
 
@@ -342,6 +362,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.heapBase = base;
         this.capacity = length;
         this.writeCapacity = length;
+        this.orderedCapacity = 0;
+        this.orderedWriteCapacity = 0;
         this.wrapOffset = offset;
         this.owner = buffer;
         this.alignmentBits = UNORDERED;
@@ -381,6 +403,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.offset = source.offset + index;
         this.capacity = length;
         this.writeCapacity = source.writeCapacity < source.capacity ? 0 : length;
+        this.orderedCapacity = source.orderedCapacity < source.capacity ? 0 : length;
+        this.orderedWriteCapacity = source.orderedWriteCapacity < source.capacity ? 0 : length;
         this.wrapOffset = source.wrapOffset + index;
         this.owner = source.owner;
         this.alignmentBits = (source.alignmentBits & UNORDERED) | ((source.alignmentBits + index) & MISALIGNMENT_MASK);
@@ -390,6 +414,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     public void makeReadOnly() {
         checkWrappable();
         this.writeCapacity = 0;
+        this.orderedWriteCapacity = 0;
     }
 
     @Override
@@ -491,15 +516,49 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         return new ReadOnlyBufferException();
     }
 
-    private void checkOrdered(final int index, final int size) {
-        final int bits = alignmentBits;
-        if ((((bits + index) & (size - 1)) | (bits & UNORDERED)) != 0) {
-            throw orderedAccessFailure(index, size);
+    /** Checks the bounds of an ordered read against the ordered capacity, and its alignment unless disabled. */
+    private void checkOrderedBounds(final int index, final int size) {
+        try {
+            Objects.checkIndex(index, orderedCapacity - size + 1);
+        } catch (final IndexOutOfBoundsException e) {
+            throw orderedFailure(index, size);
+        }
+        if (ALIGNMENT_CHECK) {
+            checkAlignment(index, size);
         }
     }
 
-    private RuntimeException orderedAccessFailure(final int index, final int size) {
-        return (alignmentBits & UNORDERED) != 0 ? unsupportedOrderedAccess() : misalignedAccess(index, size);
+    /** Checks the bounds of an ordered write against the ordered write capacity, and its alignment unless disabled. */
+    private void checkOrderedWriteBounds(final int index, final int size) {
+        try {
+            Objects.checkIndex(index, orderedWriteCapacity - size + 1);
+        } catch (final IndexOutOfBoundsException e) {
+            throw orderedWriteFailure(index, size);
+        }
+        if (ALIGNMENT_CHECK) {
+            checkAlignment(index, size);
+        }
+    }
+
+    private void checkAlignment(final int index, final int size) {
+        if (((alignmentBits + index) & (size - 1)) != 0) {
+            throw misalignedAccess(index, size);
+        }
+    }
+
+    /** Throws the exception of a read beyond the capacity, else returns the one for memory without ordered access. */
+    private UnsupportedOperationException orderedFailure(final int index, final int size) {
+        checkBounds(index, size);
+        return unsupportedOrderedAccess();
+    }
+
+    /**
+     * Throws the exception of a read beyond the capacity, else returns the one for a write to read-only memory, else
+     * the one for memory without ordered access.
+     */
+    private RuntimeException orderedWriteFailure(final int index, final int size) {
+        checkBounds(index, size);
+        return writeCapacity < capacity ? new ReadOnlyBufferException() : unsupportedOrderedAccess();
     }
 
     private static UnsupportedOperationException unsupportedOrderedAccess() {
@@ -824,8 +883,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public short getShortVolatile(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Short.BYTES);
-        checkOrdered(index, Short.BYTES);
+        checkOrderedBounds(index, Short.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getShortVolatile(null, offset + index) :
                 ACCESS.getShortVolatile(base, offset + index), byteOrder);
@@ -841,8 +899,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Short.BYTES);
         }
-        checkWriteBounds(index, Short.BYTES);
-        checkOrdered(index, Short.BYTES);
+        checkOrderedWriteBounds(index, Short.BYTES);
         final Object base = heapBase;
         final short reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -859,8 +916,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public char getCharVolatile(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Character.BYTES);
-        checkOrdered(index, Character.BYTES);
+        checkOrderedBounds(index, Character.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getCharVolatile(null, offset + index) :
                 ACCESS.getCharVolatile(base, offset + index), byteOrder);
@@ -876,8 +932,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Character.BYTES);
         }
-        checkWriteBounds(index, Character.BYTES);
-        checkOrdered(index, Character.BYTES);
+        checkOrderedWriteBounds(index, Character.BYTES);
         final Object base = heapBase;
         final char reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -896,8 +951,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public int getIntOpaque(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getIntOpaque(null, offset + index) :
                 ACCESS.getIntOpaque(base, offset + index), byteOrder);
@@ -910,8 +964,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public int getIntAcquire(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getIntAcquire(null, offset + index) :
                 ACCESS.getIntAcquire(base, offset + index), byteOrder);
@@ -924,8 +977,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public int getIntVolatile(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedBounds(index, Integer.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getIntVolatile(null, offset + index) :
                 ACCESS.getIntVolatile(base, offset + index), byteOrder);
@@ -941,8 +993,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -962,8 +1013,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -983,8 +1033,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -1005,8 +1054,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
         final int update = reorder(updateValue, byteOrder);
@@ -1025,8 +1073,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int expected = reorder(expectedValue, byteOrder);
         final int update = reorder(updateValue, byteOrder);
@@ -1047,8 +1094,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (byteOrder != NATIVE_ORDER) {
             return getAndAddIntByCompareAndSet(index, delta, byteOrder);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddInt(null, offset + index, delta) :
                 ACCESS.getAndAddInt(base, offset + index, delta);
@@ -1072,8 +1118,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Integer.BYTES);
         }
-        checkWriteBounds(index, Integer.BYTES);
-        checkOrdered(index, Integer.BYTES);
+        checkOrderedWriteBounds(index, Integer.BYTES);
         final Object base = heapBase;
         final int reordered = reorder(value, byteOrder);
         return reorder(base == null ? ACCESS.getAndSetInt(null, offset + index, reordered) :
@@ -1089,8 +1134,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public long getLongOpaque(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getLongOpaque(null, offset + index) :
                 ACCESS.getLongOpaque(base, offset + index), byteOrder);
@@ -1103,8 +1147,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public long getLongAcquire(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getLongAcquire(null, offset + index) :
                 ACCESS.getLongAcquire(base, offset + index), byteOrder);
@@ -1117,8 +1160,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     @Override
     public long getLongVolatile(final int index, final ByteOrder byteOrder) {
-        checkBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedBounds(index, Long.BYTES);
         final Object base = heapBase;
         return reorder(base == null ? ACCESS.getLongVolatile(null, offset + index) :
                 ACCESS.getLongVolatile(base, offset + index), byteOrder);
@@ -1134,8 +1176,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -1155,8 +1196,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -1176,8 +1216,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         if (base == null) {
@@ -1198,8 +1237,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
         final long update = reorder(updateValue, byteOrder);
@@ -1218,8 +1256,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long expected = reorder(expectedValue, byteOrder);
         final long update = reorder(updateValue, byteOrder);
@@ -1240,8 +1277,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (byteOrder != NATIVE_ORDER) {
             return getAndAddLongByCompareAndSet(index, delta, byteOrder);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         return base == null ? ACCESS.getAndAddLong(null, offset + index, delta) :
                 ACCESS.getAndAddLong(base, offset + index, delta);
@@ -1265,8 +1301,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (binding == EXPANDABLE) {
             expandFor(index, Long.BYTES);
         }
-        checkWriteBounds(index, Long.BYTES);
-        checkOrdered(index, Long.BYTES);
+        checkOrderedWriteBounds(index, Long.BYTES);
         final Object base = heapBase;
         final long reordered = reorder(value, byteOrder);
         return reorder(base == null ? ACCESS.getAndSetLong(null, offset + index, reordered) :
