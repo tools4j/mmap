@@ -305,7 +305,7 @@ class MemoryBufferImplTest {
         final MutableMemoryBuffer direct = MemoryBuffers.allocateDirect(CAPACITY);
         assertTrue(direct.isDirect());
         assertEquals(MemoryBinding.FIXED, direct.binding());
-        assertThat(direct.alignment()).isGreaterThanOrEqualTo(64);
+        assertThat(direct.alignment()).isGreaterThanOrEqualTo(Long.BYTES);
         assertEquals(MemoryBinding.EXPANDABLE, MemoryBuffers.expandable(CAPACITY).binding());
         assertFalse(MemoryBuffers.expandable(CAPACITY).isDirect());
         assertEquals(MemoryBinding.EXPANDABLE, MemoryBuffers.expandableDirect(CAPACITY).binding());
@@ -319,6 +319,41 @@ class MemoryBufferImplTest {
                 MemoryAccessMode.inUse());
         assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocate(-1));
         assertThrows(IndexOutOfBoundsException.class, () -> MemoryBuffers.wrap(new long[2], 1, 2));
+    }
+
+    @Test
+    void directBuffersAreAlignedTo8BytesOrTheGivenAlignment() {
+        for (int capacity = 0; capacity <= 64; capacity++) {
+            final MutableMemoryBuffer buffer = MemoryBuffers.allocateDirect(capacity);
+            assertEquals(capacity, buffer.capacity());
+            assertEquals(0, buffer.address() % Long.BYTES, "capacity " + capacity);
+            for (int alignment = Long.BYTES; alignment <= 4096; alignment <<= 1) {
+                final MutableMemoryBuffer aligned = MemoryBuffers.allocateDirect(capacity, alignment);
+                assertEquals(capacity, aligned.capacity());
+                assertEquals(0, aligned.address() % alignment,
+                        "capacity " + capacity + ", alignment " + alignment);
+            }
+        }
+        final MutableMemoryBuffer expandable = MemoryBuffers.expandableDirect(3);
+        expandable.ensureCapacity(1000);
+        assertEquals(0, expandable.address() % Long.BYTES);
+        for (int alignment = Long.BYTES; alignment <= 4096; alignment <<= 1) {
+            final MutableMemoryBuffer aligned = MemoryBuffers.expandableDirect(3, alignment);
+            assertEquals(0, aligned.address() % alignment, "alignment " + alignment);
+            aligned.putLong(0, 42);
+            aligned.ensureCapacity(10_000);
+            assertEquals(0, aligned.address() % alignment, "grown, alignment " + alignment);
+            assertEquals(42, aligned.getLong(0));
+        }
+        for (final int alignment : new int[] {0, 1, 4, 24, -8}) {
+            assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocateDirect(8, alignment));
+            assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.expandableDirect(8, alignment));
+        }
+        assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.expandableDirect(Integer.MAX_VALUE - 62, 64));
+        assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.expandableDirect(8, 64)
+                .ensureCapacity(Integer.MAX_VALUE - 62));
+        assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocateDirect(-1, 64));
+        assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocateDirect(Integer.MAX_VALUE - 62, 64));
     }
 
     @Test

@@ -30,6 +30,7 @@ import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.config.CoreConfigurations;
+import org.tools4j.mmap.core.internal.PowersOfTwo;
 import org.tools4j.mmap.core.text.Utf8;
 import org.tools4j.mmap.core.unsafe.MemoryAccess;
 import org.tools4j.mmap.core.unsafe.Unsafe;
@@ -83,7 +84,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private static final boolean ALIGNMENT_CHECK = CoreConfigurations.systemAlignmentCheck();
     private static final ByteOrder NATIVE_ORDER = ByteOrder.nativeOrder();
     private static final byte[] NO_BYTES = {};
-    private static final int DIRECT_ALIGNMENT = 64;
+    private static final int DIRECT_ALIGNMENT = Long.BYTES;
+    /** The alignment of memory from the system allocator on 64-bit platforms, as the JDK assumes for its arenas */
+    private static final int MALLOC_ALIGNMENT = 16;
     private static final int MAX_CAPACITY = Integer.MAX_VALUE - DIRECT_ALIGNMENT;
     private static final int MIN_EXPANDED_CAPACITY = 64;
     /** The bits of {@link #addressOrOffset} holding the misalignment of index 0 of memory with ordered access. */
@@ -91,6 +94,8 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private static final char REPLACEMENT_CHARACTER = '�';
 
     private final MemoryBinding binding;
+    /** The alignment of direct memory allocated when growing */
+    private final int growthAlignment;
 
     private Object heapBase;
     /**
@@ -119,7 +124,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     private Object owner;
 
     private MemoryBufferImpl(final MemoryBinding binding) {
+        this(binding, DIRECT_ALIGNMENT);
+    }
+
+    private MemoryBufferImpl(final MemoryBinding binding, final int growthAlignment) {
         this.binding = binding;
+        this.growthAlignment = growthAlignment;
         clear();
     }
 
@@ -201,15 +211,26 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     /**
-     * Allocates a direct buffer aligned to a cache line.
+     * Allocates a direct buffer aligned to 8 bytes.
      *
      * @param capacity the capacity in bytes
      * @return the buffer
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity) {
-        validateCapacity(capacity);
+        return allocateDirect(capacity, DIRECT_ALIGNMENT);
+    }
+
+    /**
+     * Allocates a direct buffer with the given alignment.
+     *
+     * @param capacity the capacity in bytes
+     * @param alignment the alignment in bytes, a power of two and a multiple of 8
+     * @return the buffer
+     */
+    public static MutableMemoryBuffer allocateDirect(final int capacity, final int alignment) {
+        validateCapacity(capacity, alignment);
         final MemoryBufferImpl buffer = new MemoryBufferImpl(FIXED);
-        buffer.wrapAllocatedDirect(capacity);
+        buffer.wrapAllocatedDirect(capacity, alignment);
         return buffer;
     }
 
@@ -233,10 +254,38 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * @return the buffer
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity) {
-        validateCapacity(initialCapacity);
-        final MemoryBufferImpl buffer = new MemoryBufferImpl(EXPANDABLE);
-        buffer.wrapAllocatedDirect(initialCapacity);
+        return expandableDirect(initialCapacity, DIRECT_ALIGNMENT);
+    }
+
+    /**
+     * Allocates an expandable direct buffer with the given alignment, also when growing.
+     *
+     * @param initialCapacity the initial capacity in bytes
+     * @param alignment the alignment in bytes, a power of two and a multiple of 8
+     * @return the buffer
+     */
+    public static MutableMemoryBuffer expandableDirect(final int initialCapacity, final int alignment) {
+        validateCapacity(initialCapacity, alignment);
+        final MemoryBufferImpl buffer = new MemoryBufferImpl(EXPANDABLE, alignment);
+        buffer.wrapAllocatedDirect(initialCapacity, alignment);
         return buffer;
+    }
+
+    private static void validateCapacity(final int capacity, final int alignment) {
+        validateCapacity(capacity);
+        if (alignment < DIRECT_ALIGNMENT || !PowersOfTwo.isPowerOfTwo(alignment)) {
+            throw new IllegalArgumentException("Alignment must be a power of two and a multiple of " +
+                    DIRECT_ALIGNMENT + " but was " + alignment);
+        }
+        if (capacity > maxCapacity(alignment)) {
+            throw new IllegalArgumentException("Capacity " + capacity + " with alignment " + alignment +
+                    " exceeds the maximum " + maxCapacity(alignment));
+        }
+    }
+
+    /** The max capacity of direct memory allocated with the given alignment, and for 8 also of heap memory */
+    private static int maxCapacity(final int alignment) {
+        return Math.min(MAX_CAPACITY, Integer.MAX_VALUE - alignment + 1);
     }
 
     private static void validateCapacity(final int capacity) {
@@ -286,10 +335,17 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         this.owner = owner;
     }
 
-    private void wrapAllocatedDirect(final int capacity) {
-        final ByteBuffer memory = ByteBuffer.allocateDirect(capacity + DIRECT_ALIGNMENT - 1);
-        final long address = ACCESS.address(memory);
-        final long aligned = (address + DIRECT_ALIGNMENT - 1) & -DIRECT_ALIGNMENT;
+    private void wrapAllocatedDirect(final int capacity, final int alignment) {
+        if (alignment <= MALLOC_ALIGNMENT) {
+            final ByteBuffer memory = ByteBuffer.allocateDirect(capacity);
+            final long address = ACCESS.address(memory);
+            if ((address & (alignment - 1)) == 0) {
+                wrapDirect(address, capacity, 0, memory);
+                return;
+            }
+        }
+        final ByteBuffer memory = ByteBuffer.allocateDirect(capacity + alignment - 1);
+        final long aligned = (ACCESS.address(memory) + alignment - 1) & -alignment;
         wrapDirect(aligned, capacity, 0, memory);
     }
 
@@ -589,8 +645,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
             throw new UnsupportedOperationException("Cannot grow this " + binding.name().toLowerCase() +
                     " buffer from capacity " + capacity + " to " + required);
         }
-        if (required > MAX_CAPACITY) {
-            throw new IllegalArgumentException("Capacity " + required + " exceeds the maximum " + MAX_CAPACITY);
+        if (required > maxCapacity(growthAlignment)) {
+            throw new IllegalArgumentException("Capacity " + required + " exceeds the maximum " +
+                    maxCapacity(growthAlignment));
         }
         grow(required);
     }
@@ -602,16 +659,17 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     private void grow(final long required) {
-        if (required > MAX_CAPACITY) {
+        final int maxCapacity = maxCapacity(growthAlignment);
+        if (required > maxCapacity) {
             return;//bounds check throws
         }
-        final int newCapacity = (int) Math.min(MAX_CAPACITY,
+        final int newCapacity = (int) Math.min(maxCapacity,
                 Math.max(required, Math.max(MIN_EXPANDED_CAPACITY, 2L * capacity)));
         if (heapBase == null) {
             final long oldAddress = addressOrOffset;
             final int oldCapacity = capacity;
             final Object oldOwner = owner;
-            wrapAllocatedDirect(newCapacity);
+            wrapAllocatedDirect(newCapacity, growthAlignment);
             ACCESS.copyMemory(null, oldAddress, null, addressOrOffset, oldCapacity);
             Reference.reachabilityFence(oldOwner);
         } else {

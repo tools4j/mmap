@@ -31,8 +31,10 @@ import org.tools4j.mmap.core.buffer.impl.MemoryBufferImpl;
  *     <li>{@link MemoryBinding#WRAPPABLE WRAPPABLE}: {@link #flyweight()}, wrapping any memory, as often as needed,
  *     without allocating</li>
  *     <li>{@link MemoryBinding#FIXED FIXED}: {@link #allocate(int)}, {@link #allocateDirect(int)},
- *     {@link #wrap(long[])}, {@link #wrap(long[], int, int)}, and {@link #EMPTY}</li>
- *     <li>{@link MemoryBinding#EXPANDABLE EXPANDABLE}: {@link #expandable(int)}, {@link #expandableDirect(int)}</li>
+ *     {@link #allocateDirect(int, int)}, {@link #wrap(long[])}, {@link #wrap(long[], int, int)}, and
+ *     {@link #EMPTY}</li>
+ *     <li>{@link MemoryBinding#EXPANDABLE EXPANDABLE}: {@link #expandable(int)}, {@link #expandableDirect(int)},
+ *     {@link #expandableDirect(int, int)}</li>
  * </ul>
  * <p>
  * All buffers are instances of one internal class, so that call sites using them stay monomorphic, whatever memory
@@ -112,14 +114,36 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates a {@linkplain MemoryBinding#FIXED fixed} direct buffer whose first byte is aligned to a cache line,
-     * freed by the garbage collector once the buffer is no longer referenced.
+     * Allocates a {@linkplain MemoryBinding#FIXED fixed} direct buffer whose first byte is aligned to 8 bytes, as
+     * ordered access to longs needs, freed by the garbage collector once the buffer is no longer referenced.
+     * <p>
+     * Allocates the capacity, since the system allocator aligns memory to 16 bytes on 64-bit platforms; otherwise it
+     * allocates again with 7 bytes more, leaving the first allocation to the garbage collector.
      *
      * @param capacity the capacity in bytes
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity) {
         return MemoryBufferImpl.allocateDirect(capacity);
+    }
+
+    /**
+     * Allocates a {@linkplain MemoryBinding#FIXED fixed} direct buffer whose first byte is aligned to the given
+     * alignment, e.g. to a cache line, so that padding keeps values written by different threads on different cache
+     * lines, or to a page, freed by the garbage collector once the buffer is no longer referenced.
+     * <p>
+     * Allocates {@code alignment - 1} bytes more than the capacity for an alignment above 16; up to 16, which the
+     * system allocator provides on 64-bit platforms, it allocates the capacity, and otherwise allocates again with
+     * {@code alignment - 1} bytes more, leaving the first allocation to the garbage collector.
+     *
+     * @param capacity the capacity in bytes
+     * @param alignment the alignment in bytes, a power of two and a multiple of 8, the alignment of all direct buffers
+     * @return the buffer, zeroed
+     * @throws IllegalArgumentException if the alignment is not a power of two and a multiple of 8, or the capacity is
+     *                                  negative or too large to allocate with the alignment
+     */
+    public static MutableMemoryBuffer allocateDirect(final int capacity, final int alignment) {
+        return MemoryBufferImpl.allocateDirect(capacity, alignment);
     }
 
     /**
@@ -134,13 +158,31 @@ public enum MemoryBuffers {
     }
 
     /**
-     * Allocates an {@linkplain MemoryBinding#EXPANDABLE expandable} direct buffer, growing on writes beyond its
-     * capacity; growing moves its memory, so flyweights wrapping it see the old memory.
+     * Allocates an {@linkplain MemoryBinding#EXPANDABLE expandable} direct buffer aligned to 8 bytes, also after
+     * growing, growing on writes beyond its capacity; growing moves its memory, so flyweights wrapping it see the old
+     * memory. Allocates like {@link #allocateDirect(int)}, initially and on each growth.
      *
      * @param initialCapacity the initial capacity in bytes
      * @return the buffer, zeroed
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity) {
         return MemoryBufferImpl.expandableDirect(initialCapacity);
+    }
+
+    /**
+     * Allocates an {@linkplain MemoryBinding#EXPANDABLE expandable} direct buffer whose first byte is aligned to the
+     * given alignment, also after growing, e.g. to a cache line, growing on writes beyond its capacity; growing moves
+     * its memory, so flyweights wrapping it see the old memory.
+     * <p>
+     * Allocates like {@link #allocateDirect(int, int)}, initially and on each growth.
+     *
+     * @param initialCapacity the initial capacity in bytes
+     * @param alignment the alignment in bytes, a power of two and a multiple of 8, the alignment of all direct buffers
+     * @return the buffer, zeroed
+     * @throws IllegalArgumentException if the alignment is not a power of two and a multiple of 8, or the initial
+     *                                  capacity is negative or too large to allocate with the alignment
+     */
+    public static MutableMemoryBuffer expandableDirect(final int initialCapacity, final int alignment) {
+        return MemoryBufferImpl.expandableDirect(initialCapacity, alignment);
     }
 }

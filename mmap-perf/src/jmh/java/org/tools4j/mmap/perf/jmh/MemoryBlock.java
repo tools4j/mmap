@@ -34,7 +34,7 @@ import java.nio.ByteBuffer;
  * buffers around.
  */
 final class MemoryBlock {
-    private static final int ALIGNMENT = 64;
+    static final int ALIGNMENT = 64;
 
     @SuppressWarnings({"unused", "FieldCanBeLocal"}) //keeps the direct memory reachable while buffers wrap it
     private final ByteBuffer directBuffer;

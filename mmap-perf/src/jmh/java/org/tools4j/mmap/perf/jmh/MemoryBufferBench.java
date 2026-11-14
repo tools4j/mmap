@@ -46,10 +46,14 @@ final class MemoryBufferBench implements BenchBuffer {
         return new MemoryBufferBench(flyweight, flyweight);
     }
 
-    /** Returns an expandable buffer with the given initial capacity, which cannot wrap other memory */
+    /**
+     * Returns an expandable buffer with the given initial capacity, which cannot wrap other memory; direct memory is
+     * aligned to a cache line, as the wrapped {@link MemoryBlock}s are, so that copies don't straddle more lines
+     */
     static MemoryBufferBench expandable(final BenchMemory kind, final int capacity) {
-        return new MemoryBufferBench(kind == BenchMemory.DIRECT ? MemoryBuffers.expandableDirect(capacity) :
-                MemoryBuffers.expandable(capacity), null);
+        final MutableMemoryBuffer buffer = kind == BenchMemory.DIRECT ?
+                MemoryBuffers.expandableDirect(capacity, MemoryBlock.ALIGNMENT) : MemoryBuffers.expandable(capacity);
+        return new MemoryBufferBench(buffer, null);
     }
 
     @Override
