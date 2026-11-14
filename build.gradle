@@ -582,8 +582,16 @@ project(':mmap-perf') {
         jmhAnnotationProcessor "org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}"
     }
 
-    tasks.named('compileJmhJava') {
-        javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(25) }
+    //the benchmarks use FFM, so they compile with Gradle's JDK from Java 22 on, also in check so that CI notices when
+    //they no longer compile, and with a Java 25 toolchain before
+    if (buildJavaVersion >= 22) {
+        tasks.named('check') {
+            dependsOn 'compileJmhJava'
+        }
+    } else {
+        tasks.named('compileJmhJava') {
+            javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(25) }
+        }
     }
 
     tasks.register('jmh', JavaExec) {
