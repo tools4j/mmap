@@ -23,15 +23,13 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
-
-import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
@@ -141,14 +139,15 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
         final FileMapper fileMapper;
         final int regionSize;
         final int ringMask;
-        final AtomicBuffer buffer;//header, then pos/addr pairs
+        final MutableMemoryBuffer buffer;//header, then pos/addr pairs
         final Timeout closeTimeout = new Timeout();
 
         AsyncUnmapper(final FileMapper fileMapper, final int regionSize, final int unmapCacheSize) {
             this.fileMapper = requireNonNull(fileMapper);
             this.regionSize = regionSize;
             this.ringMask = unmapCacheSize - 1;
-            this.buffer = new UnsafeBuffer(ByteBuffer.allocateDirect(HEADER_LENGTH + unmapCacheSize * RECORD_LENGTH));
+            this.buffer = MemoryBuffers.allocateDirect(HEADER_LENGTH + unmapCacheSize * RECORD_LENGTH,
+                    CACHE_LINE_LENGTH);
         }
 
         private int ringIndex(final int index) {
@@ -194,7 +193,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
             final long pos = buffer.getLong(offset);
             final long addr = buffer.getLong(offset + Long.BYTES);
             buffer.setMemory(offset, Long.BYTES + Long.BYTES, (byte)0);
-            buffer.putIntOrdered(CONSUMER_OFFSET, ixConsumerNew);
+            buffer.putIntRelease(CONSUMER_OFFSET, ixConsumerNew);
             fileMapper.unmap(pos, addr, regionSize);
             return 1;
         }
@@ -207,7 +206,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
                 final int offset = offset(ixProducer);
                 buffer.putLong(offset, position);
                 buffer.putLong(offset + Long.BYTES, address);
-                buffer.putIntOrdered(PRODUCER_OFFSET, ixProducerNew);
+                buffer.putIntRelease(PRODUCER_OFFSET, ixProducerNew);
                 return true;
             }
             return false;

@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
@@ -37,7 +37,6 @@ import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
-import static org.agrona.BufferUtil.allocateDirectAligned;
 import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
@@ -317,7 +316,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         static final int MAP_ADDRESS_OFFSET = 3;
         static final int VALUES_PER_RECORD = 4;
         static final int SHIFT_PER_RECORD = 2;
-        final AtomicBuffer ownershipPadded;
+        final MutableMemoryBuffer ownershipPadded;
         final long[] recordValues;
         final int indexMask;
         final int regionSizeShift;
@@ -326,7 +325,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         SharedState(final int aheadCache, final int regionSize) {
             validatePowerOfTwo("Ahead cache size", aheadCache);
             validatePowerOfTwo("Region size", regionSize);
-            ownershipPadded = new UnsafeBuffer(allocateDirectAligned(aheadCache * OWNERSHIP_ENTRY_LENGTH, CACHE_LINE_LENGTH));
+            ownershipPadded = MemoryBuffers.allocateDirect(aheadCache * OWNERSHIP_ENTRY_LENGTH, CACHE_LINE_LENGTH);
             recordValues = new long[aheadCache * VALUES_PER_RECORD];
             indexMask = aheadCache - 1;
             regionSizeShift = Integer.SIZE - Integer.numberOfLeadingZeros(regionSize - 1);
@@ -343,11 +342,11 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         }
 
         void assignToMapper(final int index) {
-            ownershipPadded.putIntOrdered(ownershipValueOffset(index), OWNED_BY_MAPPER);
+            ownershipPadded.putIntRelease(ownershipValueOffset(index), OWNED_BY_MAPPER);
         }
 
         void assignToRequester(final int index) {
-            ownershipPadded.putIntOrdered(ownershipValueOffset(index), OWNED_BY_REQUESTER);
+            ownershipPadded.putIntRelease(ownershipValueOffset(index), OWNED_BY_REQUESTER);
         }
 
         boolean isOwnedByMapper(final int index) {
