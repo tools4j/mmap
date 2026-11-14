@@ -13,277 +13,35 @@ Memory mapped files used to implement off-heap low latency utilities such as que
 The project has three library modules, and a benchmark:
 * **mmap-core**: the basic types shared by the other modules (closeables, error and lifecycle listeners, logging, idle
   strategies, configuration), and memory buffers over direct and heap memory, to replace
-  [Agrona](https://github.com/aeron-io/agrona)'s buffers in the other modules
+  [Agrona](https://github.com/aeron-io/agrona)'s buffers in the other modules; see
+  [Memory buffers](docs/memory-buffers.md)
 * **mmap-mapping**: memory-mapped file regions exposed as Agrona buffers, with region caching, files rolling over when
-  reaching a maximum size, and mapping/unmapping in a background thread
+  reaching a maximum size, and mapping/unmapping in a background thread; see [Mappings](docs/mappings.md)
 * **mmap-queue**: a persistent off-heap queue built on mmap-mapping, with concurrent appenders and any number of
-  pollers and readers
+  pollers and readers; see [Queues](docs/queues.md)
 * **mmap-perf**: a command line benchmark comparing the latency of the mmap queue with Chronicle Queue, and (from
-  source, not published) microbenchmarks of the memory buffers, see [Benchmarks](#benchmarks)
+  source, not published) microbenchmarks of the memory buffers, see [Benchmarks](docs/benchmarks.md)
 
-### Memory buffers
-Package `org.tools4j.mmap.core.buffer` contains the memory buffers, with `MemoryBuffers` as the entry point:
-flyweights wrapping direct memory, byte buffers and arrays, and buffers allocated with fixed or expandable capacity.
-Values are little endian unless another byte order is given, and all accesses are bounds checked. Ordered and atomic
-accesses (`putLongRelease`, `getLongAcquire`, `compareAndSetLong`, ...) are supported on direct memory and on heap
-memory backed by a `long[]`, at naturally aligned positions.
-
-Memory is accessed through `jdk.internal.misc.Unsafe` by default, or, with `-Dmmap.core.memoryAccess=FFM`, through
-the Foreign Function and Memory API on Java 22 or later, with `--enable-native-access=ALL-UNNAMED` to avoid a
-warning, and `--add-opens=java.base/java.nio=ALL-UNNAMED` to access byte buffers without allocating.
-Configuration shared by all modules, such as the default error listener (`mmap.core.errorListener`), is in
-`org.tools4j.mmap.core.config.CoreConfigurations`.
-
-### Mappings
-Package `org.tools4j.mmap.mapping.api` contains the mapping types and the `Mappings` factory, the main entry point.
-Configuration is in `org.tools4j.mmap.mapping.config`. The low-level mapping engine in
-`org.tools4j.mmap.mapping.unsafe` is not intended for use by application code.
-
-Main classes:
-* `Mappings`: factory methods for all mapping types and mapping pools
-* `Mapping`: a block of a file mapped into memory, accessed via its `buffer()`, an Agrona `AtomicBuffer`
-* `FixedMapping`: a mapping with fixed start and end position
-* `RegionMapping`: a mapping of exactly one region, moved region by region
-* `ElasticMapping`: a mapping that can be moved to any position, its buffer spans to the end of the region
-* `AdaptiveMapping`: a mapping that can be moved to any position with an explicit length within a region
-* `MappingPool`: provides many mappings of the same file that share the underlying mapped regions
-* `OpenMode`: how a file is opened: read-only (optionally before it exists), read/write, create, open or create,
-  or recreate
-* `MappingConfig` and `MappingStrategyConfig`: file size, rolling files, region size, region caching and async
-  mapping/unmapping; defaults can be set via system properties
-
-#### Concurrent Access
-Mappings and mapping pools are not thread-safe: each thread needs its own mappings, or its own pool. The mapped
-memory itself is shared, however, and the mapping's `AtomicBuffer` supports CAS and memory ordering operations, for
-`long` and `int` values:
-* CAS: `compareAndSetLong`, `getAndAddLong`, ...
-* Memory ordering: `putLongRelease`, `getLongAcquire`, `putLongVolatile`, `getLongVolatile`, ...
-
-Atomic operations require naturally aligned file positions, e.g. a multiple of 8 for `long` values. Threads, and also
-processes, can hence coordinate through their own mappings of the same file, as the queue does when appenders claim
-the next entry.
-
-#### Quick example
+### Quick start
+Map a block of a file and write to it, through the mapping's buffer:
 ```java
-File file = new File("/tmp/fixed.map");
-
-//FixedMapping: maps a fixed slice of the file, here the first 64 bytes
-try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0, 64)) {
+try (FixedMapping mapping = Mappings.fixedMapping(new File("/tmp/fixed.map"), OpenMode.OPEN_OR_CREATE, 0, 64)) {
     mapping.buffer().putInt(0, 42);
-    mapping.buffer().putInt(60, 43);
-}
-
-//without length, the mapping spans from the offset to the end of the file
-try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 60)) {
-    int available = mapping.bytesAvailable();//4
-    int value = mapping.buffer().getInt(0);//43
 }
 ```
-Dynamic mappings can be moved within a file, mapping regions of the file on demand:
-```java
-File file = new File("/tmp/data.map");
-
-//RegionMapping: exposes a whole region of the file and is moved region by region
-try (RegionMapping mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE)) {
-    for (int region = 0; region < 3; region++) {
-        mapping.moveToRegion(region);
-        mapping.buffer().putInt(0, 100 * region);
-        mapping.buffer().putInt(4, 100 * region + 1);
-    }
-}
-
-//ElasticMapping: can be moved to any position, its buffer spans to the end of the region
-try (ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.READ_ONLY)) {
-    mapping.moveTo(2L * mapping.regionSize());
-    int value = mapping.buffer().getInt(0);//200
-    mapping.moveBy(4);
-    value = mapping.buffer().getInt(0);//201
-}
-
-//AdaptiveMapping: maps an arbitrary slice of the underlying file from one region
-try (AdaptiveMapping mapping = Mappings.adaptiveMapping(file, OpenMode.READ_ONLY)) {
-    int readLength = 8;
-    mapping.moveTo(2L * mapping.regionSize(), readLength);//buffer capped at size 8
-    int first = mapping.buffer().getInt(0);//200
-    int second = mapping.buffer().getInt(4);//201
-}
-
-//MappingPool: mappings from the same pool share mapped regions (one pool per thread)
-try (MappingPool pool = Mappings.mappingPool(file, OpenMode.READ_ONLY)) {
-    ElasticMapping elastic = pool.acquireElasticMapping();
-    AdaptiveMapping adaptive = pool.acquireAdaptiveMapping();
-    elastic.moveToFirstRegion();
-    adaptive.moveTo(4, Integer.BYTES);
-    int first = elastic.buffer().getInt(0);//0
-    int second = adaptive.buffer().getInt(0);//1
-}
-```
-Rolling files with async mapping, i.e. regions mapped ahead in a background thread for sequential access:
-```java
-//roll file every 1MB, map regions ahead in a background thread when accessed sequentially
-MappingConfig config = MappingConfig.configure()
-        .rollFiles(true)
-        .maxFileSize(1 << 20)
-        .maxOpenFiles(4)
-        .regionSize(1 << 16)
-        .mappingStrategy(cfg -> cfg.asyncMapping(true));
-File file = new File("/tmp/rolling.map");//creates rolling_0.map, rolling_1.map, ...
-
-try (var mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, config)) {
-    for (int region = 0; region < 64; region++) {
-        mapping.moveToRegion(region);
-        mapping.buffer().putInt(0, region);
-    }
-}
-try (var mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY, config)) {
-    mapping.moveToRegion(63);
-    int value = mapping.buffer().getInt(0);//63
-}
-```
-The full example is in
-[MappingIntroTest](mmap-mapping/src/test/java/org/tools4j/mmap/mapping/api/MappingIntroTest.java).
-
-### Queues
-Package `org.tools4j.mmap.queue.api` contains the queue types, with `Queue.open(..)` as the main entry point.
-Configuration is in `org.tools4j.mmap.queue.config`.
-
-Main classes:
-* `Queue`: a queue stored in a directory, opened as defined by an `OpenMode`; creates appenders, pollers and readers,
-  and closes them when it is closed
-* `Appender`: appends entries from a byte array or buffer, or zero-copy via `appending(..)` and `AppendingContext`;
-  multiple appenders can append to the same queue concurrently
-* `Poller`: sequential retrieval of entries via `EntryHandler` callback, which returns how to move to the next entry
-  (see `Move`)
-* `EntryReader`: random access to entries by index
-* `EntryIterator`: iteration over entries from a start index, forward, backward or continuously (also returning
-  entries appended later, like a continuous query)
-* `IndexReader`: first and last index, and number of entries
-* `QueueConfig`, `AppenderConfig`, `ReaderConfig` and `IndexReaderConfig`: configuration of the queue, appenders and
-  readers; defaults can be set via system properties
-
-#### Concurrent Access
-Appenders, pollers and readers are not thread-safe: each thread needs its own instances. Multiple appenders can
-append to the same queue concurrently, and pollers and readers can read the queue while entries are being appended.
-
-#### Quick example
+Append to a queue and poll its entries:
 ```java
 try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
-
-    //append: copy from a byte array or buffer, or encode in place (zero-copy) and commit
-    Appender appender = queue.createAppender();
-    appender.append("Hello".getBytes(StandardCharsets.US_ASCII));
-    try (AppendingContext context = appender.appending(64)) {
-        int length = context.buffer().putStringWithoutLengthAscii(0, "World");
-        context.commit(length);
-    }
-
-    //poll: sequential retrieval via callback, the returned move determines the next entry
+    queue.createAppender().append("Hello".getBytes(StandardCharsets.US_ASCII));
     Poller poller = queue.createPoller();
     while (poller.poll((index, buffer, offset, len) -> {
-        //print: 0:Hello, 1:World
-        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, len));
+        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, len));//0:Hello
         return Move.NEXT;
     }) > 0);
-
-    //read: random access by index
-    EntryReader reader = queue.createEntryReader();
-    try (ReadingContext entry = reader.reading(1)) {
-        if (entry.hasEntry()) {
-            DirectBuffer buffer = entry.buffer();//World
-        }
-    }
-
-    //iterate: forward, backward or continuously from a start index
-    EntryIterator iterator = queue.createEntryIterator();
-    try (IterableContext entries = iterator.readingFromLast().backward()) {
-        for (Entry entry : entries) {
-            DirectBuffer buffer = entry.buffer();//World, Hello
-        }
-    }
-
-    //index: first and last index, size
-    IndexReader indexReader = queue.createIndexReader();
-    long first = indexReader.firstIndex();//0
-    long last = indexReader.lastIndex();//1
-    long size = indexReader.size();//2
 }
 ```
-The full example is in
-[QueueIntroTest](mmap-queue/src/test/java/org/tools4j/mmap/queue/api/QueueIntroTest.java).
-
-### Benchmarks
-The `mmap-perf` module is a command line benchmark measuring the latency from appending an entry to polling it, with
-concurrent senders and receivers. It runs the mmap queue or [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue)
-through the same harness, so you can compare them on your own machine.
-
-Download the distribution `mmap-perf-<version>.zip` from Maven Central (next to the jar of `org.tools4j:mmap-perf`,
-e.g. `mvn dependency:copy -Dartifact=org.tools4j:mmap-perf:<version>:zip -DoutputDirectory=.`) and unzip it, or build
-it (from the project root):
-```
-./gradlew :mmap-perf:installDist
-```
-This puts `mmap-perf.jar` and its dependencies into `mmap-perf/build/install/mmap-perf/lib` (`lib` in the unzipped
-distribution); the directory can be copied to another machine. Chronicle Queue is included in the distribution, but
-optional when using `mmap-perf` as a dependency. Run it with Java 17 or later:
-```
-java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --help
-java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap
-java -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue chronicle
-```
-Alternatively use the start script `mmap-perf/build/install/mmap-perf/bin/mmap-perf` (`mmap-perf.bat` on Windows), or
-`./gradlew :mmap-perf:run --args='--queue mmap'`. Without options, `mmap-perf` prints its usage; `--queue mmap` runs it
-with all defaults.
-
-By default, one sender sends 11 million messages of 100 bytes at 1 million messages per second to two receivers, and
-the latency percentiles of each receiver are printed after the first million (warmup) messages. Main options:
-
-| Option                          | Description                                                  | Default            |
-|---------------------------------|--------------------------------------------------------------|--------------------|
-| `--queue mmap\|chronicle`       | queue implementation                                         | `mmap`             |
-| `--messages <n>`                | messages per sender, including warmup                        | `11m`              |
-| `--warmup <n>`                  | warmup messages per sender, not measured                     | `1m`               |
-| `--rate <n>`                    | messages per second per sender, `0` for max speed            | `1m`               |
-| `--length <n>`                  | message length in bytes                                      | `100`              |
-| `--senders <n>`                 | sender threads                                               | `1`                |
-| `--receivers <n>`               | receiver threads, each receiving all messages                | `2`                |
-| `--dir <path>`                  | parent directory of the temporary queue files                | `java.io.tmpdir`   |
-| `--pin [<cpus>]`                | pin senders, receivers, then mapper threads to CPUs, one each | unpinned; `2-`    |
-| `--strategy <name>`             | mmap mapping strategy, e.g. `AsyncMapAheadStrategy`          | per accessor kind  |
-| `--map-ahead <n>`               | mmap regions to map ahead (async mapping strategies only)    | `4`                |
-| `--reader poller\|iterator`     | mmap only: receivers use a poller or continuous iterator     | `poller`           |
-| `--prefill <mode>`              | mmap only: prefill `none`, `header`, `payload` or `both`     | `none`             |
-
-Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`), e.g.
-`java -Dmmap.queue.pollerHeaderRegionCacheSize=4 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap`.
-
-To compare the mmap queue before and after a change, `mmap-perf/perf-baseline.sh run` (from source) runs a fixed set
-of scenarios several times and summarises them; `mmap-perf/perf-baseline.sh compare <before> <after>` prints two runs
-side by side, and `compare <before>... -- <after>...` pools several runs per side, so that the spread between runs
-shows how large a change must be to be real. Without arguments it prints its usage.
-
-Notes:
-* Results depend heavily on the machine: for stable numbers use a quiet machine (or isolated cores), a fast local disk
-  or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
-* `--pin` assigns one CPU per thread from the given CPU list (e.g. `2-7` or `2,4,6,8`; without a list from CPU 2 up to
-  the highest online CPU, leaving CPUs 0 and 1 to the OS and other processes), first to the senders, then to the
-  receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux (x86_64 and
-  aarch64) only; elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
-  latencies.
-
-#### Microbenchmarks
-`mmap-perf` also contains [JMH](https://github.com/openjdk/jmh) microbenchmarks of the library's internals, e.g. the
-memory buffers compared with Agrona's `UnsafeBuffer`, Chronicle Bytes, Netty's `ByteBuf` and the JDK's `ByteBuffer`.
-They are not published; run them from source, with Gradle on Java 22 or later (for the memory access through FFM):
-```
-./gradlew :mmap-perf:jmh -Pjmh='BufferLoopBenchmark -f 1 -p implementation=MEMORY_BUFFER_UNSAFE,AGRONA'
-mmap-perf/jmh-matrix.sh run --with all
-mmap-perf/jmh-matrix.sh run --with agrona readLongsAcquire writeLongsRelease
-```
-`-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh run` runs all buffer
-benchmarks, or only those named, and prints one table. It measures the memory buffers with Unsafe, and adds other
-implementations with `--with`: the memory buffers without the alignment check of ordered accesses or with FFM,
-Agrona, Chronicle, Netty with and without Unsafe, the fastest prototype of the earlier benchmarks, the JDK's
-`ByteBuffer`, or all. Without arguments it prints its usage.
+More in [Mappings](docs/mappings.md), [Queues](docs/queues.md), [Memory buffers](docs/memory-buffers.md) and
+[Benchmarks](docs/benchmarks.md).
 
 ### Maven/Gradle
 
