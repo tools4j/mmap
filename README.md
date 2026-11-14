@@ -256,6 +256,11 @@ the latency percentiles of each receiver are printed after the first million (wa
 Run `--help` for all options. Other mmap settings can be passed as system properties (see `QueueConfigurations`), e.g.
 `java -Dmmap.queue.pollerHeaderRegionCacheSize=4 -jar mmap-perf/build/install/mmap-perf/lib/mmap-perf.jar --queue mmap`.
 
+To compare the mmap queue before and after a change, `mmap-perf/perf-baseline.sh run` (from source) runs a fixed set
+of scenarios several times and summarises them; `mmap-perf/perf-baseline.sh compare <before> <after>` prints two runs
+side by side, and `compare <before>... -- <after>...` pools several runs per side, so that the spread between runs
+shows how large a change must be to be real. Without arguments it prints its usage.
+
 Notes:
 * Results depend heavily on the machine: for stable numbers use a quiet machine (or isolated cores), a fast local disk
   or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
