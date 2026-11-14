@@ -10,3 +10,4 @@
 *.iml
 classes
 CLAUDE.md
+/mmap-perf/results

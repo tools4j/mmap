@@ -18,8 +18,8 @@ The project has three library modules, and a benchmark:
   reaching a maximum size, and mapping/unmapping in a background thread
 * **mmap-queue**: a persistent off-heap queue built on mmap-mapping, with concurrent appenders and any number of
   pollers and readers
-* **mmap-perf**: a command line benchmark comparing the latency of the mmap queue with Chronicle Queue, see
-  [Benchmarks](#benchmarks)
+* **mmap-perf**: a command line benchmark comparing the latency of the mmap queue with Chronicle Queue, and (from
+  source, not published) microbenchmarks of the memory buffers, see [Benchmarks](#benchmarks)
 
 ### Memory buffers
 Package `org.tools4j.mmap.core.buffer` contains the memory buffers, with `MemoryBuffers` as the entry point:
@@ -264,6 +264,21 @@ Notes:
   receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux (x86_64 and
   aarch64) only; elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
   latencies.
+
+#### Microbenchmarks
+`mmap-perf` also contains [JMH](https://github.com/openjdk/jmh) microbenchmarks of the library's internals, e.g. the
+memory buffers compared with Agrona's `UnsafeBuffer`, Chronicle Bytes, Netty's `ByteBuf` and the JDK's `ByteBuffer`.
+They are not published; run them from source, with Gradle on Java 22 or later (for the memory access through FFM):
+```
+./gradlew :mmap-perf:jmh -Pjmh='BufferLoopBenchmark -f 1 -p implementation=MEMORY_BUFFER_UNSAFE,AGRONA'
+mmap-perf/jmh-matrix.sh run --with all
+mmap-perf/jmh-matrix.sh run --with agrona readLongsAcquire writeLongsRelease
+```
+`-Pjmh` takes the JMH command line arguments (`-Pjmh='-h'` lists them). `jmh-matrix.sh run` runs all buffer
+benchmarks, or only those named, and prints one table. It measures the memory buffers with Unsafe, and adds other
+implementations with `--with`: the memory buffers without the alignment check of ordered accesses or with FFM,
+Agrona, Chronicle, Netty with and without Unsafe, the fastest prototype of the earlier benchmarks, the JDK's
+`ByteBuffer`, or all. Without arguments it prints its usage.
 
 ### Maven/Gradle
 
