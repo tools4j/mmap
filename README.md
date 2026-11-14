@@ -10,11 +10,29 @@
 ## tools4j/mmap
 Memory mapped files used to implement off-heap low latency utilities such as queues.
 
-The project has two modules:
-* **mmap-mapping**: memory-mapped file regions exposed as [Agrona](https://github.com/aeron-io/agrona) buffers, with
-  region caching, files rolling over when reaching a maximum size, and mapping/unmapping in a background thread
+The project has three library modules, and a benchmark:
+* **mmap-core**: the basic types shared by the other modules (closeables, error and lifecycle listeners, logging, idle
+  strategies, configuration), and memory buffers over direct and heap memory, to replace
+  [Agrona](https://github.com/aeron-io/agrona)'s buffers in the other modules
+* **mmap-mapping**: memory-mapped file regions exposed as Agrona buffers, with region caching, files rolling over when
+  reaching a maximum size, and mapping/unmapping in a background thread
 * **mmap-queue**: a persistent off-heap queue built on mmap-mapping, with concurrent appenders and any number of
   pollers and readers
+* **mmap-perf**: a command line benchmark comparing the latency of the mmap queue with Chronicle Queue, see
+  [Benchmarks](#benchmarks)
+
+### Memory buffers
+Package `org.tools4j.mmap.core.buffer` contains the memory buffers, with `MemoryBuffers` as the entry point:
+flyweights wrapping direct memory, byte buffers and arrays, and buffers allocated with fixed or expandable capacity.
+Values are little endian unless another byte order is given, and all accesses are bounds checked. Ordered and atomic
+accesses (`putLongRelease`, `getLongAcquire`, `compareAndSetLong`, ...) are supported on direct memory and on heap
+memory backed by a `long[]`, at naturally aligned positions.
+
+Memory is accessed through `jdk.internal.misc.Unsafe` by default, or, with `-Dmmap.core.memoryAccess=FFM`, through
+the Foreign Function and Memory API on Java 22 or later, with `--enable-native-access=ALL-UNNAMED` to avoid a
+warning, and `--add-opens=java.base/java.nio=ALL-UNNAMED` to access byte buffers without allocating.
+Configuration shared by all modules, such as the default error listener (`mmap.core.errorListener`), is in
+`org.tools4j.mmap.core.config.CoreConfigurations`.
 
 ### Mappings
 Package `org.tools4j.mmap.mapping.api` contains the mapping types and the `Mappings` factory, the main entry point.
@@ -254,7 +272,8 @@ Requires Java 17 or later, and the following JVM options:
 --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
 --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED
 ```
-`mmap-queue` includes `mmap-mapping`; use `mmap-mapping` alone if you only need mappings.
+`mmap-queue` includes `mmap-mapping`, which includes `mmap-core`; use `mmap-mapping` alone if you only need
+mappings, or `mmap-core` alone for the memory buffers.
 
 #### Maven
 ```xml

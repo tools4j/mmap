@@ -5,8 +5,6 @@ Notable changes per release. Entries are curated from the commits since the prev
 
 ## 3.0 (unreleased)
 
-## 2.1 (2026-11-14)
-
 ### Breaking changes
 - The basic types `Closeable`, `Describable`, `ErrorListener` and `LifecycleListener` moved from
   `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.base`, the `@Unsafe` annotation to
@@ -28,6 +26,21 @@ Notable changes per release. Entries are curated from the commits since the prev
   `mmap.mapping.async.unmappingRuntimeIdler`, accepting `NO_OP`, `BUSY_SPIN`, `YIELDING` or `BACKOFF` (the default)
   besides class names, and `MappingConfigurations.default(Un)mappingRuntimeIdleStrategySupplier()` to
   `default(Un)mappingRuntimeIdlerSupplier()`.
+
+### Added
+- Memory buffers in `mmap-core` (`org.tools4j.mmap.core.buffer`, entry point `MemoryBuffers`), to replace Agrona's
+  buffers: flyweights wrapping direct memory, byte buffers and arrays, and buffers of fixed or expandable capacity,
+  little endian and bounds checked, with ordered and atomic access on direct memory and `long[]`-backed heap memory.
+  Memory is accessed through `jdk.internal.misc.Unsafe`, or with `-Dmmap.core.memoryAccess=FFM` through the Foreign
+  Function and Memory API on Java 22 or later; the alignment check of ordered accesses can be disabled with
+  `-Dmmap.core.alignmentCheck=false`.
+- Queues can log lifecycle events differently from the mapping module, with the system property
+  `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
+  set.
+
+## 2.1 (2026-11-14)
+
+### Breaking changes
 - Pollers and entry iterators no longer idle while the queue or its first entry does not exist yet; idling is left to
   the application's poll or iteration loop. Removed `ReaderConfigurator.pendingIdleStrategy(..)`,
   `pendingQueueIdleStrategy(..)` and `pendingDataIdleStrategy(..)`, the corresponding `ReaderConfig` getters, and the
@@ -43,9 +56,6 @@ Notable changes per release. Entries are curated from the commits since the prev
   `FileInitialiser` are removed, and `FileMappers.create(..)` takes the initialiser from the config.
 
 ### Added
-- Queues can log lifecycle events differently from the mapping module, with the system property
-  `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
-  set.
 - Appenders can prefill new space of header and payload files, reserving the disk space so that appending cannot
   fault on a full disk: `AppenderConfigurator.prefillFiles(..)`, `prefillHeaderFiles(..)` and `prefillPayloadFiles(..)`,
   or the system properties `mmap.queue.appenderPrefillHeaderFiles` and `mmap.queue.appenderPrefillPayloadFiles`
