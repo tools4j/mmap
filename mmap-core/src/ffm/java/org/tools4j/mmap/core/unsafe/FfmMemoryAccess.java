@@ -104,8 +104,8 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     /**
-     * Segment of direct or long[] memory, or of a heap byte buffer without array: byte[] memory never reaches the
-     * methods using it.
+     * Segment of direct memory for a null base, else of long[] memory or of a heap byte buffer without array: a
+     * byte[] base goes to the byte[] overloads, or to copy and set memory, which check for it.
      */
     private static MemorySegment segment(final Object base) {
         return base == null ? ALL : (MemorySegment) base;
@@ -195,105 +195,188 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public byte getByte(final long address) {
+        return (byte) BYTE.get(ALL, address);
+    }
+
+    @Override
     public byte getByte(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return array[(int) offset];
-        }
         return (byte) BYTE.get(segment(base), offset);
     }
 
     @Override
+    public byte getByte(final byte[] base, final long offset) {
+        return base[(int) offset];
+    }
+
+    @Override
+    public void putByte(final long address, final byte value) {
+        BYTE.set(ALL, address, value);
+    }
+
+    @Override
     public void putByte(final Object base, final long offset, final byte value) {
-        if (base instanceof byte[] array) {
-            array[(int) offset] = value;
-        } else {
-            BYTE.set(segment(base), offset, value);
-        }
+        BYTE.set(segment(base), offset, value);
+    }
+
+    @Override
+    public void putByte(final byte[] base, final long offset, final byte value) {
+        base[(int) offset] = value;
+    }
+
+    @Override
+    public short getShort(final long address) {
+        return (short) SHORT_UNALIGNED.get(ALL, address);
     }
 
     @Override
     public short getShort(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return (short) BYTES_AS_SHORT.get(array, (int) offset);
-        }
         return (short) SHORT_UNALIGNED.get(segment(base), offset);
     }
 
     @Override
+    public short getShort(final byte[] base, final long offset) {
+        return (short) BYTES_AS_SHORT.get(base, (int) offset);
+    }
+
+    @Override
+    public void putShort(final long address, final short value) {
+        SHORT_UNALIGNED.set(ALL, address, value);
+    }
+
+    @Override
     public void putShort(final Object base, final long offset, final short value) {
-        if (base instanceof byte[] array) {
-            BYTES_AS_SHORT.set(array, (int) offset, value);
-        } else {
-            SHORT_UNALIGNED.set(segment(base), offset, value);
-        }
+        SHORT_UNALIGNED.set(segment(base), offset, value);
+    }
+
+    @Override
+    public void putShort(final byte[] base, final long offset, final short value) {
+        BYTES_AS_SHORT.set(base, (int) offset, value);
+    }
+
+    @Override
+    public char getChar(final long address) {
+        return (char) CHAR_UNALIGNED.get(ALL, address);
     }
 
     @Override
     public char getChar(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return (char) BYTES_AS_CHAR.get(array, (int) offset);
-        }
         return (char) CHAR_UNALIGNED.get(segment(base), offset);
     }
 
     @Override
+    public char getChar(final byte[] base, final long offset) {
+        return (char) BYTES_AS_CHAR.get(base, (int) offset);
+    }
+
+    @Override
+    public void putChar(final long address, final char value) {
+        CHAR_UNALIGNED.set(ALL, address, value);
+    }
+
+    @Override
     public void putChar(final Object base, final long offset, final char value) {
-        if (base instanceof byte[] array) {
-            BYTES_AS_CHAR.set(array, (int) offset, value);
-        } else {
-            CHAR_UNALIGNED.set(segment(base), offset, value);
-        }
+        CHAR_UNALIGNED.set(segment(base), offset, value);
+    }
+
+    @Override
+    public void putChar(final byte[] base, final long offset, final char value) {
+        BYTES_AS_CHAR.set(base, (int) offset, value);
+    }
+
+    @Override
+    public int getInt(final long address) {
+        return (int) INT_UNALIGNED.get(ALL, address);
     }
 
     @Override
     public int getInt(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return (int) BYTES_AS_INT.get(array, (int) offset);
-        }
         return (int) INT_UNALIGNED.get(segment(base), offset);
     }
 
     @Override
+    public int getInt(final byte[] base, final long offset) {
+        return (int) BYTES_AS_INT.get(base, (int) offset);
+    }
+
+    @Override
+    public void putInt(final long address, final int value) {
+        INT_UNALIGNED.set(ALL, address, value);
+    }
+
+    @Override
     public void putInt(final Object base, final long offset, final int value) {
-        if (base instanceof byte[] array) {
-            BYTES_AS_INT.set(array, (int) offset, value);
-        } else {
-            INT_UNALIGNED.set(segment(base), offset, value);
-        }
+        INT_UNALIGNED.set(segment(base), offset, value);
+    }
+
+    @Override
+    public void putInt(final byte[] base, final long offset, final int value) {
+        BYTES_AS_INT.set(base, (int) offset, value);
+    }
+
+    @Override
+    public long getLong(final long address) {
+        return (long) LONG_UNALIGNED.get(ALL, address);
     }
 
     @Override
     public long getLong(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return (long) BYTES_AS_LONG.get(array, (int) offset);
-        }
         return (long) LONG_UNALIGNED.get(segment(base), offset);
     }
 
     @Override
+    public long getLong(final byte[] base, final long offset) {
+        return (long) BYTES_AS_LONG.get(base, (int) offset);
+    }
+
+    @Override
+    public void putLong(final long address, final long value) {
+        LONG_UNALIGNED.set(ALL, address, value);
+    }
+
+    @Override
     public void putLong(final Object base, final long offset, final long value) {
-        if (base instanceof byte[] array) {
-            BYTES_AS_LONG.set(array, (int) offset, value);
-        } else {
-            LONG_UNALIGNED.set(segment(base), offset, value);
-        }
+        LONG_UNALIGNED.set(segment(base), offset, value);
+    }
+
+    @Override
+    public void putLong(final byte[] base, final long offset, final long value) {
+        BYTES_AS_LONG.set(base, (int) offset, value);
+    }
+
+    @Override
+    public byte getByteVolatile(final long address) {
+        return (byte) BYTE.getVolatile(ALL, address);
     }
 
     @Override
     public byte getByteVolatile(final Object base, final long offset) {
-        if (base instanceof byte[] array) {
-            return (byte) BYTES.getVolatile(array, (int) offset);
-        }
         return (byte) BYTE.getVolatile(segment(base), offset);
     }
 
     @Override
+    public byte getByteVolatile(final byte[] base, final long offset) {
+        return (byte) BYTES.getVolatile(base, (int) offset);
+    }
+
+    @Override
+    public void putByteVolatile(final long address, final byte value) {
+        BYTE.setVolatile(ALL, address, value);
+    }
+
+    @Override
     public void putByteVolatile(final Object base, final long offset, final byte value) {
-        if (base instanceof byte[] array) {
-            BYTES.setVolatile(array, (int) offset, value);
-        } else {
-            BYTE.setVolatile(segment(base), offset, value);
-        }
+        BYTE.setVolatile(segment(base), offset, value);
+    }
+
+    @Override
+    public void putByteVolatile(final byte[] base, final long offset, final byte value) {
+        BYTES.setVolatile(base, (int) offset, value);
+    }
+
+    @Override
+    public short getShortVolatile(final long address) {
+        return (short) SHORT.getVolatile(ALL, address);
     }
 
     @Override
@@ -302,8 +385,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putShortVolatile(final long address, final short value) {
+        SHORT.setVolatile(ALL, address, value);
+    }
+
+    @Override
     public void putShortVolatile(final Object base, final long offset, final short value) {
         SHORT.setVolatile(segment(base), offset, value);
+    }
+
+    @Override
+    public char getCharVolatile(final long address) {
+        return (char) CHAR.getVolatile(ALL, address);
     }
 
     @Override
@@ -312,8 +405,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putCharVolatile(final long address, final char value) {
+        CHAR.setVolatile(ALL, address, value);
+    }
+
+    @Override
     public void putCharVolatile(final Object base, final long offset, final char value) {
         CHAR.setVolatile(segment(base), offset, value);
+    }
+
+    @Override
+    public int getIntOpaque(final long address) {
+        return (int) INT.getOpaque(ALL, address);
     }
 
     @Override
@@ -322,8 +425,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public int getIntAcquire(final long address) {
+        return (int) INT.getAcquire(ALL, address);
+    }
+
+    @Override
     public int getIntAcquire(final Object base, final long offset) {
         return (int) INT.getAcquire(segment(base), offset);
+    }
+
+    @Override
+    public int getIntVolatile(final long address) {
+        return (int) INT.getVolatile(ALL, address);
     }
 
     @Override
@@ -332,8 +445,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putIntOpaque(final long address, final int value) {
+        INT.setOpaque(ALL, address, value);
+    }
+
+    @Override
     public void putIntOpaque(final Object base, final long offset, final int value) {
         INT.setOpaque(segment(base), offset, value);
+    }
+
+    @Override
+    public void putIntRelease(final long address, final int value) {
+        INT.setRelease(ALL, address, value);
     }
 
     @Override
@@ -342,8 +465,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putIntVolatile(final long address, final int value) {
+        INT.setVolatile(ALL, address, value);
+    }
+
+    @Override
     public void putIntVolatile(final Object base, final long offset, final int value) {
         INT.setVolatile(segment(base), offset, value);
+    }
+
+    @Override
+    public boolean compareAndSetInt(final long address, final int expected, final int update) {
+        return INT.compareAndSet(ALL, address, expected, update);
     }
 
     @Override
@@ -352,8 +485,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public int compareAndExchangeInt(final long address, final int expected, final int update) {
+        return (int) INT.compareAndExchange(ALL, address, expected, update);
+    }
+
+    @Override
     public int compareAndExchangeInt(final Object base, final long offset, final int expected, final int update) {
         return (int) INT.compareAndExchange(segment(base), offset, expected, update);
+    }
+
+    @Override
+    public int getAndAddInt(final long address, final int delta) {
+        return (int) INT.getAndAdd(ALL, address, delta);
     }
 
     @Override
@@ -362,8 +505,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public int getAndSetInt(final long address, final int value) {
+        return (int) INT.getAndSet(ALL, address, value);
+    }
+
+    @Override
     public int getAndSetInt(final Object base, final long offset, final int value) {
         return (int) INT.getAndSet(segment(base), offset, value);
+    }
+
+    @Override
+    public long getLongOpaque(final long address) {
+        return (long) LONG.getOpaque(ALL, address);
     }
 
     @Override
@@ -372,8 +525,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public long getLongAcquire(final long address) {
+        return (long) LONG.getAcquire(ALL, address);
+    }
+
+    @Override
     public long getLongAcquire(final Object base, final long offset) {
         return (long) LONG.getAcquire(segment(base), offset);
+    }
+
+    @Override
+    public long getLongVolatile(final long address) {
+        return (long) LONG.getVolatile(ALL, address);
     }
 
     @Override
@@ -382,8 +545,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putLongOpaque(final long address, final long value) {
+        LONG.setOpaque(ALL, address, value);
+    }
+
+    @Override
     public void putLongOpaque(final Object base, final long offset, final long value) {
         LONG.setOpaque(segment(base), offset, value);
+    }
+
+    @Override
+    public void putLongRelease(final long address, final long value) {
+        LONG.setRelease(ALL, address, value);
     }
 
     @Override
@@ -392,8 +565,18 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public void putLongVolatile(final long address, final long value) {
+        LONG.setVolatile(ALL, address, value);
+    }
+
+    @Override
     public void putLongVolatile(final Object base, final long offset, final long value) {
         LONG.setVolatile(segment(base), offset, value);
+    }
+
+    @Override
+    public boolean compareAndSetLong(final long address, final long expected, final long update) {
+        return LONG.compareAndSet(ALL, address, expected, update);
     }
 
     @Override
@@ -402,13 +585,28 @@ public enum FfmMemoryAccess implements MemoryAccess, Describable {
     }
 
     @Override
+    public long compareAndExchangeLong(final long address, final long expected, final long update) {
+        return (long) LONG.compareAndExchange(ALL, address, expected, update);
+    }
+
+    @Override
     public long compareAndExchangeLong(final Object base, final long offset, final long expected, final long update) {
         return (long) LONG.compareAndExchange(segment(base), offset, expected, update);
     }
 
     @Override
+    public long getAndAddLong(final long address, final long delta) {
+        return (long) LONG.getAndAdd(ALL, address, delta);
+    }
+
+    @Override
     public long getAndAddLong(final Object base, final long offset, final long delta) {
         return (long) LONG.getAndAdd(segment(base), offset, delta);
+    }
+
+    @Override
+    public long getAndSetLong(final long address, final long value) {
+        return (long) LONG.getAndSet(ALL, address, value);
     }
 
     @Override
