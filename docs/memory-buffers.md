@@ -38,6 +38,7 @@ and the JDK's `ByteBuffer`, as of Agrona 2.7.1, Chronicle Bytes 2026.4 and Netty
 | Wraps&nbsp;an&nbsp;address | ✅ | ✅ | ✅ | ✅ (through a `ByteBuffer`) | – |
 | Wraps&nbsp;`byte[]`,&nbsp;`ByteBuffer` | ✅ | ✅ | ✅ | ✅ | `byte[]` only |
 | Re-wraps&nbsp;without&nbsp;allocating | ✅ | ✅ | ✅ (direct only) | – | – |
+| Positions | none (absolute indices only) | none (absolute indices only) | read and write position and limit | reader and writer index, with marks | position, limit and mark |
 | Expandable | ✅ (heap and direct) | ✅ (no ordered access) | ✅ (elastic) | ✅ (up to `maxCapacity`) | – |
 | Byte&nbsp;order | little endian, any per call | native, any per call | native | big endian, `…LE` methods | big endian, per buffer |
 | Ordered&nbsp;int/long | opaque, acquire/release, volatile | opaque, acquire/release, volatile | volatile, ordered write | – | – |
