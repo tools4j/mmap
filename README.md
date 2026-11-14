@@ -261,13 +261,13 @@ Requires Java 17 or later, and the following JVM options:
 <dependency>
     <groupId>org.tools4j</groupId>
     <artifactId>mmap-queue</artifactId>
-    <version>2.0</version>
+    <version>2.1</version>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
-implementation 'org.tools4j:mmap-queue:2.0'
+implementation 'org.tools4j:mmap-queue:2.1'
 ```
 
 See the [changelog](CHANGELOG.md) for the changes per release.

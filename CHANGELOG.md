@@ -3,7 +3,7 @@
 Notable changes per release. Entries are curated from the commits since the previous release tag; run
 `./gradlew -q changelogDraft` for a draft of the next release's entry.
 
-## 2.1 (unreleased)
+## 2.1 (2026-11-14)
 
 ### Breaking changes
 - Pollers and entry iterators no longer idle while the queue or its first entry does not exist yet; idling is left to
@@ -48,6 +48,8 @@ Notable changes per release. Entries are curated from the commits since the prev
 - The mapping runtime thread backs off when idle instead of busy spinning, so that it no longer occupies a CPU by
   default; set `mmap.mapping.async.mappingRuntimeIdleStrategy` to `org.agrona.concurrent.BusySpinIdleStrategy` for
   the previous behaviour.
+- Class files are compiled for Java 17 whatever JDK builds them, so that a release built on a newer JDK runs on
+  Java 17 (checked by a CI job building on Java 25 and testing on Java 17).
 - The benchmark `mmap-perf` prints its usage when run without options, instead of starting a run with the defaults;
   pass for instance `--queue mmap` to run it with the defaults.
 
@@ -59,6 +61,10 @@ Notable changes per release. Entries are curated from the commits since the prev
   in steps of 20 ms; it now takes about a millisecond.
 - Waiting for a file lock held by another thread or process retried only every 10 ms; it now retries every
   millisecond, for instance when several appenders extend the same file.
+
+### Dependencies
+- Agrona 2.7.1 (was 2.7.0).
+- Chronicle Queue 2026.8 in `mmap-perf` (was 5.21.98), which also runs on Java 21 and 25.
 
 ## 2.0 (2026-11-02)
 
