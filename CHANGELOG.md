@@ -3,6 +3,8 @@
 Notable changes per release. Entries are curated from the commits since the previous release tag; run
 `./gradlew -q changelogDraft` for a draft of the next release's entry.
 
+## 3.0 (unreleased)
+
 ## 2.1 (2026-11-14)
 
 ### Breaking changes
