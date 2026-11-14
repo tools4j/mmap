@@ -21,25 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.concurrent;
 
-import org.agrona.BufferUtil;
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Lock-free bit set of IDs in an {@link AtomicBuffer}, acquiring the lowest free ID with compare-and-set. The buffer can
- * be a mapped file shared across processes, as used by the appender ID pool of a queue, or memory {@linkplain #allocate(int)
- * allocated} for use within this process. Bit sets with different max IDs may share a buffer, each acquiring only IDs
- * below its own max.
+ * Lock-free bit set of IDs in a {@link MutableMemoryBuffer}, acquiring the lowest free ID with compare-and-set. The
+ * buffer can be a mapped file shared across processes, as used by the appender ID pool of a queue, or memory
+ * {@linkplain #allocate(int) allocated} for use within this process. Bit sets with different max IDs may share a
+ * buffer, each acquiring only IDs below its own max.
  */
 public final class AtomicIdBitSet {
     /** Returned by {@link #acquire()} if no ID is free */
     public static final int NO_ID = -1;
 
-    private final AtomicBuffer buffer;
+    private final MutableMemoryBuffer buffer;
     private final int maxIds;
     private final int lastWordIndex;
     private final long lastWordMask;
@@ -47,11 +46,12 @@ public final class AtomicIdBitSet {
     /**
      * Creates a bit set in the given buffer.
      *
-     * @param buffer the buffer with at least {@link #bytes(int) bytes(maxIds)} bytes, aligned to 8 bytes
+     * @param buffer the buffer with at least {@link #bytes(int) bytes(maxIds)} bytes, supporting ordered access, i.e.
+     *               direct memory aligned to 8 bytes or {@code long[]}-backed heap memory
      * @param maxIds the max IDs, only IDs below this value are acquired
      * @throws IllegalArgumentException if maxIds is not positive or the buffer is too small
      */
-    public AtomicIdBitSet(final AtomicBuffer buffer, final int maxIds) {
+    public AtomicIdBitSet(final MutableMemoryBuffer buffer, final int maxIds) {
         if (maxIds < 1) {
             throw new IllegalArgumentException("Max IDs must be positive but was " + maxIds);
         }
@@ -67,25 +67,31 @@ public final class AtomicIdBitSet {
     }
 
     /**
-     * Creates a bit set in newly allocated memory, for use within this process.
+     * Creates a bit set in newly allocated memory, for use within this process; allocates a heap buffer backed by a
+     * {@code long[]}, once per bit set.
      *
      * @param maxIds the max IDs
      * @return a new bit set with no acquired IDs
      */
     public static AtomicIdBitSet allocate(final int maxIds) {
-        return new AtomicIdBitSet(new UnsafeBuffer(BufferUtil.allocateDirectAligned(
-                bytes(Math.max(1, maxIds)), Long.BYTES)), maxIds);
+        return new AtomicIdBitSet(MemoryBuffers.allocate(bytes(Math.max(1, maxIds))), maxIds);
     }
 
     /**
+     * Returns the bytes needed for a bit set with the given max IDs.
+     *
      * @param maxIds the max IDs
-     * @return the bytes needed for a bit set with the given max IDs, a multiple of 8
+     * @return the bytes, a multiple of 8
      */
     public static int bytes(final int maxIds) {
         return (maxIds + Long.SIZE - 1) / Long.SIZE * Long.BYTES;
     }
 
-    /** @return the max IDs, only IDs below this value are acquired */
+    /**
+     * Returns the max IDs: only IDs below this value are acquired.
+     *
+     * @return the max IDs
+     */
     public int maxIds() {
         return maxIds;
     }

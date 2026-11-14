@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.UnsafeApi;
 import org.tools4j.mmap.core.unsafe.Unsafe;
+import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,7 +33,8 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 @Unsafe
 final class PreToucher {
     /** The OS page size; not the mapping granularity, which is larger on Windows (64k with 4k pages) */
-    private static final int PAGE_SIZE = UnsafeApi.pageSize();
+    //TODO FFM: page size without Unsafe, e.g. by a downcall to sysconf / GetSystemInfo
+    private static final int PAGE_SIZE = UnsafeAccess.pageSize();
 
     private final AtomicLong touchedSize = new AtomicLong();
 
@@ -53,10 +54,8 @@ final class PreToucher {
             }
         }
         for (long i = 0; i < length; i += PAGE_SIZE) {
-            //write access to fault the page in writable without changing data that may already be there, written
-            //for instance by other appenders; adding 0 always writes, unlike a failing CAS on aarch64 without LSE,
-            //and needs no memory ordering
-            UnsafeApi.getAndAddLongRelease(null, address + i, 0L);
+            //TODO FFM: touch through the MemoryAccess in use (getAndAddLong) instead of Unsafe
+            UnsafeAccess.touchPage(address + i);
         }
     }
 

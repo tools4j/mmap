@@ -23,15 +23,14 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.UnsafeApi;
 import org.tools4j.mmap.core.unsafe.Unsafe;
+import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
@@ -113,6 +112,8 @@ public enum FileChannels {
         }
     }
 
+    //TODO FFM: map with the public FileChannel.map(mode, position, size, arena) of Java 22 instead of JDK internals
+    //through the trusted lookup, unmapping by closing the arena (measure the cost of closing shared arenas)
     static class MappingMethods {
         static final MethodHandle MAP_FILE_DISPATCHER;
         static final MethodHandle UNMAP_FILE_DISPATCHER;
@@ -133,9 +134,7 @@ public enum FileChannels {
                 MethodHandle unmapAddress = null;
                 try {
                     // JDK 21+
-                    final Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
-                    lookup = (MethodHandles.Lookup)UnsafeApi.getReference(
-                            MethodHandles.Lookup.class, UnsafeApi.staticFieldOffset(implLookupField));
+                    lookup = UnsafeAccess.trustedLookup();
                     fileDispatcher = lookup.unreflectGetter(fileChannelClass.getDeclaredField("nd")).invoke();
                     getFD = lookup.unreflectGetter(fileChannelClass.getDeclaredField("fd"));
                     mapFileDispatcher = lookup.unreflect(fileDispatcherClass.getDeclaredMethod(

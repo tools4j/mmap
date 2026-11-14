@@ -24,9 +24,9 @@
 package org.tools4j.mmap.mapping.unsafe;
 
 import org.agrona.BufferUtil;
-import org.agrona.UnsafeApi;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 class PreToucherTest {
 
-    private static final int PAGE_SIZE = UnsafeApi.pageSize();
+    private static final int PAGE_SIZE = UnsafeAccess.pageSize();
     private static final int PAGES = 4;
     private static final int LENGTH = PAGES * PAGE_SIZE;
     private static final long MAX_WAIT_MILLIS = 10_000;

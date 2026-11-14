@@ -48,6 +48,8 @@ public enum Constants {
      *
      * @return memory page size
      */
+    //TODO FFM: granularity without reflection into sun.nio.ch, which needs --add-opens, e.g. from the page size and
+    //64 KB on Windows
     public static long regionSizeGranularity() {
         try {
             final Class<?> fileChannelImplClass = Class.forName("sun.nio.ch.FileChannelImpl");

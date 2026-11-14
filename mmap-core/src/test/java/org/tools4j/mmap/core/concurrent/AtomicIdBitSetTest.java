@@ -21,12 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.concurrent;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
-
-import java.nio.ByteBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,7 +55,7 @@ class AtomicIdBitSetTest {
 
     @Test
     void bitSetsWithDifferentMaxIdsShareBuffer() {
-        final UnsafeBuffer buffer = new UnsafeBuffer(ByteBuffer.allocateDirect(AtomicIdBitSet.bytes(100)));
+        final MutableMemoryBuffer buffer = MemoryBuffers.allocateDirect(AtomicIdBitSet.bytes(100));
         final AtomicIdBitSet small = new AtomicIdBitSet(buffer, 2);
         final AtomicIdBitSet large = new AtomicIdBitSet(buffer, 100);
         assertEquals(0, large.acquire());
@@ -73,6 +72,6 @@ class AtomicIdBitSetTest {
         assertEquals(16, AtomicIdBitSet.bytes(65));
         assertThrows(IllegalArgumentException.class, () -> AtomicIdBitSet.allocate(0));
         assertThrows(IllegalArgumentException.class, () -> new AtomicIdBitSet(
-                new UnsafeBuffer(ByteBuffer.allocateDirect(8)), 65));
+                MemoryBuffers.allocateDirect(8), 65));
     }
 }
