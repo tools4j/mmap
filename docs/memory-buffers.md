@@ -33,33 +33,33 @@ Features of the memory buffers compared with those of the other buffers in our
 [Chronicle Bytes](https://github.com/OpenHFT/Chronicle-Bytes), [Netty](https://github.com/netty/netty)'s `ByteBuf`
 and the JDK's `ByteBuffer`, as of Agrona 2.7.1, Chronicle Bytes 2026.4 and Netty 4.2.20.
 
+### Features & Characteristics
 | Functionality | mmap-core<br>`MemoryBuffer` | Agrona<br>`UnsafeBuffer` | Chronicle<br>`Bytes` | Netty<br>`ByteBuf` | JDK<br>`ByteBuffer` |
-|---|---|---|---|---|---|
-| Wraps&nbsp;an&nbsp;address | ✅ | ✅ | ✅ | ✅ (through a `ByteBuffer`) | – |
-| Wraps&nbsp;`byte[]`,&nbsp;`ByteBuffer` | ✅ | ✅ | ✅ | ✅ | `byte[]` only |
-| Re-wraps&nbsp;without&nbsp;allocating | ✅ | ✅ | ✅ (direct only) | – | – |
-| Positions | none (absolute indices only) | none (absolute indices only) | read and write position and limit | reader and writer index, with marks | position, limit and mark |
-| Expandable | ✅ (heap and direct) | ✅ (no ordered access) | ✅ (elastic) | ✅ (up to `maxCapacity`) | – |
-| Alignment | ✅ (direct, also expandable and kept when growing: 8 bytes by default, any multiple of 8 with `allocateDirect(capacity, alignment)` and `expandableDirect(capacity, alignment)`) | direct only (`BufferUtil.allocateDirectAligned(..)`; expandable ones are not aligned) | – | pooled direct only, also when growing (`io.netty.allocator.directMemoryCacheAlignment`, default 0; the default allocator in 4.2 is the adaptive one) | direct only (`alignedSlice(..)` of a larger buffer) |
-| Byte&nbsp;order | little endian, any per call | native, any per call | native | big endian, `…LE` methods | big endian, per buffer |
-| Ordered&nbsp;int/long | opaque, acquire/release, volatile | opaque, acquire/release, volatile | volatile, ordered write | – | – |
-| Atomic&nbsp;int/long | CAS, compare-and-exchange, get-and-add/set | CAS, compare-and-exchange, get-and-add/set | CAS, add-and-get, test-and-set | – | – |
-| Volatile&nbsp;byte/short/char | ✅ | ✅ | byte/short | – | – |
-| Ordered&nbsp;on&nbsp;heap | `long[]` (aligned) | `byte[]` (unaligned) | `byte[]` (unaligned) | – | – |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Wrap<br><sub>(raw address)</sub> | ✅ | ✅ | ✅ | ✅<br><sub>(via `ByteBuffer`)</sub> | – |
+| Wrap<br><sub>(`byte[]`,&nbsp;`ByteBuffer`)</sub> | ✅ | ✅ | ✅ | ✅ | <sub>`byte[]` only</sub> |
+| Wrap<br><sub>(without&nbsp;allocating)</sub> | ✅<br><sub>&nbsp;</sub> | ✅<br><sub>&nbsp;</sub> | ✅<br><sub>(direct&nbsp;only)</sub> | – | – |
+| Positions | none (absolute indices only) | none (absolute indices only) | read&nbsp;/&nbsp;write position&nbsp;and&nbsp;limit | reader&nbsp;/&nbsp;writer index, with marks | position,&nbsp;limit and&nbsp;mark |
+| Expandable | ✅<br><sub>(heap&nbsp;and&nbsp;direct)</sub> | ✅<br><sub>(no&nbsp;ordered&nbsp;access)</sub> | ✅<br><sub>(elastic)</sub> | ✅<br><sub>(up&nbsp;to&nbsp;`maxCapacity`)</sub> | – |
+| Alignment | ✅<br>direct, also expandable and kept when growing<p><sub>(8 bytes by default, or any multiple of 8)</sub> |  ☑️<br>direct only<br><br><br><p><sub>(expandable ones are not aligned)</sub> | – | ☑️<br>pooled&nbsp;direct&nbsp;only<br>also&nbsp;when&nbsp;growing<br><br><p><sub>(opt-in, not with the default allocator)</sub> | ☑️<br>direct only<br><br><br><p><sub>via `alignedSlice(..)`</sub> |
+| Byte&nbsp;order | little endian,<br>any per call | native,<br>any per call | native | big endian,<br><sub>or `…LE` methods</sub> | big endian,<br>any per buffer |
+| Ordered&nbsp;int/long | ✅<br>opaque, acquire/release, volatile | ✅<br>opaque, acquire/release, volatile | ☑️<br><br>ordered write,<br>volatile | – | – |
+| Atomic&nbsp;int/long | ✅<br>CAS, compare-and-exchange, get-and-add/set | ✅<br>CAS, compare-and-exchange, get-and-add/set | ✅<br>CAS, add-and-get, test-and-set<br>&nbsp; | – | – |
+| Volatile&nbsp;byte/short/char | ✅ | ✅ | ✅<br><sub>(byte/short)</sub> | – | – |
+| Ordered&nbsp;on&nbsp;heap | <sub>`long[]`<br>(aligned)</sub> | <sub>`byte[]`<br>(unaligned)</sub> | <sub>`byte[]`<br>(unaligned)</sub> | – | – |
 | Memory&nbsp;freed&nbsp;by | garbage collector | garbage collector | reference counting | reference counting | garbage collector |
-| Access&nbsp;through | Unsafe or FFM | Unsafe | Unsafe | var handles (Java 24+ default) or Unsafe | JDK |
+| Access&nbsp;through | Unsafe or FFM | Unsafe | Unsafe | var handles<br><sub>(Java 24+ default)</sub><br>or Unsafe | JDK |
 
+### Safety & Exceptions
 | On misuse | mmap-core<br>`MemoryBuffer` | Agrona<br>`UnsafeBuffer` | Chronicle<br>`Bytes` | Netty<br>`ByteBuf` | JDK<br>`ByteBuffer` |
-|---|---|---|---|---|---|
-| Bounds&nbsp;checks | always (intrinsic) | by default (`agrona.disable.bounds.checks`) | by default (`bytes.bounds.unchecked`) | by default (`io.netty.buffer.checkBounds`) | always |
-| Write&nbsp;to&nbsp;read-only&nbsp;memory | `ReadOnlyBufferException`<sup>1</sup> | not checked: writes through to read-only byte buffers; `InternalError` from the JVM's fault handler on read-only mapped memory | throws for read-only mapped files | `ReadOnlyBufferException` | `ReadOnlyBufferException` |
-| Misaligned&nbsp;ordered&nbsp;access | `IllegalStateException` (check can be disabled) | not checked: crashes the JVM on ARM across a 16-byte boundary; `verifyAlignment()` checks only the buffer start, if called | throws on ARM only | n/a | n/a |
-| Ordered&nbsp;on&nbsp;`byte[]` | `UnsupportedOperationException` | allowed; `verifyAlignment()` warns on x64 and throws elsewhere, if called | allowed | n/a | n/a |
-| Read-only&nbsp;type | `MemoryBuffer` and `MutableMemoryBuffer` | `DirectBuffer` and `MutableDirectBuffer` | `RandomDataInput` and `BytesIn` (`Bytes` always mutable) | runtime only | runtime only |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Bounds&nbsp;checks | always<br><sub>(intrinsic)</sub> | by default<br><sub>(can be disabled via system property)</sub> | by default<br><sub>(can be disabled via system property)</sub> | by default<br><sub>(can be disabled via system property)</sub> | always<br><sub>(intrinsic)</sub> |
+| Write&nbsp;to&nbsp;read&#x2011;only memory | <sub><code>ReadOnly&#8203;BufferException</code></sub><p><br>(details see <sup>#1</sup>) | not checked<p><sub>(writes through to<br>read-only byte buffers; `InternalError` from the JVM's fault handler on read-only mapped memory)</sub> | throws for read-only mapped files | <sub><code>ReadOnly&#8203;BufferException</code></sub> | <sub><code>ReadOnly&#8203;BufferException</code></sub> |
+| Misaligned ordered&nbsp;access | <sub><code>IllegalState&#8203;Exception</code></sub><br><br><sub>(can be disabled via system property)</sub> | not checked<p><sub>(crashes the JVM on ARM across a 16-byte boundary)</sub><p><sub>(calling `verifyAlignment()` checks only the buffer start)</sub> | throws on ARM only | n/a | n/a |
+| Ordered&nbsp;on wrapped&nbsp;`byte[]` | <sub><code>Unsupported&#8203;OperationException</code></sub> | allowed <br><sub>(calling `verifyAlignment()` warns on x64 and throws elsewhere)</sub> | allowed | n/a | n/a |
+| Read-only&nbsp;vs mutable type | <sub>`MemoryBuffer` and<br>`MutableMemoryBuffer`</sub> | <sub>`DirectBuffer` and<br>`MutableDirectBuffer`</sub> | <sub>`BytesIn` and<br>`RandomDataInput`<br>(with `Bytes` always mutable)</sub> | <sub>runtime only</sub> | <sub>runtime only</sub> |
 
-<sup>1</sup> For memory wrapped as read-only: read-only byte buffers, buffers made read-only with `makeReadOnly()`, and
-from 3.0 on the buffers of read-only mappings. Memory wrapped by its raw address with `MemoryBufferFlyweight.wrap(long,
-int)`, marked `@Unsafe`, is writable until made read-only with `makeReadOnly()`, so writing to read-only mapped memory
-wrapped that way is not caught.
+<sup>#1</sup>**Throws:** (i) for memory buffers wrapping read-only byte buffers, or (ii) if explicitly made read-only with `makeReadOnly()`. This also applies to buffers returned by read-only mappings (from v3.0 on).<br>
+<sup>&nbsp;&nbsp;&nbsp;&nbsp;</sup>**Does not throw:** Memory wrapped by its raw address with `MemoryBufferFlyweight.wrap(long, int)` is writable until made read-only with `makeReadOnly()`, so writing to read-only mapped memory wrapped that way is not caught. Note that this `wrap(..)` method is marked with `@Unsafe`.
 
 The behaviour of Agrona on misuse was checked on macOS on aarch64 with Java 25.
