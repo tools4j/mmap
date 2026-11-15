@@ -274,7 +274,7 @@ class QueueMetaTest {
     private static List<String> pollAll(final Poller poller) {
         final List<String> entries = new ArrayList<>();
         while (poller.poll((index, buffer, offset, length) -> {
-            entries.add(buffer.getStringWithoutLengthAscii(offset, length));
+            entries.add(buffer.getTextLatin1(offset, length));
             return Move.NEXT;
         }) > 0) {
             //poll until no more entries

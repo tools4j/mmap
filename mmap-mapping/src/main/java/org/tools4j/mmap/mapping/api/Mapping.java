@@ -23,10 +23,9 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.AtomicBuffer;
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
@@ -90,7 +89,7 @@ public interface Mapping extends Closeable {
 
     /**
      * Returns the number of bytes available via {@linkplain #buffer() buffer} which is equal to the buffer's
-     * {@linkplain DirectBuffer#capacity() capacity}.
+     * {@linkplain MutableMemoryBuffer#capacity() capacity}.
      *
      * @return the number of bytes available via buffer, zero if not {@linkplain #isMapped() mapped}
      */
@@ -113,20 +112,22 @@ public interface Mapping extends Closeable {
      * {@code file[position() + i]} in the mapped file.
      * <p>
      * If the mapping is not ready for data access, the returned buffer will have zero
-     * {@linkplain DirectBuffer#capacity() capacity}.
+     * {@linkplain MutableMemoryBuffer#capacity() capacity}. The buffer of a {@link AccessMode#READ_ONLY read-only}
+     * mapping is {@linkplain MutableMemoryBuffer#isReadOnly() read-only}: writes throw
+     * {@link java.nio.ReadOnlyBufferException}.
      * <p>
      * <br>
      * <b>NOTE:</b> The returned buffer follows this mapping: it is re-wrapped when the mapping moves, so it is always
      * safe to use, but then accesses the data at the new position, or none (zero capacity) once the mapping is
-     * closed or not mapped. Another buffer wrapping it, or a range of it, through
-     * {@link DirectBuffer#wrap(DirectBuffer) DirectBuffer.wrap(..)}, does not: it keeps accessing the memory mapped
-     * when it was wrapped, which is unmapped when this mapping is {@link #close() closed} or
-     * {@link DynamicMapping#moveTo(long) moved} to a new position, and accessing it then could crash the JVM. Don't
-     * re-wrap the returned buffer, or at least don't keep such a wrap beyond the next move of this mapping.
+     * closed or not mapped. A flyweight wrapping it, or a range of it, through
+     * {@link MemoryBufferFlyweight#wrap(org.tools4j.mmap.core.buffer.MemoryBuffer) MemoryBufferFlyweight.wrap(..)},
+     * does not: it keeps accessing the memory mapped when it was wrapped, which is unmapped when this mapping is
+     * {@link #close() closed} or {@link DynamicMapping#moveTo(long) moved} to a new position, and accessing it then
+     * could crash the JVM. Don't keep such a flyweight beyond the next move of this mapping.
      *
      * @return the buffer to read and/or write mapping data.
      */
-    AtomicBuffer buffer();
+    MutableMemoryBuffer buffer();
 
     /**
      * Returns whether the mapping is mapped to a file block with data available through the buffer.

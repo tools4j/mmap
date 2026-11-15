@@ -27,8 +27,6 @@ import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
-import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.concurrent.AtomicIdBitSet;
 import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.internal.Closeables;
@@ -136,10 +134,7 @@ public final class AppenderIdPool implements Closeable, Describable {
             Closeables.closeOnFailure(mapping, t);
             throw t;
         }
-        //TODO pass mapping.buffer() directly once it is a MutableMemoryBuffer (stops compiling then)
-        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
-        buffer.wrap(mapping.buffer().addressOffset(), FILE_SIZE);
-        this.ids = new AtomicIdBitSet(buffer, maxIds);
+        this.ids = new AtomicIdBitSet(mapping.buffer(), maxIds);
         lifecycleListener.onOpened(this);
     }
 

@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +32,8 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
@@ -42,7 +42,6 @@ import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,13 +98,13 @@ public class AsyncRingRegionMapperTest {
             asyncRecurringList.remove(invocation.getArgument(0));
             return null;
         }).when(asyncRuntime).deregister(any());
-        final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
+        final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(MAX_DATA_LENGTH);
         when(fileMapper.map(anyLong(), eq(regionSize), anyBoolean())).thenAnswer(invocation -> {
             final long position = invocation.getArgument(0);
             if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
                 return NULL_ADDRESS;
             }
-            return data.addressOffset() + position;
+            return data.address() + position;
         });
         when(fileMapper.mappingLimit()).thenReturn(Long.MAX_VALUE);
         final AtomicBoolean closed = new AtomicBoolean();
@@ -177,7 +176,7 @@ public class AsyncRingRegionMapperTest {
         assertEquals(regionSize, mapping.bytesAvailable());
 
         //when: close
-        final long address = mapping.buffer().addressOffset();
+        final long address = mapping.buffer().address();
         try (final Invoker ignored = startAsyncInvoker()) {
             mapping.close();
         }
@@ -223,7 +222,7 @@ public class AsyncRingRegionMapperTest {
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
 
         //when - close to unmap
-        long address = mapping.buffer().addressOffset();
+        long address = mapping.buffer().address();
         try (final Invoker ignored = startAsyncInvoker()) {
             mapping.close();
         }

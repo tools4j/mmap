@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.queue.impl.QueueImpl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +52,7 @@ class QueueIntroTest {
             final Appender appender = queue.createAppender();
             appender.append("Hello".getBytes(StandardCharsets.US_ASCII));
             try (final AppendingContext context = appender.appending(64)) {
-                final int length = context.buffer().putStringWithoutLengthAscii(0, "World");
+                final int length = context.buffer().putTextLatin1(0, "World");
                 context.commit(length);
             }
 
@@ -60,7 +60,7 @@ class QueueIntroTest {
             final Poller poller = queue.createPoller();
             final List<String> polled = new ArrayList<>();
             while (poller.poll((index, buffer, offset, length) -> {
-                polled.add(index + ":" + buffer.getStringWithoutLengthAscii(offset, length));
+                polled.add(index + ":" + buffer.getTextLatin1(offset, length));
                 return Move.NEXT;
             }) > 0);
             assertEquals(List.of("0:Hello", "1:World"), polled);
@@ -90,7 +90,7 @@ class QueueIntroTest {
         }
     }
 
-    private static String text(final DirectBuffer buffer) {
-        return buffer.getStringWithoutLengthAscii(0, buffer.capacity());
+    private static String text(final MemoryBuffer buffer) {
+        return buffer.getTextLatin1(0, buffer.capacity());
     }
 }

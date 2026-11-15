@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.MutableDirectBuffer;
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 /**
  * Flyweight returned by {@link Appender#appending(int)} to encode a new entry directly to the queue {@link #buffer()}.
@@ -35,13 +35,13 @@ public interface AppendingContext extends Closeable {
      * appender is closed.
      * <p>
      * The buffer itself is always safe to use, as the appender re-wraps or unwraps it, but after the commit or abort
-     * of the entry it accesses another entry's data, or none (zero capacity). Another buffer wrapping it is not safe:
-     * don't keep such a wrap beyond the commit or abort of the entry, as its memory may then be unmapped, and
+     * of the entry it accesses another entry's data, or none (zero capacity). A flyweight wrapping it is not safe:
+     * don't keep such a flyweight beyond the commit or abort of the entry, as its memory may then be unmapped, and
      * accessing it could crash the JVM.
      *
      * @return buffer to write the entry data directly to the queue
      */
-    MutableDirectBuffer buffer();
+    MutableMemoryBuffer buffer();
 
     /**
      * Ensures that the {@link #buffer()} has at least the specified capacity in bytes, up to the entry size limit.

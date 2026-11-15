@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -31,6 +30,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryHandler;
@@ -67,7 +68,7 @@ class AllocationTest {
     @TempDir
     Path tempDir;
 
-    private final UnsafeBuffer message = new UnsafeBuffer(new byte[64]);
+    private final MutableMemoryBuffer message = MemoryBuffers.allocate(64);
     private long sum;
     private static final EntryHandler HANDLER_NOT_INVOKED = (index, buffer, offset, length) -> {
         throw new AssertionError("No entry expected at index " + index);

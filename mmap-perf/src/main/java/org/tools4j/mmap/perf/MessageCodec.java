@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
 
 /**
  * Structure of the message:
@@ -45,7 +45,7 @@ public final class MessageCodec {
     /** The minimum message length, a message without payload. */
     public static final int MIN_MESSAGE_LENGTH = PAYLOAD_OFFSET;
 
-    private final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+    private final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
     private final int payloadLength;
 
     /**
@@ -79,7 +79,7 @@ public final class MessageCodec {
      * @param length the message length available in the buffer
      * @return this codec
      */
-    public MessageCodec wrap(final DirectBuffer buffer, final int offset, final int length) {
+    public MessageCodec wrap(final MemoryBuffer buffer, final int offset, final int length) {
         this.buffer.wrap(buffer, offset, Math.min(length, PAYLOAD_OFFSET + payloadLength));
         return this;
     }

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 
@@ -80,7 +80,7 @@ class RollingFileMapperTest {
         for (int region = 0; region < regions; region++) {
             final long address = mapper.map(position(region), REGION_SIZE, false);
             assertNotEquals(NULL_ADDRESS, address, "region " + region);
-            final UnsafeBuffer buffer = new UnsafeBuffer(address, REGION_SIZE);
+            final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
             buffer.putLong(0, valueFor(region));
             buffer.putLong(REGION_SIZE - Long.BYTES, ~valueFor(region));
             mapper.unmap(position(region), address, REGION_SIZE);
@@ -91,7 +91,7 @@ class RollingFileMapperTest {
         for (int region = 0; region < regions; region++) {
             final long address = mapper.map(position(region), REGION_SIZE, false);
             assertNotEquals(NULL_ADDRESS, address, "region " + region);
-            final UnsafeBuffer buffer = new UnsafeBuffer(address, REGION_SIZE);
+            final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
             assertEquals(valueFor(region), buffer.getLong(0), "region " + region);
             assertEquals(~valueFor(region), buffer.getLong(REGION_SIZE - Long.BYTES), "region " + region);
             mapper.unmap(position(region), address, REGION_SIZE);

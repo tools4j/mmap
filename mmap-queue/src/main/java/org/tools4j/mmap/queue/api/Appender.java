@@ -23,14 +23,14 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 
 import java.nio.ByteBuffer;
 
 /**
  * API to append entries at the end of a {@link Queue}. Existing data can be appended through
- * {@link #append(DirectBuffer, int, int)}. Alternatively a new entry can be coded directly into the
+ * {@link #append(MemoryBuffer, int, int)}. Alternatively a new entry can be coded directly into the
  * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending(int)}.
  */
 public interface Appender extends Closeable {
@@ -103,14 +103,14 @@ public interface Appender extends Closeable {
      * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
      * buffer the {@link #appending(int)} method can be used instead.
      *
-     * @param buffer direct buffer containing entry data
+     * @param buffer buffer containing entry data, direct or heap memory
      * @param offset offset of the entry data in the buffer
      * @param length length of the entry data
      * @return  queue index at which entry was appended
      * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
-    long append(DirectBuffer buffer, int offset, int length);
+    long append(MemoryBuffer buffer, int offset, int length);
 
     /**
      * Provides an appending context for zero-copy encoding of the new entry into the queue
@@ -127,7 +127,7 @@ public interface Appender extends Closeable {
      * <pre>
      * int maxLength = 1000;
      * try (AppendingContext context = appending(maxLength)) {
-     *     MutableDirectBuffer buffer = context.buffer();
+     *     MutableMemoryBuffer buffer = context.buffer();
      *     //code entry data into buffer here
      *     int length = ...;//actual number of bytes encoded
      *     context.commit(length);

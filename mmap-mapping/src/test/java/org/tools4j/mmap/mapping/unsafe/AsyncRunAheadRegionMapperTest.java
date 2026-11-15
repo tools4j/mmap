@@ -23,14 +23,14 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.impl.Constants;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +59,7 @@ class AsyncRunAheadRegionMapperTest {
     private static final int REGION_SIZE = (int) Constants.REGION_SIZE_GRANULARITY;
     private static final int REGIONS = 4;
 
-    private final UnsafeBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(REGIONS * REGION_SIZE));
+    private final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(REGIONS * REGION_SIZE);
     private final List<Recurring> recurring = new ArrayList<>();
     private final FileMapper fileMapper = mock(FileMapper.class);
     private AsyncRunAheadRegionMapper regionMapper;
@@ -80,7 +80,7 @@ class AsyncRunAheadRegionMapperTest {
         if (position + REGION_SIZE > REGIONS * REGION_SIZE) {
             throw new IllegalArgumentException("Attempt to map region at " + position + " exceeds max file size");
         }
-        return data.addressOffset() + position;
+        return data.address() + position;
     }
 
     /** Executes the async mapper until idle, returning the number of executions that performed work */

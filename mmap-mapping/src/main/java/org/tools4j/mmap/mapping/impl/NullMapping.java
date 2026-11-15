@@ -23,7 +23,8 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.AtomicBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Mapping;
 
@@ -59,8 +60,8 @@ public enum NullMapping implements Mapping {
     }
 
     @Override
-    public AtomicBuffer buffer() {
-        return EmptyBuffer.INSTANCE;
+    public MutableMemoryBuffer buffer() {
+        return MemoryBuffers.EMPTY;
     }
 
     @Override

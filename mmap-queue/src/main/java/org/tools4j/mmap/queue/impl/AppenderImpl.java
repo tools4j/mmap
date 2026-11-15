@@ -23,12 +23,12 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Appender;
@@ -171,7 +171,7 @@ final class AppenderImpl implements Appender, Describable {
     }
 
     @Override
-    public long append(final DirectBuffer buffer, final int offset, final int length) {
+    public long append(final MemoryBuffer buffer, final int offset, final int length) {
         try (final AppendingContext context = appending(length)) {
             context.buffer().putBytes(0, buffer, offset, length);
             return context.commit(length);
@@ -187,7 +187,7 @@ final class AppenderImpl implements Appender, Describable {
     private long appendEntry(final long payloadPosition, final int payloadLength) {
         checkNotClosed();
         final ElasticMapping hdr = header;
-        final AtomicBuffer buf = hdr.buffer();
+        final MutableMemoryBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
         checkIndexNotExceedingMax(index);
@@ -256,10 +256,10 @@ final class AppenderImpl implements Appender, Describable {
         final AppenderImpl appender;
         final ElasticMapping payload;
         final int maxEntrySize;
-        final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         int maxLength = -1;
         /** Lazily allocated to copy encoded data to the next region if the previous region is not kept mapped */
-        UnsafeBuffer copyBuffer;
+        MutableMemoryBuffer copyBuffer;
 
         AppendingContextImpl(final AppenderImpl appender) {
             this.appender = requireNonNull(appender);
@@ -333,7 +333,7 @@ final class AppenderImpl implements Appender, Describable {
                     //      --> old region address is still mapped because the region cache defers unmapping
                     buffer.getBytes(0, pld.buffer(), Integer.BYTES, max);
                 } else {
-                    final UnsafeBuffer copy = copyBuffer(max);
+                    final MutableMemoryBuffer copy = copyBuffer(max);
                     buffer.getBytes(0, copy, 0, max);
                     moveToNextPayloadRegion(pld);
                     copy.getBytes(0, pld.buffer(), Integer.BYTES, max);
@@ -343,17 +343,17 @@ final class AppenderImpl implements Appender, Describable {
             maxLength = capacity;
         }
 
-        private UnsafeBuffer copyBuffer(final int length) {
-            final UnsafeBuffer copy = copyBuffer;
+        private MutableMemoryBuffer copyBuffer(final int length) {
+            final MutableMemoryBuffer copy = copyBuffer;
             if (copy != null && copy.capacity() >= length) {
                 return copy;
             }
             final int capacity = ceilingPowerOfTwo(Math.max(MIN_COPY_BUFFER_CAPACITY, length));
-            return copyBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(capacity));
+            return copyBuffer = MemoryBuffers.allocateDirect(capacity);
         }
 
         @Override
-        public MutableDirectBuffer buffer() {
+        public MutableMemoryBuffer buffer() {
             return buffer;
         }
 
@@ -366,7 +366,7 @@ final class AppenderImpl implements Appender, Describable {
         public long commit(final int length) {
             final int max = maxLength;
             maxLength = -1;
-            buffer.wrap(0, 0);
+            buffer.unwrap();
             validateLength(length, max);
             final ElasticMapping pld = payload;
             pld.buffer().putInt(0, length);

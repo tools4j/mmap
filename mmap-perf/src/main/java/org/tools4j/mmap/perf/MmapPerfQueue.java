@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.perf.PerfOptions.ReaderType;
 import org.tools4j.mmap.queue.api.Appender;
@@ -102,7 +102,7 @@ public final class MmapPerfQueue implements PerfQueue {
         }
 
         @Override
-        public MutableDirectBuffer claim(final int length) {
+        public MutableMemoryBuffer claim(final int length) {
             this.context = appender.appending(length);
             this.length = length;
             return context.buffer();
@@ -140,7 +140,7 @@ public final class MmapPerfQueue implements PerfQueue {
         }
 
         @Override
-        public long onEntry(final long index, final DirectBuffer buffer, final int offset, final int length) {
+        public long onEntry(final long index, final MemoryBuffer buffer, final int offset, final int length) {
             handler.onMessage(buffer, offset, length);
             return Move.NEXT;
         }
@@ -165,7 +165,7 @@ public final class MmapPerfQueue implements PerfQueue {
         @Override
         public boolean poll(final MessageHandler handler) {
             if (entries.hasNext()) {
-                final DirectBuffer buffer = entries.next().buffer();
+                final MemoryBuffer buffer = entries.next().buffer();
                 handler.onMessage(buffer, 0, buffer.capacity());
                 return true;
             }

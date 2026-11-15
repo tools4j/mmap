@@ -23,12 +23,9 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-
-import org.agrona.DirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
-import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
-import static org.tools4j.mmap.mapping.impl.MappingValidations.validateLimit;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
@@ -113,7 +110,7 @@ public interface AdaptiveMapping extends DynamicMapping {
 
     /**
      * Returns the mapping length in bytes, the same as {@link #bytesAvailable()} and equal to the
-     * {@linkplain #buffer() buffer's} {@linkplain DirectBuffer#capacity() capacity}.
+     * {@linkplain #buffer() buffer's} {@linkplain MemoryBuffer#capacity() capacity}.
      * <p>
      * The length value is at least zero and never more than {@link #regionSize()}. Length can be
      * {@link #length(int) set} directly or can be specified when {@link #moveTo(long, int) moving} to a new position.
@@ -133,19 +130,7 @@ public interface AdaptiveMapping extends DynamicMapping {
      *               to map all bytes available to the end of the region currently mapped
      * @throws IllegalArgumentException if length less than -1 or exceeds max-length
      */
-    default void length(final int length) {
-        final int newLength;
-        if (length == -1) {
-            newLength = maxLength();
-        } else {
-            validateAdaptiveMappingLength(length, maxLength());
-            newLength = length;
-        }
-        final DirectBuffer buffer = buffer();
-        if (newLength != buffer.capacity()) {
-            buffer.wrap(buffer.addressOffset(), newLength);
-        }
-    }
+    void length(int length);
 
     /**
      * Sets the new limit of this mapping, the position <i>after</i> the last byte that
@@ -157,14 +142,7 @@ public interface AdaptiveMapping extends DynamicMapping {
      * @see #position()
      * @see #maxLength()
      */
-    default void limit(final long limit) {
-        final long position = position();
-        final DirectBuffer buffer = buffer();
-        if (limit != position + buffer.capacity()) {
-            validateLimit(position, limit, maxLength());
-            buffer().wrap(buffer.addressOffset(), (int) (limit - position));
-        }
-    }
+    void limit(long limit);
 
     /**
      * Moves the mapping forward or backward by the specified delta in bytes. The current mapping length is preserved

@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -58,7 +58,7 @@ class FileChannelsTest {
              final FileChannel channel = raf.getChannel()) {
             final long address = FileChannels.map(channel, mode, 0, LENGTH);
             try {
-                final UnsafeBuffer buffer = new UnsafeBuffer(address, LENGTH);
+                final MutableMemoryBuffer buffer = TestBuffers.wrap(address, LENGTH);
                 buffer.putByte(0, (byte) 2);
                 return buffer.getByte(0);
             } finally {

@@ -297,7 +297,7 @@ class EntryIteratorTest {
         final List<Long> indices = new ArrayList<>();
         while (iterator.hasNext()) {
             final Entry entry = iterator.next();
-            assertEquals(entry(entry.index()), entry.buffer().getStringWithoutLengthAscii(0, entry.buffer().capacity()));
+            assertEquals(entry(entry.index()), entry.buffer().getTextLatin1(0, entry.buffer().capacity()));
             indices.add(entry.index());
         }
         return indices;

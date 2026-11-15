@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 
@@ -90,7 +90,7 @@ class ConcurrentRollingFileMapperTest {
     private static void writeRegion(final FileMapper mapper, final int region, final int slot) {
         final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
         assertNotEquals(NULL_ADDRESS, address, "region " + region);
-        new UnsafeBuffer(address, REGION_SIZE).putLong(slot * Long.BYTES, valueFor(region));
+        TestBuffers.wrap(address, REGION_SIZE).putLong(slot * Long.BYTES, valueFor(region));
         mapper.unmap(regionPosition(region), address, REGION_SIZE);
     }
 
@@ -98,7 +98,7 @@ class ConcurrentRollingFileMapperTest {
         final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
         assertNotEquals(NULL_ADDRESS, address, "region " + region);
         try {
-            return new UnsafeBuffer(address, REGION_SIZE).getLong(slot * Long.BYTES);
+            return TestBuffers.wrap(address, REGION_SIZE).getLong(slot * Long.BYTES);
         } finally {
             mapper.unmap(regionPosition(region), address, REGION_SIZE);
         }
@@ -260,7 +260,7 @@ class ConcurrentRollingFileMapperTest {
                             final int region = random.nextInt(regions);
                             final long address = mapper.map(regionPosition(region), REGION_SIZE, false);
                             assertNotEquals(NULL_ADDRESS, address, "region " + region);
-                            final UnsafeBuffer buffer = new UnsafeBuffer(address, REGION_SIZE);
+                            final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
                             buffer.putLongVolatile(slot * Long.BYTES, valueFor(region));
                             final long other = buffer.getLongVolatile((1 - slot) * Long.BYTES);
                             if (other != 0 && other != valueFor(region)) {

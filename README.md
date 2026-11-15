@@ -12,10 +12,9 @@ Memory mapped files used to implement off-heap low latency utilities such as que
 
 The project has three library modules, and a benchmark:
 * **mmap-core**: the basic types shared by the other modules (closeables, error and lifecycle listeners, logging, idle
-  strategies, configuration), and memory buffers over direct and heap memory, to replace
-  [Agrona](https://github.com/aeron-io/agrona)'s buffers in the other modules; see
-  [Memory buffers](docs/memory-buffers.md)
-* **mmap-mapping**: memory-mapped file regions exposed as Agrona buffers, with region caching, files rolling over when
+  strategies, configuration), and memory buffers over direct and heap memory, used by the other modules instead of
+  [Agrona](https://github.com/aeron-io/agrona)'s buffers; see [Memory buffers](docs/memory-buffers.md)
+* **mmap-mapping**: memory-mapped file regions exposed as memory buffers, with region caching, files rolling over when
   reaching a maximum size, and mapping/unmapping in a background thread; see [Mappings](docs/mappings.md)
 * **mmap-queue**: a persistent off-heap queue built on mmap-mapping, with concurrent appenders and any number of
   pollers and readers; see [Queues](docs/queues.md)
@@ -35,7 +34,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     queue.createAppender().append("Hello".getBytes(StandardCharsets.US_ASCII));
     Poller poller = queue.createPoller();
     while (poller.poll((index, buffer, offset, len) -> {
-        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, len));//0:Hello
+        System.out.println(index + ":" + buffer.getTextLatin1(offset, len));//0:Hello
         return Move.NEXT;
     }) > 0);
 }

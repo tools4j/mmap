@@ -23,8 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AdaptiveMapping;
@@ -36,6 +37,7 @@ import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateLimit;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePosition;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
@@ -43,7 +45,8 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionS
 public final class AdaptiveMappingImpl implements AdaptiveMapping {
     private final RegionMapper regionMapper;
     private final boolean closeRegionMapperOnClose;
-    private final AtomicBuffer buffer = new UnsafeBuffer(0, 0);
+    private final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
+    private final boolean readOnly;
     private long mappedRegionPosition;
     private long mappedRegionAddress;
     private int offset;
@@ -63,6 +66,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     public AdaptiveMappingImpl(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
         validateNotClosed(regionMapper);
         this.regionMapper = requireNonNull(regionMapper);
+        this.readOnly = regionMapper.accessMode() == AccessMode.READ_ONLY;
         this.closeRegionMapperOnClose = closeRegionMapperOnClose;
         this.mappedRegionPosition = NULL_POSITION;
         this.mappedRegionAddress = NULL_ADDRESS;
@@ -86,7 +90,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     }
 
     @Override
-    public AtomicBuffer buffer() {
+    public MutableMemoryBuffer buffer() {
         return buffer;
     }
 
@@ -176,6 +180,23 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
         return moveToInternal(newPosition, newLength);
     }
 
+    @Override
+    public void length(final int length) {
+        final int newLength = resolveLength(position(), length);
+        if (newLength != length()) {
+            wrapBuffer(address(), newLength);
+        }
+    }
+
+    @Override
+    public void limit(final long limit) {
+        final long position = position();
+        if (limit != position + length()) {
+            validateLimit(position, limit, maxLength());
+            wrapBuffer(address(), (int) (limit - position));
+        }
+    }
+
     private int resolveLength(final long position, final int length) {
         final int maxLength = maxLengthAtPosition(position);
         if (length == -1) {
@@ -186,8 +207,15 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
     }
 
     private void initBufferAndOffset(final long regionAddress, final int offset, final int length) {
-        this.buffer.wrap(regionAddress + offset, length);
+        wrapBuffer(regionAddress + offset, length);
         this.offset = offset;
+    }
+
+    private void wrapBuffer(final long address, final int length) {
+        buffer.wrap(address, length);
+        if (readOnly) {
+            buffer.makeReadOnly();
+        }
     }
 
     private long map(final long regionPosition) {
@@ -206,7 +234,7 @@ public final class AdaptiveMappingImpl implements AdaptiveMapping {
         }
         assert mappedAddr != NULL_ADDRESS : "address cannot be unmapped";
         if (clearState) {
-            buffer.wrap(0, 0);
+            buffer.unwrap();
             mappedRegionPosition = NULL_POSITION;
             mappedRegionAddress = NULL_ADDRESS;
             offset = 0;

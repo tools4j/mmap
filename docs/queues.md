@@ -28,7 +28,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     Appender appender = queue.createAppender();
     appender.append("Hello".getBytes(StandardCharsets.US_ASCII));
     try (AppendingContext context = appender.appending(64)) {
-        int length = context.buffer().putStringWithoutLengthAscii(0, "World");
+        int length = context.buffer().putTextLatin1(0, "World");
         context.commit(length);
     }
 
@@ -36,7 +36,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     Poller poller = queue.createPoller();
     while (poller.poll((index, buffer, offset, len) -> {
         //print: 0:Hello, 1:World
-        System.out.println(index + ":" + buffer.getStringWithoutLengthAscii(offset, len));
+        System.out.println(index + ":" + buffer.getTextLatin1(offset, len));
         return Move.NEXT;
     }) > 0);
 
@@ -44,7 +44,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     EntryReader reader = queue.createEntryReader();
     try (ReadingContext entry = reader.reading(1)) {
         if (entry.hasEntry()) {
-            DirectBuffer buffer = entry.buffer();//World
+            MemoryBuffer buffer = entry.buffer();//World
         }
     }
 
@@ -52,7 +52,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     EntryIterator iterator = queue.createEntryIterator();
     try (IterableContext entries = iterator.readingFromLast().backward()) {
         for (Entry entry : entries) {
-            DirectBuffer buffer = entry.buffer();//World, Hello
+            MemoryBuffer buffer = entry.buffer();//World, Hello
         }
     }
 

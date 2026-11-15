@@ -23,9 +23,9 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.impl.Constants;
@@ -64,7 +64,7 @@ class FixedSizeFileMapperTest {
             //pre-touching writes, which would crash the JVM on a read-only mapping
             final long address = mapper.map(0, LENGTH, true);
             assertNotEquals(NULL_ADDRESS, address);
-            final UnsafeBuffer buffer = new UnsafeBuffer(address, LENGTH);
+            final MutableMemoryBuffer buffer = TestBuffers.wrap(address, LENGTH);
             for (int offset = 0; offset < LENGTH; offset += Long.BYTES) {
                 assertEquals(offset + 1, buffer.getLong(offset), "offset=" + offset);
             }

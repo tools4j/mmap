@@ -23,48 +23,48 @@
  */
 package org.tools4j.mmap.queue.api;
 
-import org.agrona.DirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 
 /**
  * Defines constants for index increments that can be used as return values in implementations of
- * {@link EntryHandler#onEntry(long, DirectBuffer, int, int)}.
+ * {@link EntryHandler#onEntry(long, MemoryBuffer, int, int)}.
  * <p>
  * {@link #NEXT}, {@link #PREVIOUS} and {@link #NONE} are relative increments, while {@link #FIRST}, {@link #LAST}
  * and {@link #END} are sentinels for absolute targets.
  */
 public interface Move {
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the next
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to move to the next
      * entry.
      */
     long NEXT = 1;
 
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the previous
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to move to the previous
      * entry.
      */
     long PREVIOUS = -1;
 
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to stay on the current
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to stay on the current
      * entry.
      */
     long NONE = 0;
 
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the first
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to move to the first
      * queue entry.
      */
     long FIRST = Long.MIN_VALUE;
 
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the last
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to move to the last
      * queue entry.
      */
     long LAST = Index.LAST;
 
     /**
-     * Value returned by {@link EntryHandler#onEntry(long, DirectBuffer, int, int) onEntry(..)} to move to the end of
+     * Value returned by {@link EntryHandler#onEntry(long, MemoryBuffer, int, int) onEntry(..)} to move to the end of
      * the queue after the last entry.
      */
     long END = Index.END;

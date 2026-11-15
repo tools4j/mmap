@@ -5,7 +5,8 @@ Configuration is in `org.tools4j.mmap.mapping.config`. The low-level mapping eng
 
 Main classes:
 * `Mappings`: factory methods for all mapping types and mapping pools
-* `Mapping`: a block of a file mapped into memory, accessed via its `buffer()`, an Agrona `AtomicBuffer`
+* `Mapping`: a block of a file mapped into memory, accessed via its `buffer()`, a `MutableMemoryBuffer` of mmap-core,
+  read-only for read-only mappings
 * `FixedMapping`: a mapping with fixed start and end position
 * `RegionMapping`: a mapping of exactly one region, moved region by region
 * `ElasticMapping`: a mapping that can be moved to any position, its buffer spans to the end of the region
@@ -18,7 +19,7 @@ Main classes:
 
 ## Concurrent Access
 Mappings and mapping pools are not thread-safe: each thread needs its own mappings, or its own pool. The mapped
-memory itself is shared, however, and the mapping's `AtomicBuffer` supports CAS and memory ordering operations, for
+memory itself is shared, however, and the mapping's buffer supports CAS and memory ordering operations, for
 `long` and `int` values:
 * CAS: `compareAndSetLong`, `getAndAddLong`, ...
 * Memory ordering: `putLongRelease`, `getLongAcquire`, `putLongVolatile`, `getLongVolatile`, ...

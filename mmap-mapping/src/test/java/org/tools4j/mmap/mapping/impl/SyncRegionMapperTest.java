@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,13 +33,13 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
-
-import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -76,13 +74,13 @@ public class SyncRegionMapperTest {
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        final DirectBuffer data = new UnsafeBuffer(ByteBuffer.allocateDirect(MAX_DATA_LENGTH));
+        final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(MAX_DATA_LENGTH);
         when(fileMapper.map(anyLong(), eq(regionSize), anyBoolean())).thenAnswer(invocation -> {
             final long position = invocation.getArgument(0);
             if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
                 return NULL_ADDRESS;
             }
-            return data.addressOffset() + position;
+            return data.address() + position;
         });
         inOrder = Mockito.inOrder(fileMapper);
     }

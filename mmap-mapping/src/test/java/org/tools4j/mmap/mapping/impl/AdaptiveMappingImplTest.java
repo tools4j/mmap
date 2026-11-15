@@ -146,6 +146,42 @@ class AdaptiveMappingImplTest {
     }
 
     @Test
+    void lengthSetsLengthAtSamePosition() {
+        assertTrue(mapping.moveTo(100, 10));
+        assertEquals(10, mapping.length());
+        mapping.length(20);
+        assertEquals(20, mapping.length());
+        assertEquals(mapping.length(), mapping.buffer().capacity());
+        assertEquals(120, mapping.limit());
+        mapping.length(20);
+        assertEquals(20, mapping.length());
+        mapping.length(-1);
+        assertEquals(regionSize - 100, mapping.length());
+        mapping.length(0);
+        assertEquals(0, mapping.length());
+        assertThrows(IllegalArgumentException.class, () -> mapping.length(-2));
+        assertThrows(IllegalArgumentException.class, () -> mapping.length(regionSize - 99));
+        assertEquals(100, mapping.position());
+    }
+
+    @Test
+    void limitSetsLengthAtSamePosition() {
+        assertTrue(mapping.moveTo(100, 10));
+        mapping.limit(150);
+        assertEquals(50, mapping.length());
+        assertEquals(mapping.length(), mapping.buffer().capacity());
+        mapping.limit(150);
+        assertEquals(50, mapping.length());
+        mapping.limit(100);
+        assertEquals(0, mapping.length());
+        mapping.limit(regionSize);
+        assertEquals(regionSize - 100, mapping.length());
+        assertThrows(IllegalArgumentException.class, () -> mapping.limit(99));
+        assertThrows(IllegalArgumentException.class, () -> mapping.limit(regionSize + 1L));
+        assertEquals(100, mapping.position());
+    }
+
+    @Test
     void invalidLengthThrows() {
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, -2));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, regionSize - 99));

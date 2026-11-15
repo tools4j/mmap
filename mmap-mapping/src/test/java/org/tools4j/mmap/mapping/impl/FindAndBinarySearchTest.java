@@ -23,8 +23,6 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,11 +32,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
-import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -135,7 +134,7 @@ abstract class FindAndBinarySearchTest {
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));
         final Predicate<DynamicMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
-        final DirectBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
+        final MutableMemoryBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
@@ -236,23 +235,22 @@ abstract class FindAndBinarySearchTest {
         return permutations;
     }
 
-    private static DirectBuffer dataBuffer(final int bytes, final long expectedPosition, final int dataLength) {
-        final ByteBuffer buf = ByteBuffer.allocateDirect(dataLength);
+    private static MutableMemoryBuffer dataBuffer(final int bytes, final long expectedPosition, final int dataLength) {
+        final MutableMemoryBuffer buffer = MemoryBuffers.allocateDirect(dataLength);
         for (int i = 0; i < expectedPosition; i+= bytes) {
-            buf.put(i + (i % bytes), (byte)1);
+            buffer.putByte(i + (i % bytes), (byte)1);
         }
         if (expectedPosition >= 0) {
-            buf.put((int) expectedPosition, (byte) 1);
+            buffer.putByte((int) expectedPosition, (byte) 1);
         }
-        final DirectBuffer buffer = new UnsafeBuffer(buf);
         return buffer;
     }
 
-    private static Answer<Long> mapRegion(final int dataLength, final DirectBuffer buffer) {
+    private static Answer<Long> mapRegion(final int dataLength, final MutableMemoryBuffer buffer) {
         return invocation -> {
             final long position = invocation.getArgument(0);
             if (position < dataLength) {
-                return buffer.addressOffset() + position;
+                return buffer.address() + position;
             }
             return NULL_ADDRESS;
         };

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.Entry;
@@ -114,7 +114,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         static final int CLOSED = 0;
         final EntryIteratorImpl iterator;
         final ReaderMappings mappings;
-        final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         long startIndex;
         int increment;
         boolean continuous;
@@ -248,7 +248,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
 
         private long moveToNextAndInitPayload(final long index, final long hdr) {
             if (hdr == NULL_HEADER) {
-                buffer.wrap(0, 0);
+                buffer.unwrap();
                 return Index.NULL;
             }
             final int appenderId = Headers.appenderId(hdr);
@@ -263,7 +263,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         }
 
         @Override
-        public DirectBuffer buffer() {
+        public MemoryBuffer buffer() {
             return buffer;
         }
 
@@ -285,7 +285,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         @Override
         public void close() {
             if (!isClosed()) {
-                buffer.wrap(0, 0);
+                buffer.unwrap();
                 index = Index.NULL;
                 startIndex = Index.NULL;
                 nextIndex = Index.NULL;

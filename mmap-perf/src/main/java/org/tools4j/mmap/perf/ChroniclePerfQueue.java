@@ -30,8 +30,9 @@ import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.wire.DocumentContext;
 import net.openhft.chronicle.wire.WireType;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 import java.io.File;
 
@@ -84,7 +85,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
 
     private static final class ChronicleWriter implements Writer {
         final ExcerptAppender appender;
-        final UnsafeBuffer buffer = new UnsafeBuffer(0, 0);
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         DocumentContext context;
         Bytes<?> bytes;
         int length;
@@ -94,7 +95,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
         }
 
         @Override
-        public MutableDirectBuffer claim(final int length) {
+        public MutableMemoryBuffer claim(final int length) {
             final DocumentContext ctx = appender.writingDocument();
             final Bytes<?> b = ctx.wire().bytes();
             b.ensureCapacity(b.writePosition() + length);
@@ -107,7 +108,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
 
         @Override
         public void commit() {
-            buffer.wrap(0, 0);
+            buffer.unwrap();
             bytes.writeSkip(length);
             bytes = null;
             final DocumentContext ctx = context;
@@ -123,7 +124,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
 
     private static final class ChronicleReader implements Reader {
         final ExcerptTailer tailer;
-        final UnsafeBuffer buffer = new UnsafeBuffer(0, 0);
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
 
         ChronicleReader(final ExcerptTailer tailer) {
             this.tailer = requireNonNull(tailer);
@@ -140,7 +141,7 @@ public final class ChroniclePerfQueue implements PerfQueue {
                 final int length = (int) bytes.readRemaining();
                 buffer.wrap(bytes.addressForRead(position), length);
                 handler.onMessage(buffer, 0, length);
-                buffer.wrap(0, 0);
+                buffer.unwrap();
                 bytes.readPosition(position + length);
                 return true;
             }

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import org.agrona.concurrent.AtomicBuffer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -150,40 +150,6 @@ class DynamicMappingDefaultMethodsTest {
     }
 
     @Test
-    void adaptiveLength() {
-        assertTrue(adaptive.moveTo(100, 10));
-        assertEquals(10, adaptive.length());
-        adaptive.length(20);
-        assertEquals(20, adaptive.length());
-        assertEquals(120, adaptive.limit());
-        adaptive.length(20);
-        assertEquals(20, adaptive.length());
-        adaptive.length(-1);
-        assertEquals(REGION_SIZE - 100, adaptive.length());
-        adaptive.length(0);
-        assertEquals(0, adaptive.length());
-        assertThrows(IllegalArgumentException.class, () -> adaptive.length(-2));
-        assertThrows(IllegalArgumentException.class, () -> adaptive.length(REGION_SIZE - 99));
-        assertEquals(100, adaptive.position());
-    }
-
-    @Test
-    void adaptiveLimit() {
-        assertTrue(adaptive.moveTo(100, 10));
-        adaptive.limit(150);
-        assertEquals(50, adaptive.length());
-        adaptive.limit(150);
-        assertEquals(50, adaptive.length());
-        adaptive.limit(100);
-        assertEquals(0, adaptive.length());
-        adaptive.limit(REGION_SIZE);
-        assertEquals(REGION_SIZE - 100, adaptive.length());
-        assertThrows(IllegalArgumentException.class, () -> adaptive.limit(99));
-        assertThrows(IllegalArgumentException.class, () -> adaptive.limit(REGION_SIZE + 1L));
-        assertEquals(100, adaptive.position());
-    }
-
-    @Test
     void adaptiveRegionMovesPreserveLength() {
         assertTrue(adaptive.moveTo(REGION_SIZE + 10L, 20));
         assertTrue(adaptive.moveToNextRegion());
@@ -229,6 +195,16 @@ class DynamicMappingDefaultMethodsTest {
         }
 
         @Override
+        public void length(final int length) {
+            delegate.length(length);
+        }
+
+        @Override
+        public void limit(final long limit) {
+            delegate.limit(limit);
+        }
+
+        @Override
         public int regionOffset() {
             return delegate.regionOffset();
         }
@@ -259,7 +235,7 @@ class DynamicMappingDefaultMethodsTest {
         }
 
         @Override
-        public AtomicBuffer buffer() {
+        public MutableMemoryBuffer buffer() {
             return delegate.buffer();
         }
 

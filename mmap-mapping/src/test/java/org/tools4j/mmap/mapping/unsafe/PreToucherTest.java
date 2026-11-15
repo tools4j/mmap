@@ -23,12 +23,11 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.BufferUtil;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
-import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,9 +44,8 @@ class PreToucherTest {
     private static final int LENGTH = PAGES * PAGE_SIZE;
     private static final long MAX_WAIT_MILLIS = 10_000;
 
-    private final ByteBuffer memory = BufferUtil.allocateDirectAligned(LENGTH, PAGE_SIZE);
-    private final long address = BufferUtil.address(memory);
-    private final UnsafeBuffer buffer = new UnsafeBuffer(address, LENGTH);
+    private final MutableMemoryBuffer buffer = MemoryBuffers.allocateDirect(LENGTH, PAGE_SIZE);
+    private final long address = buffer.address();
 
     @Test
     void preTouchLeavesDataUnchanged() {

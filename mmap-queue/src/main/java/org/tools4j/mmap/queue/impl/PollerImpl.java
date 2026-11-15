@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.DirectBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.EntryHandler;
@@ -118,7 +118,7 @@ final class PollerImpl implements Poller, Describable {
                 return result;
             }
             index = currentIndex;
-            final DirectBuffer buffer = payloadBuffer();
+            final MemoryBuffer buffer = payloadBuffer();
             final int length = buffer.getInt(0);
             result = HANDLER_ERROR;
             moveNext = entryHandler.onEntry(index, buffer, Integer.BYTES, length);
@@ -135,7 +135,7 @@ final class PollerImpl implements Poller, Describable {
         return ENTRY_POLLED;
     }
 
-    private DirectBuffer payloadBuffer() {
+    private MemoryBuffer payloadBuffer() {
         final long header = currentHeader;
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);

@@ -23,8 +23,9 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
@@ -45,7 +46,7 @@ public class FixedMappingImpl implements FixedMapping {
     private final int fileSize;
     /** File mappings must start at a granularity aligned position, the buffer starts pageOffset bytes later */
     private final int pageOffset;
-    private final UnsafeBuffer buffer;
+    private final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
     private long mappedPosition;
 
     @Unsafe
@@ -81,7 +82,10 @@ public class FixedMappingImpl implements FixedMapping {
                         "to granularity " + REGION_SIZE_GRANULARITY + " for offset " + offset);
             }
             final long pageAddress = map(fileMapper, offset - pageOffset, length + pageOffset);
-            this.buffer = new UnsafeBuffer(pageAddress + pageOffset, length);
+            buffer.wrap(pageAddress + pageOffset, length);
+            if (fileMapper.accessMode() == AccessMode.READ_ONLY) {
+                buffer.makeReadOnly();
+            }
             this.mappedPosition = offset;
         } catch (final Throwable t) {
             if (closeFileMapperOnClose) {
@@ -137,7 +141,7 @@ public class FixedMappingImpl implements FixedMapping {
 
     @Override
     public long address() {
-        return buffer.addressOffset();
+        return buffer.address();
     }
 
     @Override
@@ -151,7 +155,7 @@ public class FixedMappingImpl implements FixedMapping {
     }
 
     @Override
-    public AtomicBuffer buffer() {
+    public MutableMemoryBuffer buffer() {
         return buffer;
     }
 
@@ -161,7 +165,7 @@ public class FixedMappingImpl implements FixedMapping {
         if (position != NULL_POSITION) {
             mappedPosition = NULL_POSITION;
             final long address = address();
-            buffer.wrap(0, 0);
+            buffer.unwrap();
             unmap(fileMapper, position - pageOffset, address - pageOffset, fileSize + pageOffset);
             if (closeFileMapperOnClose) {
                 fileMapper.close();

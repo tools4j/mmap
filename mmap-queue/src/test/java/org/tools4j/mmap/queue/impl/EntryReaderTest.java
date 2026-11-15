@@ -179,7 +179,7 @@ class EntryReaderTest {
         try (context) {
             assertTrue(context.hasEntry(), () -> "no entry at " + index);
             assertEquals(index, context.index());
-            assertEquals(entry(index), context.buffer().getStringWithoutLengthAscii(0, context.buffer().capacity()));
+            assertEquals(entry(index), context.buffer().getTextLatin1(0, context.buffer().capacity()));
         }
     }
 

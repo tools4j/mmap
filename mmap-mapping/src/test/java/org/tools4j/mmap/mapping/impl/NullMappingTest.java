@@ -24,6 +24,7 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
@@ -48,7 +49,7 @@ class NullMappingTest {
         assertEquals(NULL_POSITION, mapping.limit());
         assertEquals(NULL_ADDRESS, mapping.address());
         assertEquals(0, mapping.bytesAvailable());
-        assertSame(EmptyBuffer.INSTANCE, mapping.buffer());
+        assertSame(MemoryBuffers.EMPTY, mapping.buffer());
         assertFalse(mapping.isMapped());
         assertEquals("NullMapping", mapping.toString());
     }

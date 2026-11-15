@@ -23,8 +23,8 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 /**
  * Queue adapter used by {@link Sender} and {@link Receiver}, so that the same harness measures different queue
@@ -63,7 +63,7 @@ public interface PerfQueue extends AutoCloseable {
          * @param length the message length
          * @return a buffer to encode the message into, at offset zero and with the given length
          */
-        MutableDirectBuffer claim(int length);
+        MutableMemoryBuffer claim(int length);
 
         /** Commits the message last claimed */
         void commit();
@@ -96,6 +96,6 @@ public interface PerfQueue extends AutoCloseable {
          * @param offset the message offset in the buffer
          * @param length the message length
          */
-        void onMessage(DirectBuffer buffer, int offset, int length);
+        void onMessage(MemoryBuffer buffer, int offset, int length);
     }
 }

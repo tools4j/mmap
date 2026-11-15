@@ -6,6 +6,12 @@ Notable changes per release. Entries are curated from the commits since the prev
 ## 3.0 (unreleased)
 
 ### Breaking changes
+- Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `Mapping.buffer()` and
+  `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Entry.buffer()` and the buffer passed to
+  `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces
+  `append(DirectBuffer, int, int)`. The buffers of read-only mappings are read-only: writes throw
+  `ReadOnlyBufferException` instead of failing in the JVM. The buffers are little endian, the native byte order that
+  Agrona's used on the usual platforms, so the file format is unchanged there.
 - The basic types `Closeable`, `Describable`, `ErrorListener` and `LifecycleListener` moved from
   `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.base`, the `@Unsafe` annotation to
   `org.tools4j.mmap.core.unsafe`, and `LoggingErrorListener` from `org.tools4j.mmap.mapping.impl` to

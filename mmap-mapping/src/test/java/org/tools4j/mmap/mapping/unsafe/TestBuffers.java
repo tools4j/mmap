@@ -21,35 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.DirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.core.unsafe.Unsafe;
 
-public enum DirectBuffers {
+/**
+ * Buffers over raw addresses of mapped memory, for tests of the {@link Unsafe @Unsafe} mappers.
+ */
+enum TestBuffers {
     ;
-    public static boolean equals(final DirectBuffer buffer1,
-                                 final int offset1,
-                                 final DirectBuffer buffer2,
-                                 final int offset2,
-                                 final int length) {
-        final int length8 = length & 0xfffffff8;
-        for (int i = 0; i < length8; i += Long.BYTES) {
-            if (buffer1.getLong(offset1 + i) != buffer2.getLong(offset2 + i)) {
-                return false;
-            }
-        }
-        int idx = length8;
-        if (idx + Integer.BYTES <= length) {
-            if (buffer1.getInt(offset1 + idx) != buffer2.getInt(offset2 + idx)) {
-                return false;
-            }
-            idx += Integer.BYTES;
-        }
-        for (int i = idx; i < length; i++) {
-            if (buffer1.getByte(offset1 + i) != buffer2.getByte(offset2 + i)) {
-                return false;
-            }
-        }
-        return true;
+
+    /**
+     * Returns a new flyweight wrapping the given memory; allocates the flyweight on each call, which tests can afford.
+     *
+     * @param address the address of the memory
+     * @param capacity the capacity in bytes
+     * @return the buffer
+     */
+    @Unsafe
+    static MutableMemoryBuffer wrap(final long address, final int capacity) {
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
+        buffer.wrap(address, capacity);
+        return buffer;
     }
 }

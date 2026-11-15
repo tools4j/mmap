@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -32,6 +31,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
@@ -335,9 +336,9 @@ class AppenderTest {
                 final String head = filler(100, 1);
                 final String tail = filler(400, 2);
                 try (final AppendingContext context = appender.appending(head.length())) {
-                    context.buffer().putStringWithoutLengthAscii(0, head);
+                    context.buffer().putTextLatin1(0, head);
                     context.ensureCapacity(head.length() + tail.length());
-                    context.buffer().putStringWithoutLengthAscii(head.length(), tail);
+                    context.buffer().putTextLatin1(head.length(), tail);
                     context.commit(head.length() + tail.length());
                 }
                 expected.add(head + tail);
@@ -353,10 +354,10 @@ class AppenderTest {
         try (final Queue queue = Queue.open(dir, OpenMode.CREATE, payloadRegionCacheConfig(false, 1, false))) {
             try (final Appender appender = queue.createAppender()) {
                 try (final AppendingContext context = appender.appending(4)) {
-                    context.buffer().putStringWithoutLengthAscii(0, "head");
+                    context.buffer().putTextLatin1(0, "head");
                     context.ensureCapacity(2);
                     context.ensureCapacity(8);
-                    context.buffer().putStringWithoutLengthAscii(4, "tail");
+                    context.buffer().putTextLatin1(4, "tail");
                     context.commit(8);
                 }
             }
@@ -476,9 +477,9 @@ class AppenderTest {
     /** Encodes head, then ensures capacity for head and tail, which must not fit into the current region */
     private static String appendGrowingAcrossRegion(final Appender appender, final String head, final String tail) {
         try (final AppendingContext context = appender.appending(head.length())) {
-            context.buffer().putStringWithoutLengthAscii(0, head);
+            context.buffer().putTextLatin1(0, head);
             context.ensureCapacity(head.length() + tail.length());
-            context.buffer().putStringWithoutLengthAscii(head.length(), tail);
+            context.buffer().putTextLatin1(head.length(), tail);
             context.commit(head.length() + tail.length());
         }
         return head + tail;
@@ -536,7 +537,9 @@ class AppenderTest {
             assertEquals(2, appender.append(ByteBuffer.wrap(bytes, 2, 5)));
             assertEquals(3, appender.append(ByteBuffer.wrap(bytes, 2, 5), 3));
             assertEquals(4, appender.append(ByteBuffer.wrap(bytes), 2, 5));
-            assertEquals(5, appender.append(new UnsafeBuffer(bytes), 2, 5));
+            final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
+            buffer.wrap(bytes);
+            assertEquals(5, appender.append(buffer, 2, 5));
             assertEquals(List.of("xxabcdexx", "abcde", "abcde", "abc", "abcde", "abcde"),
                     pollAll(queue.createPoller()));
         }
@@ -570,7 +573,7 @@ class AppenderTest {
         try (final Queue queue = Queue.open(dir);
              final Appender appender = queue.createAppender()) {
             final AppendingContext context = appender.appending(4);
-            context.buffer().putStringWithoutLengthAscii(0, "lost");
+            context.buffer().putTextLatin1(0, "lost");
             assertThrows(IllegalStateException.class, () -> appender.appending(4));
             assertTrue(context.isClosed());
             append(appender, "ok");
@@ -680,7 +683,7 @@ class AppenderTest {
 
     private static void abortAppending(final Appender appender, final String entry) {
         final AppendingContext context = appender.appending(entry.length());
-        context.buffer().putStringWithoutLengthAscii(0, entry);
+        context.buffer().putTextLatin1(0, entry);
         context.abort();
     }
 
@@ -768,7 +771,7 @@ class AppenderTest {
     private static List<String> pollAll(final Poller poller) {
         final List<String> entries = new ArrayList<>();
         while (poller.poll((index, buffer, offset, length) -> {
-            entries.add(buffer.getStringWithoutLengthAscii(offset, length));
+            entries.add(buffer.getTextLatin1(offset, length));
             return Move.NEXT;
         }) > 0) {
             //poll until no more entries

@@ -23,11 +23,11 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.agrona.DirectBuffer;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -115,7 +115,7 @@ final class EntryReaderImpl implements EntryReader, Describable {
     private static final class ReadingContextImpl implements ReadingContext {
         final EntryReaderImpl reader;
         final ReaderMappings mappings;
-        final MutableDirectBuffer buffer = new UnsafeBuffer(0, 0);
+        final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         long maxIndex;
         long index;
         boolean closed;
@@ -172,7 +172,7 @@ final class EntryReaderImpl implements EntryReader, Describable {
         }
 
         @Override
-        public DirectBuffer buffer() {
+        public MemoryBuffer buffer() {
             return buffer;
         }
 
@@ -194,7 +194,7 @@ final class EntryReaderImpl implements EntryReader, Describable {
         @Override
         public void close() {
             if (!closed) {
-                buffer.wrap(0, 0);
+                buffer.unwrap();
                 index = Index.NULL;
                 closed = true;
             }

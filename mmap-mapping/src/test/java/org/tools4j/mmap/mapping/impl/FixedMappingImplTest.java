@@ -23,9 +23,10 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.agrona.BufferUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.FixedMapping;
@@ -183,9 +184,9 @@ class FixedMappingImplTest {
 
     @Test
     void mapsWithoutPreTouch() {
-        final ByteBuffer data = ByteBuffer.allocateDirect((int) REGION_SIZE_GRANULARITY);
+        final MutableMemoryBuffer data = MemoryBuffers.allocateDirect((int) REGION_SIZE_GRANULARITY);
         final FileMapper fileMapper = mock(FileMapper.class);
-        when(fileMapper.map(anyLong(), anyInt(), anyBoolean())).thenReturn(BufferUtil.address(data));
+        when(fileMapper.map(anyLong(), anyInt(), anyBoolean())).thenReturn(data.address());
         try (final FixedMapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false)) {
             assertTrue(mapping.isMapped());
         }

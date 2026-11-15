@@ -24,7 +24,7 @@
 package org.tools4j.mmap.perf;
 
 import org.HdrHistogram.Histogram;
-import org.agrona.DirectBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.perf.PerfQueue.MessageHandler;
 import org.tools4j.mmap.perf.PerfQueue.Reader;
 
@@ -88,7 +88,7 @@ public final class Receiver {
         }
     }
 
-    private void onMessage(final DirectBuffer buffer, final int offset, final int length) {
+    private void onMessage(final MemoryBuffer buffer, final int offset, final int length) {
         final long time = System.nanoTime();
         codec.wrap(buffer, offset, length).getPayload(payload);
         histogram.recordValue(Math.min(time - codec.timestamp(), MAX_VALUE));

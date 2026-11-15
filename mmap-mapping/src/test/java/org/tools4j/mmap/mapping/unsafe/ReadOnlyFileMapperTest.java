@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.mapping.unsafe;
 
-import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.AccessMode;
@@ -67,7 +66,7 @@ class ReadOnlyFileMapperTest {
         final long address = mapper.map(position, REGION_SIZE, false);
         assertNotEquals(NULL_ADDRESS, address, "region " + region);
         try {
-            return new UnsafeBuffer(address, REGION_SIZE).getByte(0);
+            return TestBuffers.wrap(address, REGION_SIZE).getByte(0);
         } finally {
             mapper.unmap(position, address, REGION_SIZE);
         }
