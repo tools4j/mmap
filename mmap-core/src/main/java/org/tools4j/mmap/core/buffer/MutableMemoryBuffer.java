@@ -609,18 +609,20 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
     void setMemory(int index, int length, byte value);
 
     /**
-     * Writes characters as ASCII text to this buffer, one byte per character, without a length prefix; characters
-     * outside of ASCII are written as {@code '?'}.
+     * Writes characters as ISO-8859-1 (Latin-1) text to this buffer, one byte per character, without a length
+     * prefix; characters beyond {@code U+00FF}, including each half of a surrogate pair, are written as {@code '?'}.
+     * Text of ASCII characters only is written as ASCII text.
      *
      * @param index the index of the first byte to write
      * @param value the characters to write
      * @return the number of bytes written, the length of the characters
      */
-    int putTextAscii(int index, CharSequence value);
+    int putTextLatin1(int index, CharSequence value);
 
     /**
-     * Writes a range of characters as ASCII text to this buffer, one byte per character, without a length prefix;
-     * characters outside of ASCII are written as {@code '?'}.
+     * Writes a range of characters as ISO-8859-1 (Latin-1) text to this buffer, one byte per character, without a
+     * length prefix; characters beyond {@code U+00FF}, including each half of a surrogate pair, are written as
+     * {@code '?'}. Text of ASCII characters only is written as ASCII text.
      *
      * @param index the index of the first byte to write
      * @param value the characters to write from
@@ -628,7 +630,7 @@ public interface MutableMemoryBuffer extends MemoryBuffer {
      * @param length the number of characters to write
      * @return the number of bytes written, the length
      */
-    int putTextAscii(int index, CharSequence value, int valueOffset, int length);
+    int putTextLatin1(int index, CharSequence value, int valueOffset, int length);
 
     /**
      * Encodes characters as UTF-8 text to this buffer, without a length prefix; unpaired surrogates are encoded as

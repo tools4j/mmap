@@ -451,8 +451,9 @@ public interface MemoryBuffer {
     void getBytes(int index, ByteBuffer destination, int length);
 
     /**
-     * Appends ASCII text from this buffer to an appendable, one character per byte, without allocating unless the
-     * appendable does; there is no length prefix, the caller knows the length.
+     * Appends ISO-8859-1 (Latin-1) text from this buffer to an appendable, one character per byte, each byte a
+     * character from {@code U+0000} to {@code U+00FF}, without allocating unless the appendable does; there is no
+     * length prefix, the caller knows the length. ASCII text is Latin-1 text, so this reads ASCII text too.
      *
      * @param index the index of the first byte
      * @param length the number of bytes, one per character
@@ -460,27 +461,30 @@ public interface MemoryBuffer {
      * @return the number of bytes read, the length
      * @throws java.io.UncheckedIOException if the appendable throws an {@link java.io.IOException}
      */
-    int getTextAscii(int index, int length, Appendable destination);
+    int getTextLatin1(int index, int length, Appendable destination);
 
     /**
-     * Appends ASCII text from this buffer to a string builder, one character per byte, without allocating unless the
-     * string builder grows; there is no length prefix, the caller knows the length.
+     * Appends ISO-8859-1 (Latin-1) text from this buffer to a string builder, one character per byte, each byte a
+     * character from {@code U+0000} to {@code U+00FF}, without allocating unless the string builder grows; there is
+     * no length prefix, the caller knows the length. ASCII text is Latin-1 text, so this reads ASCII text too.
      *
      * @param index the index of the first byte
      * @param length the number of bytes, one per character
      * @param destination the string builder to append to
      * @return the number of bytes read, the length
      */
-    int getTextAscii(int index, int length, StringBuilder destination);
+    int getTextLatin1(int index, int length, StringBuilder destination);
 
     /**
-     * Returns ASCII text from this buffer as a new string, one character per byte; allocates the string.
+     * Returns ISO-8859-1 (Latin-1) text from this buffer as a new string, one character per byte, each byte a
+     * character from {@code U+0000} to {@code U+00FF}; allocates the string. ASCII text is Latin-1 text, so this
+     * reads ASCII text too.
      *
      * @param index the index of the first byte
      * @param length the number of bytes, one per character
      * @return the string
      */
-    String getTextAscii(int index, int length);
+    String getTextLatin1(int index, int length);
 
     /**
      * Decodes UTF-8 text from this buffer and appends it to an appendable, without allocating unless the appendable

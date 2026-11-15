@@ -35,6 +35,7 @@ import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Random;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for the ASCII and UTF-8 text accessors of {@link MemoryBufferImpl}, created through {@link MemoryBuffers}.
+ * Unit test for the Latin-1 and UTF-8 text accessors of {@link MemoryBufferImpl}, created through {@link MemoryBuffers}.
  */
 class MemoryBufferImplTextTest {
 
@@ -98,20 +99,42 @@ class MemoryBufferImplTextTest {
 
     @ParameterizedTest
     @EnumSource(TestMemory.class)
-    void asciiTextRoundTrips(final TestMemory memory) {
+    void latin1TextRoundTrips(final TestMemory memory) {
         final MutableMemoryBuffer buffer = memory.create(CAPACITY);
-        assertEquals(5, buffer.putTextAscii(3, "Hello"));
-        assertEquals("Hello", buffer.getTextAscii(3, 5));
+        assertEquals(5, buffer.putTextLatin1(3, "Hello"));
+        assertEquals("Hello", buffer.getTextLatin1(3, 5));
         final StringBuilder builder = new StringBuilder("> ");
-        assertEquals(5, buffer.getTextAscii(3, 5, builder));
+        assertEquals(5, buffer.getTextLatin1(3, 5, builder));
         assertEquals("> Hello", builder.toString());
         final Chars chars = new Chars();
-        assertEquals(3, buffer.getTextAscii(4, 3, chars));
+        assertEquals(3, buffer.getTextLatin1(4, 3, chars));
         assertEquals("ell", chars.text.toString());
-        assertEquals(3, buffer.putTextAscii(10, "xaéb" + SMILE, 1, 3));
-        assertEquals("a?b", buffer.getTextAscii(10, 3));
-        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getTextAscii(CAPACITY - 2, 3));
-        assertThrows(IndexOutOfBoundsException.class, () -> buffer.putTextAscii(0, "abc", 2, 2));
+        assertEquals(3, buffer.putTextLatin1(10, "xaéb" + SMILE, 1, 3));
+        assertEquals("aéb", buffer.getTextLatin1(10, 3));
+        assertEquals(5, buffer.putTextLatin1(20, "a€b" + SMILE));
+        assertEquals("a?b??", buffer.getTextLatin1(20, 5), "beyond U+00FF, each half of a surrogate pair");
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.getTextLatin1(CAPACITY - 2, 3));
+        assertThrows(IndexOutOfBoundsException.class, () -> buffer.putTextLatin1(0, "abc", 2, 2));
+    }
+
+    @ParameterizedTest
+    @EnumSource(TestMemory.class)
+    void latin1TextIsEncodedAndDecodedAsByTheJdk(final TestMemory memory) {
+        final MutableMemoryBuffer buffer = memory.create(CAPACITY);
+        final StringBuilder all = new StringBuilder();
+        for (char ch = 0; ch <= 0xff; ch++) {
+            all.append(ch);
+        }
+        final String text = all.toString();
+        final byte[] expected = text.getBytes(ISO_8859_1);
+        assertEquals(expected.length, buffer.putTextLatin1(0, text));
+        final byte[] actual = new byte[expected.length];
+        buffer.getBytes(0, actual);
+        assertArrayEquals(expected, actual);
+        assertEquals(text, buffer.getTextLatin1(0, expected.length));
+        final StringBuilder builder = new StringBuilder();
+        assertEquals(expected.length, buffer.getTextLatin1(0, expected.length, builder));
+        assertEquals(text, builder.toString());
     }
 
     @ParameterizedTest
@@ -198,7 +221,7 @@ class MemoryBufferImplTextTest {
     @Test
     void appendableErrorsAreRethrownUnchecked() {
         final MutableMemoryBuffer buffer = MemoryBuffers.allocate(16);
-        buffer.putTextAscii(0, "abc");
+        buffer.putTextLatin1(0, "abc");
         final Appendable failing = new Appendable() {
             @Override
             public Appendable append(final CharSequence chars) throws IOException {
@@ -215,7 +238,7 @@ class MemoryBufferImplTextTest {
                 throw new IOException("test");
             }
         };
-        assertThrows(UncheckedIOException.class, () -> buffer.getTextAscii(0, 3, failing));
+        assertThrows(UncheckedIOException.class, () -> buffer.getTextLatin1(0, 3, failing));
         assertThrows(UncheckedIOException.class, () -> buffer.getTextUtf8(0, 3, failing));
     }
 }

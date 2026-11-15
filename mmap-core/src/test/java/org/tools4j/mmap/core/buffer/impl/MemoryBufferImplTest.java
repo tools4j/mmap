@@ -512,8 +512,8 @@ class MemoryBufferImplTest {
                 write("putBytes ByteBuffer range", buffer -> buffer.putBytes(8, ByteBuffer.allocate(8), 0, 8)),
                 write("putBytes ByteBuffer", buffer -> buffer.putBytes(8, ByteBuffer.allocate(8), 8)),
                 write("setMemory", buffer -> buffer.setMemory(8, 8, (byte) 1)),
-                write("putTextAscii", buffer -> buffer.putTextAscii(8, "abc")),
-                write("putTextAscii range", buffer -> buffer.putTextAscii(8, "abc", 1, 2)),
+                write("putTextLatin1", buffer -> buffer.putTextLatin1(8, "abc")),
+                write("putTextLatin1 range", buffer -> buffer.putTextLatin1(8, "abc", 1, 2)),
                 write("putTextUtf8", buffer -> buffer.putTextUtf8(8, "äbc")),
                 write("putTextUtf8 range", buffer -> buffer.putTextUtf8(8, "äbc", 1, 2))
         );
@@ -766,8 +766,8 @@ class MemoryBufferImplTest {
         final ByteOrder nonNative = ByteOrder.nativeOrder() == LITTLE_ENDIAN ? BIG_ENDIAN : LITTLE_ENDIAN;
         assertEquals(0, buffer.getAndAddLong(3000, 5, nonNative));
         assertEquals(5, buffer.getLong(3000, nonNative));
-        buffer.putTextAscii(4000, "abc");
-        assertEquals("abc", buffer.getTextAscii(4000, 3));
+        buffer.putTextLatin1(4000, "abc");
+        assertEquals("abc", buffer.getTextLatin1(4000, 3));
         assertEquals(99, buffer.getByte(0));
         assertThat(buffer.alignment()).isGreaterThanOrEqualTo(Long.BYTES);
     }

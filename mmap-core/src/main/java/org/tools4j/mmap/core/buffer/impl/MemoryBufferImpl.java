@@ -1540,12 +1540,12 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         ACCESS.setMemory(heapBase, addressOrOffset + index, length, value);
     }
 
-    //--- ASCII text ---
+    //--- Latin-1 text ---
 
     @Override
-    public int getTextAscii(final int index, final int length, final Appendable destination) {
+    public int getTextLatin1(final int index, final int length, final Appendable destination) {
         if (destination instanceof StringBuilder) {
-            return getTextAscii(index, length, (StringBuilder) destination);
+            return getTextLatin1(index, length, (StringBuilder) destination);
         }
         Objects.checkFromIndexSize(index, length, capacity);
         try {
@@ -1559,7 +1559,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     @Override
-    public int getTextAscii(final int index, final int length, final StringBuilder destination) {
+    public int getTextLatin1(final int index, final int length, final StringBuilder destination) {
         Objects.checkFromIndexSize(index, length, capacity);
         destination.ensureCapacity(destination.length() + length);
         for (int i = 0; i < length; i++) {
@@ -1569,19 +1569,19 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
     }
 
     @Override
-    public String getTextAscii(final int index, final int length) {
+    public String getTextLatin1(final int index, final int length) {
         final byte[] bytes = new byte[length];
         getBytes(index, bytes, 0, length);
         return new String(bytes, ISO_8859_1);
     }
 
     @Override
-    public int putTextAscii(final int index, final CharSequence value) {
-        return putTextAscii(index, value, 0, value.length());
+    public int putTextLatin1(final int index, final CharSequence value) {
+        return putTextLatin1(index, value, 0, value.length());
     }
 
     @Override
-    public int putTextAscii(final int index, final CharSequence value, final int valueOffset, final int length) {
+    public int putTextLatin1(final int index, final CharSequence value, final int valueOffset, final int length) {
         Objects.checkFromIndexSize(valueOffset, length, value.length());
         if (binding == EXPANDABLE) {
             expandFor(index, length);
@@ -1589,7 +1589,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         checkWriteRange(index, length);
         for (int i = 0; i < length; i++) {
             final char ch = value.charAt(valueOffset + i);
-            rawPutByte(index + i, ch < 0x80 ? (byte) ch : (byte) '?');
+            rawPutByte(index + i, ch <= 0xff ? (byte) ch : (byte) '?');
         }
         return length;
     }
