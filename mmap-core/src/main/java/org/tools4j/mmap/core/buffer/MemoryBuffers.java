@@ -137,9 +137,9 @@ public enum MemoryBuffers {
      * {@code alignment - 1} bytes more, leaving the first allocation to the garbage collector.
      *
      * @param capacity the capacity in bytes
-     * @param alignment the alignment in bytes, a power of two and a multiple of 8, the alignment of all direct buffers
+     * @param alignment the alignment in bytes, a positive multiple of 8, the alignment of all direct buffers
      * @return the buffer, zeroed
-     * @throws IllegalArgumentException if the alignment is not a power of two and a multiple of 8, or the capacity is
+     * @throws IllegalArgumentException if the alignment is not a positive multiple of 8, or the capacity is
      *                                  negative or too large to allocate with the alignment
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity, final int alignment) {
@@ -177,9 +177,9 @@ public enum MemoryBuffers {
      * Allocates like {@link #allocateDirect(int, int)}, initially and on each growth.
      *
      * @param initialCapacity the initial capacity in bytes
-     * @param alignment the alignment in bytes, a power of two and a multiple of 8, the alignment of all direct buffers
+     * @param alignment the alignment in bytes, a positive multiple of 8, the alignment of all direct buffers
      * @return the buffer, zeroed
-     * @throws IllegalArgumentException if the alignment is not a power of two and a multiple of 8, or the initial
+     * @throws IllegalArgumentException if the alignment is not a positive multiple of 8, or the initial
      *                                  capacity is negative or too large to allocate with the alignment
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity, final int alignment) {

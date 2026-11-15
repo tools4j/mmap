@@ -321,13 +321,16 @@ class MemoryBufferImplTest {
         assertThrows(IndexOutOfBoundsException.class, () -> MemoryBuffers.wrap(new long[2], 1, 2));
     }
 
+    /** Powers of two, as for cache lines and pages, and other multiples of 8 */
+    private static final int[] ALIGNMENTS = {8, 16, 24, 32, 40, 48, 64, 72, 96, 128, 192, 1000, 4096};
+
     @Test
     void directBuffersAreAlignedTo8BytesOrTheGivenAlignment() {
         for (int capacity = 0; capacity <= 64; capacity++) {
             final MutableMemoryBuffer buffer = MemoryBuffers.allocateDirect(capacity);
             assertEquals(capacity, buffer.capacity());
             assertEquals(0, buffer.address() % Long.BYTES, "capacity " + capacity);
-            for (int alignment = Long.BYTES; alignment <= 4096; alignment <<= 1) {
+            for (final int alignment : ALIGNMENTS) {
                 final MutableMemoryBuffer aligned = MemoryBuffers.allocateDirect(capacity, alignment);
                 assertEquals(capacity, aligned.capacity());
                 assertEquals(0, aligned.address() % alignment,
@@ -337,7 +340,7 @@ class MemoryBufferImplTest {
         final MutableMemoryBuffer expandable = MemoryBuffers.expandableDirect(3);
         expandable.ensureCapacity(1000);
         assertEquals(0, expandable.address() % Long.BYTES);
-        for (int alignment = Long.BYTES; alignment <= 4096; alignment <<= 1) {
+        for (final int alignment : ALIGNMENTS) {
             final MutableMemoryBuffer aligned = MemoryBuffers.expandableDirect(3, alignment);
             assertEquals(0, aligned.address() % alignment, "alignment " + alignment);
             aligned.putLong(0, 42);
@@ -345,7 +348,7 @@ class MemoryBufferImplTest {
             assertEquals(0, aligned.address() % alignment, "grown, alignment " + alignment);
             assertEquals(42, aligned.getLong(0));
         }
-        for (final int alignment : new int[] {0, 1, 4, 24, -8}) {
+        for (final int alignment : new int[] {0, 1, 4, 12, 20, -8}) {
             assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.allocateDirect(8, alignment));
             assertThrows(IllegalArgumentException.class, () -> MemoryBuffers.expandableDirect(8, alignment));
         }

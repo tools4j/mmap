@@ -30,7 +30,6 @@ import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.core.internal.PowersOfTwo;
 import org.tools4j.mmap.core.text.Utf8;
 import org.tools4j.mmap.core.unsafe.MemoryAccess;
 import org.tools4j.mmap.core.unsafe.Unsafe;
@@ -224,7 +223,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * Allocates a direct buffer with the given alignment.
      *
      * @param capacity the capacity in bytes
-     * @param alignment the alignment in bytes, a power of two and a multiple of 8
+     * @param alignment the alignment in bytes, a positive multiple of 8
      * @return the buffer
      */
     public static MutableMemoryBuffer allocateDirect(final int capacity, final int alignment) {
@@ -261,7 +260,7 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
      * Allocates an expandable direct buffer with the given alignment, also when growing.
      *
      * @param initialCapacity the initial capacity in bytes
-     * @param alignment the alignment in bytes, a power of two and a multiple of 8
+     * @param alignment the alignment in bytes, a positive multiple of 8
      * @return the buffer
      */
     public static MutableMemoryBuffer expandableDirect(final int initialCapacity, final int alignment) {
@@ -273,9 +272,9 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
 
     private static void validateCapacity(final int capacity, final int alignment) {
         validateCapacity(capacity);
-        if (alignment < DIRECT_ALIGNMENT || !PowersOfTwo.isPowerOfTwo(alignment)) {
-            throw new IllegalArgumentException("Alignment must be a power of two and a multiple of " +
-                    DIRECT_ALIGNMENT + " but was " + alignment);
+        if (alignment < DIRECT_ALIGNMENT || alignment % DIRECT_ALIGNMENT != 0) {
+            throw new IllegalArgumentException("Alignment must be a positive multiple of " + DIRECT_ALIGNMENT +
+                    " but was " + alignment);
         }
         if (capacity > maxCapacity(alignment)) {
             throw new IllegalArgumentException("Capacity " + capacity + " with alignment " + alignment +
@@ -339,14 +338,15 @@ public final class MemoryBufferImpl implements MemoryBufferFlyweight {
         if (alignment <= MALLOC_ALIGNMENT) {
             final ByteBuffer memory = ByteBuffer.allocateDirect(capacity);
             final long address = ACCESS.address(memory);
-            if ((address & (alignment - 1)) == 0) {
+            if (address % alignment == 0) {
                 wrapDirect(address, capacity, 0, memory);
                 return;
             }
         }
         final ByteBuffer memory = ByteBuffer.allocateDirect(capacity + alignment - 1);
-        final long aligned = (ACCESS.address(memory) + alignment - 1) & -alignment;
-        wrapDirect(aligned, capacity, 0, memory);
+        final long address = ACCESS.address(memory);
+        final long misalignment = address % alignment;
+        wrapDirect(misalignment == 0 ? address : address + alignment - misalignment, capacity, 0, memory);
     }
 
     @Unsafe
