@@ -7,7 +7,8 @@ Package `org.tools4j.mmap.core.buffer` of `mmap-core`, with `MemoryBuffers` as t
   heap memory backed by a `long[]`, as allocated by `MemoryBuffers.allocate(..)`, at naturally aligned positions
 * memory access through `jdk.internal.misc.Unsafe` by default, or through the Foreign Function and Memory API on
   Java 22 or later with `-Dmmap.core.memoryAccess=FFM` (plus `--enable-native-access=ALL-UNNAMED` to avoid a warning,
-  and `--add-opens=java.base/java.nio=ALL-UNNAMED` to access byte buffers without allocating)
+  and `--add-opens=java.base/java.nio=ALL-UNNAMED` to access byte buffers without allocating, see
+  [JVM options](jvm-options.md))
 * configuration shared by all modules, e.g. the default error listener (`mmap.core.errorListener`), in
   `org.tools4j.mmap.core.config.CoreConfigurations`
 

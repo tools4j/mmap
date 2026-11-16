@@ -53,7 +53,8 @@ Notes:
   the highest online CPU, leaving CPUs 0 and 1 to the OS and other processes), first to the senders, then to the
   receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux only, through FFM on
   Java 22 or later, otherwise Agrona if on the class path, otherwise the `taskset` command (choose one with
-  `-Dmmap.core.threadAffinity=FFM|AGRONA|TASKSET`); elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
+  `-Dmmap.core.threadAffinity=FFM|AGRONA|TASKSET`, and see [JVM options](jvm-options.md)); elsewhere a warning is
+  logged and threads run unpinned. Pin to isolated cores for the most stable
   latencies.
 
 ## Before and after a change

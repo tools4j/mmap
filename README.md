@@ -39,8 +39,8 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     }) > 0);
 }
 ```
-More in [Mappings](docs/mappings.md), [Queues](docs/queues.md), [Memory buffers](docs/memory-buffers.md) and
-[Benchmarks](docs/benchmarks.md).
+More in [Mappings](docs/mappings.md), [Queues](docs/queues.md), [Memory buffers](docs/memory-buffers.md),
+[JVM options](docs/jvm-options.md) and [Benchmarks](docs/benchmarks.md).
 
 ### Maven/Gradle
 
@@ -48,14 +48,9 @@ Requires Java 17 or later, and the following JVM option (`--add-opens` works too
 ```
 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED
 ```
-Optional features need further options:
+Optional features, such as memory access through the Foreign Function and Memory API or CPU pinning, need further
+options; see [JVM options](docs/jvm-options.md).
 
-| Feature | Java | JVM option | Without it |
-|---|---|---|---|
-| Memory access through FFM (`-Dmmap.core.memoryAccess=FFM`) | 22+ | `--enable-native-access=ALL-UNNAMED` | warning by the JVM |
-| ditto, wrapping byte buffers without allocating | 22+ | `--add-opens=java.base/java.nio=ALL-UNNAMED` | warning, a segment allocated per wrap |
-| CPU pinning through FFM (Linux) | 22+ | `--enable-native-access=ALL-UNNAMED` | warning by the JVM |
-| CPU pinning through Agrona (Linux, Agrona on the class path) | 24+ | `--enable-native-access=ALL-UNNAMED` | warning by the JVM |
 `mmap-queue` includes `mmap-mapping`, which includes `mmap-core`; use `mmap-mapping` alone if you only need
 mappings, or `mmap-core` alone for the memory buffers.
 
