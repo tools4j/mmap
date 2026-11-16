@@ -35,7 +35,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 
 /**
- * Code copied from older versions of Agrona's {@code IoUtil}.
+ * Maps and unmaps file regions by address, without allocating, through the JDK's internal file channel implementation
+ * on Java 17 and its file dispatcher on Java 21 or later, reached through the trusted lookup; originally derived from
+ * older versions of Agrona's {@code IoUtil}.
  */
 @Unsafe
 public enum FileChannels {
