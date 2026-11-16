@@ -19,6 +19,8 @@ The option gives mmap access to `jdk.internal.misc.Unsafe`, used for:
 | `sun.nio.ch.FileDispatcher.map` and `unmap` | mapping and unmapping file regions | 21+ |
 | `sun.nio.ch.FileChannelImpl.initIDs()` | the granularity of mappings, which region sizes must be a multiple of | 17 |
 | `sun.nio.ch.FileDispatcher.allocationGranularity()` | ditto | 21+ |
+| `sun.nio.ch.FileDispatcher.lock` and `release`, reached through the fields `fd` and `nd` of `FileChannelImpl` | locking files without allocating, the same OS lock as `FileChannel.lock` | 17+ |
+| `sun.nio.ch.FileKey.create` | identifying a locked file by device and inode, shared by the JVM's channels | 17+ |
 
 The option is required also when memory is accessed through the Foreign Function and Memory API (FFM, see below). Not
 needing JDK internals at all with FFM on Java 22 or later is planned for a 3.x release, mapping files through the public
