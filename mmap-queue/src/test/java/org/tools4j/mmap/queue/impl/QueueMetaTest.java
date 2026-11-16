@@ -204,6 +204,27 @@ class QueueMetaTest {
                 exception.getMessage());
     }
 
+    @ParameterizedTest
+    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY", "READ_WRITE", "OPEN_OR_CREATE"})
+    void longerFileWithoutMagicIsRejectedAsForeign(final OpenMode openMode) throws IOException {
+        Queue.open(queueDir(), OpenMode.CREATE).close();
+        writeMetaBytes(0, new byte[QueueMetaFile.LENGTH + 1]);
+        final IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> Queue.open(queueDir(), openMode));
+        assertTrue(exception.getMessage().startsWith("Not a queue meta file"), exception.getMessage());
+        assertEquals(QueueMetaFile.LENGTH + 1, metaFile().length(), "foreign file left unchanged");
+    }
+
+    @Test
+    void longerMetaFileWithMagicIsRejected() throws IOException {
+        Queue.open(queueDir(), OpenMode.CREATE).close();
+        writeMetaBytes(QueueMetaFile.LENGTH, new byte[1]);
+        final IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> QueueMetaFile.read(metaFile()));
+        assertTrue(exception.getMessage().contains("Invalid queue meta file of length " + (QueueMetaFile.LENGTH + 1)),
+                exception.getMessage());
+    }
+
     @Test
     void allFlagCombinationsRoundTrip() {
         for (int flags = 0; flags < 16; flags++) {

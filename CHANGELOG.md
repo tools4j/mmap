@@ -56,6 +56,10 @@ Notable changes per release. Entries are curated from the commits since the prev
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.
 
+### Fixed
+- A queue meta file without magic number that is longer than a meta file is rejected as foreign instead of being
+  treated as an incomplete meta file and overwritten, and a meta file longer than its format defines is rejected.
+
 ## 2.1 (2026-11-14)
 
 ### Breaking changes

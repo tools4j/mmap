@@ -35,7 +35,6 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.function.Supplier;
 
 /**
@@ -60,15 +59,17 @@ import java.util.function.Supplier;
  * <p>
  * The meta file is written under an exclusive file lock, and read under a shared file lock. The magic number is
  * written last, so that a meta file without magic number is incomplete, for instance because its creator crashed, and
- * is treated as if the queue did not exist.
+ * is treated as if the queue did not exist, unless it is longer than a meta file, which makes it a foreign file.
  */
 enum QueueMetaFile {
     ;
     static final int VERSION = 1;
     static final int LENGTH = 64;
 
-    private static final byte[] MAGIC = "t4jmmapq".getBytes(StandardCharsets.US_ASCII);
-    private static final byte[] NO_MAGIC = new byte[MAGIC.length];
+    /** The ASCII bytes "t4jmmapq" read as a little-endian long */
+    private static final long MAGIC = ByteBuffer.wrap("t4jmmapq".getBytes(StandardCharsets.US_ASCII))
+            .order(ByteOrder.LITTLE_ENDIAN).getLong();
+    private static final long NO_MAGIC = 0;
     private static final int VERSION_OFFSET = 8;
     private static final int FLAGS_OFFSET = 12;
     private static final int HEADER_REGION_SIZE_OFFSET = 16;
@@ -158,28 +159,29 @@ enum QueueMetaFile {
     }
 
     private static QueueLayoutConfig read(final File file, final FileChannel channel) throws IOException {
+        final long length = channel.size();
         final ByteBuffer buffer = ByteBuffer.allocate(LENGTH).order(ByteOrder.LITTLE_ENDIAN);
-        while (buffer.hasRemaining() && channel.read(buffer, buffer.position()) >= 0) {
-            //read until buffer is full or end of file is reached
-        }
-        final byte[] magic = new byte[MAGIC.length];
-        buffer.get(0, magic);//NOTE: bytes beyond the end of the file remain zero
-        if (Arrays.equals(NO_MAGIC, magic)) {
+        int read;
+        do {
+            read = channel.read(buffer, buffer.position());
+        } while (read >= 0 && buffer.hasRemaining());
+        final long magic = buffer.getLong(0);//NOTE: bytes beyond the end of the file remain zero
+        if (magic == NO_MAGIC && length <= LENGTH) {
             return null;
         }
-        if (!Arrays.equals(MAGIC, magic)) {
+        if (magic != MAGIC) {
             throw new IllegalStateException("Not a queue meta file: " + file);
         }
-        if (buffer.position() < VERSION_OFFSET + Integer.BYTES) {
-            throw invalidLength(file, buffer.position());
+        if (length < VERSION_OFFSET + Integer.BYTES) {
+            throw invalidLength(file, length);
         }
         final int version = buffer.getInt(VERSION_OFFSET);
         if (version != VERSION) {
             throw new IllegalStateException("Unsupported queue format version " + version + ", expected " +
                     VERSION + ": " + file);
         }
-        if (buffer.position() < LENGTH) {
-            throw invalidLength(file, buffer.position());
+        if (length != LENGTH) {
+            throw invalidLength(file, length);
         }
         final int flags = buffer.getInt(FLAGS_OFFSET);
         return new QueueLayoutConfigImpl(
@@ -195,7 +197,7 @@ enum QueueMetaFile {
                 (flags & ROLL_PAYLOAD_FILES_FLAG) != 0);
     }
 
-    private static IllegalStateException invalidLength(final File file, final int length) {
+    private static IllegalStateException invalidLength(final File file, final long length) {
         return new IllegalStateException("Invalid queue meta file of length " + length + ", expected " + LENGTH +
                 ": " + file);
     }
@@ -211,9 +213,9 @@ enum QueueMetaFile {
         buffer.putLong(MIN_PAYLOAD_FILE_SIZE_OFFSET, layout.minPayloadFileSize());
         buffer.putLong(MAX_PAYLOAD_FILE_SIZE_OFFSET, layout.maxPayloadFileSize());
         //magic last, and only once everything else is durable
-        writeFully(channel, buffer.position(MAGIC.length));
+        writeFully(channel, buffer.position(Long.BYTES));
         channel.force(true);
-        writeFully(channel, ByteBuffer.wrap(MAGIC));
+        writeFully(channel, buffer.putLong(0, MAGIC).position(0).limit(Long.BYTES));
         channel.force(true);
     }
 
