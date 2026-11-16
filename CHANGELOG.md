@@ -36,6 +36,8 @@ Notable changes per release. Entries are curated from the commits since the prev
   `mmap.mapping.async.unmappingRuntimeIdler`, accepting `NO_OP`, `BUSY_SPIN`, `YIELDING` or `BACKOFF` (the default)
   besides class names, and `MappingConfigurations.default(Un)mappingRuntimeIdleStrategySupplier()` to
   `default(Un)mappingRuntimeIdlerSupplier()`.
+- Agrona is no longer a dependency of `mmap-mapping` and `mmap-queue`: applications using Agrona themselves need
+  their own dependency on it. It remains an optional dependency of `mmap-core` for CPU pinning on Java 17 to 21.
 
 ### Added
 - Memory buffers in `mmap-core` (`org.tools4j.mmap.core.buffer`, entry point `MemoryBuffers`), to replace Agrona's

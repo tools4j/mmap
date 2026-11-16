@@ -36,7 +36,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 
 /**
- * Code copied from older versions of Agrona's {@link org.agrona.IoUtil}.
+ * Code copied from older versions of Agrona's {@code IoUtil}.
  */
 @Unsafe
 public enum FileChannels {
