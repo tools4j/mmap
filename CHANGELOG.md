@@ -50,11 +50,16 @@ Notable changes per release. Entries are curated from the commits since the prev
   Foreign Function and Memory API on Java 22 or later, otherwise through Agrona if on the class path (now an optional
   dependency of `mmap-core`), otherwise through the `taskset` command; the system property `mmap.core.threadAffinity`
   (`AUTO`, the default, `FFM`, `AGRONA`, `TASKSET` or `NONE`) chooses one, and `CpuPinning.mode()` returns the one in
-  use. Pinning through FFM or Agrona needs `--enable-native-access=ALL-UNNAMED` on Java 24 or later to avoid a
-  warning by the JVM. `CpuPinning.currentThreadAffinity()` returns the CPUs the calling thread may run on.
+  use. Pinning through FFM or Agrona needs `--enable-native-access=ALL-UNNAMED` to avoid a warning by the JVM, for
+  FFM since Java 22 and for Agrona since Java 24. `CpuPinning.currentThreadAffinity()` returns the CPUs the calling thread may run on.
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.
+
+### Changed
+- The only JVM option needed is `--add-exports java.base/jdk.internal.misc=ALL-UNNAMED` (or `--add-opens`):
+  `--add-opens java.base/sun.nio.ch=ALL-UNNAMED` is no longer needed, as the JDK internals for mapping files are now
+  reached through the JDK's trusted lookup.
 
 ### Fixed
 - A queue meta file without magic number that is longer than a meta file is rejected as foreign instead of being

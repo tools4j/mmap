@@ -23,9 +23,10 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import org.tools4j.mmap.core.unsafe.UnsafeAccess;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 
 public enum Constants {
     ;
@@ -44,59 +45,34 @@ public enum Constants {
     public static final long REGION_SIZE_GRANULARITY = regionSizeGranularity();
 
     /**
-     * Digging into protected java code to get the memory page size.
+     * Returns the allocation granularity of memory mappings from the JDK's internal file channel implementation,
+     * through the trusted lookup, so that no package needs to be opened.
      *
-     * @return memory page size
+     * @return the region size granularity in bytes
      */
-    //TODO FFM: granularity without reflection into sun.nio.ch, which needs --add-opens, e.g. from the page size and
-    //64 KB on Windows
+    //TODO FFM: granularity without JDK internals, e.g. from the page size and 64 KB on Windows
     public static long regionSizeGranularity() {
         try {
+            final MethodHandles.Lookup lookup = UnsafeAccess.trustedLookup();
             final Class<?> fileChannelImplClass = Class.forName("sun.nio.ch.FileChannelImpl");
-            long result = initIDs(fileChannelImplClass);
-            if (result < 0) {
-                result = allocationGranularity(fileChannelImplClass);
+            try {
+                //Java 17: initIDs() returns the allocation granularity
+                return (long) lookup.findStatic(fileChannelImplClass, "initIDs", MethodType.methodType(long.class))
+                        .invoke();
+            } catch (final NoSuchMethodException e) {
+                //Java 21+: from the static file dispatcher, members the IDE does not find in Java 17
+                final Class<?> dispatcherClass = Class.forName("sun.nio.ch.FileDispatcher");
+                //noinspection JavaLangInvokeHandleSignature
+                final Object dispatcher = lookup.findStaticGetter(fileChannelImplClass, "nd", dispatcherClass)
+                        .invoke();
+                //noinspection JavaLangInvokeHandleSignature
+                return (long) lookup.findVirtual(dispatcherClass, "allocationGranularity",
+                        MethodType.methodType(long.class)).invoke(dispatcher);
             }
-            if (result < 0) {
-                throw new NoSuchMethodException(fileChannelImplClass.getName() + ".initIDs()");
-            }
-            return result;
-        } catch (final Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static long initIDs(final Class<?> fileChannelImplClass) {
-        try {
-            final Method method = fileChannelImplClass.getDeclaredMethod("initIDs");
-            method.setAccessible(true);
-            final long result = (long)method.invoke(null);
-            method.setAccessible(false);
-            return result;
-        } catch (final NoSuchMethodException e) {
-            return -1;
-        } catch (final InvocationTargetException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static long allocationGranularity(final Class<?> fileChannelImplClass) {
-        try {
-            final Class<?> FileDispatcherClass = Class.forName("sun.nio.ch.FileDispatcher");
-            final Field fileDispatcherField = fileChannelImplClass.getDeclaredField("nd");
-            fileDispatcherField.setAccessible(true);
-            final Object fileDispatcher = fileDispatcherField.get(null);//static field
-            fileDispatcherField.setAccessible(false);
-            //noinspection JavaReflectionMemberAccess
-            final Method method = FileDispatcherClass.getDeclaredMethod("allocationGranularity");
-            method.setAccessible(true);
-            final long result = (long) method.invoke(fileDispatcher);
-            method.setAccessible(false);
-            return result;
-        } catch (final NoSuchFieldException | NoSuchMethodException e) {
-            return -1;
-        } catch (final Exception e) {
-            throw new RuntimeException(e);
+        } catch (final RuntimeException | Error e) {
+            throw e;
+        } catch (final Throwable e) {
+            throw new IllegalStateException("Cannot determine the region size granularity", e);
         }
     }
 }

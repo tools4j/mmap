@@ -26,9 +26,10 @@ package org.tools4j.mmap.core.pinning;
 /**
  * The mechanism reading and setting the CPU affinity of threads, chosen once per JVM with the system property
  * {@value org.tools4j.mmap.core.config.CoreConfigurations#THREAD_AFFINITY_PROPERTY} when thread affinity is first
- * used, see {@link CpuPinning#mode()}. All backends support Linux only. FFM and Agrona call into native code,
- * which Java 24 and later warn about unless {@code --enable-native-access=ALL-UNNAMED} allows it, and later Java
- * versions may deny; a denied backend is not supported.
+ * used, see {@link CpuPinning#mode()}. All backends support Linux only. FFM and Agrona call into native code, which
+ * the JVM warns about unless {@code --enable-native-access=ALL-UNNAMED} allows it, for FFM's restricted methods since
+ * Java 22 and for Agrona's JNI library since Java 24, and later Java versions may deny; a denied backend is not
+ * supported.
  */
 public enum AffinityMode {
     /** The first supported of {@link #FFM}, {@link #AGRONA} and {@link #TASKSET}, or {@link #NONE}; the default. */

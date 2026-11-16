@@ -144,13 +144,6 @@ subprojects {
 
     tasks.withType(JavaCompile) {
         options.compilerArgs.add('-Xlint:-options')
-        if (JavaVersion.current().isJava9Compatible()) {
-            options.compilerArgs.addAll(['--add-exports', 'java.base/java.lang.reflect=ALL-UNNAMED'])
-            options.compilerArgs.addAll(['--add-exports', 'java.base/java.net=ALL-UNNAMED'])
-            options.compilerArgs.addAll(['--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED'])
-            options.compilerArgs.addAll(['--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED'])
-            options.compilerArgs.addAll(['--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED'])
-        }
         options.encoding = 'UTF-8'
         options.deprecation = true
     }
@@ -160,8 +153,8 @@ subprojects {
         enableAssertions = true
         jvmArgs('-Ddisable.thread.safety=true')
 
-        jvmArgs('--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED')
-        jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
+        //the only JDK internals needed, see UnsafeAccess; the others are reached through its trusted lookup
+        jvmArgs('--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED')
         //thread affinity through FFM or Agrona calls native code, which Java 24+ warns about otherwise
         jvmArgs('--enable-native-access=ALL-UNNAMED')
 
@@ -196,15 +189,6 @@ subprojects {
         enableAssertions = false
         jvmArgs('-Djvm.resource.tracing=false')
         jvmArgs('-Ddisable.thread.safety=true')
-
-        if (JavaVersion.current().isJava9Compatible()) {
-            jvmArgs('--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/java.net=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED')
-            jvmArgs('--add-opens', 'java.base/java.util.zip=ALL-UNNAMED')
-            jvmArgs('--add-exports', 'jdk.unsupported/sun.misc=ALL-UNNAMED')
-        }
 
         useJUnitPlatform {
             excludeTags = [] as Set // inherited from tasks.withType(Test) above
