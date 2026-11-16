@@ -23,7 +23,7 @@
  */
 /**
  * Internal utilities shared by the mmap modules, such as {@linkplain SystemProperties system properties},
- * {@linkplain FileLocks file locks} and {@linkplain Validations validations}. Public for the other mmap modules, but
+ * {@linkplain FileChannelLock file locks} and {@linkplain Validations validations}. Public for the other mmap modules, but
  * not intended for application code.
  */
 package org.tools4j.mmap.core.internal;

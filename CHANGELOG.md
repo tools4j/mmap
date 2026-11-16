@@ -66,6 +66,8 @@ Notable changes per release. Entries are curated from the commits since the prev
   region crossing with three region mapper types: the region mappers declare all methods themselves rather than
   sharing default methods, as the new annotation `@OverrideAll` (`org.tools4j.mmap.core.base`) on `RegionMapper` asks
   of all its implementations.
+- File locks, taken when files are opened and extended, allocate nothing any more, and closing a file no longer
+  releases a lock that another mapping of the same file in the JVM holds at the time.
 
 ### Fixed
 - A queue meta file without magic number that is longer than a meta file is rejected as foreign instead of being

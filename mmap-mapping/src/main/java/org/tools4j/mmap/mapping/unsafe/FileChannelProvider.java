@@ -27,7 +27,7 @@ import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.core.internal.FileLocks;
+import org.tools4j.mmap.core.internal.FileChannelLock;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
@@ -54,12 +53,14 @@ final class FileChannelProvider implements Closeable {
     private final ErrorListener errorListener;
     private final AtomicReference<ChannelWithFile> channelWithFile = new AtomicReference<>();
 
-    private record ChannelWithFile(RandomAccessFile randomAccessFile, FileChannel channel) {
-        static final ChannelWithFile CLOSED = new ChannelWithFile(null, null);
+    /** The channel of the file, to be closed through its lock only, which waits until no lock is held on the file */
+    private record ChannelWithFile(RandomAccessFile randomAccessFile, FileChannel channel, FileChannelLock lock) {
+        static final ChannelWithFile CLOSED = new ChannelWithFile(null, null, null);
         ChannelWithFile {
             if (CLOSED != null) {
                 requireNonNull(randomAccessFile);
                 requireNonNull(channel);
+                requireNonNull(lock);
             }
         }
     }
@@ -136,7 +137,7 @@ final class FileChannelProvider implements Closeable {
             throw new IllegalStateException("No file channel to extend file " + file + " to size " + size);
         }
         try {
-            final FileLock lock = FileLocks.acquireLock(cwf.channel);
+            cwf.lock.lock();
             try {
                 final long length = cwf.channel.size();
                 if (length >= size) {
@@ -146,7 +147,7 @@ final class FileChannelProvider implements Closeable {
                 ensureLength(cwf.randomAccessFile, size);
                 return size;
             } finally {
-                lock.release();
+                cwf.lock.unlock();
             }
         } catch (final IOException e) {
             throw new UncheckedIOException("Failed to extend file " + file + " to size " + size, e);
@@ -186,8 +187,9 @@ final class FileChannelProvider implements Closeable {
         if (raf == null) {
             return null;
         }
-        final FileChannel channel = initChannel(raf);
-        return setOrGet(new ChannelWithFile(raf, channel));
+        final FileChannel channel = raf.getChannel();
+        final FileChannelLock lock = initChannel(raf, channel);
+        return setOrGet(new ChannelWithFile(raf, channel, lock));
     }
 
     private void createNewFile() {
@@ -216,33 +218,34 @@ final class FileChannelProvider implements Closeable {
         return raf;
     }
 
-    private FileChannel initChannel(final RandomAccessFile raf) {
-        final FileChannel channel = raf.getChannel();
+    /** Initialises the file through the channel and returns the lock of the channel, closing both on failure */
+    private FileChannelLock initChannel(final RandomAccessFile raf, final FileChannel channel) {
+        FileChannelLock lock = null;
         try {
+            lock = FileChannelLock.create(channel);
             if (accessMode == AccessMode.READ_ONLY) {
                 validateMinFileLength(channel);
                 preAccessHook.onOpen(file, channel, minFileLength);
             } else {
-                final FileLock lock = FileLocks.acquireLock(channel);
+                lock.lock();
                 try {
                     preAccessHook.onOpen(file, channel, minFileLength);
                     ensureLength(raf, minFileLength);
                 } finally {
-                    lock.release();
+                    lock.unlock();
                 }
             }
         } catch (final IOException e) {
-            close(channel);
+            close(lock != null ? lock : channel);
             close(raf);
             throw new UncheckedIOException("Failed to initialise file " + file, e);
         } catch (final RuntimeException e) {
-            close(channel);
+            close(lock != null ? lock : channel);
             close(raf);
             throw e;
         }
-        assert channel != null : "channel cannot be null";
         assert channel.isOpen() : "channel must be open";
-        return channel;
+        return lock;
     }
 
     private void validateMinFileLength(final FileChannel channel) throws IOException {
@@ -265,7 +268,7 @@ final class FileChannelProvider implements Closeable {
 
     private void close(final ChannelWithFile value) {
         if (value != null) {
-            close(value.channel);
+            close(value.lock);
             close(value.randomAccessFile);
         }
     }

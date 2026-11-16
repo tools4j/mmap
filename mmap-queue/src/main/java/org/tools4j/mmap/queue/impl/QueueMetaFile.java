@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.core.internal.FileLocks;
+import org.tools4j.mmap.core.internal.FileChannelLock;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
@@ -33,7 +33,6 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
@@ -95,9 +94,13 @@ enum QueueMetaFile {
             return null;
         }
         try (final RandomAccessFile raf = new RandomAccessFile(file, "r");
-             final FileChannel channel = raf.getChannel();
-             final FileLock ignored = FileLocks.acquireSharedLock(channel)) {
-            return read(file, channel);
+             final FileChannelLock lock = FileChannelLock.create(raf.getChannel())) {
+            lock.lockShared();
+            try {
+                return read(file, raf.getChannel());
+            } finally {
+                lock.unlock();
+            }
         } catch (final IOException e) {
             throw new IllegalStateException("Reading queue meta file " + file + " failed: " + e, e);
         }
@@ -124,38 +127,50 @@ enum QueueMetaFile {
             throw new IllegalArgumentException("Queue does not exist: " + file.getParentFile());
         }
         try (final RandomAccessFile raf = new RandomAccessFile(file, "rw");
-             final FileChannel channel = raf.getChannel();
-             final FileLock ignored = FileLocks.acquireLock(channel)) {
-            final QueueLayoutConfig existing = read(file, channel);
-            switch (openMode) {
-                case READ_WRITE -> {
-                    if (existing == null) {
-                        throw new IllegalArgumentException("Queue does not exist: " + file.getParentFile());
-                    }
-                    return existing;
-                }
-                case CREATE -> {
-                    if (existing != null) {
-                        throw new IllegalArgumentException("Queue already exists: " + file.getParentFile());
-                    }
-                }
-                case OPEN_OR_CREATE -> {
-                    if (existing != null) {
-                        return existing;
-                    }
-                }
-                case RECREATE -> {
-                    channel.truncate(0);
-                    deleteOtherQueueFiles.run();
-                }
-                default -> throw new IllegalArgumentException("Unsupported open mode for writing: " + openMode);
+             final FileChannelLock lock = FileChannelLock.create(raf.getChannel())) {
+            lock.lock();
+            try {
+                return openLocked(file, raf.getChannel(), openMode, layoutToCreate, deleteOtherQueueFiles);
+            } finally {
+                lock.unlock();
             }
-            final QueueLayoutConfig layout = layoutToCreate.get();
-            write(channel, layout);
-            return layout;
         } catch (final IOException e) {
             throw new IllegalStateException("Opening queue meta file " + file + " failed: " + e, e);
         }
+    }
+
+    private static QueueLayoutConfig openLocked(final File file,
+                                                final FileChannel channel,
+                                                final OpenMode openMode,
+                                                final Supplier<QueueLayoutConfig> layoutToCreate,
+                                                final Runnable deleteOtherQueueFiles) throws IOException {
+        final QueueLayoutConfig existing = read(file, channel);
+        switch (openMode) {
+            case READ_WRITE -> {
+                if (existing == null) {
+                    throw new IllegalArgumentException("Queue does not exist: " + file.getParentFile());
+                }
+                return existing;
+            }
+            case CREATE -> {
+                if (existing != null) {
+                    throw new IllegalArgumentException("Queue already exists: " + file.getParentFile());
+                }
+            }
+            case OPEN_OR_CREATE -> {
+                if (existing != null) {
+                    return existing;
+                }
+            }
+            case RECREATE -> {
+                channel.truncate(0);
+                deleteOtherQueueFiles.run();
+            }
+            default -> throw new IllegalArgumentException("Unsupported open mode for writing: " + openMode);
+        }
+        final QueueLayoutConfig layout = layoutToCreate.get();
+        write(channel, layout);
+        return layout;
     }
 
     private static QueueLayoutConfig read(final File file, final FileChannel channel) throws IOException {
