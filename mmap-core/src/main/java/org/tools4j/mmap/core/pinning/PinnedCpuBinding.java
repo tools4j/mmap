@@ -21,11 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.pinning;
 
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
-import org.tools4j.mmap.mapping.api.CpuBinding;
 
 import java.util.Arrays;
 
@@ -34,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Binding of a thread pinned to a CPU, restoring the previous affinity when closed by the bound thread.
  */
-public final class PinnedCpuBinding implements CpuBinding {
+final class PinnedCpuBinding implements CpuBinding {
     private final int cpu;
     private final int[] previous;
     private final Thread thread;
@@ -52,10 +51,10 @@ public final class PinnedCpuBinding implements CpuBinding {
      * @param release       invoked when the binding is closed, or immediately if the thread is not pinned
      * @return the binding, unbound if the thread was not pinned
      */
-    public static CpuBinding pin(final int cpu,
-                                 final Describable source,
-                                 final ErrorListener errorListener,
-                                 final Runnable release) {
+    static CpuBinding pin(final int cpu,
+                          final Describable source,
+                          final ErrorListener errorListener,
+                          final Runnable release) {
         if (!ThreadAffinities.isSupported()) {
             release.run();
             errorListener.onWarning(source, "Thread " + Thread.currentThread().getName() + " not pinned to CPU " +
@@ -76,11 +75,11 @@ public final class PinnedCpuBinding implements CpuBinding {
     }
 
     private PinnedCpuBinding(final int cpu,
-                     final int[] previous,
-                     final Describable source,
-                     final ErrorListener errorListener,
-                     final Runnable release) {
-        this.cpu = cpu;
+                             final int[] previous,
+                             final Describable source,
+                             final ErrorListener errorListener,
+                             final Runnable release) {
+            this.cpu = cpu;
         this.previous = requireNonNull(previous);
         this.thread = Thread.currentThread();
         this.source = requireNonNull(source);

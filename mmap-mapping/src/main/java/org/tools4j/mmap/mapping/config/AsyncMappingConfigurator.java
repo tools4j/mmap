@@ -112,8 +112,9 @@ public interface AsyncMappingConfigurator extends AsyncMappingConfig {
 
     /**
      * Configures a new runtime for every region mapper created with this configuration, each with a thread created by
-     * the given thread factory, for instance a {@linkplain org.tools4j.mmap.mapping.api.CpuPinning#threadFactory(String, boolean, int[])
-     * pinned thread factory} to pin runtime threads to CPUs. The runtimes stop automatically when their last region
+     * the given thread factory, for instance a
+     * {@linkplain org.tools4j.mmap.core.pinning.CpuPinning#threadFactory(String, boolean, int[]) pinned thread
+     * factory} to pin runtime threads to CPUs. The runtimes stop automatically when their last region
      * mapper is closed. Combine with {@link #mappingRuntimeUsing(Supplier)} to also set the idler, for
      * instance {@code mappingRuntimeUsing(idlerSupplier).mappingRuntimeUsing(threadFactory)}.
      *

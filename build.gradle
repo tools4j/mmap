@@ -162,6 +162,8 @@ subprojects {
 
         jvmArgs('--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED')
         jvmArgs('--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED')
+        //thread affinity through FFM or Agrona calls native code, which Java 24+ warns about otherwise
+        jvmArgs('--enable-native-access=ALL-UNNAMED')
 
         useJUnitPlatform {
             excludeTags 'perf'
@@ -368,6 +370,9 @@ project(':mmap-core') {
         compileOnly "org.slf4j:slf4j-api:${slf4jVersion}"
         testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
         testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+        //optional: thread affinity through Agrona if present on the class path, see AffinityMode
+        compileOnly "org.agrona:agrona:${agronaVersion}"
+        testImplementation "org.agrona:agrona:${agronaVersion}"
     }
 
     jar {
@@ -381,7 +386,7 @@ project(':mmap-core') {
                 Implementation-Title:   mmap
                 Implementation-Vendor:  tools4j.org
                 Implementation-Version: ${projVersion}
-                Import-Package:         org.slf4j.*;resolution:=optional, java.lang.foreign;resolution:=optional, *
+                Import-Package:         org.slf4j.*;resolution:=optional, org.agrona.*;resolution:=optional, java.lang.foreign;resolution:=optional, *
                 # Java 17, not derived from the classes, as memory access through FFM is loaded on Java 22+ only
                 Require-Capability:     osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=17))"
                 -noee: true
@@ -475,6 +480,7 @@ project(':mmap-perf') {
     //JVM args for the mmap and chronicle queues, see https://chronicle.software/chronicle-support-java-17/
     def perfJvmArgs = [
             '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn',
+            '--enable-native-access=ALL-UNNAMED', //thread affinity through FFM or Agrona, see AffinityMode
             '--add-opens', 'java.base/jdk.internal.misc=ALL-UNNAMED',
             '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
             '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',

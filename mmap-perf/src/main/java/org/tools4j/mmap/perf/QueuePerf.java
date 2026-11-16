@@ -23,10 +23,10 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.tools4j.mmap.mapping.api.CpuPinning;
+import org.tools4j.mmap.core.pinning.CpuLists;
+import org.tools4j.mmap.core.pinning.CpuPinning;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
-import org.tools4j.mmap.mapping.impl.CpuLists;
 import org.tools4j.mmap.perf.PerfOptions.QueueType;
 import org.tools4j.mmap.queue.config.QueueConfig;
 import org.tools4j.mmap.queue.config.QueueConfigurator;

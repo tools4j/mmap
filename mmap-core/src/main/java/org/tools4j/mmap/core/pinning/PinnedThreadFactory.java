@@ -21,15 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
+package org.tools4j.mmap.core.pinning;
 
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.concurrent.AtomicIdBitSet;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.mapping.api.CpuBinding;
-import org.tools4j.mmap.mapping.api.CpuPinning;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,7 +45,7 @@ import static java.util.Objects.requireNonNull;
  * know of each other, so their CPUs should not overlap; for instance, main threads can be pinned to low CPUs and
  * factories given the higher ones.
  */
-public final class PinnedThreadFactory implements ThreadFactory, Describable {
+final class PinnedThreadFactory implements ThreadFactory, Describable {
     private final String namePrefix;
     private final boolean daemon;
     private final int[] cpus;
@@ -65,7 +62,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      * @param firstCpu   the first CPU to pin threads to
      * @throws IllegalArgumentException if first CPU is negative or larger than the highest online CPU
      */
-    public PinnedThreadFactory(final String namePrefix, final boolean daemon, final int firstCpu) {
+    PinnedThreadFactory(final String namePrefix, final boolean daemon, final int firstCpu) {
         this(namePrefix, daemon, firstCpu, SystemCpus.maxOnlineCpu());
     }
 
@@ -80,7 +77,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      * @throws IllegalArgumentException if a CPU is negative or larger than {@link CpuPinning#MAX_CPU}, or if the
      *                                  first CPU is larger than the last
      */
-    public PinnedThreadFactory(final String namePrefix, final boolean daemon, final int firstCpu, final int lastCpu) {
+    PinnedThreadFactory(final String namePrefix, final boolean daemon, final int firstCpu, final int lastCpu) {
         this(namePrefix, daemon, firstCpu, lastCpu, CoreConfigurations.defaultErrorListener());
     }
 
@@ -95,7 +92,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      * @throws IllegalArgumentException if a CPU is negative or larger than {@link CpuPinning#MAX_CPU}, or if the
      *                                  first CPU is larger than the last
      */
-    public PinnedThreadFactory(final String namePrefix,
+    PinnedThreadFactory(final String namePrefix,
                                final boolean daemon,
                                final int firstCpu,
                                final int lastCpu,
@@ -113,7 +110,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      * @throws IllegalArgumentException if cpus is empty, contains a CPU twice, or a CPU that is negative or larger
      *                                  than {@link CpuPinning#MAX_CPU}
      */
-    public PinnedThreadFactory(final String namePrefix, final boolean daemon, final int[] cpus) {
+    PinnedThreadFactory(final String namePrefix, final boolean daemon, final int[] cpus) {
         this(namePrefix, daemon, cpus, CoreConfigurations.defaultErrorListener());
     }
 
@@ -127,7 +124,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
      * @throws IllegalArgumentException if cpus is empty, contains a CPU twice, or a CPU that is negative or larger
      *                                  than {@link CpuPinning#MAX_CPU}
      */
-    public PinnedThreadFactory(final String namePrefix,
+    PinnedThreadFactory(final String namePrefix,
                                final boolean daemon,
                                final int[] cpus,
                                final ErrorListener errorListener) {
@@ -139,7 +136,7 @@ public final class PinnedThreadFactory implements ThreadFactory, Describable {
     }
 
     /** @return the CPUs threads are pinned to, in order of preference */
-    public int[] cpus() {
+    int[] cpus() {
         return cpus.clone();
     }
 

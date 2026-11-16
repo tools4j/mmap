@@ -23,6 +23,10 @@ Notable changes per release. Entries are curated from the commits since the prev
   `org.tools4j.mmap.mapping.impl` to `org.tools4j.mmap.core.logging` and logs all resources at its level; the
   `LOG_INFO` and `LOG_WARN` values of `mmap.mapping.lifecycleListener` still log internal resources at debug level,
   combining two logging listeners with the new `LifecycleListener.conditional(condition, matching, other)`.
+- CPU pinning moved from `org.tools4j.mmap.mapping.api` to `org.tools4j.mmap.core.pinning` in `mmap-core`:
+  `CpuPinning` and `CpuBinding`, and from `org.tools4j.mmap.mapping.impl` the public `CpuLists` and `SystemCpus`;
+  `PinnedThreadFactory` and `PinnedCpuBinding` are no longer public, as `CpuPinning.threadFactory(..)` and
+  `pinCurrentThread(..)` create them.
 - Async runtimes wait with mmap-core's `Idler` (`org.tools4j.mmap.core.idle`) instead of Agrona's `IdleStrategy`:
   `AsyncRuntime.create(..)`, `AsyncRuntimeInstances.newMappingRuntime(..)` and `newUnmappingRuntime(..)`, and the
   configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler` or a `Supplier` of idlers,
@@ -40,6 +44,12 @@ Notable changes per release. Entries are curated from the commits since the prev
   Memory is accessed through `jdk.internal.misc.Unsafe`, or with `-Dmmap.core.memoryAccess=FFM` through the Foreign
   Function and Memory API on Java 22 or later; the alignment check of ordered accesses can be disabled with
   `-Dmmap.core.alignmentCheck=false`.
+- CPU pinning no longer needs Agrona and supports Linux on all architectures: the CPU affinity is set through the
+  Foreign Function and Memory API on Java 22 or later, otherwise through Agrona if on the class path (now an optional
+  dependency of `mmap-core`), otherwise through the `taskset` command; the system property `mmap.core.threadAffinity`
+  (`AUTO`, the default, `FFM`, `AGRONA`, `TASKSET` or `NONE`) chooses one, and `CpuPinning.mode()` returns the one in
+  use. Pinning through FFM or Agrona needs `--enable-native-access=ALL-UNNAMED` on Java 24 or later to avoid a
+  warning by the JVM. `CpuPinning.currentThreadAffinity()` returns the CPUs the calling thread may run on.
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.

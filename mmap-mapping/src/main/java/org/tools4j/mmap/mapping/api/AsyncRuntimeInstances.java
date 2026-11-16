@@ -98,8 +98,8 @@ public enum AsyncRuntimeInstances {
 
     /**
      * Creates a new mapping runtime instance with the specified idler, auto-stop behavior and thread factory,
-     * for instance a {@linkplain CpuPinning#threadFactory(String, boolean, int[]) pinned thread factory} to pin the
-     * runtime thread to a CPU.
+     * for instance a {@linkplain org.tools4j.mmap.core.pinning.CpuPinning#threadFactory(String, boolean, int[])
+     * pinned thread factory} to pin the runtime thread to a CPU.
      *
      * @param idler the idler used by the new runtime instance
      * @param autoStopOnLastDeregister if true the runtime automatically stops after the last task de-registration

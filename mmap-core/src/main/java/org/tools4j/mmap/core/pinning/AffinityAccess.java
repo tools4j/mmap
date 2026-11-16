@@ -21,30 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+package org.tools4j.mmap.core.pinning;
 
 /**
- * Unit test for {@link SystemCpus}.
+ * Reads and sets the CPU affinity of the calling thread, implemented by one backend per {@link AffinityMode}.
  */
-class SystemCpusTest {
+interface AffinityAccess {
+    /**
+     * Returns the CPUs the calling thread may run on, allocating the returned array.
+     *
+     * @return the CPUs in ascending order
+     * @throws RuntimeException if the affinity cannot be read
+     */
+    int[] currentThreadAffinity();
 
-    @Test
-    void lastCpuOfCpuList() {
-        assertEquals(0, SystemCpus.lastCpu("0\n"));
-        assertEquals(7, SystemCpus.lastCpu("0-7\n"));
-        assertEquals(11, SystemCpus.lastCpu("0-3,8,10-11"));
-        assertEquals(8, SystemCpus.lastCpu("0-3,8 "));
-        assertThrows(NumberFormatException.class, () -> SystemCpus.lastCpu(""));
-    }
-
-    @Test
-    void maxOnlineCpuIsAtLeastAvailableProcessorsMinusOne() {
-        assertTrue(SystemCpus.maxOnlineCpu() >= Runtime.getRuntime().availableProcessors() - 1);
-    }
+    /**
+     * Sets the CPUs the calling thread may run on.
+     *
+     * @param cpus the valid CPUs, not empty
+     * @throws RuntimeException if the affinity cannot be set, for instance if the CPUs are not available to the
+     *                          process
+     */
+    void setCurrentThreadAffinity(int[] cpus);
 }

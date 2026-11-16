@@ -21,23 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.api;
+package org.tools4j.mmap.core.pinning;
 
 import org.tools4j.mmap.core.base.ConstantDescribable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.mapping.impl.PinnedCpuBinding;
-import org.tools4j.mmap.mapping.impl.PinnedThreadFactory;
-import org.tools4j.mmap.mapping.impl.ThreadAffinities;
 
 import java.util.concurrent.ThreadFactory;
 
 /**
- * Pins the calling thread to a CPU. Pinning is supported on Linux for x86_64 and aarch64 (through Agrona's
- * {@link org.agrona.concurrent.affinity.ThreadAffinity ThreadAffinity}). Pinning never throws: if it is not supported
- * or fails, for instance because the CPU is not available to the process, a warning is reported to the error listener
- * and the thread continues to run unpinned.
+ * Pins the calling thread to a CPU. Pinning is supported on Linux, through the backend chosen by system property
+ * {@value CoreConfigurations#THREAD_AFFINITY_PROPERTY}, see {@link AffinityMode}: by default FFM on Java 22 or later,
+ * otherwise Agrona if on the class path, otherwise the {@code taskset} command. Pinning never throws: if it is not
+ * supported or fails, for instance because the CPU is not available to the process, a warning is reported to the
+ * error listener and the thread continues to run unpinned.
  * <p>
  * To create threads pinned to different CPUs, use a {@linkplain #threadFactory(String, boolean, int[]) thread factory}
  * from this class: each thread it creates is pinned to the first CPU of its list not in use by another running thread
@@ -54,13 +52,38 @@ public enum CpuPinning {
     private static final Describable SOURCE = new ConstantDescribable("CpuPinning");
 
     /**
-     * Returns whether pinning threads is supported on this platform; the first invocation loads Agrona's native
-     * library.
+     * Returns whether pinning threads is supported on this platform; the first invocation chooses the backend, see
+     * {@link #mode()}.
      *
      * @return true if threads can be pinned to CPUs on this platform
      */
     public static boolean isSupported() {
         return ThreadAffinities.isSupported();
+    }
+
+    /**
+     * Returns the backend pinning threads, chosen once per JVM by system property
+     * {@value CoreConfigurations#THREAD_AFFINITY_PROPERTY} when pinning is first used, or now; it doesn't change
+     * when the system property changes later. Choosing it probes the backends, reading the affinity of the calling
+     * thread and setting it unchanged.
+     *
+     * @return the backend in use, {@link AffinityMode#NONE} if pinning is not supported; never
+     *         {@link AffinityMode#AUTO}
+     */
+    public static AffinityMode mode() {
+        return ThreadAffinities.mode();
+    }
+
+    /**
+     * Returns the CPUs the calling thread may run on, for instance to check that it is pinned; allocates the returned
+     * array, and more depending on the backend, see {@link AffinityMode}.
+     *
+     * @return the CPUs in ascending order
+     * @throws IllegalStateException if pinning is not {@linkplain #isSupported() supported}
+     * @throws RuntimeException if the affinity cannot be read
+     */
+    public static int[] currentThreadAffinity() {
+        return ThreadAffinities.currentThreadAffinity();
     }
 
     /**

@@ -95,8 +95,8 @@ public interface AsyncRuntime extends Closeable {
 
     /**
      * Creates an async runtime backed by a thread created with the given thread factory, for instance a
-     * {@linkplain CpuPinning#threadFactory(String, boolean, int[]) pinned thread factory} to pin the runtime thread to
-     * a CPU. The runtime sets name, daemon flag and uncaught exception handler of the created thread.
+     * {@linkplain org.tools4j.mmap.core.pinning.CpuPinning#threadFactory(String, boolean, int[]) pinned thread
+     * factory} to pin the runtime thread to a CPU. The runtime sets name, daemon flag and uncaught exception handler of the created thread.
      *
      * @param name                      the name for the runtime, also used as thread name
      * @param idler                     the idler used by the runtime thread when it found no work

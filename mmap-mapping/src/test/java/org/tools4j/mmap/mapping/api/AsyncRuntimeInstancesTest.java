@@ -25,9 +25,9 @@ package org.tools4j.mmap.mapping.api;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.idle.Idler;
+import org.tools4j.mmap.core.pinning.CpuPinning;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.SharingPolicy;
-import org.tools4j.mmap.mapping.impl.ThreadAffinities;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -210,7 +210,7 @@ class AsyncRuntimeInstancesTest {
     void newMappingRuntimeThreadIsPinnedToCpuOfSystemProperty() throws InterruptedException {
         //given
         assumeTrue(CpuPinning.isSupported(), "CPU affinity is not supported");
-        final int cpu = ThreadAffinities.currentThreadAffinity()[0];
+        final int cpu = CpuPinning.currentThreadAffinity()[0];
         final AsyncRuntime runtime;
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, String.valueOf(cpu));
         try {
@@ -227,7 +227,7 @@ class AsyncRuntimeInstancesTest {
             runtime.register(() -> {
                 if (executed.getCount() > 0) {
                     threadName.set(Thread.currentThread().getName());
-                    affinity.set(ThreadAffinities.currentThreadAffinity());
+                    affinity.set(CpuPinning.currentThreadAffinity());
                     executed.countDown();
                 }
                 return 0;

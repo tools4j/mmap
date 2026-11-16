@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.pinning;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +36,11 @@ public enum SystemCpus {
     ;
     private static final Path ONLINE = Paths.get("/sys/devices/system/cpu/online");
 
-    /** @return the highest online CPU, or the number of available processors minus one if unknown */
+    /**
+     * Returns the highest online CPU, read from {@code /sys/devices/system/cpu/online} on each call.
+     *
+     * @return the highest online CPU, or the number of available processors minus one if unknown
+     */
     public static int maxOnlineCpu() {
         try {
             if (Files.isReadable(ONLINE)) {
@@ -49,6 +53,8 @@ public enum SystemCpus {
     }
 
     /**
+     * Returns the last CPU of a CPU list, without parsing the rest of it.
+     *
      * @param cpuList a CPU list in Linux cpulist format, e.g. {@code 0-3,8,10-11}
      * @return the last CPU of the list
      * @throws NumberFormatException if the last CPU is not a number

@@ -21,12 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
+package org.tools4j.mmap.core.pinning;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
-import org.tools4j.mmap.mapping.api.CpuPinning;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;

@@ -21,9 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.tools4j.mmap.mapping.api.CpuPinning;
+package org.tools4j.mmap.core.pinning;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -84,8 +82,8 @@ public enum CpuLists {
         final BitSet seen = new BitSet();
         for (final int cpu : cpus) {
             if (cpu < 0 || cpu > CpuPinning.MAX_CPU) {
-                throw new IllegalArgumentException("Invalid CPU " + cpu + ", must be in [0, " + CpuPinning.MAX_CPU +
-                        "]");
+                throw new IllegalArgumentException("Invalid CPU " + cpu + ", must be in [0, " +
+                        CpuPinning.MAX_CPU + "]");
             }
             if (seen.get(cpu)) {
                 throw new IllegalArgumentException("CPU " + cpu + " is contained twice in CPU list " +
@@ -122,6 +120,8 @@ public enum CpuLists {
     }
 
     /**
+     * Returns the CPUs of a range.
+     *
      * @param first the first CPU
      * @param last  the last CPU, inclusive
      * @return the CPUs of the range in ascending order

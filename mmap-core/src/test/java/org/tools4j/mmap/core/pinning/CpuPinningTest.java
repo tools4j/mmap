@@ -21,14 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.api;
+package org.tools4j.mmap.core.pinning;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
-import org.tools4j.mmap.mapping.impl.PinnedCpuBinding;
-import org.tools4j.mmap.mapping.impl.SystemCpus;
-import org.tools4j.mmap.mapping.impl.ThreadAffinities;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -95,6 +93,15 @@ class CpuPinningTest {
     }
 
     @Test
+    void modeIsTheBackendInUse() {
+        assertNotEquals(AffinityMode.AUTO, CpuPinning.mode());
+        assertEquals(CpuPinning.isSupported(), CpuPinning.mode() != AffinityMode.NONE);
+        if (!CpuPinning.isSupported()) {
+            assertThrows(IllegalStateException.class, CpuPinning::currentThreadAffinity);
+        }
+    }
+
+    @Test
     void unboundBindingIsClosed() {
         try (final CpuBinding binding = CpuBinding.UNBOUND) {
             assertFalse(binding.isBound());
@@ -119,7 +126,7 @@ class CpuPinningTest {
     @Test
     void pinsAndRestoresPreviousAffinity() {
         assumeTrue(CpuPinning.isSupported(), "CPU affinity is not supported");
-        final int[] previous = ThreadAffinities.currentThreadAffinity();
+        final int[] previous = CpuPinning.currentThreadAffinity();
         final int cpu = previous[previous.length - 1];
         final CpuBinding closed;
         try (final CpuBinding binding = CpuPinning.pinCurrentThread(cpu, SOURCE, errorListener)) {
@@ -127,17 +134,17 @@ class CpuPinningTest {
             assertTrue(binding.isBound());
             assertFalse(binding.isClosed());
             assertEquals(cpu, binding.cpu());
-            assertArrayEquals(new int[]{cpu}, ThreadAffinities.currentThreadAffinity());
+            assertArrayEquals(new int[]{cpu}, CpuPinning.currentThreadAffinity());
         }
         assertTrue(closed.isClosed());
-        assertArrayEquals(previous, ThreadAffinities.currentThreadAffinity());
+        assertArrayEquals(previous, CpuPinning.currentThreadAffinity());
         assertTrue(warnings.isEmpty(), warnings::toString);
     }
 
     @Test
     void closingFromAnotherThreadThrowsAndLeavesBindingOpen() throws InterruptedException {
         assumeTrue(CpuPinning.isSupported(), "CPU affinity is not supported");
-        final int[] previous = ThreadAffinities.currentThreadAffinity();
+        final int[] previous = CpuPinning.currentThreadAffinity();
         final List<String> released = new ArrayList<>();
         try (final CpuBinding binding = PinnedCpuBinding.pin(previous[0], SOURCE, errorListener,
                 () -> released.add("released"))) {
@@ -157,7 +164,7 @@ class CpuPinningTest {
             assertTrue(released.isEmpty());
         }
         assertEquals(List.of("released"), released);
-        assertArrayEquals(previous, ThreadAffinities.currentThreadAffinity());
+        assertArrayEquals(previous, CpuPinning.currentThreadAffinity());
     }
 
     @Test

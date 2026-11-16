@@ -28,6 +28,7 @@ import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.buffer.MemoryAccessMode;
 import org.tools4j.mmap.core.internal.SystemProperties.PropertyInstance;
 import org.tools4j.mmap.core.logging.LoggingErrorListener;
+import org.tools4j.mmap.core.pinning.AffinityMode;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -37,8 +38,8 @@ import static org.tools4j.mmap.core.internal.SystemProperties.namedOrClassInstan
 
 /**
  * Defaults of mmap-core configured by system properties: the memory access mode of all buffers, whether they check
- * the alignment of ordered accesses, and the error listener, which the other modules use unless their own error
- * listener property is set.
+ * the alignment of ordered accesses, the backend pinning threads to CPUs, and the error listener, which the other
+ * modules use unless their own error listener property is set.
  */
 public enum CoreConfigurations {
     ;
@@ -63,6 +64,14 @@ public enum CoreConfigurations {
      * {@value #ALIGNMENT_CHECK_PROPERTY} is not set.
      */
     public static final boolean ALIGNMENT_CHECK_DEFAULT = true;
+
+    /**
+     * Name of the system property choosing the {@link AffinityMode}, the backend pinning threads to CPUs, read once per
+     * JVM when pinning is first used.
+     */
+    public static final String THREAD_AFFINITY_PROPERTY = "mmap.core.threadAffinity";
+    /** The default thread affinity mode, used if system property {@value #THREAD_AFFINITY_PROPERTY} is not set. */
+    public static final AffinityMode THREAD_AFFINITY_DEFAULT = AffinityMode.AUTO;
 
     /** Error listener property value for a listener ignoring all errors and warnings. */
     public static final String NO_OP_LISTENER = "NO_OP";
@@ -109,6 +118,18 @@ public enum CoreConfigurations {
      */
     public static boolean systemAlignmentCheck() {
         return booleanProperty(ALIGNMENT_CHECK_PROPERTY, ALIGNMENT_CHECK_DEFAULT);
+    }
+
+    /**
+     * Returns the thread affinity mode configured by system property, read on each call; pinning uses the mode read
+     * when first used, see {@link org.tools4j.mmap.core.pinning.CpuPinning#mode()}.
+     *
+     * @return the mode given by system property {@value #THREAD_AFFINITY_PROPERTY} if set, and
+     *         {@link #THREAD_AFFINITY_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is not the name of a thread affinity mode
+     */
+    public static AffinityMode systemAffinityMode() {
+        return enumProperty(THREAD_AFFINITY_PROPERTY, AffinityMode.class, THREAD_AFFINITY_DEFAULT);
     }
 
     /**

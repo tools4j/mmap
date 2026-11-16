@@ -29,16 +29,17 @@ import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.idle.IdleMode;
 import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.core.logging.LoggingLifecycleListener;
+import org.tools4j.mmap.core.pinning.CpuLists;
+import org.tools4j.mmap.core.pinning.SystemCpus;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntimeInstances;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
-import org.tools4j.mmap.mapping.impl.PinnedThreadFactory;
 
+import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -107,25 +108,19 @@ class MappingConfigurationsTest {
     @Test
     void mappingRuntimeCpusPropertyCreatesPinnedThreadFactoryOncePerValue() {
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, "2 - 5");
-        final PinnedThreadFactory range = assertInstanceOf(PinnedThreadFactory.class,
-                MappingConfigurations.defaultMappingRuntimeThreadFactory());
-        assertArrayEquals(new int[]{2, 3, 4, 5}, range.cpus());
+        final ThreadFactory range = MappingConfigurations.defaultMappingRuntimeThreadFactory();
+        assertPinnedTo("2-5", range);
         assertSame(range, MappingConfigurations.defaultMappingRuntimeThreadFactory());
 
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, "3");
-        final PinnedThreadFactory single = assertInstanceOf(PinnedThreadFactory.class,
-                MappingConfigurations.defaultMappingRuntimeThreadFactory());
-        assertArrayEquals(new int[]{3}, single.cpus());
+        assertPinnedTo("3", MappingConfigurations.defaultMappingRuntimeThreadFactory());
 
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, "6,0,2,4");
-        assertArrayEquals(new int[]{6, 0, 2, 4}, assertInstanceOf(PinnedThreadFactory.class,
-                MappingConfigurations.defaultMappingRuntimeThreadFactory()).cpus());
+        assertPinnedTo("6,0,2,4", MappingConfigurations.defaultMappingRuntimeThreadFactory());
 
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY, "0-");
-        final PinnedThreadFactory toMax = assertInstanceOf(PinnedThreadFactory.class,
-                MappingConfigurations.defaultMappingRuntimeThreadFactory());
-        assertEquals(0, toMax.cpus()[0]);
-        assertTrue(toMax.cpus().length >= Runtime.getRuntime().availableProcessors(), toMax::toString);
+        final ThreadFactory toMax = MappingConfigurations.defaultMappingRuntimeThreadFactory();
+        assertPinnedTo(CpuLists.format(CpuLists.range(0, SystemCpus.maxOnlineCpu())), toMax);
         assertNotSame(range, toMax);
     }
 
@@ -343,5 +338,9 @@ class MappingConfigurationsTest {
         assertSame(initialiser, MappingConfigurations.defaultFileInitialiser());
         System.setProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY, CustomLifecycleListener.class.getName());
         assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultFileInitialiser);
+    }
+
+    private static void assertPinnedTo(final String cpuList, final ThreadFactory threadFactory) {
+        assertTrue(threadFactory.toString().contains("|cpus=" + cpuList + "|"), threadFactory::toString);
     }
 }

@@ -51,8 +51,9 @@ Notes:
   or `--dir /dev/shm` on Linux, and enough messages for the JIT to warm up.
 * `--pin` assigns one CPU per thread from the given CPU list (e.g. `2-7` or `2,4,6,8`; without a list from CPU 2 up to
   the highest online CPU, leaving CPUs 0 and 1 to the OS and other processes), first to the senders, then to the
-  receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux (x86_64 and
-  aarch64) only; elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
+  receivers, and the remaining CPUs to the mmap mapping runtime threads. Pinning is supported on Linux only, through FFM on
+  Java 22 or later, otherwise Agrona if on the class path, otherwise the `taskset` command (choose one with
+  `-Dmmap.core.threadAffinity=FFM|AGRONA|TASKSET`); elsewhere a warning is logged and threads run unpinned. Pin to isolated cores for the most stable
   latencies.
 
 ## Before and after a change

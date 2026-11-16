@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.perf;
 
-import org.tools4j.mmap.mapping.impl.CpuLists;
+import org.tools4j.mmap.core.pinning.CpuLists;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 
 import java.io.File;

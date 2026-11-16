@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.api;
+package org.tools4j.mmap.core.pinning;
 
 import org.tools4j.mmap.core.base.Closeable;
 
