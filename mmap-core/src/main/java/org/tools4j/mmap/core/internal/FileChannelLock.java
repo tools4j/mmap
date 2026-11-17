@@ -23,6 +23,7 @@
  */
 package org.tools4j.mmap.core.internal;
 
+import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.io.Closeable;
@@ -38,13 +39,14 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.LockSupport;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * Exclusive and shared locks on the whole file of a file channel, excluding other processes as well as other threads
- * of this JVM, waiting until a lock is available or a timeout occurs.
+ * of this JVM, waiting until a lock is available or a timeout occurs. Waiting backs off with {@link Idler#backoff()},
+ * spinning and yielding first, so that the usual lock held for microseconds is taken right after its release, then
+ * parking up to a millisecond, for a lock held longer, for instance while another process initialises the file.
  * <p>
  * Locking and unlocking allocate nothing, unlike {@link FileChannel#tryLock(long, long, boolean)}, which creates a
  * {@code FileLock} and entries in the JDK's lock table on every call: the OS lock is taken through the JDK's internal
@@ -63,7 +65,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class FileChannelLock implements Closeable {
     static final long DEFAULT_MAX_WAIT_MILLIS = 5_000;
-    private static final long PARK_PERIOD_NANOS = 1_000_000; // 1 ms
+    private static final Idler BACKOFF = Idler.backoff();
     private static final AtomicReference<FileState[]> FILE_STATES = new AtomicReference<>(new FileState[0]);
 
     private final FileChannel channel;
@@ -115,6 +117,7 @@ public final class FileChannelLock implements Closeable {
 
     void lock(final boolean shared, final long maxWaitMillis) {
         final long endTime = System.currentTimeMillis() + maxWaitMillis;
+        int idleCount = 0;
         while (true) {
             final int holders = fileState.holders.get();
             if (holders == FileState.ACQUIRING || holders == FileState.RELEASING) {
@@ -134,7 +137,7 @@ public final class FileChannelLock implements Closeable {
             if (System.currentTimeMillis() >= endTime) {
                 throw new IllegalStateException("Timeout while waiting for file lock for " + channel);
             }
-            LockSupport.parkNanos(PARK_PERIOD_NANOS);
+            idleCount = BACKOFF.idle(idleCount);
             if (Thread.interrupted()) {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("Interrupted while waiting for file lock for " + channel);
@@ -223,9 +226,10 @@ public final class FileChannelLock implements Closeable {
             return;
         }
         int holders;
+        int idleCount = 0;
         while ((holders = fileState.holders.compareAndExchange(FileState.FREE, FileState.CLOSING)) != FileState.FREE) {
             if (holders > 0 || holders == FileState.EXCLUSIVE) {
-                LockSupport.parkNanos(PARK_PERIOD_NANOS);
+                idleCount = BACKOFF.idle(idleCount);
             } else {
                 Thread.onSpinWait();
             }
