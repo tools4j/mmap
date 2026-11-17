@@ -27,6 +27,8 @@ Notable changes per release. Entries are curated from the commits since the prev
   `CpuPinning` and `CpuBinding`, and from `org.tools4j.mmap.mapping.impl` the public `CpuLists` and `SystemCpus`;
   `PinnedThreadFactory` and `PinnedCpuBinding` are no longer public, as `CpuPinning.threadFactory(..)` and
   `pinCurrentThread(..)` create them.
+- `FileChannels`, mapping and unmapping file regions by address, moved from `org.tools4j.mmap.mapping.unsafe` to
+  `org.tools4j.mmap.core.internal` in `mmap-core`, next to the file locks reaching the same JDK internals.
 - Async runtimes wait with mmap-core's `Idler` (`org.tools4j.mmap.core.idle`) instead of Agrona's `IdleStrategy`:
   `AsyncRuntime.create(..)`, `AsyncRuntimeInstances.newMappingRuntime(..)` and `newUnmappingRuntime(..)`, and the
   configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler`, e.g. `Idler.backoff()`,

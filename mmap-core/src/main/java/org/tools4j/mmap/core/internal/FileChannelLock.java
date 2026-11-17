@@ -24,16 +24,10 @@
 package org.tools4j.mmap.core.internal;
 
 import org.tools4j.mmap.core.idle.Idler;
-import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -76,9 +70,9 @@ public final class FileChannelLock implements Closeable {
 
     private FileChannelLock(final FileChannel channel) throws IOException {
         this.channel = requireNonNull(channel);
-        this.fd = Internals.fileDescriptor(channel);
-        this.dispatcher = Internals.dispatcher(channel);
-        this.fileState = FileState.register(Internals.fileKey(fd));
+        this.fd = FileChannels.fileDescriptor(channel);
+        this.dispatcher = FileChannels.dispatcher(channel);
+        this.fileState = FileState.register(FileChannels.fileKey(fd));
     }
 
     /**
@@ -149,8 +143,8 @@ public final class FileChannelLock implements Closeable {
     private boolean tryLockFile(final boolean shared) {
         boolean locked = false;
         try {
-            final int result = Internals.lock(dispatcher, fd, shared);
-            locked = result == Internals.LOCKED || result == Internals.RET_EX_LOCK;
+            final int result = FileChannels.lock(dispatcher, fd, shared);
+            locked = result == FileChannels.LOCKED || result == FileChannels.RET_EX_LOCK;
         } catch (final IOException e) {
             throw new IllegalStateException("Unexpected exception while attempting to acquire file lock for " +
                     channel, e);
@@ -194,7 +188,7 @@ public final class FileChannelLock implements Closeable {
         final FileChannelLock owner = fileState.owner;
         fileState.owner = null;
         try {
-            Internals.release(owner.dispatcher, owner.fd);
+            FileChannels.release(owner.dispatcher, owner.fd);
         } catch (final IOException e) {
             throw new IllegalStateException("Unexpected exception while releasing file lock for " + channel, e);
         } finally {
@@ -328,100 +322,6 @@ public final class FileChannelLock implements Closeable {
                 }
             }
             return -1;
-        }
-    }
-
-    /**
-     * Method handles into the JDK's internal file channel, file dispatcher and file key, through the trusted lookup,
-     * typed with public types only, so that they are invoked exactly, without boxing or allocation.
-     */
-    private static final class Internals {
-        static final int LOCKED = 0;
-        static final int RET_EX_LOCK = 1;
-        private static final MethodHandle GET_FILE_DESCRIPTOR;
-        private static final MethodHandle GET_DISPATCHER;
-        private static final MethodHandle LOCK;
-        private static final MethodHandle RELEASE;
-        private static final MethodHandle CREATE_FILE_KEY;
-        static {
-            try {
-                final MethodHandles.Lookup lookup = UnsafeAccess.trustedLookup();
-                final Class<?> fileChannelClass = Class.forName("sun.nio.ch.FileChannelImpl");
-                final Class<?> dispatcherClass = Class.forName("sun.nio.ch.FileDispatcher");
-                final Class<?> fileKeyClass = Class.forName("sun.nio.ch.FileKey");
-                GET_FILE_DESCRIPTOR = lookup.unreflectGetter(fileChannelClass.getDeclaredField("fd"))
-                        .asType(MethodType.methodType(FileDescriptor.class, FileChannel.class));
-                //static since Java 21, an instance field of the channel before
-                final Field dispatcherField = fileChannelClass.getDeclaredField("nd");
-                final MethodHandle dispatcherGetter = lookup.unreflectGetter(dispatcherField);
-                GET_DISPATCHER = Modifier.isStatic(dispatcherField.getModifiers())
-                        ? MethodHandles.dropArguments(dispatcherGetter.asType(MethodType.methodType(Object.class)), 0,
-                                FileChannel.class)
-                        : dispatcherGetter.asType(MethodType.methodType(Object.class, FileChannel.class));
-                LOCK = lookup.findVirtual(dispatcherClass, "lock", MethodType.methodType(int.class,
-                                FileDescriptor.class, boolean.class, long.class, long.class, boolean.class))
-                        .asType(MethodType.methodType(int.class, Object.class, FileDescriptor.class, boolean.class,
-                                long.class, long.class, boolean.class));
-                RELEASE = lookup.findVirtual(dispatcherClass, "release", MethodType.methodType(void.class,
-                                FileDescriptor.class, long.class, long.class))
-                        .asType(MethodType.methodType(void.class, Object.class, FileDescriptor.class, long.class,
-                                long.class));
-                CREATE_FILE_KEY = lookup.findStatic(fileKeyClass, "create",
-                                MethodType.methodType(fileKeyClass, FileDescriptor.class))
-                        .asType(MethodType.methodType(Object.class, FileDescriptor.class));
-            } catch (final ReflectiveOperationException e) {
-                throw new IllegalStateException("Failed to access the JDK's file channel internals", e);
-            }
-        }
-
-        static FileDescriptor fileDescriptor(final FileChannel channel) {
-            try {
-                return (FileDescriptor) GET_FILE_DESCRIPTOR.invokeExact(channel);
-            } catch (final Throwable e) {
-                throw new IllegalStateException("Failed to get the file descriptor of " + channel, e);
-            }
-        }
-
-        static Object dispatcher(final FileChannel channel) {
-            try {
-                return (Object) GET_DISPATCHER.invokeExact(channel);
-            } catch (final Throwable e) {
-                throw new IllegalStateException("Failed to get the file dispatcher of " + channel, e);
-            }
-        }
-
-        static Object fileKey(final FileDescriptor fd) throws IOException {
-            try {
-                return (Object) CREATE_FILE_KEY.invokeExact(fd);
-            } catch (final IOException | RuntimeException | Error e) {
-                throw e;
-            } catch (final Throwable e) {
-                throw new IllegalStateException("Failed to identify file of " + fd, e);
-            }
-        }
-
-        /**
-         * Tries to lock the whole file without blocking: NO_LOCK if held by another process, else LOCKED, or
-         * RET_EX_LOCK if an exclusive lock was taken instead of a shared one.
-         */
-        static int lock(final Object dispatcher, final FileDescriptor fd, final boolean shared) throws IOException {
-            try {
-                return (int) LOCK.invokeExact(dispatcher, fd, false, 0L, Long.MAX_VALUE, shared);
-            } catch (final IOException | RuntimeException | Error e) {
-                throw e;
-            } catch (final Throwable e) {
-                throw new IllegalStateException("Failed to lock file of " + fd, e);
-            }
-        }
-
-        static void release(final Object dispatcher, final FileDescriptor fd) throws IOException {
-            try {
-                RELEASE.invokeExact(dispatcher, fd, 0L, Long.MAX_VALUE);
-            } catch (final IOException | RuntimeException | Error e) {
-                throw e;
-            } catch (final Throwable e) {
-                throw new IllegalStateException("Failed to release lock on file of " + fd, e);
-            }
         }
     }
 }

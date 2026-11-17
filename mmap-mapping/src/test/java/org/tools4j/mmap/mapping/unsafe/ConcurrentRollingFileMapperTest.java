@@ -28,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.core.internal.FileChannels;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 

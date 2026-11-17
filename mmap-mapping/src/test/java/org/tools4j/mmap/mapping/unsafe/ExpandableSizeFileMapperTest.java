@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.core.internal.FileChannels;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;

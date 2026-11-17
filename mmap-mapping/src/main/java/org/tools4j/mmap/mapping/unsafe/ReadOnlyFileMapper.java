@@ -27,6 +27,7 @@ import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
+import org.tools4j.mmap.core.internal.FileChannels;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;

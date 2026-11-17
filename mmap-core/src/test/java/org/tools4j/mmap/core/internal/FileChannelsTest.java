@@ -21,11 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.unsafe;
+package org.tools4j.mmap.core.internal;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
+import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -35,14 +37,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
  * Unit test for {@link FileChannels} mapping modes.
  */
 class FileChannelsTest {
 
-    private static final int LENGTH = (int) REGION_SIZE_GRANULARITY;
+    private static final int LENGTH = UnsafeAccess.pageSize();
 
     @TempDir
     Path tempDir;
@@ -58,7 +59,8 @@ class FileChannelsTest {
              final FileChannel channel = raf.getChannel()) {
             final long address = FileChannels.map(channel, mode, 0, LENGTH);
             try {
-                final MutableMemoryBuffer buffer = TestBuffers.wrap(address, LENGTH);
+                final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
+                buffer.wrap(address, LENGTH);
                 buffer.putByte(0, (byte) 2);
                 return buffer.getByte(0);
             } finally {
