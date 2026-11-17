@@ -54,7 +54,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * while in use and mapped again since), are always passed through to the underlying mapper.
  */
 @Unsafe
-class LruCacheRegionMapper implements RegionMapper {
+final class LruCacheRegionMapper implements RegionMapper {
     private static final long UNUSED_BIT = 0x8000000000000000L;
     private static final long USED_MASK = 0x7fffffffffffffffL;
 
@@ -94,6 +94,21 @@ class LruCacheRegionMapper implements RegionMapper {
     @Override
     public RegionMetrics regionMetrics() {
         return baseMapper.regionMetrics();
+    }
+
+    @Override
+    public int regionSize() {
+        return RegionMapper.super.regionSize();
+    }
+
+    @Override
+    public long map(final long position) {
+        return RegionMapper.super.map(position);
+    }
+
+    @Override
+    public void unmap(final long position, final long address) {
+        RegionMapper.super.unmap(position, address);
     }
 
     @Override

@@ -23,7 +23,8 @@
  */
 /**
  * Basic types shared by all mmap modules: {@linkplain Closeable closeable} resources that {@linkplain Describable
- * describe} themselves, and the {@linkplain LifecycleListener lifecycle} and {@linkplain ErrorListener error}
- * listeners receiving their events.
+ * describe} themselves, the {@linkplain LifecycleListener lifecycle} and {@linkplain ErrorListener error}
+ * listeners receiving their events, and {@link OverrideAll} marking interfaces whose implementations declare
+ * all methods themselves.
  */
 package org.tools4j.mmap.core.base;

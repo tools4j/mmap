@@ -60,6 +60,10 @@ Notable changes per release. Entries are curated from the commits since the prev
 - The only JVM option needed is `--add-exports java.base/jdk.internal.misc=ALL-UNNAMED` (or `--add-opens`):
   `--add-opens java.base/sun.nio.ch=ALL-UNNAMED` is no longer needed, as the JDK internals for mapping files are now
   reached through the JDK's trusted lookup.
+- Mappings move to another region faster when several mapping strategies are in use, about 12 instead of 32 ns per
+  region crossing with three region mapper types: the region mappers declare all methods themselves rather than
+  sharing default methods, as the new annotation `@OverrideAll` (`org.tools4j.mmap.core.base`) on `RegionMapper` asks
+  of all its implementations.
 
 ### Fixed
 - A queue meta file without magic number that is longer than a meta file is rejected as foreign instead of being

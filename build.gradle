@@ -563,6 +563,7 @@ project(':mmap-perf') {
 
     dependencies {
         jmhImplementation project(':mmap-core')
+        jmhImplementation project(':mmap-mapping')
         jmhImplementation "org.agrona:agrona:${agronaVersion}"
         jmhImplementation "net.openhft:chronicle-bytes:${chronicleBytesVersion}"
         jmhImplementation "io.netty:netty-buffer:${nettyVersion}"

@@ -24,6 +24,7 @@
 package org.tools4j.mmap.mapping.unsafe;
 
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.base.OverrideAll;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Mapping;
@@ -54,6 +55,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPos
  * </ul>
  */
 @Unsafe
+@OverrideAll
 public interface RegionMapper extends RegionAware, Closeable {
     AccessMode accessMode();
 
@@ -64,7 +66,7 @@ public interface RegionMapper extends RegionAware, Closeable {
      * @return  the address at which the region was mapped, or {@code NULL_ADDRESS} if the region is not available yet,
      *          for instance because the file to map does not exist yet
      * @throws IllegalArgumentException if position is negative or not a multiple of region size
-     * @throws IllegalStateException if this mapper is closed, or if mapping fails, see {@link FileMapper#map(long, int)}
+     * @throws IllegalStateException if this mapper is closed, or if mapping fails, see {@link FileMapper#map(long, int, boolean)}
      * @throws UncheckedIOException if mapping fails with an I/O error
      * @see #regionSize()
      */

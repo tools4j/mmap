@@ -37,7 +37,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * reaches zero.  Actual mapping and unmapping operations are delegated to an underlying region mapper.
  */
 @Unsafe
-class RefCountRegionMapper implements RegionMapper {
+final class RefCountRegionMapper implements RegionMapper {
 
     private final RegionMapper baseMapper;
     private final LongLongMap positionToAddress;
@@ -57,6 +57,21 @@ class RefCountRegionMapper implements RegionMapper {
     @Override
     public RegionMetrics regionMetrics() {
         return baseMapper.regionMetrics();
+    }
+
+    @Override
+    public int regionSize() {
+        return RegionMapper.super.regionSize();
+    }
+
+    @Override
+    public long map(final long position) {
+        return RegionMapper.super.map(position);
+    }
+
+    @Override
+    public void unmap(final long position, final long address) {
+        RegionMapper.super.unmap(position, address);
     }
 
     @Override

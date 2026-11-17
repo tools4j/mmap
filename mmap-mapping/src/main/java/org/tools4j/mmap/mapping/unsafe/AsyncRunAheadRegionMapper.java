@@ -144,6 +144,21 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
     }
 
     @Override
+    public int regionSize() {
+        return RegionMapper.super.regionSize();
+    }
+
+    @Override
+    public long map(final long position) {
+        return RegionMapper.super.map(position);
+    }
+
+    @Override
+    public void unmap(final long position, final long address) {
+        RegionMapper.super.unmap(position, address);
+    }
+
+    @Override
     public long mapInternal(final long position, final int regionSize) {
         return cachingMapper.mapInternal(position, regionSize);
     }
@@ -223,6 +238,21 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         @Override
         public AccessMode accessMode() {
             return AsyncRunAheadRegionMapper.this.accessMode();
+        }
+
+        @Override
+        public int regionSize() {
+            return RegionMapper.super.regionSize();
+        }
+
+        @Override
+        public long map(final long position) {
+            return RegionMapper.super.map(position);
+        }
+
+        @Override
+        public void unmap(final long position, final long address) {
+            RegionMapper.super.unmap(position, address);
         }
 
         @Override

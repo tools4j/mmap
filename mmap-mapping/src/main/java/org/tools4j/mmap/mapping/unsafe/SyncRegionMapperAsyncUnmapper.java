@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
+import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
@@ -91,6 +92,31 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
     @Override
     public RegionMetrics regionMetrics() {
         return regionMetrics;
+    }
+
+    @Override
+    public AccessMode accessMode() {
+        return DirectRegionMapper.super.accessMode();
+    }
+
+    @Override
+    public boolean isMappedInCache(final long position) {
+        return DirectRegionMapper.super.isMappedInCache(position);
+    }
+
+    @Override
+    public int regionSize() {
+        return DirectRegionMapper.super.regionSize();
+    }
+
+    @Override
+    public long map(final long position) {
+        return DirectRegionMapper.super.map(position);
+    }
+
+    @Override
+    public void unmap(final long position, final long address) {
+        DirectRegionMapper.super.unmap(position, address);
     }
 
     @Override
