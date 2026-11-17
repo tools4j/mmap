@@ -26,7 +26,8 @@ package org.tools4j.mmap.core.idle;
 import java.util.concurrent.locks.LockSupport;
 
 /**
- * Idler spinning, then yielding, then parking for doubling periods, created by {@link Idler#backoff()}.
+ * Idler spinning, then yielding, then parking for doubling periods, depending on the idle count only, created by
+ * {@link Idler#backoff()}.
  */
 final class BackoffIdler implements Idler {
 
@@ -34,15 +35,15 @@ final class BackoffIdler implements Idler {
     static final int DEFAULT_MAX_YIELDS = 5;
     static final long DEFAULT_MIN_PARK_NANOS = 1_000;
     static final long DEFAULT_MAX_PARK_NANOS = 1_000_000;
+    static final BackoffIdler DEFAULT = new BackoffIdler(DEFAULT_MAX_SPINS, DEFAULT_MAX_YIELDS,
+            DEFAULT_MIN_PARK_NANOS, DEFAULT_MAX_PARK_NANOS);
 
     private final int maxSpins;
     private final int maxYields;
     private final long minParkNanos;
     private final long maxParkNanos;
-
-    private int spins;
-    private int yields;
-    private long parkNanos;
+    /** The number of parks shorter than maxParkNanos, the doublings until reaching it */
+    private final int doublings;
 
     BackoffIdler(final int maxSpins, final int maxYields, final long minParkNanos, final long maxParkNanos) {
         if (maxSpins < 0 || maxYields < 0 || minParkNanos <= 0 || maxParkNanos < minParkNanos) {
@@ -50,37 +51,37 @@ final class BackoffIdler implements Idler {
                     maxYields + ", minParkNanos=" + minParkNanos + " and maxParkNanos=" + maxParkNanos +
                     ", expected non-negative maxSpins and maxYields and 0 < minParkNanos <= maxParkNanos");
         }
+        int doublings = 0;
+        for (long parkNanos = minParkNanos; parkNanos < maxParkNanos; parkNanos *= 2) {
+            doublings++;
+            if (parkNanos > maxParkNanos / 2) {
+                break;
+            }
+        }
         this.maxSpins = maxSpins;
         this.maxYields = maxYields;
         this.minParkNanos = minParkNanos;
         this.maxParkNanos = maxParkNanos;
-        reset();
+        this.doublings = doublings;
     }
 
     @Override
-    public void idle() {
-        if (spins < maxSpins) {
-            spins++;
+    public int idle(final int idleCount) {
+        assert idleCount >= 0 : "negative idle count";
+        final int idlesAfterSpins = idleCount - maxSpins;
+        if (idlesAfterSpins < 0) {
             Thread.onSpinWait();
-        } else if (yields < maxYields) {
-            yields++;
+        } else if (idlesAfterSpins < maxYields) {
             Thread.yield();
         } else {
-            LockSupport.parkNanos(parkNanos);
-            parkNanos = parkNanos > maxParkNanos / 2 ? maxParkNanos : 2 * parkNanos;
+            LockSupport.parkNanos(parkNanos(idlesAfterSpins - maxYields));
         }
+        return Math.max(idleCount, idleCount + 1);
     }
 
-    @Override
-    public void reset() {
-        spins = 0;
-        yields = 0;
-        parkNanos = minParkNanos;
-    }
-
-    /** The period of the next park in nanoseconds, for tests */
-    long parkNanos() {
-        return parkNanos;
+    /** The park period after the given number of parks, doubling from minParkNanos up to maxParkNanos */
+    long parkNanos(final int parks) {
+        return parks < doublings ? minParkNanos << parks : maxParkNanos;
     }
 
     @Override

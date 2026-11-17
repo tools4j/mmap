@@ -24,25 +24,27 @@
 package org.tools4j.mmap.core.idle;
 
 /**
- * The stateless idlers, shared by all threads.
+ * The idlers waiting the same way with every idle, shared by all threads.
  */
 enum StatelessIdler implements Idler {
     NO_OP {
         @Override
-        public void idle() {
-            //returns immediately
+        public int idle(final int idleCount) {
+            return Math.max(idleCount, idleCount + 1);
         }
     },
     BUSY_SPIN {
         @Override
-        public void idle() {
+        public int idle(final int idleCount) {
             Thread.onSpinWait();
+            return Math.max(idleCount, idleCount + 1);
         }
     },
     YIELDING {
         @Override
-        public void idle() {
+        public int idle(final int idleCount) {
             Thread.yield();
+            return Math.max(idleCount, idleCount + 1);
         }
     }
 }

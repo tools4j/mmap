@@ -30,7 +30,6 @@ import java.util.function.IntSupplier;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
-import static java.util.Objects.requireNonNull;
 
 /**
  * Reads and validates system property values, throwing an {@link IllegalArgumentException} naming the property and
@@ -232,54 +231,6 @@ public enum SystemProperties {
         final PropertyInstance witness = instance.compareAndExchange(current, created);
         final PropertyInstance winner = witness == current ? created : witness;
         return type.cast(winner.value().equals(propVal) ? winner.instance() : created.instance());
-    }
-
-    /**
-     * Returns a supplier for the type given by class name as value of the given system property, either the class of
-     * the value itself or of a supplier of such values, or the default supplier if the property is not set. Every
-     * invocation of the returned supplier provides a new value, unless it is a supplier returning the same value
-     * every time.
-     *
-     * @param propertyName         the system property name
-     * @param type                 the type of the supplied values
-     * @param defaultValueSupplier the supplier to return if the property is not set
-     * @param <T>                  the type of the supplied values
-     * @return a supplier for the property value if set, and the default supplier otherwise
-     */
-    public static <T> Supplier<T> supplierProperty(final String propertyName,
-                                                   final Class<T> type,
-                                                   final Supplier<T> defaultValueSupplier) {
-        requireNonNull(propertyName);
-        requireNonNull(type);
-        requireNonNull(defaultValueSupplier);
-        final String propVal = System.getProperty(propertyName, null);
-        return propVal == null ? defaultValueSupplier : newSupplier(propertyName, propVal, type);
-    }
-
-    private static <T> Supplier<T> newSupplier(final String propName, final String propVal, final Class<T> type) {
-        final AtomicReference<Supplier<?>> supplierPtr = new AtomicReference<>();
-        return () -> {
-            try {
-                Supplier<?> supplier = supplierPtr.get();
-                if (supplier != null) {
-                    return type.cast(supplier.get());
-                }
-                final Object value = newInstance(propName, propVal, Object.class);
-                if (type.isInstance(value)) {
-                    supplierPtr.set(() -> newInstance(propName, propVal, type));
-                    return type.cast(value);
-                }
-                if (value instanceof Supplier) {
-                    supplier = (Supplier<?>) value;
-                    supplierPtr.set(supplier);
-                    return type.cast(supplier.get());
-                }
-                throw new IllegalArgumentException("Value expected to be of type " + type.getName() +
-                        " or a supplier of such a value, but was found to be: " + value);
-            } catch (final Exception e) {
-                throw invalidValueException(propName, propVal, e);
-            }
-        };
     }
 
     /**

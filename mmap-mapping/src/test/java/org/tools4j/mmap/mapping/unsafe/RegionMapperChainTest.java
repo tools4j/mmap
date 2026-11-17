@@ -92,10 +92,10 @@ class RegionMapperChainTest {
                 .asyncUnmapping(false);
         if (asyncMapping) {
             config.asyncMapping(cfg -> cfg.regionsToMapAhead(2)
-                    .mappingRuntimeUsing(() -> parkingIdler()));
+                    .mappingRuntimeUsing(parkingIdler()));
         }
         if (asyncUnmapping) {
-            config.asyncUnmapping(cfg -> cfg.unmappingRuntimeUsing(() -> parkingIdler()));
+            config.asyncUnmapping(cfg -> cfg.unmappingRuntimeUsing(parkingIdler()));
         }
         return config.toImmutableConfig();
     }

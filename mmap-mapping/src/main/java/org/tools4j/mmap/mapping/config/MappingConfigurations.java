@@ -49,7 +49,6 @@ import static org.tools4j.mmap.core.internal.SystemProperties.instanceProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.intProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.longProperty;
 import static org.tools4j.mmap.core.internal.SystemProperties.namedOrClassInstanceProperty;
-import static org.tools4j.mmap.core.internal.SystemProperties.supplierProperty;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
@@ -170,8 +169,8 @@ public enum MappingConfigurations {
     public static final int UNMAPPING_CACHE_SIZE_DEFAULT = 32;
     /**
      * Name of the system property to override the idler of mapping runtimes created by default, with the name of an
-     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler}
-     * or of a {@link Supplier} of idlers (with a public no-arg constructor).
+     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler} (with a
+     * public no-arg constructor, instantiated once per property value).
      */
     public static final String MAPPING_RUNTIME_IDLER_PROPERTY = "mmap.mapping.async.mappingRuntimeIdler";
     /** The default idle mode of mapping runtimes, used if the idler property is not set. */
@@ -194,8 +193,8 @@ public enum MappingConfigurations {
     public static final SharingPolicy MAPPING_RUNTIME_SHARING_POLICY_DEFAULT = SharingPolicy.SHARED;
     /**
      * Name of the system property to override the idler of unmapping runtimes created by default, with the name of an
-     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler}
-     * or of a {@link Supplier} of idlers (with a public no-arg constructor).
+     * {@link IdleMode} such as {@code BUSY_SPIN} or {@code BACKOFF}, or the class name of an {@link Idler} (with a
+     * public no-arg constructor, instantiated once per property value).
      */
     public static final String UNMAPPING_RUNTIME_IDLER_PROPERTY = "mmap.mapping.async.unmappingRuntimeIdler";
     /** The default idle mode of unmapping runtimes, used if the idler property is not set. */
@@ -249,6 +248,8 @@ public enum MappingConfigurations {
     private static final AtomicReference<PropertyInstance> FILE_INITIALISER_INSTANCE = new AtomicReference<>();
     private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_THREAD_FACTORY_INSTANCE =
             new AtomicReference<>();
+    private static final AtomicReference<PropertyInstance> MAPPING_RUNTIME_IDLER_INSTANCE = new AtomicReference<>();
+    private static final AtomicReference<PropertyInstance> UNMAPPING_RUNTIME_IDLER_INSTANCE = new AtomicReference<>();
     private static final String MAPPING_RUNTIME_THREAD_NAME_PREFIX = "mapper";
 
     /**
@@ -460,35 +461,41 @@ public enum MappingConfigurations {
     }
 
     /**
-     * Returns the supplier of idlers for mapping runtimes created by default. Every invocation of the returned
-     * supplier provides an idler for one runtime thread, see {@link IdleMode#newIdler()}, unless a configured
-     * supplier returns shared instances.
+     * Returns the idler of mapping runtimes created by default, shared by all of them.
      *
-     * @return a supplier for the idle mode, idler class or supplier class given by system property
-     *         {@value #MAPPING_RUNTIME_IDLER_PROPERTY} if set, and {@link #MAPPING_RUNTIME_IDLER_DEFAULT} otherwise
+     * @return the idler of the idle mode or class given by system property {@value #MAPPING_RUNTIME_IDLER_PROPERTY}
+     *         if set, and of {@link #MAPPING_RUNTIME_IDLER_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the idler class cannot be instantiated or is not an idler
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
-    public static Supplier<? extends Idler> defaultMappingRuntimeIdlerSupplier() {
-        return idlerProperty(MAPPING_RUNTIME_IDLER_PROPERTY, MAPPING_RUNTIME_IDLER_DEFAULT);
+    public static Idler defaultMappingRuntimeIdler() {
+        return idlerProperty(MAPPING_RUNTIME_IDLER_PROPERTY, MAPPING_RUNTIME_IDLER_DEFAULT,
+                MAPPING_RUNTIME_IDLER_INSTANCE);
     }
 
     /**
-     * Returns the supplier of idlers for unmapping runtimes created by default. Every invocation of the returned
-     * supplier provides an idler for one runtime thread, see {@link IdleMode#newIdler()}, unless a configured
-     * supplier returns shared instances.
+     * Returns the idler of unmapping runtimes created by default, shared by all of them.
      *
-     * @return a supplier for the idle mode, idler class or supplier class given by system property
-     *         {@value #UNMAPPING_RUNTIME_IDLER_PROPERTY} if set, and {@link #UNMAPPING_RUNTIME_IDLER_DEFAULT} otherwise
+     * @return the idler of the idle mode or class given by system property {@value #UNMAPPING_RUNTIME_IDLER_PROPERTY}
+     *         if set, and of {@link #UNMAPPING_RUNTIME_IDLER_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the idler class cannot be instantiated or is not an idler
      * @see org.tools4j.mmap.mapping.api.AsyncRuntimeInstances
      */
-    public static Supplier<? extends Idler> defaultUnmappingRuntimeIdlerSupplier() {
-        return idlerProperty(UNMAPPING_RUNTIME_IDLER_PROPERTY, UNMAPPING_RUNTIME_IDLER_DEFAULT);
+    public static Idler defaultUnmappingRuntimeIdler() {
+        return idlerProperty(UNMAPPING_RUNTIME_IDLER_PROPERTY, UNMAPPING_RUNTIME_IDLER_DEFAULT,
+                UNMAPPING_RUNTIME_IDLER_INSTANCE);
     }
 
-    private static Supplier<? extends Idler> idlerProperty(final String propertyName, final IdleMode defaultMode) {
-        final String propVal = System.getProperty(propertyName);
-        final IdleMode mode = propVal == null ? defaultMode : IdleMode.forName(propVal);
-        return mode != null ? mode::newIdler : supplierProperty(propertyName, Idler.class, defaultMode::newIdler);
+    private static Idler idlerProperty(final String propertyName,
+                                       final IdleMode defaultMode,
+                                       final AtomicReference<PropertyInstance> instance) {
+        return namedOrClassInstanceProperty(propertyName, Idler.class, defaultMode.name(),
+                MappingConfigurations::idlerForName, instance);
+    }
+
+    private static Idler idlerForName(final String name) {
+        final IdleMode mode = IdleMode.forName(name);
+        return mode != null ? mode.idler() : null;
     }
 
     /**

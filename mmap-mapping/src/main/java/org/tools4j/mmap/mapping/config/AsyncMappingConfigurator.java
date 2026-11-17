@@ -89,11 +89,8 @@ public interface AsyncMappingConfigurator extends AsyncMappingConfig {
 
     /**
      * Configures a new runtime for every region mapper created with this configuration, all of them using the given
-     * idler instance. The runtimes stop automatically when their last region mapper is closed. Combine with
+     * idler. The runtimes stop automatically when their last region mapper is closed. Combine with
      * {@link #mappingRuntimeUsing(ThreadFactory)} to also set the thread factory.
-     * <p>
-     * Note that the same idler instance is used by all runtimes; use
-     * {@link #mappingRuntimeUsing(Supplier)} instead for idlers that hold state.
      *
      * @param idler the idler used by all runtimes
      * @return this configurator for method chaining
@@ -101,22 +98,12 @@ public interface AsyncMappingConfigurator extends AsyncMappingConfig {
     AsyncMappingConfigurator mappingRuntimeUsing(Idler idler);
 
     /**
-     * Configures a new runtime for every region mapper created with this configuration, each with an idler
-     * obtained from the given supplier. The runtimes stop automatically when their last region mapper is closed.
-     * Combine with {@link #mappingRuntimeUsing(ThreadFactory)} to also set the thread factory.
-     *
-     * @param idler the supplier of an idler for every new runtime
-     * @return this configurator for method chaining
-     */
-    AsyncMappingConfigurator mappingRuntimeUsing(Supplier<? extends Idler> idler);
-
-    /**
      * Configures a new runtime for every region mapper created with this configuration, each with a thread created by
      * the given thread factory, for instance a
      * {@linkplain org.tools4j.mmap.core.pinning.CpuPinning#threadFactory(String, boolean, int[]) pinned thread
      * factory} to pin runtime threads to CPUs. The runtimes stop automatically when their last region
-     * mapper is closed. Combine with {@link #mappingRuntimeUsing(Supplier)} to also set the idler, for
-     * instance {@code mappingRuntimeUsing(idlerSupplier).mappingRuntimeUsing(threadFactory)}.
+     * mapper is closed. Combine with {@link #mappingRuntimeUsing(Idler)} to also set the idler, for
+     * instance {@code mappingRuntimeUsing(idler).mappingRuntimeUsing(threadFactory)}.
      *
      * @param threadFactory the factory creating the thread of every new runtime
      * @return this configurator for method chaining

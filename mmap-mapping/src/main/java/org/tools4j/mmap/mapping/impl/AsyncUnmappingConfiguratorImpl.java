@@ -111,13 +111,7 @@ public class AsyncUnmappingConfiguratorImpl implements AsyncUnmappingConfigurato
     @Override
     public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Idler idler) {
         requireNonNull(idler);
-        return unmappingRuntimeUsing(() -> idler);
-    }
-
-    @Override
-    public AsyncUnmappingConfigurator unmappingRuntimeUsing(final Supplier<? extends Idler> idler) {
-        requireNonNull(idler);
-        return unmappingRuntimeSupplier(() -> AsyncRuntimeInstances.newUnmappingRuntime(idler.get()));
+        return unmappingRuntimeSupplier(() -> AsyncRuntimeInstances.newUnmappingRuntime(idler));
     }
 
     @Override

@@ -76,24 +76,12 @@ public interface AsyncUnmappingConfigurator extends AsyncUnmappingConfig {
 
     /**
      * Configures a new runtime for every region mapper created with this configuration, all of them using the given
-     * idler instance. The runtimes stop automatically when their last region mapper is closed.
-     * <p>
-     * Note that the same idler instance is used by all runtimes; use
-     * {@link #unmappingRuntimeUsing(Supplier)} instead for idlers that hold state.
+     * idler. The runtimes stop automatically when their last region mapper is closed.
      *
      * @param idler the idler used by all runtimes
      * @return this configurator for method chaining
      */
     AsyncUnmappingConfigurator unmappingRuntimeUsing(Idler idler);
-
-    /**
-     * Configures a new runtime for every region mapper created with this configuration, each with an idler
-     * obtained from the given supplier. The runtimes stop automatically when their last region mapper is closed.
-     *
-     * @param idler the supplier of an idler for every new runtime
-     * @return this configurator for method chaining
-     */
-    AsyncUnmappingConfigurator unmappingRuntimeUsing(Supplier<? extends Idler> idler);
 
     /**
      * Resets all values set on this configurator, so that values are again taken from the defaults this configurator

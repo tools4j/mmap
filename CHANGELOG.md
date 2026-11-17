@@ -29,13 +29,15 @@ Notable changes per release. Entries are curated from the commits since the prev
   `pinCurrentThread(..)` create them.
 - Async runtimes wait with mmap-core's `Idler` (`org.tools4j.mmap.core.idle`) instead of Agrona's `IdleStrategy`:
   `AsyncRuntime.create(..)`, `AsyncRuntimeInstances.newMappingRuntime(..)` and `newUnmappingRuntime(..)`, and the
-  configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler` or a `Supplier` of idlers,
-  e.g. `Idler.backoff()`, `Idler.backoff(maxSpins, maxYields, minParkNanos, maxParkNanos)` or
-  `IdleMode.BUSY_SPIN.newIdler()`. The system properties `mmap.mapping.async.mappingRuntimeIdleStrategy` and
-  `mmap.mapping.async.unmappingRuntimeIdleStrategy` are renamed to `mmap.mapping.async.mappingRuntimeIdler` and
-  `mmap.mapping.async.unmappingRuntimeIdler`, accepting `NO_OP`, `BUSY_SPIN`, `YIELDING` or `BACKOFF` (the default)
-  besides class names, and `MappingConfigurations.default(Un)mappingRuntimeIdleStrategySupplier()` to
-  `default(Un)mappingRuntimeIdlerSupplier()`.
+  configurators' `mappingRuntimeUsing(..)` and `unmappingRuntimeUsing(..)` take an `Idler`, e.g. `Idler.backoff()`,
+  `Idler.backoff(maxSpins, maxYields, minParkNanos, maxParkNanos)` or `IdleMode.BUSY_SPIN.idler()`. Idlers keep no
+  state: `int idle(int idleCount)` gets the number of idles since the last work and returns it incremented, so that
+  one idler serves all threads, and the configurators no longer take a `Supplier` of idlers. The system properties
+  `mmap.mapping.async.mappingRuntimeIdleStrategy` and `mmap.mapping.async.unmappingRuntimeIdleStrategy` are renamed
+  to `mmap.mapping.async.mappingRuntimeIdler` and `mmap.mapping.async.unmappingRuntimeIdler`, accepting `NO_OP`,
+  `BUSY_SPIN`, `YIELDING` or `BACKOFF` (the default) besides the class name of an idler, instantiated once per
+  property value, and `MappingConfigurations.default(Un)mappingRuntimeIdleStrategySupplier()` is replaced by
+  `default(Un)mappingRuntimeIdler()`.
 - Agrona is no longer a dependency of `mmap-mapping` and `mmap-queue`: applications using Agrona themselves need
   their own dependency on it. It remains an optional dependency of `mmap-core` for CPU pinning on Java 17 to 21.
 

@@ -84,9 +84,9 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
         requireNonNull(errorListener);
         final Thread thread = threadFactory.newThread(() -> {
             lifecycleListener.onOpened(this);
-            idler.reset();
             StopStatus stopSignal;
             int workCount = 0;
+            int idleCount = 0;
             while ((stopSignal = stop.get()) == null || (stopSignal == StopStatus.WHEN_IDLE && workCount != 0)) {
                 workCount = 0;
                 for (final Recurring executable : executables.get()) {
@@ -96,11 +96,7 @@ public class AsyncRuntimeImpl implements AsyncRuntime, Describable {
                         errorListener.onError(this, "Uncaught error", ex);
                     }
                 }
-                if (workCount > 0) {
-                    idler.reset();
-                } else {
-                    idler.idle();
-                }
+                idleCount = workCount > 0 ? 0 : idler.idle(idleCount);
             }
             stop.set(StopStatus.STOPPED);
             lifecycleListener.onClosed(this);

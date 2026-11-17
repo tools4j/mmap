@@ -33,9 +33,9 @@ import java.util.function.Supplier;
 
 import static org.tools4j.mmap.core.config.CoreConfigurations.defaultErrorListener;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultLifecycleListener;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdlerSupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeIdler;
 import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultMappingRuntimeThreadFactory;
-import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.defaultUnmappingRuntimeIdler;
 
 /**
  * Defines factory and accessor methods to create new or retrieve shared {@link AsyncRuntime} instances.
@@ -65,10 +65,10 @@ public enum AsyncRuntimeInstances {
      * default idler.
      *
      * @return a new mapping runtime instance
-     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeIdlerSupplier()
+     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultMappingRuntimeIdler()
      */
     public static AsyncRuntime newMappingRuntime() {
-        return newMappingRuntime(defaultMappingRuntimeIdlerSupplier().get());
+        return newMappingRuntime(defaultMappingRuntimeIdler());
     }
 
     /**
@@ -118,10 +118,10 @@ public enum AsyncRuntimeInstances {
      * default idler.
      *
      * @return a new unmapping runtime instance
-     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultUnmappingRuntimeIdlerSupplier()
+     * @see org.tools4j.mmap.mapping.config.MappingConfigurations#defaultUnmappingRuntimeIdler()
      */
     public static AsyncRuntime newUnmappingRuntime() {
-        return newUnmappingRuntime(defaultUnmappingRuntimeIdlerSupplier().get());
+        return newUnmappingRuntime(defaultUnmappingRuntimeIdler());
     }
 
     /**
@@ -215,13 +215,13 @@ public enum AsyncRuntimeInstances {
     //lazy init through nested class which is only loaded when needed
     private static class MappingInstance {
         static final AsyncRuntime SHARED = AsyncRuntime.create("mapper-shared",
-                defaultMappingRuntimeIdlerSupplier().get(), false, defaultMappingRuntimeThreadFactory(),
+                defaultMappingRuntimeIdler(), false, defaultMappingRuntimeThreadFactory(),
                 defaultLifecycleListener(), defaultErrorListener());
     }
 
     //lazy init through nested class which is only loaded when needed
     private static class UnmappingInstance {
         static final AsyncRuntime SHARED = AsyncRuntime.create("unmapper-shared",
-                defaultUnmappingRuntimeIdlerSupplier().get(), false);
+                defaultUnmappingRuntimeIdler(), false);
     }
 }

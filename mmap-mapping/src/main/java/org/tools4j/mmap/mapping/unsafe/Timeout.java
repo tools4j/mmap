@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicReference;
 final class Timeout {
     public static final long GRACEFUL_TIMEOUT_MILLIS = 4000;
     public static final long TOTAL_TIMEOUT_MILLIS = 5000;
-    private final Idler idler = Idler.backoff();
 
     enum Termination {
         STOP_GRACEFULLY,
@@ -95,18 +94,18 @@ final class Timeout {
         if (termination.get() == null) {
             throw new IllegalStateException("Must stop before awaiting");
         }
-        idler.reset();
-        long end = System.currentTimeMillis() + timeoutMillis;
+        final Idler idler = Idler.backoff();
+        final long end = System.currentTimeMillis() + timeoutMillis;
+        int idleCount = 0;
         while (termination.get() != Termination.STOPPED) {
-            if (System.currentTimeMillis() > end || !sleep()) {
+            if (System.currentTimeMillis() > end) {
+                return false;
+            }
+            idleCount = idler.idle(idleCount);
+            if (Thread.interrupted()) {
                 return false;
             }
         }
         return true;
-    }
-
-    private boolean sleep() {
-        idler.idle();
-        return !Thread.interrupted();
     }
 }

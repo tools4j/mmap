@@ -196,7 +196,6 @@ class AsyncConfiguratorImplTest {
         assertThrows(NullPointerException.class, () -> config.mappingRuntime((AsyncRuntime) null));
         assertThrows(NullPointerException.class, () -> config.mappingRuntimeSupplier(null));
         assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((Idler) null));
-        assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((Supplier<Idler>) null));
         assertThrows(NullPointerException.class, () -> config.mappingRuntimeUsing((ThreadFactory) null));
     }
 
@@ -210,16 +209,13 @@ class AsyncConfiguratorImplTest {
         final AsyncUnmappingConfigurator config = AsyncUnmappingConfigurator.configure();
         assertThrows(NullPointerException.class, () -> config.unmappingRuntime((AsyncRuntime) null));
         assertThrows(NullPointerException.class, () -> config.unmappingRuntimeSupplier(null));
-        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((Idler) null));
-        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing((Supplier<Idler>) null));
+        assertThrows(NullPointerException.class, () -> config.unmappingRuntimeUsing(null));
     }
 
     @Test
     void mappingRuntimeUsingIdlerCreatesNewRuntimes() {
         assertCreatesNewRuntimes("mapper-", AsyncMappingConfigurator.configure()
                 .mappingRuntimeUsing(parkingIdler()).mappingRuntimeSupplier());
-        assertCreatesNewRuntimes("mapper-", AsyncMappingConfigurator.configure()
-                .mappingRuntimeUsing(() -> parkingIdler()).mappingRuntimeSupplier());
     }
 
     @Test
@@ -229,14 +225,14 @@ class AsyncConfiguratorImplTest {
             threads.incrementAndGet();
             return new Thread(runnable);
         };
-        final Supplier<Idler> idler = () -> parkingIdler();
+        final Idler idler = parkingIdler();
         for (final AsyncMappingConfigurator config : new AsyncMappingConfigurator[]{
                 AsyncMappingConfigurator.configure()
                         .mappingRuntimeUsing(idler).mappingRuntimeUsing(threadFactory),
                 AsyncMappingConfigurator.configure()
                         .mappingRuntimeUsing(threadFactory).mappingRuntimeUsing(idler)}) {
             try (final AsyncRuntime runtime = config.mappingRuntimeSupplier().get()) {
-                assertTrue(runtime.toString().contains("|idler=" + parkingIdler() + "|"), runtime::toString);
+                assertTrue(runtime.toString().contains("|idler=" + idler + "|"), runtime::toString);
             }
         }
         assertEquals(2, threads.get());
@@ -245,7 +241,7 @@ class AsyncConfiguratorImplTest {
         try (final AsyncRuntime runtime = AsyncMappingConfigurator.configure().mappingRuntimeUsing(threadFactory)
                 .mappingRuntimeSupplier().get()) {
             assertTrue(runtime.toString().contains("|idler=" +
-                    MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get() + "|"),
+                    MappingConfigurations.defaultMappingRuntimeIdler() + "|"),
                     runtime::toString);
         }
         assertEquals(3, threads.get());
@@ -257,7 +253,7 @@ class AsyncConfiguratorImplTest {
         assertSame(mockRuntime, config.mappingRuntimeSupplier().get());
         try (final AsyncRuntime runtime = config.mappingRuntimeUsing(threadFactory).mappingRuntimeSupplier().get()) {
             assertTrue(runtime.toString().contains("|idler=" +
-                    MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get() + "|"),
+                    MappingConfigurations.defaultMappingRuntimeIdler() + "|"),
                     runtime::toString);
         }
         assertEquals(4, threads.get());
@@ -267,8 +263,6 @@ class AsyncConfiguratorImplTest {
     void unmappingRuntimeUsingIdlerCreatesNewRuntimes() {
         assertCreatesNewRuntimes("unmapper-", AsyncUnmappingConfigurator.configure()
                 .unmappingRuntimeUsing(parkingIdler()).unmappingRuntimeSupplier());
-        assertCreatesNewRuntimes("unmapper-", AsyncUnmappingConfigurator.configure()
-                .unmappingRuntimeUsing(() -> parkingIdler()).unmappingRuntimeSupplier());
     }
 
     private static void assertCreatesNewRuntimes(final String namePrefix,

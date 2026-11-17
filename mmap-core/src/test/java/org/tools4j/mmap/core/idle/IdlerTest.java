@@ -27,10 +27,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for {@link Idler} and {@link IdleMode}, with the implementations {@link BackoffIdler} and
@@ -39,65 +39,54 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class IdlerTest {
 
     @Test
-    void statelessIdlersAreShared() {
-        assertSame(Idler.noOp(), IdleMode.NO_OP.newIdler());
-        assertSame(Idler.busySpin(), IdleMode.BUSY_SPIN.newIdler());
-        assertSame(Idler.yielding(), IdleMode.YIELDING.newIdler());
-        Idler.noOp().idle();
-        Idler.busySpin().idle();
-        Idler.yielding().idle();
-        Idler.busySpin().reset();
+    void idlersAreShared() {
+        assertSame(Idler.noOp(), IdleMode.NO_OP.idler());
+        assertSame(Idler.busySpin(), IdleMode.BUSY_SPIN.idler());
+        assertSame(Idler.yielding(), IdleMode.YIELDING.idler());
+        assertSame(Idler.backoff(), IdleMode.BACKOFF.idler());
+        assertInstanceOf(BackoffIdler.class, Idler.backoff());
         assertEquals("NO_OP", Idler.noOp().toString());
         assertEquals("BUSY_SPIN", Idler.busySpin().toString());
         assertEquals("YIELDING", Idler.yielding().toString());
+        assertEquals("BACKOFF:maxSpins=10|maxYields=5|minParkNanos=1000|maxParkNanos=1000000",
+                Idler.backoff().toString());
     }
 
     @Test
-    void backoffIdlersAreNewInstances() {
-        final Idler idler = IdleMode.BACKOFF.newIdler();
-        assertInstanceOf(BackoffIdler.class, idler);
-        assertNotSame(idler, IdleMode.BACKOFF.newIdler());
-        assertNotSame(Idler.backoff(), Idler.backoff());
-        assertEquals("BACKOFF:maxSpins=10|maxYields=5|minParkNanos=1000|maxParkNanos=1000000", idler.toString());
+    void idlersIncrementIdleCountSaturating() {
+        for (final IdleMode mode : IdleMode.values()) {
+            final Idler idler = mode.idler();
+            assertEquals(1, idler.idle(0), mode.name());
+            assertEquals(2, idler.idle(1), mode.name());
+            interruptedSoParkingReturnsImmediately(() ->
+                    assertEquals(Integer.MAX_VALUE, idler.idle(Integer.MAX_VALUE), mode.name()));
+        }
     }
 
     @Test
-    void backoffSpinsThenYieldsThenParksForDoublingPeriodsUntilReset() {
+    void backoffSpinsThenYieldsThenParksForDoublingPeriods() {
         final BackoffIdler idler = (BackoffIdler) Idler.backoff(2, 3, 1_000, 5_000);
+        assertEquals(1_000, idler.parkNanos(0));
+        assertEquals(2_000, idler.parkNanos(1));
+        assertEquals(4_000, idler.parkNanos(2));
+        assertEquals(5_000, idler.parkNanos(3), "capped");
+        assertEquals(5_000, idler.parkNanos(Integer.MAX_VALUE), "capped");
+        int idleCount = 0;
         for (int i = 0; i < 2 + 3; i++) {
-            idler.idle();
-            assertEquals(1_000, idler.parkNanos(), "spinning or yielding, idle " + i);
+            idleCount = idler.idle(idleCount);//spinning or yielding, without parking
         }
-        idler.idle();
-        assertEquals(2_000, idler.parkNanos());
-        idler.idle();
-        assertEquals(4_000, idler.parkNanos());
-        idler.idle();
-        assertEquals(5_000, idler.parkNanos(), "capped");
-        idler.idle();
-        assertEquals(5_000, idler.parkNanos(), "capped");
-
-        idler.reset();
-        assertEquals(1_000, idler.parkNanos());
-        for (int i = 0; i < 2 + 3; i++) {
-            idler.idle();
-        }
-        assertEquals(1_000, idler.parkNanos(), "spinning and yielding again after reset");
+        assertEquals(5, idleCount);
     }
 
     @Test
     void backoffDoublingDoesNotOverflow() {
         final BackoffIdler idler = (BackoffIdler) Idler.backoff(0, 0, 1, Long.MAX_VALUE);
-        //interrupted, parking returns immediately
-        Thread.currentThread().interrupt();
-        try {
-            for (int i = 0; i < 70; i++) {
-                idler.idle();
-            }
-        } finally {
-            Thread.interrupted();
-        }
-        assertEquals(Long.MAX_VALUE, idler.parkNanos());
+        assertEquals(1L << 62, idler.parkNanos(62));
+        assertEquals(Long.MAX_VALUE, idler.parkNanos(63));
+        assertEquals(Long.MAX_VALUE, idler.parkNanos(Integer.MAX_VALUE));
+        final BackoffIdler fixed = (BackoffIdler) Idler.backoff(0, 0, 7, 7);
+        assertEquals(7, fixed.parkNanos(0));
+        assertEquals(7, fixed.parkNanos(100));
     }
 
     @Test
@@ -115,5 +104,14 @@ class IdlerTest {
         }
         assertNull(IdleMode.forName("backoff"));
         assertNull(IdleMode.forName(null));
+    }
+
+    private static void interruptedSoParkingReturnsImmediately(final Runnable idle) {
+        Thread.currentThread().interrupt();
+        try {
+            idle.run();
+        } finally {
+            assertTrue(Thread.interrupted(), "interrupt status kept");
+        }
     }
 }

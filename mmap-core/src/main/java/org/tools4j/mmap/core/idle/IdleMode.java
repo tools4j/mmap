@@ -37,17 +37,16 @@ public enum IdleMode {
     BACKOFF;
 
     /**
-     * Returns an idler of this mode, for one thread: the shared instance of a stateless mode, and a new instance
-     * otherwise.
+     * Returns the idler of this mode, shared by all threads.
      *
      * @return the idler
      */
-    public Idler newIdler() {
+    public Idler idler() {
         return switch (this) {
             case NO_OP -> Idler.noOp();
             case BUSY_SPIN -> Idler.busySpin();
             case YIELDING -> Idler.yielding();
-            default -> Idler.backoff();
+            case BACKOFF -> Idler.backoff();
         };
     }
 

@@ -24,39 +24,41 @@
 package org.tools4j.mmap.core.idle;
 
 /**
- * Waits when a thread's duty cycle found no work. An idler may keep state between calls, such as how long it waited
- * already, so every thread needs its own instance, for instance from {@link IdleMode#newIdler()} or a
- * {@link java.util.function.Supplier Supplier} such as {@code Idler::backoff}.
+ * Waits when a thread's duty cycle found no work. Idlers keep no state: the calling thread counts how often it idled
+ * in a row and passes the count to {@link #idle(int)}, which returns the count to pass next time, so that one idler
+ * instance can be shared by all threads.
  * <p>
- * A thread calls {@link #idle()} after each duty cycle without work and {@link #reset()} after one with work:
+ * A thread starts with an idle count of zero, idles after each duty cycle without work and resets the count to zero
+ * after one with work:
  * <pre>{@code
- * if (workCount > 0) {
- *     idler.reset();
- * } else {
- *     idler.idle();
+ * int idleCount = 0;
+ * while (running) {
+ *     idleCount = doWork() ? 0 : idler.idle(idleCount);
  * }
  * }</pre>
- * Stateless idlers only implement {@link #idle()}, and can be lambdas, e.g. {@code Thread::onSpinWait}.
+ * Unlike the work count passed to Agrona's {@code IdleStrategy.idle(int)}, the idle count is kept by the caller from
+ * the return value. A caller dropping it keeps idling with count zero, which for a backing-off idler means spinning
+ * without ever parking. A custom idler returns the count incremented, saturating, as
+ * {@code Math.max(idleCount, idleCount + 1)} does.
  */
 @FunctionalInterface
 public interface Idler {
 
     /**
      * Waits once, after a duty cycle found no work.
+     *
+     * @param idleCount the number of idles since the last duty cycle with work, as returned by the previous
+     *                  invocation, zero for the first idle
+     * @return the idle count to pass to the next invocation, {@code idleCount + 1}, saturating at
+     *         {@link Integer#MAX_VALUE} so that a long idle phase never overflows it
      */
-    void idle();
-
-    /**
-     * Resets this idler after a duty cycle did some work, so that the next {@link #idle()} starts with the shortest
-     * wait again. Does nothing by default, for stateless idlers.
-     */
-    default void reset() {}
+    int idle(int idleCount);
 
     /**
      * Returns the idler returning immediately, so that the calling loop spins without even the spin-wait hint of
      * {@link #busySpin()}: for loops that wait by other means, and for tests.
      *
-     * @return the shared no-op idler, which is stateless
+     * @return the no-op idler
      * @see IdleMode#NO_OP
      */
     static Idler noOp() {
@@ -67,7 +69,7 @@ public interface Idler {
      * Returns the idler busy-spinning with {@link Thread#onSpinWait()}: lowest latency, keeping one CPU busy all the
      * time.
      *
-     * @return the shared busy-spinning idler, which is stateless
+     * @return the busy-spinning idler
      * @see IdleMode#BUSY_SPIN
      */
     static Idler busySpin() {
@@ -78,7 +80,7 @@ public interface Idler {
      * Returns the idler yielding with {@link Thread#yield()}: low latency, giving the CPU to other threads ready to
      * run.
      *
-     * @return the shared yielding idler, which is stateless
+     * @return the yielding idler
      * @see IdleMode#YIELDING
      */
     static Idler yielding() {
@@ -86,29 +88,27 @@ public interface Idler {
     }
 
     /**
-     * Returns a new backing-off idler with default limits: it spins 10 times, then yields 5 times, then parks for 1
+     * Returns the backing-off idler with default limits: it spins 10 times, then yields 5 times, then parks for 1
      * microsecond, doubling the period up to 1 millisecond, see {@link #backoff(int, int, long, long)}.
      *
-     * @return a new backing-off idler, for one thread
+     * @return the backing-off idler with default limits
      * @see IdleMode#BACKOFF
      */
     static Idler backoff() {
-        return backoff(BackoffIdler.DEFAULT_MAX_SPINS, BackoffIdler.DEFAULT_MAX_YIELDS,
-                BackoffIdler.DEFAULT_MIN_PARK_NANOS, BackoffIdler.DEFAULT_MAX_PARK_NANOS);
+        return BackoffIdler.DEFAULT;
     }
 
     /**
-     * Returns a new backing-off idler: it spins with {@link Thread#onSpinWait()} up to {@code maxSpins} times, then
-     * yields with {@link Thread#yield()} up to {@code maxYields} times, then parks with
+     * Returns a new backing-off idler: it spins with {@link Thread#onSpinWait()} for the first {@code maxSpins} idles,
+     * then yields with {@link Thread#yield()} for the next {@code maxYields}, then parks with
      * {@link java.util.concurrent.locks.LockSupport#parkNanos(long) LockSupport.parkNanos(..)} for
-     * {@code minParkNanos}, doubling the period with every further idle up to {@code maxParkNanos}, until it is
-     * {@linkplain #reset() reset}.
+     * {@code minParkNanos}, doubling the period with every further idle up to {@code maxParkNanos}.
      *
      * @param maxSpins     the number of spins before yielding, zero or more
      * @param maxYields    the number of yields before parking, zero or more
      * @param minParkNanos the first park period in nanoseconds, positive
      * @param maxParkNanos the longest park period in nanoseconds, at least {@code minParkNanos}
-     * @return a new backing-off idler, for one thread
+     * @return a new backing-off idler
      * @throws IllegalArgumentException if a parameter is out of range
      */
     static Idler backoff(final int maxSpins, final int maxYields, final long minParkNanos, final long maxParkNanos) {

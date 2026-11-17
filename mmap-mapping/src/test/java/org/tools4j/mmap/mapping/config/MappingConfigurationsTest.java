@@ -38,7 +38,6 @@ import org.tools4j.mmap.mapping.api.PreAccessHook;
 import org.tools4j.mmap.mapping.impl.AsyncRuntimeImpl;
 
 import java.util.concurrent.ThreadFactory;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,16 +56,9 @@ class MappingConfigurationsTest {
     /** Custom idler, instantiated via the idler property */
     public static final class CustomIdler implements Idler {
         @Override
-        public void idle() {
+        public int idle(final int idleCount) {
             Thread.onSpinWait();
-        }
-    }
-
-    /** Supplier returning the same idler every time, instantiated via the idler property */
-    public static final class BusySpinIdlerSupplier implements Supplier<Idler> {
-        @Override
-        public Idler get() {
-            return Idler.busySpin();
+            return Math.max(idleCount, idleCount + 1);
         }
     }
 
@@ -178,12 +170,6 @@ class MappingConfigurationsTest {
     }
 
     @Test
-    void defaultUnmappingIdlerSupplierReturnsNewInstances() {
-        assertNotSame(MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get(),
-                MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get());
-    }
-
-    @Test
     void intPropertyIsParsedAndValidated() {
         assertEquals(MappingConfigurations.MAX_OPEN_FILES_DEFAULT, MappingConfigurations.defaultMaxOpenFiles());
         System.setProperty(MappingConfigurations.MAX_OPEN_FILES_PROPERTY, "5");
@@ -222,49 +208,36 @@ class MappingConfigurationsTest {
     @Test
     void idlerPropertyDefaultsToBackoff() {
         assertSame(IdleMode.BACKOFF, MappingConfigurations.MAPPING_RUNTIME_IDLER_DEFAULT);
-        assertEquals(Idler.backoff().toString(),
-                MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get().toString());
-        assertEquals(Idler.backoff().toString(),
-                MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get().toString());
+        assertSame(Idler.backoff(), MappingConfigurations.defaultMappingRuntimeIdler());
+        assertSame(Idler.backoff(), MappingConfigurations.defaultUnmappingRuntimeIdler());
     }
 
     @Test
     void idlerPropertyWithIdleModeName() {
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "BUSY_SPIN");
-        assertSame(Idler.busySpin(), MappingConfigurations.defaultMappingRuntimeIdlerSupplier().get());
+        assertSame(Idler.busySpin(), MappingConfigurations.defaultMappingRuntimeIdler());
         System.setProperty(MappingConfigurations.UNMAPPING_RUNTIME_IDLER_PROPERTY, "YIELDING");
-        assertSame(Idler.yielding(), MappingConfigurations.defaultUnmappingRuntimeIdlerSupplier().get());
+        assertSame(Idler.yielding(), MappingConfigurations.defaultUnmappingRuntimeIdler());
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "BACKOFF");
-        final Supplier<? extends Idler> backoff = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
-        assertNotSame(backoff.get(), backoff.get());
+        assertSame(Idler.backoff(), MappingConfigurations.defaultMappingRuntimeIdler());
     }
 
     @Test
-    void idlerPropertyWithIdlerClassCreatesNewInstances() {
+    void idlerPropertyWithIdlerClassCreatesInstanceOncePerValue() {
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, CustomIdler.class.getName());
-        final Supplier<? extends Idler> supplier = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
-        final Idler first = supplier.get();
-        assertInstanceOf(CustomIdler.class, first);
-        assertInstanceOf(CustomIdler.class, supplier.get());
-        assertNotSame(first, supplier.get());
+        final Idler idler = MappingConfigurations.defaultMappingRuntimeIdler();
+        assertInstanceOf(CustomIdler.class, idler);
+        assertSame(idler, MappingConfigurations.defaultMappingRuntimeIdler());
     }
 
     @Test
-    void idlerPropertyWithSupplierClassDelegatesToSupplier() {
-        System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, BusySpinIdlerSupplier.class.getName());
-        final Supplier<? extends Idler> supplier = MappingConfigurations.defaultMappingRuntimeIdlerSupplier();
-        assertSame(Idler.busySpin(), supplier.get());
-        assertSame(Idler.busySpin(), supplier.get());
-    }
-
-    @Test
-    void idlerPropertyWithInvalidValueFailsOnFirstUse() {
+    void idlerPropertyWithInvalidValueFails() {
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "no.such.Idler");
-        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get);
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMappingRuntimeIdler);
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, String.class.getName());
-        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get);
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMappingRuntimeIdler);
         System.setProperty(MappingConfigurations.MAPPING_RUNTIME_IDLER_PROPERTY, "backoff");
-        assertThrows(IllegalArgumentException.class, MappingConfigurations.defaultMappingRuntimeIdlerSupplier()::get,
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultMappingRuntimeIdler,
                 "mode names are case-sensitive");
     }
 
