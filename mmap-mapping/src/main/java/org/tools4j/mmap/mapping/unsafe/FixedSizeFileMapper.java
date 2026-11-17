@@ -51,7 +51,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
     private final File file;
     private final long fileSize;
     private final AccessMode accessMode;
-    private final FileChannelProvider fileChannelProvider;
+    private final FileHandle fileHandle;
     private final PreToucher preToucher;
 
     public FixedSizeFileMapper(final File file, 
@@ -72,7 +72,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
         this.fileSize = fileSize;
         this.accessMode = requireNonNull(accessMode);
         this.preToucher = new PreToucher();
-        this.fileChannelProvider = new FileChannelProvider(this, accessMode, file, fileInitialiser, fileSize,
+        this.fileHandle = new FileHandle(this, accessMode, file, fileInitialiser, fileSize,
                 lifecycleListener, errorListener);
         init();
     }
@@ -103,8 +103,8 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
                     "exceeds fixed file size " + fileSize + " for file " + file);
         }
-        //NOTE: relying on fileChannelProvider's closed check
-        final FileChannel channel = fileChannelProvider.get();
+        //NOTE: relying on fileHandle's closed check
+        final FileChannel channel = fileHandle.channel();
         if (channel == null) {
             throw new IllegalStateException("Failed to open file channel for file " + file);
         }
@@ -124,16 +124,16 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
     }
 
     private void init() {
-        fileChannelProvider.get();
+        fileHandle.channel();
     }
 
     public boolean isClosed() {
-        return fileChannelProvider.isClosed();
+        return fileHandle.isClosed();
     }
 
     @Override
     public void close() {
-        fileChannelProvider.closeIfNeeded();
+        fileHandle.closeIfOpened();
     }
 
     @Override

@@ -43,67 +43,65 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 
-final class FileChannelProvider implements Closeable {
+final class FileHandle implements Closeable {
     private final Describable owner;
     private final File file;
     private final PreAccessHook preAccessHook;
     private final AccessMode accessMode;
-    private final long minFileLength;
+    private final long minFileSize;
     private final LifecycleListener lifecycleListener;
     private final ErrorListener errorListener;
-    private final AtomicReference<ChannelWithFile> channelWithFile = new AtomicReference<>();
+    private final AtomicReference<OpenFile> openFile = new AtomicReference<>();
 
-    /** The channel of the file, to be closed through its lock only, which waits until no lock is held on the file */
-    private record ChannelWithFile(RandomAccessFile randomAccessFile, FileChannel channel, FileChannelLock lock) {
-        static final ChannelWithFile CLOSED = new ChannelWithFile(null, null, null);
-        ChannelWithFile {
-            if (CLOSED != null) {
-                requireNonNull(randomAccessFile);
-                requireNonNull(channel);
-                requireNonNull(lock);
-            }
-        }
-    }
+    /** The open file, its channel to be closed through its lock only, which waits until no lock is held on the file */
+    private record OpenFile(RandomAccessFile randomAccessFile, FileChannel channel, FileChannelLock lock) {}
+
+    private static final OpenFile CLOSED = new OpenFile(null, null, null);
 
     /**
-     * Constructor for a provider of the file channel of a file mapper.
+     * Constructor for the handle of the file of a file mapper, opening the file on first use.
      *
-     * @param owner             the file mapper owning this provider, the resource passed to listeners
+     * @param owner             the file mapper owning this handle, the resource passed to listeners
      * @param accessMode        the access mode of the file mapper
      * @param file              the file
      * @param fileInitialiser   the initialiser providing the hook invoked when the file is opened or extended
-     * @param minFileLength     the min length to set for a writable file and to expect for a read-only file, or zero
+     * @param minFileSize       the min size to set for a writable file and to expect for a read-only file, or zero
      *                          for none
      * @param lifecycleListener the listener notified when the file is created and when it is opened and closed
      * @param errorListener     the listener notified about errors when closing the file
      */
-    FileChannelProvider(final Describable owner,
-                        final AccessMode accessMode,
-                        final File file,
-                        final FileInitialiser fileInitialiser,
-                        final long minFileLength,
-                        final LifecycleListener lifecycleListener,
-                        final ErrorListener errorListener) {
+    FileHandle(final Describable owner,
+               final AccessMode accessMode,
+               final File file,
+               final FileInitialiser fileInitialiser,
+               final long minFileSize,
+               final LifecycleListener lifecycleListener,
+               final ErrorListener errorListener) {
         this.owner = requireNonNull(owner);
         this.file = requireNonNull(file);
         this.accessMode = requireNonNull(accessMode);
         this.preAccessHook = requireNonNull(fileInitialiser.hook(accessMode));
-        this.minFileLength = minFileLength;
+        this.minFileSize = minFileSize;
         this.lifecycleListener = requireNonNull(lifecycleListener);
         this.errorListener = requireNonNull(errorListener);
     }
 
     @Override
     public boolean isClosed() {
-        return channelWithFile.get() == ChannelWithFile.CLOSED;
+        return openFile.get() == CLOSED;
     }
 
-    public boolean closeIfNeeded() {
-        ChannelWithFile witness = channelWithFile.compareAndExchange(null, ChannelWithFile.CLOSED);
-        if (witness == null || witness == ChannelWithFile.CLOSED) {
+    /**
+     * Closes this handle, and the file if it was opened.
+     *
+     * @return true if the file was opened and this call closed it, false if it was never opened or closed already
+     */
+    public boolean closeIfOpened() {
+        final OpenFile witness = openFile.compareAndExchange(null, CLOSED);
+        if (witness == null || witness == CLOSED) {
             return false;
         }
-        if (witness == channelWithFile.compareAndExchange(witness, ChannelWithFile.CLOSED)) {
+        if (witness == openFile.compareAndExchange(witness, CLOSED)) {
             close(witness);
             lifecycleListener.onClosed(owner);
             return true;
@@ -113,12 +111,19 @@ final class FileChannelProvider implements Closeable {
 
     @Override
     public void close() {
-        closeIfNeeded();
+        closeIfOpened();
     }
 
-    public FileChannel get() {
-        final ChannelWithFile cwf = getChannelWithFile();
-        return cwf != null ? cwf.channel : null;
+    /**
+     * Returns the channel of the file, opening the file on first use, and creating it first unless in read-only mode.
+     *
+     * @return the channel, or null if in read-only mode and the file does not exist or is empty yet
+     * @throws IllegalStateException if this handle is closed
+     * @throws UncheckedIOException if creating or opening the file fails
+     */
+    public FileChannel channel() {
+        final OpenFile open = openFile();
+        return open != null ? open.channel : null;
     }
 
     /**
@@ -126,28 +131,28 @@ final class FileChannelProvider implements Closeable {
      * exclusive file lock.
      *
      * @param size the new file size
-     * @return the file length after extending, the given size or the current length if it was longer already, for
+     * @return the file size after extending, the given size or the current size if it was larger already, for
      *         instance if another process extended the file further
      * @throws UncheckedIOException if extending the file fails
      */
-    public long extend(final long size) {
+    public long extendTo(final long size) {
         assert accessMode != AccessMode.READ_ONLY;
-        final ChannelWithFile cwf = getChannelWithFile();
-        if (cwf == null) {
+        final OpenFile open = openFile();
+        if (open == null) {
             throw new IllegalStateException("No file channel to extend file " + file + " to size " + size);
         }
         try {
-            cwf.lock.lock();
+            open.lock.lock();
             try {
-                final long length = cwf.channel.size();
-                if (length >= size) {
-                    return length;
+                final long currentSize = open.channel.size();
+                if (currentSize >= size) {
+                    return currentSize;
                 }
-                preAccessHook.onExtend(file, cwf.channel, size);
-                ensureLength(cwf.randomAccessFile, size);
+                preAccessHook.onExtend(file, open.channel, size);
+                ensureSize(open.randomAccessFile, size);
                 return size;
             } finally {
-                cwf.lock.unlock();
+                open.lock.unlock();
             }
         } catch (final IOException e) {
             throw new UncheckedIOException("Failed to extend file " + file + " to size " + size, e);
@@ -155,41 +160,41 @@ final class FileChannelProvider implements Closeable {
     }
 
     /** Extends the file without writing if the initialiser left it shorter than the size, never truncating it */
-    private static void ensureLength(final RandomAccessFile raf, final long size) throws IOException {
+    private static void ensureSize(final RandomAccessFile raf, final long size) throws IOException {
         if (raf.length() < size) {
             raf.setLength(size);
         }
     }
 
-    private ChannelWithFile getChannelWithFile() {
+    private OpenFile openFile() {
         validateNotClosed(this);
-        ChannelWithFile cwf = channelWithFile.get();
-        if (cwf != null) {
-            return cwf;
+        final OpenFile open = openFile.get();
+        if (open != null) {
+            return open;
         }
-        return open();
+        return tryOpen();
     }
 
     /**
      * Opens the file, creating it first unless in read-only mode.
      *
-     * @return the channel with file, or null if in read-only mode and the file does not exist or is empty
+     * @return the open file, or null if in read-only mode and the file does not exist or is empty
      * @throws UncheckedIOException if creating or opening the file fails
      */
-    private ChannelWithFile open() {
+    private OpenFile tryOpen() {
         if (accessMode == AccessMode.READ_ONLY && file.length() == 0L) {
             return null;
         }
         if (accessMode != AccessMode.READ_ONLY && !file.exists()) {
             createNewFile();
         }
-        final RandomAccessFile raf = initRandomAccessFile();
+        final RandomAccessFile raf = tryOpenRandomAccessFile();
         if (raf == null) {
             return null;
         }
         final FileChannel channel = raf.getChannel();
-        final FileChannelLock lock = initChannel(raf, channel);
-        return setOrGet(new ChannelWithFile(raf, channel, lock));
+        final FileChannelLock lock = initialise(raf, channel);
+        return publish(new OpenFile(raf, channel, lock));
     }
 
     private void createNewFile() {
@@ -205,7 +210,7 @@ final class FileChannelProvider implements Closeable {
         }
     }
 
-    private RandomAccessFile initRandomAccessFile() {
+    private RandomAccessFile tryOpenRandomAccessFile() {
         final RandomAccessFile raf;
         try {
             raf = new RandomAccessFile(file, accessMode.randomAccessMode());
@@ -219,18 +224,18 @@ final class FileChannelProvider implements Closeable {
     }
 
     /** Initialises the file through the channel and returns the lock of the channel, closing both on failure */
-    private FileChannelLock initChannel(final RandomAccessFile raf, final FileChannel channel) {
+    private FileChannelLock initialise(final RandomAccessFile raf, final FileChannel channel) {
         FileChannelLock lock = null;
         try {
             lock = FileChannelLock.create(channel);
             if (accessMode == AccessMode.READ_ONLY) {
-                validateMinFileLength(channel);
-                preAccessHook.onOpen(file, channel, minFileLength);
+                validateMinFileSize(channel);
+                preAccessHook.onOpen(file, channel, minFileSize);
             } else {
                 lock.lock();
                 try {
-                    preAccessHook.onOpen(file, channel, minFileLength);
-                    ensureLength(raf, minFileLength);
+                    preAccessHook.onOpen(file, channel, minFileSize);
+                    ensureSize(raf, minFileSize);
                 } finally {
                     lock.unlock();
                 }
@@ -248,16 +253,17 @@ final class FileChannelProvider implements Closeable {
         return lock;
     }
 
-    private void validateMinFileLength(final FileChannel channel) throws IOException {
-        final long length = channel.size();
-        if (length < minFileLength) {
-            throw new IllegalArgumentException("Invalid file, expected file of size at least " + minFileLength +
-                    " but found only " + length + ": " + file);
+    private void validateMinFileSize(final FileChannel channel) throws IOException {
+        final long size = channel.size();
+        if (size < minFileSize) {
+            throw new IllegalArgumentException("Invalid file, expected file of size at least " + minFileSize +
+                    " but found only " + size + ": " + file);
         }
     }
 
-    private ChannelWithFile setOrGet(final ChannelWithFile value) {
-        final ChannelWithFile witness = channelWithFile.compareAndExchange(null, value);
+    /** Publishes the open file unless another thread was first, closing it then and returning the winner's value */
+    private OpenFile publish(final OpenFile value) {
+        final OpenFile witness = openFile.compareAndExchange(null, value);
         if (witness == null) {
             lifecycleListener.onOpened(owner);
             return value;
@@ -266,7 +272,7 @@ final class FileChannelProvider implements Closeable {
         return witness;
     }
 
-    private void close(final ChannelWithFile value) {
+    private void close(final OpenFile value) {
         if (value != null) {
             close(value.lock);
             close(value.randomAccessFile);
@@ -285,7 +291,7 @@ final class FileChannelProvider implements Closeable {
 
     @Override
     public String toString() {
-        return "FileChannelProvider"
+        return "FileHandle"
                 + ":file=" + file
                 + "|closed=" + isClosed();
     }

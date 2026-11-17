@@ -56,7 +56,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     private final File file;
     private final long minFileSize;
     private final long maxFileSize;
-    private final FileChannelProvider fileChannelProvider;
+    private final FileHandle fileHandle;
     private final PreToucher preToucher;
     private final AtomicLong fileLengthCache = new AtomicLong();
     private final AtomicBoolean fileSizeExtensionLatch = new AtomicBoolean();
@@ -81,6 +81,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         validateRegionSize(regionSize);
         validateMinFileSize(minFileSize);
         validateMaxFileSize(maxFileSize);
+        //noinspection IfStatementWithIdenticalBranches
         if (minFileSize == 0) {
             if (maxFileSize % regionSize != 0) {
                 throw new IllegalArgumentException("Max file size must be a multiple of region size " + regionSize +
@@ -100,7 +101,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
             this.minFileSize = minFileSize;
             this.maxFileSize = maxFileSize;
         }
-        this.fileChannelProvider = new FileChannelProvider(this, AccessMode.READ_WRITE, file, fileInitialiser,
+        this.fileHandle = new FileHandle(this, AccessMode.READ_WRITE, file, fileInitialiser,
                 minFileSize, lifecycleListener, errorListener);
         this.preToucher = new PreToucher();
     }
@@ -114,12 +115,12 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     public long map(final long position, final int length, final boolean preTouch) {
         assert position >= 0;
         assert length >= 0;
-        //NOTE: relying on fileChannelProvider's closed check
+        //NOTE: relying on fileHandle's closed check
         if (position + length > maxFileSize) {
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
                     "exceeds max file size " + maxFileSize + " for file " + file);
         }
-        final FileChannel channel = fileChannelProvider.get();
+        final FileChannel channel = fileHandle.channel();
         if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
         }
@@ -159,7 +160,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         while (cachedFileLength < minLength) {
             if (tryExtensionLatch && fileSizeExtensionLatch.compareAndSet(false, true)) {
                 try {
-                    final long fileLength = fileChannelProvider.extend(newFileLength(minLength));
+                    final long fileLength = fileHandle.extendTo(newFileLength(minLength));
                     cachedFileLength = fileLengthCache.accumulateAndGet(fileLength, Math::max);
                 } finally {
                     fileSizeExtensionLatch.set(false);
@@ -180,12 +181,12 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
 
     @Override
     public boolean isClosed() {
-        return fileChannelProvider.isClosed();
+        return fileHandle.isClosed();
     }
 
     @Override
     public void close() {
-        if (fileChannelProvider.closeIfNeeded()) {
+        if (fileHandle.closeIfOpened()) {
             preToucher.reset();
         }
     }

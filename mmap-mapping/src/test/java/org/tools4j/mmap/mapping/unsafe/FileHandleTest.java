@@ -49,12 +49,12 @@ import static org.junit.jupiter.api.condition.OS.WINDOWS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Unit test for {@link FileChannelProvider} with the standard and custom {@link FileInitialiser file initialisers}.
+ * Unit test for {@link FileHandle} with the standard and custom {@link FileInitialiser file initialisers}.
  */
-class FileChannelProviderTest {
+class FileHandleTest {
 
     private static final int SIZE = 4 * (int) REGION_SIZE_GRANULARITY;
-    private static final Describable OWNER = sb -> sb.append("FileChannelProviderTest");
+    private static final Describable OWNER = sb -> sb.append("FileHandleTest");
     private static final byte[] EXISTING_CONTENT = {1, 2, 3, 4, 5, 6, 7, 8};
 
     @TempDir
@@ -62,22 +62,22 @@ class FileChannelProviderTest {
 
     private Path path;
 
-    private FileChannelProvider provider(final AccessMode accessMode, final FileInitialiser initialiser, final long minLength) {
-        path = tempDir.resolve("provider.map");
-        return new FileChannelProvider(OWNER, accessMode, path.toFile(), initialiser, minLength, LifecycleListener.NO_OP,
+    private FileHandle fileHandle(final AccessMode accessMode, final FileInitialiser initialiser, final long minSize) {
+        path = tempDir.resolve("handle.map");
+        return new FileHandle(OWNER, accessMode, path.toFile(), initialiser, minSize, LifecycleListener.NO_OP,
                 ErrorListener.NO_OP);
     }
 
     private void writeExistingContent() throws IOException {
-        Files.write(tempDir.resolve("provider.map"), EXISTING_CONTENT);
+        Files.write(tempDir.resolve("handle.map"), EXISTING_CONTENT);
     }
 
     @Test
     void lazyExtendsFileWhenOpenedAndExtended() throws IOException {
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
-            assertEquals(SIZE, provider.get().size());
-            assertEquals(2 * SIZE, provider.extend(2 * SIZE));
-            assertEquals(2 * SIZE, provider.get().size());
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
+            assertEquals(SIZE, handle.channel().size());
+            assertEquals(2 * SIZE, handle.extendTo(2 * SIZE));
+            assertEquals(2 * SIZE, handle.channel().size());
         }
         assertFilled(Files.readAllBytes(path), 0, (byte) 0);
     }
@@ -85,8 +85,8 @@ class FileChannelProviderTest {
     @Test
     @DisabledOnOs(value = WINDOWS, disabledReason = "allocated size measured with du")
     void lazyLeavesNewFileSpaceUnallocated() throws Exception {
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
-            provider.extend(2 * SIZE);
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
+            handle.extendTo(2 * SIZE);
         }
         assertTrue(allocatedBytes(path) < SIZE, "allocated bytes: " + allocatedBytes(path));
     }
@@ -94,8 +94,8 @@ class FileChannelProviderTest {
     @Test
     @DisabledOnOs(value = WINDOWS, disabledReason = "allocated size measured with du")
     void zeroAllocatesNewFileSpace() throws Exception {
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE)) {
-            provider.extend(2 * SIZE);
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE)) {
+            handle.extendTo(2 * SIZE);
         }
         assertEquals(2 * SIZE, Files.size(path));
         assertTrue(allocatedBytes(path) >= 2 * SIZE, "allocated bytes: " + allocatedBytes(path));
@@ -105,9 +105,9 @@ class FileChannelProviderTest {
     @Test
     void minusOneFillsNewFileSpaceKeepingExistingContent() throws IOException {
         writeExistingContent();
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.MINUS_ONE, SIZE)) {
-            assertEquals(SIZE, provider.get().size());
-            provider.extend(2 * SIZE);
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.MINUS_ONE, SIZE)) {
+            assertEquals(SIZE, handle.channel().size());
+            handle.extendTo(2 * SIZE);
         }
         final byte[] content = Files.readAllBytes(path);
         assertEquals(2 * SIZE, content.length);
@@ -117,18 +117,18 @@ class FileChannelProviderTest {
     }
 
     @Test
-    void extendNeverShrinksFileAndReturnsLongerLength() throws IOException {
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, FileInitialiser.ZERO, 2 * SIZE)) {
-            assertEquals(2 * SIZE, provider.extend(SIZE));
-            assertEquals(2 * SIZE, provider.get().size());
+    void extendNeverShrinksFileAndReturnsLargerSize() throws IOException {
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, 2 * SIZE)) {
+            assertEquals(2 * SIZE, handle.extendTo(SIZE));
+            assertEquals(2 * SIZE, handle.channel().size());
         }
     }
 
     @Test
-    void readOnlyFileShorterThanMinLengthIsRejectedAndNotModified() throws IOException {
+    void readOnlyFileSmallerThanMinSizeIsRejectedAndNotModified() throws IOException {
         writeExistingContent();
-        try (final FileChannelProvider provider = provider(AccessMode.READ_ONLY, FileInitialiser.ZERO, SIZE)) {
-            assertThrows(IllegalArgumentException.class, provider::get);
+        try (final FileHandle handle = fileHandle(AccessMode.READ_ONLY, FileInitialiser.ZERO, SIZE)) {
+            assertThrows(IllegalArgumentException.class, handle::channel);
         }
         assertEquals(EXISTING_CONTENT.length, Files.size(path));
     }
@@ -150,11 +150,11 @@ class FileChannelProviderTest {
                 }
             };
         };
-        try (final FileChannelProvider provider = provider(AccessMode.READ_WRITE, initialiser, SIZE)) {
-            provider.get();
-            provider.extend(2 * SIZE);
-            provider.extend(SIZE);
-            assertEquals(2 * SIZE, provider.get().size());
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, initialiser, SIZE)) {
+            handle.channel();
+            handle.extendTo(2 * SIZE);
+            handle.extendTo(SIZE);
+            assertEquals(2 * SIZE, handle.channel().size());
         }
         assertEquals(List.of("hook:READ_WRITE", "open:" + SIZE, "extend:" + 2 * SIZE), calls);
     }

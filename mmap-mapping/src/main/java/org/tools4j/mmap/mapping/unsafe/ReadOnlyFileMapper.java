@@ -52,7 +52,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 public class ReadOnlyFileMapper implements FileMapper, Describable {
 
     private final File file;
-    private final FileChannelProvider fileChannelProvider;
+    private final FileHandle fileHandle;
     private volatile long fileSizeCache;
 
     public ReadOnlyFileMapper(final File file, final FileInitialiser fileInitialiser) {
@@ -65,7 +65,7 @@ public class ReadOnlyFileMapper implements FileMapper, Describable {
                               final LifecycleListener lifecycleListener,
                               final ErrorListener errorListener) {
         this.file = requireNonNull(file);
-        this.fileChannelProvider = new FileChannelProvider(this, AccessMode.READ_ONLY, file, fileInitialiser, 0,
+        this.fileHandle = new FileHandle(this, AccessMode.READ_ONLY, file, fileInitialiser, 0,
                 lifecycleListener, errorListener);
     }
 
@@ -82,8 +82,8 @@ public class ReadOnlyFileMapper implements FileMapper, Describable {
     public long map(final long position, final int length, final boolean preTouch) {
         assert position >= 0;
         assert length >= 0;
-        //NOTE: relying on fileChannelProvider's closed check
-        final FileChannel channel = fileChannelProvider.get();
+        //NOTE: relying on fileHandle's closed check
+        final FileChannel channel = fileHandle.channel();
         if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
         }
@@ -120,12 +120,12 @@ public class ReadOnlyFileMapper implements FileMapper, Describable {
 
     @Override
     public boolean isClosed() {
-        return fileChannelProvider.isClosed();
+        return fileHandle.isClosed();
     }
 
     @Override
     public void close() {
-        fileChannelProvider.closeIfNeeded();
+        fileHandle.closeIfOpened();
     }
 
     @Override
