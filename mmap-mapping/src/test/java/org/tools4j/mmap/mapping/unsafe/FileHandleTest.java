@@ -25,6 +25,8 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
@@ -32,6 +34,7 @@ import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
+import org.tools4j.mmap.mapping.config.ZeroFillMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,9 +68,14 @@ class FileHandleTest {
     private Path path;
 
     private FileHandle fileHandle(final AccessMode accessMode, final FileInitialiser initialiser, final long minSize) {
+        return fileHandle(accessMode, initialiser, minSize, ZeroFillMode.WRITE, ErrorListener.NO_OP);
+    }
+
+    private FileHandle fileHandle(final AccessMode accessMode, final FileInitialiser initialiser, final long minSize,
+                                  final ZeroFillMode zeroFillMode, final ErrorListener errorListener) {
         path = tempDir.resolve("handle.map");
-        return new FileHandle(OWNER, accessMode, path.toFile(), initialiser, minSize, LifecycleListener.NO_OP,
-                ErrorListener.NO_OP);
+        return new FileHandle(OWNER, accessMode, path.toFile(), initialiser, minSize, zeroFillMode,
+                LifecycleListener.NO_OP, errorListener);
     }
 
     private void writeExistingContent() throws IOException {
@@ -93,15 +101,27 @@ class FileHandleTest {
         assertTrue(allocatedBytes(path) < SIZE, "allocated bytes: " + allocatedBytes(path));
     }
 
-    @Test
+    @ParameterizedTest(name = "zeroFill={0}")
+    @EnumSource(ZeroFillMode.class)
     @DisabledOnOs(value = WINDOWS, disabledReason = "allocated size measured with du")
-    void zeroAllocatesNewFileSpace() throws Exception {
-        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE)) {
+    void zeroAllocatesNewFileSpace(final ZeroFillMode zeroFillMode) throws Exception {
+        final List<String> warnings = new ArrayList<>();
+        final ErrorListener errorListener = new ErrorListener() {
+            @Override
+            public void onWarning(final Describable source, final CharSequence message) {
+                warnings.add(message.toString());
+            }
+        };
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE, zeroFillMode,
+                errorListener)) {
             handle.extendTo(2L * SIZE);
         }
         assertEquals(2L * SIZE, Files.size(path));
         assertTrue(allocatedBytes(path) >= 2L * SIZE, "allocated bytes: " + allocatedBytes(path));
         assertFilled(Files.readAllBytes(path), 0, (byte) 0);
+        if (zeroFillMode != ZeroFillMode.FALLOCATE) {//warns once per JVM if unsupported, so maybe in another test
+            assertEquals(List.of(), warnings);
+        }
     }
 
     @Test

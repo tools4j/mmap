@@ -103,7 +103,8 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
             this.maxFileSize = maxFileSize;
         }
         this.fileHandle = new FileHandle(this, AccessMode.READ_WRITE, file, fileInitialiser,
-                minFileSize, lifecycleListener, errorListener);
+                minFileSize, MappingConfigurations.defaultZeroFillMode(),
+                lifecycleListener, errorListener);
         this.preToucher = new PreToucher();
     }
 

@@ -56,6 +56,12 @@ Notable changes per release. Entries are curated from the commits since the prev
   (`AUTO`, the default, `FFM`, `AGRONA`, `TASKSET` or `NONE`) chooses one, and `CpuPinning.mode()` returns the one in
   use. Pinning through FFM or Agrona needs `--enable-native-access=ALL-UNNAMED` to avoid a warning by the JVM, for
   FFM since Java 22 and for Agrona since Java 24. `CpuPinning.currentThreadAffinity()` returns the CPUs the calling thread may run on.
+- The file initialiser `ZERO` allocates new file space with `fallocate` on 64-bit Linux with Java 22 or later instead
+  of writing zeros, holding the file lock for microseconds rather than about a millisecond per 2 MB and writing no
+  zeros to disk before the data; it needs native access, enabled with `--enable-native-access=ALL-UNNAMED`. The system
+  property `mmap.mapping.zeroFill` selects the mode: `AUTO` (the default, allocating if native access is enabled),
+  `FALLOCATE` (allocating whenever the JVM allows it, warning when writing zeros instead) or `WRITE` (always writing
+  zeros), see [Zero fill](docs/jvm-options.md#zero-fill). A file system without `fallocate` is detected once per file.
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.

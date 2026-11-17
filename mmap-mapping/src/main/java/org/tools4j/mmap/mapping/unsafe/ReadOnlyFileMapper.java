@@ -32,6 +32,7 @@ import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.config.ZeroFillMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -67,6 +68,7 @@ public class ReadOnlyFileMapper implements FileMapper, Describable {
                               final ErrorListener errorListener) {
         this.file = requireNonNull(file);
         this.fileHandle = new FileHandle(this, AccessMode.READ_ONLY, file, fileInitialiser, 0,
+                ZeroFillMode.WRITE,
                 lifecycleListener, errorListener);
     }
 

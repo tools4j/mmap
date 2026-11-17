@@ -28,6 +28,8 @@ import org.tools4j.mmap.core.idle.Idler;
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -183,6 +185,45 @@ public final class FileChannelLock implements Closeable {
         }
     }
 
+    /**
+     * Allocates the given range of the file natively with {@code fallocate}, so that it reads as zero, extending the
+     * file if the range ends beyond it; invoke while holding the exclusive lock, through this or another channel of
+     * this JVM on the file. Remembers for the file when its file system does not support it, and then skips further
+     * attempts while the file is open in this JVM. Allocates nothing if successful.
+     *
+     * @param position            the start of the range
+     * @param length              the length of the range, positive
+     * @param withoutNativeAccess true to allocate also if native access is not enabled, as long as the JVM allows it
+     *                            with a warning of its own, false to allocate only if native access is enabled
+     * @return {@link FileAllocation#ALLOCATED}, or why the range was not allocated, so that the caller writes zeros
+     * @throws IOException if allocating fails other than by not being supported, for instance if the disk is full
+     */
+    public FileAllocation allocate(final long position, final long length, final boolean withoutNativeAccess)
+            throws IOException {
+        return allocate(position, length, withoutNativeAccess, FileChannels::allocate);
+    }
+
+    /** Allocates through the given allocation, for tests */
+    FileAllocation allocate(final long position, final long length, final boolean withoutNativeAccess,
+                            final Allocation allocation) throws IOException {
+        assert fileState.holders.get() == FileState.EXCLUSIVE : "file is not locked exclusively";
+        if (fileState.hasHint(FileState.NO_FALLOCATE_HINT)) {
+            return FileAllocation.SKIPPED;
+        }
+        final FileAllocation result = allocation.allocate(fd, position, length, withoutNativeAccess);
+        if (result == FileAllocation.FILE_SYSTEM_UNSUPPORTED) {
+            fileState.addHint(FileState.NO_FALLOCATE_HINT);
+        }
+        return result;
+    }
+
+    /** Native allocation of file space, {@link FileChannels#allocate(FileDescriptor, long, long, boolean)} */
+    @FunctionalInterface
+    interface Allocation {
+        FileAllocation allocate(FileDescriptor fd, long position, long length, boolean withoutNativeAccess)
+                throws IOException;
+    }
+
     /** Releases the OS lock through the owner, the channel that took it, while the file state is RELEASING */
     private void unlockFile() {
         final FileChannelLock owner = fileState.owner;
@@ -243,14 +284,28 @@ public final class FileChannelLock implements Closeable {
 
     /**
      * The lock state of a file shared by all channels of this JVM on the file; {@link #holders} is the only
-     * synchronisation point, {@link #owner} is a plain field written before and read after transitions of it.
+     * synchronisation point of the lock, {@link #owner} is a plain field written before and read after transitions of
+     * it, and {@link #hints} are updated atomically through {@link #HINTS}, independently of the lock.
      */
+    @SuppressWarnings("SameParameterValue")
     private static final class FileState {
         static final int FREE = 0;
         static final int EXCLUSIVE = -1;
         static final int ACQUIRING = -2;
         static final int RELEASING = -3;
         static final int CLOSING = -4;
+        /** Hint that the file system does not support fallocate */
+        static final long NO_FALLOCATE_HINT = 1;
+        /** Atomic access to {@link #hints}: acquire to read, bitwise or with release to add, never removed */
+        private static final VarHandle HINTS;
+
+        static {
+            try {
+                HINTS = MethodHandles.lookup().findVarHandle(FileState.class, "hints", long.class);
+            } catch (final ReflectiveOperationException e) {
+                throw new IllegalStateException("Cannot access the hints of the file state", e);
+            }
+        }
 
         final Object fileKey;
         /** FREE, the number of shared holders if positive, or EXCLUSIVE, ACQUIRING, RELEASING or CLOSING */
@@ -259,9 +314,20 @@ public final class FileChannelLock implements Closeable {
         final AtomicInteger channels = new AtomicInteger(1);
         /** The channel that took the OS lock, needed to release it through the same descriptor on Windows */
         FileChannelLock owner;
+        /** Hints about the file as bit flags, such as {@link #NO_FALLOCATE_HINT}, while it is open in this JVM */
+        @SuppressWarnings("unused")//accessed through HINTS
+        private long hints;
 
         FileState(final Object fileKey) {
             this.fileKey = requireNonNull(fileKey);
+        }
+
+        boolean hasHint(final long hint) {
+            return ((long) HINTS.getAcquire(this) & hint) != 0;
+        }
+
+        void addHint(final long hint) {
+            HINTS.getAndBitwiseOrRelease(this, hint);
         }
 
         /** Returns the registered state of the file, registering a new one unless one exists, lock free */

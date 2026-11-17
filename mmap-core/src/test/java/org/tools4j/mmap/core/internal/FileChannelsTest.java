@@ -76,6 +76,35 @@ class FileChannelsTest {
         assertEquals(2, Files.readAllBytes(path)[0]);
     }
 
+    /** The result of allocating natively in this JVM: tests run with native access enabled */
+    static FileAllocation expectedAllocation() {
+        if (Runtime.version().feature() < 22) {
+            return FileAllocation.JDK_UNSUPPORTED;
+        }
+        return OS.LINUX ? FileAllocation.ALLOCATED : FileAllocation.PLATFORM_UNSUPPORTED;
+    }
+
+    @Test
+    void allocateExtendsFileWithSpaceReadingAsZeroWhereSupported() throws IOException {
+        final Path path = file();
+        try (final RandomAccessFile raf = new RandomAccessFile(path.toFile(), "rw")) {
+            for (final boolean withoutNativeAccess : new boolean[]{false, true}) {
+                final long size = raf.length();
+                final FileAllocation allocation = FileChannels.allocate(raf.getFD(), size, LENGTH,
+                        withoutNativeAccess);
+                assertEquals(expectedAllocation(), allocation, "withoutNativeAccess=" + withoutNativeAccess);
+                assertEquals(allocation == FileAllocation.ALLOCATED ? size + LENGTH : size, raf.length());
+            }
+        }
+        final byte[] content = Files.readAllBytes(path);
+        assertEquals(1, content[0], "existing content kept");
+        for (int i = 1; i < content.length; i++) {
+            if (content[i] != 0) {
+                assertEquals(0, content[i], "byte at position " + i);
+            }
+        }
+    }
+
     @Test
     void privateMappingIsCopyOnWrite() throws IOException {
         final Path path = file();

@@ -239,6 +239,13 @@ public enum MappingConfigurations {
     public static final String FILE_INITIALISER_PROPERTY = "mmap.mapping.fileInitialiser";
     /** The default file initialiser {@link FileInitialiser#LAZY}, used if the file initialiser property is not set. */
     public static final String FILE_INITIALISER_DEFAULT = StandardFileInitialiser.LAZY.name();
+    /**
+     * Name of the system property selecting how the file initialiser {@link FileInitialiser#ZERO} fills new file
+     * space, with the name of a {@link ZeroFillMode}: {@code AUTO}, {@code FALLOCATE} or {@code WRITE}.
+     */
+    public static final String ZERO_FILL_PROPERTY = "mmap.mapping.zeroFill";
+    /** The default zero fill mode, used if the zero fill property is not set. */
+    public static final ZeroFillMode ZERO_FILL_DEFAULT = ZeroFillMode.AUTO;
 
     private static final AtomicReference<PropertyInstance> LIFECYCLE_LISTENER_INSTANCE = new AtomicReference<>();
     private static final LifecycleListener LOG_INFO = LifecycleListener.conditional(MappingResources.INTERNAL,
@@ -337,6 +344,18 @@ public enum MappingConfigurations {
     public static FileInitialiser defaultFileInitialiser() {
         return namedOrClassInstanceProperty(FILE_INITIALISER_PROPERTY, FileInitialiser.class, FILE_INITIALISER_DEFAULT,
                 StandardFileInitialiser::byName, FILE_INITIALISER_INSTANCE);
+    }
+
+    /**
+     * Returns how the file initialiser {@link FileInitialiser#ZERO} fills new file space, read when a file mapper is
+     * created.
+     *
+     * @return the zero fill mode named by system property {@value #ZERO_FILL_PROPERTY} if set, and
+     *         {@link #ZERO_FILL_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is not a {@link ZeroFillMode} constant name
+     */
+    public static ZeroFillMode defaultZeroFillMode() {
+        return enumProperty(ZERO_FILL_PROPERTY, ZeroFillMode.class, ZERO_FILL_DEFAULT);
     }
 
     /**

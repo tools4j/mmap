@@ -88,6 +88,19 @@ class MappingConfigurationsTest {
         System.clearProperty(MappingConfigurations.LIFECYCLE_LISTENER_PROPERTY);
         System.clearProperty(MappingConfigurations.MAPPING_RUNTIME_CPUS_PROPERTY);
         System.clearProperty(MappingConfigurations.FILE_INITIALISER_PROPERTY);
+        System.clearProperty(MappingConfigurations.ZERO_FILL_PROPERTY);
+    }
+
+    @Test
+    void zeroFillPropertyDefaultsToAuto() {
+        assertSame(ZeroFillMode.AUTO, MappingConfigurations.ZERO_FILL_DEFAULT);
+        assertSame(ZeroFillMode.AUTO, MappingConfigurations.defaultZeroFillMode());
+        for (final ZeroFillMode mode : ZeroFillMode.values()) {
+            System.setProperty(MappingConfigurations.ZERO_FILL_PROPERTY, mode.name());
+            assertSame(mode, MappingConfigurations.defaultZeroFillMode());
+        }
+        System.setProperty(MappingConfigurations.ZERO_FILL_PROPERTY, "ON");
+        assertThrows(IllegalArgumentException.class, MappingConfigurations::defaultZeroFillMode);
     }
 
     @Test

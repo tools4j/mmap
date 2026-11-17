@@ -31,6 +31,7 @@ import org.tools4j.mmap.core.internal.FileChannelLock;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.PreAccessHook;
+import org.tools4j.mmap.mapping.config.ZeroFillMode;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -49,6 +50,7 @@ final class FileHandle implements Closeable {
     private final PreAccessHook preAccessHook;
     private final AccessMode accessMode;
     private final long minFileSize;
+    private final ZeroFillAllocator zeroFillAllocator;
     private final LifecycleListener lifecycleListener;
     private final ErrorListener errorListener;
     private final AtomicReference<OpenFile> openFile = new AtomicReference<>();
@@ -67,14 +69,17 @@ final class FileHandle implements Closeable {
      * @param fileInitialiser   the initialiser providing the hook invoked when the file is opened or extended
      * @param minFileSize       the min size to set for a writable file and to expect for a read-only file, or zero
      *                          for none
+     * @param zeroFillMode      how new space is filled if the initialiser is {@link FileInitialiser#ZERO}
      * @param lifecycleListener the listener notified when the file is created and when it is opened and closed
-     * @param errorListener     the listener notified about errors when closing the file
+     * @param errorListener     the listener notified about errors when closing the file, and warned when new space
+     *                          is filled with zeros, not allocated natively as the zero fill mode asks for
      */
     FileHandle(final Describable owner,
                final AccessMode accessMode,
                final File file,
                final FileInitialiser fileInitialiser,
                final long minFileSize,
+               final ZeroFillMode zeroFillMode,
                final LifecycleListener lifecycleListener,
                final ErrorListener errorListener) {
         this.owner = requireNonNull(owner);
@@ -84,6 +89,8 @@ final class FileHandle implements Closeable {
         this.minFileSize = minFileSize;
         this.lifecycleListener = requireNonNull(lifecycleListener);
         this.errorListener = requireNonNull(errorListener);
+        this.zeroFillAllocator = new ZeroFillAllocator(owner, accessMode, file, fileInitialiser, zeroFillMode,
+                errorListener);
     }
 
     @Override
@@ -160,7 +167,7 @@ final class FileHandle implements Closeable {
                 if (currentSize >= size) {
                     return currentSize;
                 }
-                preAccessHook.onExtend(file, open.channel, size);
+                fillNewSpace(open, currentSize, size, false);
                 ensureSize(open.randomAccessFile, size);
                 return size;
             } finally {
@@ -168,6 +175,22 @@ final class FileHandle implements Closeable {
             }
         } catch (final IOException e) {
             throw new UncheckedIOException("Failed to extend file " + file + " to size " + size, e);
+        }
+    }
+
+    /**
+     * Fills the new space of the writable file through the hook, unless the zero fill allocator allocates it natively
+     * instead; invoked while holding the exclusive lock.
+     */
+    private void fillNewSpace(final OpenFile open, final long currentSize, final long size, final boolean opening)
+            throws IOException {
+        if (zeroFillAllocator.allocate(open.lock, currentSize, size)) {
+            return;
+        }
+        if (opening) {
+            preAccessHook.onOpen(file, open.channel, size);
+        } else {
+            preAccessHook.onExtend(file, open.channel, size);
         }
     }
 
@@ -258,7 +281,7 @@ final class FileHandle implements Closeable {
             } else {
                 open.lock.lock();
                 try {
-                    preAccessHook.onOpen(file, open.channel, minFileSize);
+                    fillNewSpace(open, open.channel.size(), minFileSize, true);
                     ensureSize(open.randomAccessFile, minFileSize);
                 } finally {
                     open.lock.unlock();

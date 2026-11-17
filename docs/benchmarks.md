@@ -77,3 +77,12 @@ benchmarks, or only those named, and prints one table. It measures the memory bu
 implementations with `--with`: the memory buffers without the alignment check of ordered accesses or with FFM,
 Agrona, Chronicle, Netty with and without Unsafe, the fastest prototype of the earlier benchmarks, the JDK's
 `ByteBuffer`, or all. Without arguments it prints its usage.
+
+`FileExtensionBenchmark` compares the file initialiser `ZERO` allocating new file space with `fallocate` against
+writing zeros, with `LAZY` for reference: each operation extends a file by one 2 MB region and writes to each new page
+through a mapping, single shots of 64 regions, so the score divided by 64 is the time per region. It needs Linux with
+Java 22 or later, where `ZERO_FALLOCATE` calls `fallocate` (see [Zero fill](jvm-options.md#zero-fill)); elsewhere it
+writes zeros as well:
+```
+./gradlew :mmap-perf:jmh -Pjmh='FileExtensionBenchmark'
+```

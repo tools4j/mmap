@@ -42,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -269,6 +270,59 @@ class FileChannelLockTest {
             } finally {
                 lock1.unlock();
             }
+        }
+    }
+
+    @Test
+    void fileSystemWithoutNativeAllocationIsRememberedForTheFile() throws IOException {
+        final AtomicInteger calls = new AtomicInteger();
+        final FileChannelLock.Allocation unsupported = (fd, position, length, withoutNativeAccess) -> {
+            calls.incrementAndGet();
+            return FileAllocation.FILE_SYSTEM_UNSUPPORTED;
+        };
+        lock1.lock();
+        try {
+            assertEquals(FileAllocation.FILE_SYSTEM_UNSUPPORTED, lock1.allocate(0, 4096, false, unsupported));
+            assertEquals(FileAllocation.SKIPPED, lock1.allocate(0, 4096, false, unsupported));
+        } finally {
+            lock1.unlock();
+        }
+        lock2.lock();
+        try {
+            assertEquals(FileAllocation.SKIPPED, lock2.allocate(0, 4096, true, unsupported), "shared by channels");
+        } finally {
+            lock2.unlock();
+        }
+        assertEquals(1, calls.get(), "allocation attempts");
+    }
+
+    @Test
+    void allocateAllocatesNothing() throws IOException {
+        final com.sun.management.ThreadMXBean threads =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();//guaranteed on HotSpot
+        final int cycles = 10_000;
+        lock1.lock();
+        try {
+            for (int i = 0; i < cycles; i++) {
+                allocate();
+            }
+            final long before = threads.getCurrentThreadAllocatedBytes();
+            for (int i = 0; i < cycles; i++) {
+                allocate();
+            }
+            final long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+            //NOTE: tolerate sporadic bytes as in lockAndUnlockAllocateNothing
+            assertTrue(allocated < cycles, "allocated " + allocated + " bytes in " + cycles + " cycles");
+        } finally {
+            lock1.unlock();
+        }
+        assertEquals(FileChannelsTest.expectedAllocation() == FileAllocation.ALLOCATED ? 4096 : 0, file.length());
+    }
+
+    private void allocate() throws IOException {
+        final FileAllocation allocation = lock1.allocate(0, 4096, false);
+        if (allocation != FileChannelsTest.expectedAllocation()) {
+            assertEquals(FileChannelsTest.expectedAllocation(), allocation);
         }
     }
 

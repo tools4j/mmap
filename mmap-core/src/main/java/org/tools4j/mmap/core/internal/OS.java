@@ -27,6 +27,7 @@ public enum OS {
     ;
     public static final String NAME = java.lang.System.getProperty("os.name").toLowerCase();
     public static final boolean WINDOWS = NAME.startsWith("win");
+    public static final boolean LINUX = NAME.startsWith("linux");
 
     public static <T> T ifWindows(final T value, final T defaultValue) {
         if (WINDOWS) {

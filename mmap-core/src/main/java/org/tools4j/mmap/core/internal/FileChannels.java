@@ -33,6 +33,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.channels.FileChannel;
@@ -42,10 +43,12 @@ import java.nio.channels.FileChannel.MapMode;
  * Maps, unmaps and locks files without allocating, through the JDK's internal file channel implementation and its
  * file dispatcher, reached through the trusted lookup; mapping goes through the file dispatcher on Java 21 or later,
  * and through the file channel implementation on Java 17. All internals are reached through method handles typed with
- * public types only, so that they are invoked exactly, without boxing or allocation.
+ * public types only, so that they are invoked exactly, without boxing or allocation. File space is allocated natively
+ * with {@code fallocate} through FFM, on 64-bit Linux with Java 22 or later.
  * <p>
- * Locking is package-private: all locks on our files are taken through {@link FileChannelLock}, which needs to see
- * them all, since OS locks belong to the process; mapping and unmapping are public, for the file mappers.
+ * Locking and allocating are package-private: all locks on our files are taken through {@link FileChannelLock},
+ * which needs to see them all, since OS locks belong to the process, and allocates while holding the lock; mapping and
+ * unmapping are public, for the file mappers.
  */
 @Unsafe
 public enum FileChannels {
@@ -102,6 +105,45 @@ public enum FileChannels {
             throw ex;
         } catch (final Throwable ex) {
             throw new IllegalStateException("Failed to unmap " + length + " bytes at address " + address, ex);
+        }
+    }
+
+    /**
+     * Allocates the given range of the file natively, so that it reads as zero, extending the file if the range ends
+     * beyond it; to be invoked while holding the file's exclusive lock. Allocates nothing if successful.
+     *
+     * @param fd                  the file descriptor, of a file open for writing
+     * @param position            the start of the range
+     * @param length              the length of the range, positive
+     * @param withoutNativeAccess true to allocate also if native access is not enabled, as long as the JVM allows it
+     *                            with a warning of its own, false to allocate only if native access is enabled
+     * @return {@link FileAllocation#ALLOCATED}, or why the range was not allocated, never
+     *         {@link FileAllocation#SKIPPED}
+     * @throws IOException if allocating fails other than by the file system not supporting it, for instance if the
+     *                     disk is full
+     */
+    static FileAllocation allocate(final FileDescriptor fd, final long position, final long length,
+                                   final boolean withoutNativeAccess) throws IOException {
+        final FileAllocation unsupported = AllocationSupport.UNSUPPORTED;
+        if (unsupported != null) {
+            return unsupported;
+        }
+        if (!withoutNativeAccess && !AllocationSupport.NATIVE_ACCESS_ENABLED) {
+            return FileAllocation.NATIVE_ACCESS_DISABLED;
+        }
+        final FileAllocator allocator = Allocator.ALLOCATOR;
+        if (allocator == null) {
+            return Allocator.FAILURE;
+        }
+        return allocator.allocate(fdNumber(fd), position, length) ? FileAllocation.ALLOCATED :
+                FileAllocation.FILE_SYSTEM_UNSUPPORTED;
+    }
+
+    private static int fdNumber(final FileDescriptor fd) {
+        try {
+            return (int) Internals.GET_FD_NUMBER.invokeExact(fd);
+        } catch (final Throwable e) {
+            throw new IllegalStateException("Failed to get the number of file descriptor " + fd, e);
         }
     }
 
@@ -177,6 +219,8 @@ public enum FileChannels {
         static final MethodHandle LOCK;
         static final MethodHandle RELEASE;
         static final MethodHandle CREATE_FILE_KEY;
+        /** (FileDescriptor) to the descriptor's number */
+        static final MethodHandle GET_FD_NUMBER;
         static {
             try {
                 final MethodHandles.Lookup lookup = UnsafeAccess.trustedLookup();
@@ -223,6 +267,7 @@ public enum FileChannels {
                 CREATE_FILE_KEY = lookup.findStatic(fileKeyClass, "create",
                                 MethodType.methodType(fileKeyClass, FileDescriptor.class))
                         .asType(MethodType.methodType(Object.class, FileDescriptor.class));
+                GET_FD_NUMBER = lookup.findGetter(FileDescriptor.class, "fd", int.class);
             } catch (final Throwable e) {
                 throw new IllegalStateException("Failed to access the JDK's file channel internals", e);
             }
@@ -236,6 +281,62 @@ public enum FileChannels {
             } catch (final NoSuchMethodException e) {
                 return null;
             }
+        }
+    }
+
+    /** Whether native allocation is possible at all, initialised on the first allocation */
+    private static final class AllocationSupport {
+        static final int FFM_JAVA_VERSION = 22;
+        /** Why native allocation is not possible, whatever the mode, or null if it may be */
+        static final FileAllocation UNSUPPORTED = Runtime.version().feature() < FFM_JAVA_VERSION
+                ? FileAllocation.JDK_UNSUPPORTED
+                : OS.LINUX ? null : FileAllocation.PLATFORM_UNSUPPORTED;
+        static final boolean NATIVE_ACCESS_ENABLED = UNSUPPORTED == null && nativeAccessEnabled();
+
+        /** Returns Module.isNativeAccessEnabled() of this module, public API since Java 22 */
+        private static boolean nativeAccessEnabled() {
+            try {
+                //noinspection JavaLangInvokeHandleSignature: public API since Java 22, only invoked there
+                return (boolean) MethodHandles.publicLookup()
+                        .findVirtual(Module.class, "isNativeAccessEnabled", MethodType.methodType(boolean.class))
+                        .invokeExact(FileChannels.class.getModule());
+            } catch (final Throwable e) {
+                throw new IllegalStateException("Failed to check whether native access is enabled", e);
+            }
+        }
+    }
+
+    /**
+     * The native allocator, initialised when first needed only, as creating it is a restricted operation for which the
+     * JVM warns unless native access is enabled
+     */
+    private static final class Allocator {
+        static final String FFM_FILE_ALLOCATOR = "org.tools4j.mmap.core.internal.FfmFileAllocator";
+        /** The allocator, or null if it cannot be created */
+        static final FileAllocator ALLOCATOR;
+        /** Why the allocator cannot be created, or null if it was */
+        static final FileAllocation FAILURE;
+        static {
+            FileAllocator allocator = null;
+            FileAllocation failure = null;
+            try {
+                allocator = Class.forName(FFM_FILE_ALLOCATOR).asSubclass(FileAllocator.class)
+                        .getDeclaredConstructor().newInstance();
+            } catch (final ClassNotFoundException e) {
+                failure = FileAllocation.JDK_UNSUPPORTED;//mmap-core built with Java 21 or earlier
+            } catch (final InvocationTargetException e) {
+                if (e.getCause() instanceof IllegalCallerException) {
+                    failure = FileAllocation.NATIVE_ACCESS_DENIED;
+                } else if (e.getCause() instanceof UnsupportedOperationException) {
+                    failure = FileAllocation.PLATFORM_UNSUPPORTED;//not 64-bit, or fallocate not found
+                } else {
+                    throw new IllegalStateException("Failed to create " + FFM_FILE_ALLOCATOR, e.getCause());
+                }
+            } catch (final ReflectiveOperationException e) {
+                throw new IllegalStateException("Failed to create " + FFM_FILE_ALLOCATOR, e);
+            }
+            ALLOCATOR = allocator;
+            FAILURE = failure;
         }
     }
 }

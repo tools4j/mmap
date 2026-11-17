@@ -74,6 +74,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
         this.accessMode = requireNonNull(accessMode);
         this.preToucher = new PreToucher();
         this.fileHandle = new FileHandle(this, accessMode, file, fileInitialiser, fileSize,
+                MappingConfigurations.defaultZeroFillMode(),
                 lifecycleListener, errorListener);
         fileHandle.ensureOpen();
     }
