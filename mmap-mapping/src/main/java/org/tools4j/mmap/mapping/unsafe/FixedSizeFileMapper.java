@@ -74,7 +74,7 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
         this.preToucher = new PreToucher();
         this.fileHandle = new FileHandle(this, accessMode, file, fileInitialiser, fileSize,
                 lifecycleListener, errorListener);
-        init();
+        fileHandle.ensureOpen();
     }
 
     public File file() {
@@ -121,10 +121,6 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
         assert position > NULL_POSITION;
         validateNotClosed(this);
         FileChannels.unmap(address, length);
-    }
-
-    private void init() {
-        fileHandle.channel();
     }
 
     public boolean isClosed() {

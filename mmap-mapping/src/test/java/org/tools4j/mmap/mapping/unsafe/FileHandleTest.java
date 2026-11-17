@@ -41,8 +41,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
@@ -75,9 +77,9 @@ class FileHandleTest {
     @Test
     void lazyExtendsFileWhenOpenedAndExtended() throws IOException {
         try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
-            assertEquals(SIZE, handle.channel().size());
-            assertEquals(2 * SIZE, handle.extendTo(2 * SIZE));
-            assertEquals(2 * SIZE, handle.channel().size());
+            assertEquals(SIZE, fileSize(handle));
+            assertEquals(2L * SIZE, handle.extendTo(2L * SIZE));
+            assertEquals(2L * SIZE, fileSize(handle));
         }
         assertFilled(Files.readAllBytes(path), 0, (byte) 0);
     }
@@ -86,7 +88,7 @@ class FileHandleTest {
     @DisabledOnOs(value = WINDOWS, disabledReason = "allocated size measured with du")
     void lazyLeavesNewFileSpaceUnallocated() throws Exception {
         try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.LAZY, SIZE)) {
-            handle.extendTo(2 * SIZE);
+            handle.extendTo(2L * SIZE);
         }
         assertTrue(allocatedBytes(path) < SIZE, "allocated bytes: " + allocatedBytes(path));
     }
@@ -95,10 +97,10 @@ class FileHandleTest {
     @DisabledOnOs(value = WINDOWS, disabledReason = "allocated size measured with du")
     void zeroAllocatesNewFileSpace() throws Exception {
         try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE)) {
-            handle.extendTo(2 * SIZE);
+            handle.extendTo(2L * SIZE);
         }
-        assertEquals(2 * SIZE, Files.size(path));
-        assertTrue(allocatedBytes(path) >= 2 * SIZE, "allocated bytes: " + allocatedBytes(path));
+        assertEquals(2L * SIZE, Files.size(path));
+        assertTrue(allocatedBytes(path) >= 2L * SIZE, "allocated bytes: " + allocatedBytes(path));
         assertFilled(Files.readAllBytes(path), 0, (byte) 0);
     }
 
@@ -106,11 +108,11 @@ class FileHandleTest {
     void minusOneFillsNewFileSpaceKeepingExistingContent() throws IOException {
         writeExistingContent();
         try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.MINUS_ONE, SIZE)) {
-            assertEquals(SIZE, handle.channel().size());
-            handle.extendTo(2 * SIZE);
+            assertEquals(SIZE, fileSize(handle));
+            handle.extendTo(2L * SIZE);
         }
         final byte[] content = Files.readAllBytes(path);
-        assertEquals(2 * SIZE, content.length);
+        assertEquals(2L * SIZE, content.length);
         assertEquals(Arrays.toString(EXISTING_CONTENT),
                 Arrays.toString(Arrays.copyOf(content, EXISTING_CONTENT.length)));
         assertFilled(content, EXISTING_CONTENT.length, (byte) -1);
@@ -118,9 +120,9 @@ class FileHandleTest {
 
     @Test
     void extendNeverShrinksFileAndReturnsLargerSize() throws IOException {
-        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, 2 * SIZE)) {
-            assertEquals(2 * SIZE, handle.extendTo(SIZE));
-            assertEquals(2 * SIZE, handle.channel().size());
+        try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, 2L * SIZE)) {
+            assertEquals(2L * SIZE, handle.extendTo(SIZE));
+            assertEquals(2L * SIZE, fileSize(handle));
         }
     }
 
@@ -131,6 +133,38 @@ class FileHandleTest {
             assertThrows(IllegalArgumentException.class, handle::channel);
         }
         assertEquals(EXISTING_CONTENT.length, Files.size(path));
+    }
+
+    @Test
+    void closedHandleThrowsAlreadyClosed() {
+        final FileHandle handle = fileHandle(AccessMode.READ_WRITE, FileInitialiser.ZERO, SIZE);
+        handle.ensureOpen();
+        assertTrue(handle.closeIfOpened());
+        assertFalse(handle.closeIfOpened());
+        assertTrue(handle.isClosed());
+        assertThrows(IllegalStateException.class, handle::channel);
+        assertThrows(IllegalStateException.class, () -> handle.extendTo(2L * SIZE));
+    }
+
+    @Test
+    void closeWhileOpeningClosesOpenedFileAndThrowsAlreadyClosed() {
+        final AtomicReference<FileHandle> handle = new AtomicReference<>();
+        final AtomicReference<FileChannel> openedChannel = new AtomicReference<>();
+        final FileInitialiser closingInitialiser = accessMode -> new PreAccessHook() {
+            @Override
+            public void onOpen(final File file, final FileChannel channel, final long size) {
+                openedChannel.set(channel);
+                assertFalse(handle.get().closeIfOpened(), "closed before opened");
+            }
+
+            @Override
+            public void onExtend(final File file, final FileChannel channel, final long size) {
+            }
+        };
+        handle.set(fileHandle(AccessMode.READ_WRITE, closingInitialiser, SIZE));
+        assertThrows(IllegalStateException.class, handle.get()::channel);
+        assertTrue(handle.get().isClosed());
+        assertFalse(openedChannel.get().isOpen(), "opened channel closed");
     }
 
     @Test
@@ -151,12 +185,17 @@ class FileHandleTest {
             };
         };
         try (final FileHandle handle = fileHandle(AccessMode.READ_WRITE, initialiser, SIZE)) {
-            handle.channel();
-            handle.extendTo(2 * SIZE);
+            handle.ensureOpen();
+            handle.extendTo(2L * SIZE);
             handle.extendTo(SIZE);
-            assertEquals(2 * SIZE, handle.channel().size());
+            assertEquals(2L * SIZE, fileSize(handle));
         }
-        assertEquals(List.of("hook:READ_WRITE", "open:" + SIZE, "extend:" + 2 * SIZE), calls);
+        assertEquals(List.of("hook:READ_WRITE", "open:" + SIZE, "extend:" + 2L * SIZE), calls);
+    }
+
+    private static long fileSize(final FileHandle handle) throws IOException {
+        final FileChannel channel = handle.channel();
+        return channel != null ? channel.size() : 0;
     }
 
     private static void assertFilled(final byte[] content, final int from, final byte value) {

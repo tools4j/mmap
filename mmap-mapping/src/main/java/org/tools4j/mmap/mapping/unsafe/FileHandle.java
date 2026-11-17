@@ -41,7 +41,7 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
+import static org.tools4j.mmap.core.internal.Validations.alreadyClosedException;
 
 final class FileHandle implements Closeable {
     private final Describable owner;
@@ -115,6 +115,17 @@ final class FileHandle implements Closeable {
     }
 
     /**
+     * Opens the file unless open already, creating it first unless in read-only mode; a read-only file that does not
+     * exist or is empty yet stays unopened.
+     *
+     * @throws IllegalStateException if this handle is closed
+     * @throws UncheckedIOException if creating or opening the file fails
+     */
+    public void ensureOpen() {
+        openFile();
+    }
+
+    /**
      * Returns the channel of the file, opening the file on first use, and creating it first unless in read-only mode.
      *
      * @return the channel, or null if in read-only mode and the file does not exist or is empty yet
@@ -133,6 +144,7 @@ final class FileHandle implements Closeable {
      * @param size the new file size
      * @return the file size after extending, the given size or the current size if it was larger already, for
      *         instance if another process extended the file further
+     * @throws IllegalStateException if this handle is closed
      * @throws UncheckedIOException if extending the file fails
      */
     public long extendTo(final long size) {
@@ -166,19 +178,20 @@ final class FileHandle implements Closeable {
         }
     }
 
+    /** Returns the open file, opening it unless open already, a closed handle detected by reading CLOSED only */
     private OpenFile openFile() {
-        validateNotClosed(this);
         final OpenFile open = openFile.get();
-        if (open != null) {
-            return open;
+        if (open == CLOSED) {
+            throw alreadyClosedException(this);
         }
-        return tryOpen();
+        return open != null ? open : tryOpen();
     }
 
     /**
      * Opens the file, creating it first unless in read-only mode.
      *
      * @return the open file, or null if in read-only mode and the file does not exist or is empty
+     * @throws IllegalStateException if this handle was closed meanwhile
      * @throws UncheckedIOException if creating or opening the file fails
      */
     private OpenFile tryOpen() {
@@ -192,9 +205,9 @@ final class FileHandle implements Closeable {
         if (raf == null) {
             return null;
         }
-        final FileChannel channel = raf.getChannel();
-        final FileChannelLock lock = initialise(raf, channel);
-        return publish(new OpenFile(raf, channel, lock));
+        final OpenFile open = new OpenFile(raf, raf.getChannel(), createLock(raf));
+        initialise(open);
+        return publish(open);
     }
 
     private void createNewFile() {
@@ -223,34 +236,42 @@ final class FileHandle implements Closeable {
         return raf;
     }
 
-    /** Initialises the file through the channel and returns the lock of the channel, closing both on failure */
-    private FileChannelLock initialise(final RandomAccessFile raf, final FileChannel channel) {
-        FileChannelLock lock = null;
+    /** Creates the lock of the file's channel, closing the file on failure */
+    private FileChannelLock createLock(final RandomAccessFile raf) {
         try {
-            lock = FileChannelLock.create(channel);
-            if (accessMode == AccessMode.READ_ONLY) {
-                validateMinFileSize(channel);
-                preAccessHook.onOpen(file, channel, minFileSize);
-            } else {
-                lock.lock();
-                try {
-                    preAccessHook.onOpen(file, channel, minFileSize);
-                    ensureSize(raf, minFileSize);
-                } finally {
-                    lock.unlock();
-                }
-            }
+            return FileChannelLock.create(raf.getChannel());
         } catch (final IOException e) {
-            close(lock != null ? lock : channel);
             close(raf);
-            throw new UncheckedIOException("Failed to initialise file " + file, e);
+            throw new UncheckedIOException("Failed to create lock for file " + file, e);
         } catch (final RuntimeException e) {
-            close(lock != null ? lock : channel);
             close(raf);
             throw e;
         }
-        assert channel.isOpen() : "channel must be open";
-        return lock;
+    }
+
+    /** Initialises the opened file, closing it on failure */
+    private void initialise(final OpenFile open) {
+        try {
+            if (accessMode == AccessMode.READ_ONLY) {
+                validateMinFileSize(open.channel);
+                preAccessHook.onOpen(file, open.channel, minFileSize);
+            } else {
+                open.lock.lock();
+                try {
+                    preAccessHook.onOpen(file, open.channel, minFileSize);
+                    ensureSize(open.randomAccessFile, minFileSize);
+                } finally {
+                    open.lock.unlock();
+                }
+            }
+        } catch (final IOException e) {
+            close(open);
+            throw new UncheckedIOException("Failed to initialise file " + file, e);
+        } catch (final RuntimeException e) {
+            close(open);
+            throw e;
+        }
+        assert open.channel.isOpen() : "channel must be open";
     }
 
     private void validateMinFileSize(final FileChannel channel) throws IOException {
@@ -261,7 +282,10 @@ final class FileHandle implements Closeable {
         }
     }
 
-    /** Publishes the open file unless another thread was first, closing it then and returning the winner's value */
+    /**
+     * Publishes the open file unless another thread was first, closing it then and returning the winner's value, or
+     * throwing if the winner was a close of this handle
+     */
     private OpenFile publish(final OpenFile value) {
         final OpenFile witness = openFile.compareAndExchange(null, value);
         if (witness == null) {
@@ -269,6 +293,9 @@ final class FileHandle implements Closeable {
             return value;
         }
         close(value);
+        if (witness == CLOSED) {
+            throw alreadyClosedException(this);
+        }
         return witness;
     }
 
