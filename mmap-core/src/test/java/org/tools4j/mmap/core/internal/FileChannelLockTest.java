@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.management.ManagementFactory;
 import java.nio.channels.FileChannel;
@@ -194,6 +195,60 @@ class FileChannelLockTest {
     }
 
     @Test
+    void concurrentClosesCloseOnce() throws Exception {
+        lock3.close();//leaving lock1 and lock2 sharing the file state
+        lock1.lock();
+        final Thread closer1 = new Thread(this::closeLock2);
+        final Thread closer2 = new Thread(this::closeLock2);
+        closer1.start();
+        closer2.start();
+        awaitParkedOrTerminated(closer1);
+        awaitParkedOrTerminated(closer2);
+        lock1.unlock();
+        closer1.join(MAX_WAIT_MILLIS);
+        closer2.join(MAX_WAIT_MILLIS);
+        assertFalse(closer1.isAlive() || closer2.isAlive(), "closers terminated");
+        assertTrue(lock2.isClosed());
+        assertFalse(raf2.getChannel().isOpen());
+        //a file state unregistered once per close remains shared by lock1 and a new channel's lock, excluding it
+        try (final RandomAccessFile raf4 = new RandomAccessFile(file, "rw");
+             final FileChannelLock lock4 = FileChannelLock.create(raf4.getChannel())) {
+            lock1.lock(false, 0);
+            boolean locked4 = false;
+            try {
+                lock4.lock(false, 0);
+                locked4 = true;
+            } catch (final IllegalStateException expected) {
+                //held through lock1
+            } finally {
+                if (locked4) {
+                    lock4.unlock();
+                }
+                lock1.unlock();
+            }
+            assertFalse(locked4, "locked through a new channel while held through lock1");
+        }
+    }
+
+    private void closeLock2() {
+        try {
+            lock2.close();
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void awaitParkedOrTerminated(final Thread thread) throws InterruptedException {
+        final long deadline = System.currentTimeMillis() + MAX_WAIT_MILLIS;
+        Thread.State state;
+        while ((state = thread.getState()) != Thread.State.TIMED_WAITING && state != Thread.State.TERMINATED) {
+            assertTrue(System.currentTimeMillis() < deadline, "thread state still " + state);
+            //noinspection BusyWait
+            Thread.sleep(10);
+        }
+    }
+
+    @Test
     void closedChannelFailsImmediately() throws IOException {
         lock2.close();
         final IllegalStateException e = assertThrows(IllegalStateException.class,
@@ -230,7 +285,7 @@ class FileChannelLockTest {
             lockAndUnlock();
         }
         final long allocated = threads.getCurrentThreadAllocatedBytes() - before;
-        //NOTE: tolerate sporadic bytes, e.g. objects rematerialized when the JIT deoptimizes (392 seen on Java 17),
+        //NOTE: tolerate sporadic bytes, e.g. objects rematerialised when the JIT deoptimizes (392 seen on Java 17),
         //      while a single allocation per cycle would amount to at least 16 bytes per cycle
         assertTrue(allocated < cycles, "allocated " + allocated + " bytes in " + cycles + " cycles");
     }
@@ -276,6 +331,7 @@ class FileChannelLockTest {
 
     /** Locks the file through the JDK API in another process, one step per line read from standard input */
     static final class JdkLockHolder {
+        @SuppressWarnings("JavaPrintToLogpoint")
         public static void main(final String... args) throws IOException {
             final BufferedReader input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
             try (final RandomAccessFile raf = new RandomAccessFile(args[0], "rw")) {

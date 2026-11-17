@@ -35,6 +35,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
@@ -69,8 +70,7 @@ public final class FileChannelLock implements Closeable {
     private final FileDescriptor fd;
     private final Object dispatcher;
     private final FileState fileState;
-    /** Closed by one thread, the one owning the channel */
-    private boolean closed;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     private FileChannelLock(final FileChannel channel) throws IOException {
         this.channel = requireNonNull(channel);
@@ -200,24 +200,26 @@ public final class FileChannelLock implements Closeable {
     }
 
     /**
-     * Returns true if this lock and its channel were closed through {@link #close()}.
+     * Returns true once {@link #close()} was invoked, the channel closed then or, while a channel of this JVM holds a
+     * lock on the file, as soon as it is released.
      *
      * @return true if closed
      */
     public boolean isClosed() {
-        return closed;
+        return closed.get();
     }
 
     /**
-     * Closes the channel unless closed already, once no channel of this JVM holds a lock on the file, waiting for it without timeout if
-     * needed; locks are held only briefly, by the code between {@code lock} and {@code unlock}, so that waiting is
-     * bounded by their release.
+     * Closes the channel unless closed already, once no channel of this JVM holds a lock on the file, waiting for it
+     * without timeout if needed; locks are held only briefly, by the code between {@code lock} and {@code unlock}, so
+     * that waiting is bounded by their release. Thread-safe: only the first invocation closes the channel, others
+     * return right away, without waiting.
      *
      * @throws IOException if closing the channel fails
      */
     @Override
     public void close() throws IOException {
-        if (closed) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         }
         int holders;
@@ -228,7 +230,6 @@ public final class FileChannelLock implements Closeable {
                 Thread.onSpinWait();
             }
         }
-        closed = true;
         try {
             channel.close();
         } finally {
@@ -244,7 +245,7 @@ public final class FileChannelLock implements Closeable {
 
     /**
      * The lock state of a file shared by all channels of this JVM on the file; {@link #holders} is the only
-     * synchronization point, {@link #owner} is a plain field written before and read after transitions of it.
+     * synchronisation point, {@link #owner} is a plain field written before and read after transitions of it.
      */
     private static final class FileState {
         static final int FREE = 0;
