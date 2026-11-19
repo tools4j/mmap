@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
@@ -66,10 +66,10 @@ final class EagerReaderMappings implements ReaderMappings {
     };
     private static final FileInitialiser HEADER_FILE_INITIALISER = accessMode -> HEADER_FILE_VALIDATOR;
     private final QueueFiles queueFiles;
-    private final ElasticMapping header;
+    private final DynamicMapping header;
     /** Payload mappings by appender ID, created on first access */
-    private final ElasticMapping[] payloadMappings = new ElasticMapping[Headers.MAX_APPENDERS];
-    private final IntFunction<ElasticMapping> payloadMappingFactory;
+    private final DynamicMapping[] payloadMappings = new DynamicMapping[Headers.MAX_APPENDERS];
+    private final IntFunction<DynamicMapping> payloadMappingFactory;
 
     /**
      * Constructor with queue configuration in effect and mapping configuration functions.
@@ -91,24 +91,24 @@ final class EagerReaderMappings implements ReaderMappings {
         //                 hence the payload file must exist
         final MappingConfig validatingHeaderConfig = MappingConfigurator.configure(headerConfig.apply(queueConfig))
                 .fileInitialiser(HEADER_FILE_INITIALISER);
-        this.header = Mappings.elasticMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY, validatingHeaderConfig);
-        this.payloadMappingFactory = appenderId -> Mappings.elasticMapping(queueFiles.payloadFile(appenderId),
+        this.header = Mappings.dynamicMapping(queueFiles.headerFile(), OpenMode.READ_ONLY_LAZY, validatingHeaderConfig);
+        this.payloadMappingFactory = appenderId -> Mappings.dynamicMapping(queueFiles.payloadFile(appenderId),
                 OpenMode.READ_ONLY, payloadConfig.apply(queueConfig));
     }
 
     @Override
-    public ElasticMapping header() {
+    public DynamicMapping header() {
         return header;
     }
 
     @Override
-    public ElasticMapping payload(final int appenderId) {
-        final ElasticMapping mapping = payloadMappings[appenderId];
+    public DynamicMapping payload(final int appenderId) {
+        final DynamicMapping mapping = payloadMappings[appenderId];
         return mapping != null ? mapping : newPayloadMapping(appenderId);
     }
 
-    private ElasticMapping newPayloadMapping(final int appenderId) {
-        final ElasticMapping mapping = payloadMappingFactory.apply(appenderId);
+    private DynamicMapping newPayloadMapping(final int appenderId) {
+        final DynamicMapping mapping = payloadMappingFactory.apply(appenderId);
         payloadMappings[appenderId] = mapping;
         return mapping;
     }
@@ -123,7 +123,7 @@ final class EagerReaderMappings implements ReaderMappings {
         if (!isClosed()) {
             header.close();
             for (int appenderId = 0; appenderId < payloadMappings.length; appenderId++) {
-                final ElasticMapping mapping = payloadMappings[appenderId];
+                final DynamicMapping mapping = payloadMappings[appenderId];
                 if (mapping != null) {
                     mapping.close();
                     payloadMappings[appenderId] = null;

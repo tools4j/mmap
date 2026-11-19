@@ -27,14 +27,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.mapping.api.AdaptiveMapping;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
 import org.tools4j.mmap.mapping.api.FixedMapping;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.api.RegionMapping;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,20 +47,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for the buffers of read-only {@link FixedMappingImpl}, {@link RegionMappingImpl},
- * {@link ElasticMappingImpl} and {@link AdaptiveMappingImpl}, created through {@link Mappings}.
+ * Unit test for the buffers of read-only {@link FixedMappingImpl} and {@link DynamicMappingImpl}, created through
+ * {@link Mappings}.
  */
 class ReadOnlyMappingsTest {
 
     @TempDir
     Path tempDir;
-    /** Written through an elastic mapping, so with the default configuration rolling files */
+    /** Written through a dynamic mapping, so with the default configuration rolling files */
     private File file;
 
     @BeforeEach
     void writeFile() {
         file = tempDir.resolve("read-only.dat").toFile();
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.CREATE)) {
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.CREATE)) {
             assertTrue(mapping.moveTo(0));
             assertFalse(mapping.buffer().isReadOnly());
             mapping.buffer().putLong(0, 42);
@@ -81,23 +78,8 @@ class ReadOnlyMappingsTest {
     }
 
     @Test
-    void regionMappingBufferIsReadOnly() {
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY)) {
-            assertReadOnlyAfterMove(mapping, 0, 42);
-        }
-    }
-
-    @Test
-    void elasticMappingBufferIsReadOnly() {
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.READ_ONLY)) {
-            assertReadOnlyAfterMove(mapping, 0, 42);
-            assertReadOnlyAfterMove(mapping, 8, 43);
-        }
-    }
-
-    @Test
-    void adaptiveMappingBufferIsReadOnly() {
-        try (final AdaptiveMapping mapping = Mappings.adaptiveMapping(file, OpenMode.READ_ONLY)) {
+    void dynamicMappingBufferIsReadOnly() {
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.READ_ONLY)) {
             assertReadOnlyAfterMove(mapping, 0, 42);
             assertReadOnlyAfterMove(mapping, 8, 43);
             mapping.length(8);

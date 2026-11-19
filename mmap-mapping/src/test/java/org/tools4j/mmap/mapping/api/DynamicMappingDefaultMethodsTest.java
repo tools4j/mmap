@@ -40,17 +40,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for the default methods of {@link DynamicMapping}, {@link ElasticMapping} and {@link AdaptiveMapping},
- * exercised through the mapping implementations.
+ * Unit test for the default methods of {@link DynamicMapping}, exercised through a delegate to the mapping
+ * implementation that implements only the abstract methods.
  */
 class DynamicMappingDefaultMethodsTest {
 
     private static final int REGION_SIZE = MappingConfigurations.defaultRegionSize();
     private static final int REGIONS = 8;
 
-    private RegionMapping region;
-    private ElasticMapping elastic;
-    private AdaptiveMapping adaptive;
+    private DynamicMapping implementation;
+    private DynamicMapping mapping;
 
     @BeforeEach
     void open(@TempDir final Path tempDir) {
@@ -58,137 +57,57 @@ class DynamicMappingDefaultMethodsTest {
                 .rollFiles(false)
                 .maxFileSize((long) REGIONS * REGION_SIZE)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync());
-        region = Mappings.regionMapping(tempDir.resolve("region.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
-        elastic = Mappings.elasticMapping(tempDir.resolve("elastic.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
-        adaptive = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), OpenMode.OPEN_OR_CREATE, config);
+        implementation = Mappings.dynamicMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE,
+                config);
+        mapping = new AbstractMethodsOnlyDynamicMapping(implementation);
     }
 
     @AfterEach
     void close() {
-        region.close();
-        elastic.close();
-        adaptive.close();
+        implementation.close();
     }
 
     @Test
-    void moveByStepsInMultiplesOfPositionStepSize() {
-        assertThrows(IllegalStateException.class, () -> region.moveBy(REGION_SIZE));
-        assertTrue(region.moveTo(REGION_SIZE));
-        assertTrue(region.moveBy(REGION_SIZE));
-        assertEquals(2L * REGION_SIZE, region.position());
-        assertTrue(region.moveBy(-2L * REGION_SIZE));
-        assertEquals(0, region.position());
-        assertThrows(IllegalArgumentException.class, () -> region.moveBy(1));
-        assertThrows(IllegalArgumentException.class, () -> region.moveBy(-REGION_SIZE));
+    void maxLength() {
+        assertFalse(mapping.isMapped());
+        assertEquals(0, mapping.maxLengthAtCurrentPosition(), "unmapped");
+        assertEquals(0, mapping.maxLengthAtPosition(-1));
+        assertEquals(REGION_SIZE, mapping.maxLengthAtPosition(REGION_SIZE));
+        assertEquals(REGION_SIZE - 100, mapping.maxLengthAtPosition(REGION_SIZE + 100L));
+        assertTrue(mapping.moveTo(100, 10));
+        assertEquals(REGION_SIZE - 100, mapping.maxLengthAtCurrentPosition());
+        assertEquals(10, mapping.length());
     }
 
     @Test
-    void moveToRegionByIndex() {
-        for (final DynamicMapping mapping : new DynamicMapping[]{region, elastic, adaptive}) {
-            assertTrue(mapping.moveToRegion(3), mapping.toString());
-            assertEquals(3L * REGION_SIZE, mapping.position(), mapping.toString());
-            assertThrows(IllegalArgumentException.class, () -> mapping.moveToRegion(-1), mapping.toString());
-        }
-    }
-
-    @Test
-    void moveToFirstNextAndPreviousRegion() {
-        for (final DynamicMapping mapping : new DynamicMapping[]{region, elastic, adaptive}) {
-            assertTrue(mapping.moveToNextRegion(), mapping.toString());
-            assertEquals(0, mapping.position(), "unmapped next region is first region: " + mapping);
-            assertThrows(IllegalStateException.class, mapping::moveToPreviousRegion, mapping.toString());
-            assertTrue(mapping.moveToNextRegion(), mapping.toString());
-            assertTrue(mapping.moveToNextRegion(), mapping.toString());
-            assertEquals(2L * REGION_SIZE, mapping.position(), mapping.toString());
-            assertTrue(mapping.moveToPreviousRegion(), mapping.toString());
-            assertEquals(REGION_SIZE, mapping.position(), mapping.toString());
-            assertTrue(mapping.moveToFirstRegion(), mapping.toString());
-            assertEquals(0, mapping.position(), mapping.toString());
-        }
-    }
-
-    @Test
-    void elasticMoveWithinCurrentRegion() {
-        assertThrows(IllegalStateException.class, elastic::moveToCurrentRegion);
-        assertTrue(elastic.moveTo(2L * REGION_SIZE + 100));
-        assertTrue(elastic.moveToCurrentRegion());
-        assertEquals(2L * REGION_SIZE, elastic.position());
-        assertEquals(REGION_SIZE, elastic.bytesAvailable());
-        assertTrue(elastic.moveToCurrentRegion(50));
-        assertEquals(2L * REGION_SIZE + 50, elastic.position());
-        assertEquals(REGION_SIZE - 50, elastic.bytesAvailable());
-        assertThrows(IllegalArgumentException.class, () -> elastic.moveToCurrentRegion(REGION_SIZE));
-    }
-
-    @Test
-    void elasticMoveToOffsetInFirstNextAndPreviousRegion() {
-        assertTrue(elastic.moveToNextRegion(10));
-        assertEquals(10, elastic.position(), "unmapped next region is first region");
-        assertThrows(IllegalStateException.class, () -> elastic.moveToPreviousRegion(10));
-        assertTrue(elastic.moveToNextRegion(20));
-        assertEquals(REGION_SIZE + 20L, elastic.position());
-        assertTrue(elastic.moveToNextRegion(30));
-        assertEquals(2L * REGION_SIZE + 30, elastic.position());
-        assertTrue(elastic.moveToPreviousRegion(40));
-        assertEquals(REGION_SIZE + 40L, elastic.position());
-        assertTrue(elastic.moveToFirstRegion(50));
-        assertEquals(50, elastic.position());
-        assertThrows(IllegalArgumentException.class, () -> elastic.moveToFirstRegion(-1));
-        assertThrows(IllegalArgumentException.class, () -> elastic.moveToNextRegion(REGION_SIZE));
-        assertThrows(IllegalArgumentException.class, () -> elastic.moveToPreviousRegion(REGION_SIZE));
-    }
-
-    @Test
-    void adaptiveMaxLength() {
-        assertFalse(adaptive.isMapped());
-        assertEquals(0, adaptive.maxLength(), "unmapped");
-        assertEquals(0, adaptive.maxLengthAtPosition(-1));
-        assertEquals(REGION_SIZE, adaptive.maxLengthAtPosition(REGION_SIZE));
-        assertEquals(REGION_SIZE - 100, adaptive.maxLengthAtPosition(REGION_SIZE + 100L));
-        assertTrue(adaptive.moveTo(100, 10));
-        assertEquals(REGION_SIZE - 100, adaptive.maxLength());
-    }
-
-    @Test
-    void adaptiveRegionMovesPreserveLength() {
-        assertTrue(adaptive.moveTo(REGION_SIZE + 10L, 20));
-        assertTrue(adaptive.moveToNextRegion());
-        assertEquals(2L * REGION_SIZE, adaptive.position());
-        assertEquals(20, adaptive.length());
-        assertTrue(adaptive.moveToPreviousRegion());
-        assertEquals(REGION_SIZE, adaptive.position());
-        assertEquals(20, adaptive.length());
-        assertTrue(adaptive.moveToFirstRegion());
-        assertEquals(0, adaptive.position());
-        assertEquals(20, adaptive.length());
-    }
-
-    @Test
-    void adaptiveDefaultMoveMethodsPreserveOrTruncateLength() {
-        //the implementation overrides these defaults, so they are exercised through a delegate that does not
-        final AdaptiveMapping mapping = new AbstractMethodsOnlyAdaptiveMapping(adaptive);
+    void moveByMapsRequestedLength() {
         assertThrows(IllegalStateException.class, () -> mapping.moveBy(10));
         assertThrows(IllegalStateException.class, () -> mapping.moveBy(10, 5));
 
-        assertTrue(mapping.moveTo(100));
-        assertEquals(REGION_SIZE - 100, mapping.length());
         assertTrue(mapping.moveTo(100, 10));
-        assertTrue(mapping.moveTo(200));
+        assertTrue(mapping.moveBy(100));
+        assertEquals(200, mapping.position());
         assertEquals(10, mapping.length());
-
-        assertTrue(mapping.moveBy(REGION_SIZE - 205));
-        assertEquals(REGION_SIZE - 5, mapping.position());
-        assertEquals(5, mapping.length());
         assertTrue(mapping.moveBy(5, 20));
-        assertEquals(REGION_SIZE, mapping.position());
+        assertEquals(205, mapping.position());
         assertEquals(20, mapping.length());
+        assertTrue(mapping.moveBy(REGION_SIZE));
+        assertEquals(20, mapping.length(), "kept in another region");
+        assertTrue(mapping.moveBy(10, DynamicMapping.STRETCH_LENGTH));
+        assertEquals(REGION_SIZE - 215, mapping.length());
 
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-REGION_SIZE - 1));
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-REGION_SIZE - 1, 5));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-4L * REGION_SIZE));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-4L * REGION_SIZE, 5));
+        assertEquals(REGION_SIZE + 215L, mapping.position());
     }
 
-    /** Delegates only the abstract methods, so that all default methods of {@link AdaptiveMapping} are used */
-    private record AbstractMethodsOnlyAdaptiveMapping(AdaptiveMapping delegate) implements AdaptiveMapping {
+    /** Delegates only the abstract methods, so that all default methods of {@link DynamicMapping} are used */
+    private record AbstractMethodsOnlyDynamicMapping(DynamicMapping delegate) implements DynamicMapping {
+        @Override
+        public boolean moveTo(final long position) {
+            return delegate.moveTo(position);
+        }
+
         @Override
         public boolean moveTo(final long position, final int length) {
             return delegate.moveTo(position, length);
@@ -202,16 +121,6 @@ class DynamicMappingDefaultMethodsTest {
         @Override
         public void limit(final long limit) {
             delegate.limit(limit);
-        }
-
-        @Override
-        public int regionOffset() {
-            return delegate.regionOffset();
-        }
-
-        @Override
-        public int positionStepSize() {
-            return delegate.positionStepSize();
         }
 
         @Override

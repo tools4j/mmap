@@ -28,7 +28,7 @@ import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.api.EntryHandler;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.Poller;
@@ -139,8 +139,8 @@ final class PollerImpl implements Poller, Describable {
         final long header = currentHeader;
         final int appenderId = Headers.appenderId(header);
         final long payloadPosition = Headers.payloadPosition(header);
-        final ElasticMapping mapping = mappings.payload(appenderId);
-        if (mapping.moveTo(payloadPosition)) {
+        final DynamicMapping mapping = mappings.payload(appenderId);
+        if (mapping.moveTo(payloadPosition, DynamicMapping.STRETCH_LENGTH)) {
             return mapping.buffer();
         }
         throw payloadMoveException(this, appenderId, payloadPosition);
@@ -168,8 +168,8 @@ final class PollerImpl implements Poller, Describable {
         }
         final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
-        final ElasticMapping headerMapping = mappings.header();
-        if (headerMapping == null || !headerMapping.moveTo(position)) {
+        final DynamicMapping headerMapping = mappings.header();
+        if (headerMapping == null || !headerMapping.moveTo(position, Headers.HEADER_LENGTH)) {
             return error;
         }
         if (error == PENDING_OPEN) {

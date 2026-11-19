@@ -37,21 +37,10 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * <ul>
  *     <li>{@link FixedMapping}:   A mapping that has arbitrary start and end position, but both are fixed for the
  *                                 lifetime of the mapping.</li>
- *     <li>{@link DynamicMapping}: A mapping that can be moved to map different slices from the underlying file. The
- *                                 mapping operation always maps a whole region into memory of a predefined <i>region
- *                                 size</i> (typically powers of two). The dynamic mapping provides access to the mapped
- *                                 region or a slice of it, depending on the subtype:<ul>
- *         <li>{@link RegionMapping}:   A dynamic mapping that always maps the whole region. As a consequence, move
- *                                      operations are only permitted to positions that are multiples of the region
- *                                      size.</li>
- *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an offset from the region start
- *                                      position and spans all bytes until the end of that region.</li>
- *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the region. Adaptive mappings start
- *                                      at an offset of the region and span a slice that is no longer than the remaining
- *                                      bytes from that region. In other words, the mapped slice can map any slice of
- *                                      the file (including zero length slices) as long as it does not cross region
- *                                      boundaries.</li>
- *     </ul></li>
+ *     <li>{@link DynamicMapping}: A mapping of a slice of the file that can be moved to other slices. The file is
+ *                                 mapped in regions of a predefined <i>region size</i> (typically powers of two), and
+ *                                 a slice can be of any length from zero up to the end of the region its position
+ *                                 lies in.</li>
  * </ul>
  * <p>
  * Use one of the static factory methods in {@link Mappings}, or the acquire methods of a {@link MappingPool}, to

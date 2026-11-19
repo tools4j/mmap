@@ -28,7 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.api.Index;
 
 import java.time.Duration;
@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -227,7 +228,7 @@ public class HeadersTest {
 
     @Test
     public void hasNonEmptyHeaderAtInvalidIndexIsFalseWithoutMoving() {
-        final ElasticMapping header = mock(ElasticMapping.class);
+        final DynamicMapping header = mock(DynamicMapping.class);
         assertFalse(Headers.hasNonEmptyHeaderAt(header, Index.NULL));
         assertFalse(Headers.hasNonEmptyHeaderAt(header, Index.LAST));
         verifyNoInteractions(header);
@@ -235,7 +236,7 @@ public class HeadersTest {
 
     @Test
     public void binarySearchLastIndexRejectsInvalidStartIndex() {
-        final ElasticMapping header = mock(ElasticMapping.class);
+        final DynamicMapping header = mock(DynamicMapping.class);
         assertThrows(IllegalArgumentException.class, () -> Headers.binarySearchLastIndex(header, Index.NULL));
         assertThrows(IllegalArgumentException.class, () -> Headers.binarySearchLastIndex(header, Index.LAST));
     }
@@ -254,7 +255,7 @@ public class HeadersTest {
             "1099511627776 | 7",
     })
     public void binarySearchLastIndexFindsLastHeader(final long lastIndex, final long startIndex) {
-        final ElasticMapping header = headersUpToIndex(lastIndex);
+        final DynamicMapping header = headersUpToIndex(lastIndex);
         final long expected = startIndex <= lastIndex ? lastIndex : Index.NULL;
         assertEquals(expected, Headers.binarySearchLastIndex(header, startIndex));
     }
@@ -262,10 +263,10 @@ public class HeadersTest {
     @Test
     public void binarySearchLastIndexEndsAtMaxIndexIfAllHeadersArePresent() {
         //not reachable with a real header file, but probing must neither exceed Index.MAX nor loop forever
-        final ElasticMapping header = mock(ElasticMapping.class);
+        final DynamicMapping header = mock(DynamicMapping.class);
         final MutableMemoryBuffer buffer = MemoryBuffers.allocate(Headers.HEADER_LENGTH);
         buffer.putLong(0, Headers.header(0, 0));
-        when(header.moveTo(anyLong())).thenReturn(true);
+        when(header.moveTo(anyLong(), eq(Headers.HEADER_LENGTH))).thenReturn(true);
         when(header.buffer()).thenReturn(buffer);
         assertTimeoutPreemptively(Duration.ofSeconds(10),
                 () -> assertEquals(Index.MAX, Headers.binarySearchLastIndex(header, Index.FIRST)));
@@ -274,10 +275,10 @@ public class HeadersTest {
     }
 
     /** Header mapping with non-empty headers for indices up to and including lastIndex */
-    private static ElasticMapping headersUpToIndex(final long lastIndex) {
-        final ElasticMapping header = mock(ElasticMapping.class);
+    private static DynamicMapping headersUpToIndex(final long lastIndex) {
+        final DynamicMapping header = mock(DynamicMapping.class);
         final MutableMemoryBuffer buffer = MemoryBuffers.allocate(Headers.HEADER_LENGTH);
-        when(header.moveTo(anyLong())).thenAnswer(invocation -> {
+        when(header.moveTo(anyLong(), eq(Headers.HEADER_LENGTH))).thenAnswer(invocation -> {
             final long index = Headers.indexForHeaderPosition(invocation.getArgument(0));
             buffer.putLong(0, index <= lastIndex ? Headers.header(0, 0) : Headers.NULL_HEADER);
             return true;

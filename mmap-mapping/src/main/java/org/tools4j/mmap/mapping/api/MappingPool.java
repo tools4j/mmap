@@ -31,7 +31,7 @@ import org.tools4j.mmap.core.base.Closeable;
  * parameters such as region size and mapping strategy. The pool optimizes and shares underlying mapped regions and uses
  * reference counting to release mapped regions only when the last mapping releases it.
  * <p>
- * A mapping is acquired from the pool via one of the acquire methods, and it is released back to the pool when it is
+ * A mapping is acquired from the pool via {@link #acquireMapping()}, and it is released back to the pool when it is
  * closed. Closing the pool also closes all mappings acquired from this pool.
  * <p>
  * <b>Note:</b> The mapping pool and its mappings are <b>not thread safe</b> and all mappings from a single pool can
@@ -40,7 +40,7 @@ import org.tools4j.mmap.core.base.Closeable;
  * <p>
  * Use one of the static factory methods in {@link Mappings} to create mapping pool instances.
  */
-public interface MappingPool extends RegionAware, Closeable {
+public interface MappingPool extends Closeable {
     /**
      * Returns the file access mode used for all mappings from this pool.
      *
@@ -49,22 +49,19 @@ public interface MappingPool extends RegionAware, Closeable {
     AccessMode accessMode();
 
     /**
-     * Acquires and returns a new {@link RegionMapping}.
-     * @return a new region mapping instance
+     * Returns the region metrics of the mappings from this pool, with the region size the file is mapped in and the
+     * operations for positions related to it.
+     *
+     * @return the region metrics of the mappings from this pool
      */
-    RegionMapping acquireRegionMapping();
+    RegionMetrics regionMetrics();
 
     /**
-     * Acquires and returns a new {@link ElasticMapping}.
-     * @return a new elastic mapping instance
+     * Acquires and returns a new {@link DynamicMapping}, released back to the pool when it is closed.
+     *
+     * @return a new dynamic mapping instance
      */
-    ElasticMapping acquireElasticMapping();
-
-    /**
-     * Acquires and returns a new {@link AdaptiveMapping}.
-     * @return a new adaptive mapping instance
-     */
-    AdaptiveMapping acquireAdaptiveMapping();
+    DynamicMapping acquireMapping();
 
     /**
      * Closes this pool and all mappings acquired from it, and unmaps all regions still mapped by the pool.

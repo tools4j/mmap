@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.internal.Closeables;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.IndexReader;
 
@@ -56,14 +56,14 @@ final class IndexReaderImpl implements IndexReader, Describable {
     @Override
     public long lastIndex() {
         checkNotClosed();
-        final ElasticMapping header = mappings.header();
+        final DynamicMapping header = mappings.header();
         return header != null ? Headers.binarySearchLastIndex(header, Index.FIRST) : Index.NULL;
     }
 
     @Override
     public boolean hasEntry(final long index) {
         checkNotClosed();
-        final ElasticMapping header = mappings.header();
+        final DynamicMapping header = mappings.header();
         return header != null && Headers.hasNonEmptyHeaderAt(header, index);
     }
 

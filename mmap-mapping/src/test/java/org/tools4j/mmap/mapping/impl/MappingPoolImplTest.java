@@ -28,12 +28,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.AdaptiveMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.MappingPool;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
-import org.tools4j.mmap.mapping.api.RegionMapping;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
@@ -73,51 +71,48 @@ class MappingPoolImplTest {
     @Test
     void poolProperties() {
         assertEquals(AccessMode.READ_WRITE, pool.accessMode());
-        assertEquals(REGION_SIZE, pool.regionSize());
         assertEquals(REGION_SIZE, pool.regionMetrics().regionSize());
         assertFalse(pool.isClosed());
-        pool.acquireElasticMapping();
+        pool.acquireMapping();
         assertEquals("MappingPoolImpl:mappings=1|accessMode=READ_WRITE|regionSize=" + REGION_SIZE + "|closed=false",
                 pool.toString());
     }
 
     @Test
     void mappingsShareRegionsAndSeeEachOthersWrites() {
-        final RegionMapping region = pool.acquireRegionMapping();
-        final ElasticMapping elastic = pool.acquireElasticMapping();
-        final AdaptiveMapping adaptive = pool.acquireAdaptiveMapping();
-        assertTrue(region.moveToRegion(1));
-        assertTrue(elastic.moveTo(REGION_SIZE + 16L));
-        assertTrue(adaptive.moveTo(REGION_SIZE + 16L, Long.BYTES));
-        assertEquals(region.address() + 16, elastic.address());
-        assertEquals(elastic.address(), adaptive.address());
+        final DynamicMapping region = pool.acquireMapping();
+        final DynamicMapping toRegionEnd = pool.acquireMapping();
+        final DynamicMapping slice = pool.acquireMapping();
+        assertTrue(region.moveTo(REGION_SIZE));
+        assertTrue(toRegionEnd.moveTo(REGION_SIZE + 16L));
+        assertTrue(slice.moveTo(REGION_SIZE + 16L, Long.BYTES));
+        assertEquals(region.address() + 16, toRegionEnd.address());
+        assertEquals(toRegionEnd.address(), slice.address());
 
         region.buffer().putLong(16, 42);
-        assertEquals(42, elastic.buffer().getLong(0));
-        assertEquals(42, adaptive.buffer().getLong(0));
+        assertEquals(42, toRegionEnd.buffer().getLong(0));
+        assertEquals(42, slice.buffer().getLong(0));
     }
 
     @Test
     void sharedRegionStaysMappedUntilLastMappingMovesAway() {
-        final ElasticMapping first = pool.acquireElasticMapping();
-        final ElasticMapping second = pool.acquireElasticMapping();
-        assertTrue(first.moveToRegion(2));
-        assertTrue(second.moveToRegion(2));
+        final DynamicMapping first = pool.acquireMapping();
+        final DynamicMapping second = pool.acquireMapping();
+        assertTrue(first.moveTo(2L * REGION_SIZE));
+        assertTrue(second.moveTo(2L * REGION_SIZE));
         first.buffer().putLong(0, 7);
-        assertTrue(first.moveToRegion(0));
+        assertTrue(first.moveTo(0));
         assertEquals(7, second.buffer().getLong(0), "still mapped for second mapping");
     }
 
     @Test
     void closingPoolClosesMappingsAndRejectsNewOnes() {
-        final ElasticMapping mapping = pool.acquireElasticMapping();
-        assertTrue(mapping.moveToRegion(1));
+        final DynamicMapping mapping = pool.acquireMapping();
+        assertTrue(mapping.moveTo(REGION_SIZE));
         pool.close();
         assertTrue(pool.isClosed());
         assertTrue(mapping.isClosed());
-        assertThrows(IllegalStateException.class, pool::acquireElasticMapping);
-        assertThrows(IllegalStateException.class, pool::acquireRegionMapping);
-        assertThrows(IllegalStateException.class, pool::acquireAdaptiveMapping);
+        assertThrows(IllegalStateException.class, pool::acquireMapping);
         pool.close();
     }
 }
