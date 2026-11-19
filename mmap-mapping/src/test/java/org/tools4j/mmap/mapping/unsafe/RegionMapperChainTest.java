@@ -29,7 +29,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.tools4j.mmap.core.idle.Idler;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -143,13 +143,13 @@ class RegionMapperChainTest {
         assertEquals(lruCacheSize > 0, chain.contains("LruCacheRegionMapper:"), chain);
         assertTrue(chain.contains(asyncUnmapping ? "SyncRegionMapperAsyncUnmapper:" : "SyncRegionMapper:"), chain);
 
-        try (final ElasticMapping mapping = Mappings.elasticMapping(regionMapper, true)) {
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true)) {
             for (int region = 0; region < REGIONS; region++) {
-                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
                 mapping.buffer().putLong(8, valueFor(region));
             }
             for (int region = REGIONS - 1; region >= 0; region--) {
-                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
                 assertEquals(valueFor(region), mapping.buffer().getLong(8), "region " + region);
             }
         }
@@ -157,9 +157,9 @@ class RegionMapperChainTest {
 
         final RegionMapper syncMapper = RegionMappers.create(fileMapper(file), REGION_SIZE,
                 MappingStrategyConfig.getDefaultSync());
-        try (final ElasticMapping mapping = Mappings.elasticMapping(syncMapper, true)) {
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(syncMapper, true)) {
             for (int region = 0; region < REGIONS; region++) {
-                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
                 assertEquals(valueFor(region), mapping.buffer().getLong(8), "reopened, region " + region);
             }
         }

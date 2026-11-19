@@ -36,7 +36,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -135,7 +135,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 456;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final ElasticMapping mapping = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
 
         //when: move to position
         mapping.moveTo(regionStartPosition);
@@ -155,24 +155,24 @@ public class AsyncRingRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
-        assertEquals(offsetInRegion, mapping.regionOffset());
+        assertEquals(position, mapping.position());
         assertEquals(regionSize - offsetInRegion, mapping.bytesAvailable());
 
         //when: move again within the same region
         final int offset = 4;
-        mapping.moveToCurrentRegion(offset);
+        mapping.moveTo(regionStartPosition + offset, DynamicMapping.STRETCH_LENGTH);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
-        assertEquals(offset, mapping.regionOffset());
+        assertEquals(regionStartPosition + offset, mapping.position());
         assertEquals(regionSize - offset, mapping.bytesAvailable());
 
         //when - wrap again at region start
-        mapping.moveTo(regionStartPosition);
+        mapping.moveTo(regionStartPosition, DynamicMapping.STRETCH_LENGTH);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
-        assertEquals(0, mapping.regionOffset());
+        assertEquals(regionStartPosition, mapping.position());
         assertEquals(regionSize, mapping.bytesAvailable());
 
         //when: close
@@ -196,7 +196,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 123;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final ElasticMapping mapping = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -216,7 +216,7 @@ public class AsyncRingRegionMapperTest {
         inOrder.verify(fileMapper, never()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
 
         //when - map again within the same region and check if had been mapped
-        mapping.moveToCurrentRegion(0);
+        mapping.moveTo(regionStartPosition);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
@@ -251,7 +251,7 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final ElasticMapping mapping = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
 
         //when
         mapping.moveTo(position);
@@ -270,7 +270,7 @@ public class AsyncRingRegionMapperTest {
         inOrder.verifyNoMoreInteractions();
 
         //when - map previous region, already mapped
-        mapping.moveToPreviousRegion();
+        mapping.moveTo(regionStartPosition - regionSize);
         asyncRecurringList.forEach(Recurring::execute);
 
         //then

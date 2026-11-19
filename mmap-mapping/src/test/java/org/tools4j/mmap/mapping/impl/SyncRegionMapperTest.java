@@ -35,7 +35,7 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -111,7 +111,7 @@ public class SyncRegionMapperTest {
         //given
         regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize,
                 deferUnmapping);
-        final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
         final long failingRegionPosition = 2L * regionSize;
         final IllegalStateException error = new IllegalStateException("test mapping error");
         doThrow(error).when(fileMapper).map(eq(failingRegionPosition), eq(regionSize), anyBoolean());
@@ -150,31 +150,31 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
 
         //when
         region.moveTo(position);
 
         //then
         inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
-        assertEquals(positionInRegion, region.regionOffset());
+        assertEquals(position, region.position());
         assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
         //when - wrap again within the same region
         final int offset = 4;
-        region.moveToCurrentRegion(offset);
+        region.moveTo(regionStartPosition + offset, DynamicMapping.STRETCH_LENGTH);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
-        assertEquals(offset, region.regionOffset());
+        assertEquals(regionStartPosition + offset, region.position());
         assertEquals(regionSize - offset, region.bytesAvailable());
 
         //when - wrap again at region start
-        region.moveTo(regionStartPosition);
+        region.moveTo(regionStartPosition, DynamicMapping.STRETCH_LENGTH);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
-        assertEquals(0, region.regionOffset());
+        assertEquals(regionStartPosition, region.position());
         assertEquals(regionSize, region.bytesAvailable());
 
         //when - close, causes unmap
@@ -203,7 +203,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
 
         //when
         region.moveTo(position);
@@ -212,7 +212,7 @@ public class SyncRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
 
         //when - map again within the same region and check if had been mapped
-        region.moveToCurrentRegion(0);
+        region.moveTo(regionStartPosition);
 
         //then
         inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
@@ -250,7 +250,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int offset = (int) (position % regionSize);
         final long regionStartPosition = position - offset;
-        final ElasticMapping region = Mappings.elasticMapping(regionMapper, true);
+        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
         long unmapAddress;
 
         //when
@@ -260,8 +260,8 @@ public class SyncRegionMapperTest {
         inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
 
         //when
-        unmapAddress = region.address() - region.regionOffset();
-        region.moveToNextRegion(offset);
+        unmapAddress = region.address() - offset;
+        region.moveTo(regionStartPosition + regionSize + offset);
 
         //then
         final long nextRegionStartPosition = regionStartPosition + regionSize;
@@ -273,9 +273,9 @@ public class SyncRegionMapperTest {
         }
 
         //when - map previous region, causing current to unmap
-        unmapAddress = region.address() - region.regionOffset();
+        unmapAddress = region.address() - offset;
         final long prevRegionStartPosition = nextRegionStartPosition - regionSize;
-        region.moveToPreviousRegion();
+        region.moveTo(prevRegionStartPosition);
 
         //then
         if (cacheSize > 1 && deferUnmapping) {

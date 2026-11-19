@@ -29,7 +29,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Queue;
@@ -88,7 +88,7 @@ class EagerReaderMappingsTest {
     void headerExistsRightAwayAndMovesOnceHeaderFileExists() {
         try (final Queue queue = Queue.open(queueFile(), OpenMode.CREATE, CONFIG);
              final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY)) {
-            final ElasticMapping header = mappings.header();
+            final DynamicMapping header = mappings.header();
             assertSame(header, mappings.header());
             assertFalse(header.moveTo(0), "header file does not exist yet");
             try (final Appender ignored = queue.createAppender()) {
@@ -105,7 +105,7 @@ class EagerReaderMappingsTest {
              final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY)) {
             appender0.append(new byte[8]);
             appender1.append(new byte[8]);
-            final ElasticMapping payload = mappings.payload(0);
+            final DynamicMapping payload = mappings.payload(0);
             assertSame(payload, mappings.payload(0));
             assertNotSame(payload, mappings.payload(1));
         }
@@ -124,8 +124,8 @@ class EagerReaderMappingsTest {
              final Appender appender = queue.createAppender()) {
             appender.append(new byte[8]);
             final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY);
-            final ElasticMapping header = mappings.header();
-            final ElasticMapping payload = mappings.payload(0);
+            final DynamicMapping header = mappings.header();
+            final DynamicMapping payload = mappings.payload(0);
             mappings.close();
             assertTrue(mappings.isClosed());
             assertTrue(header.isClosed());

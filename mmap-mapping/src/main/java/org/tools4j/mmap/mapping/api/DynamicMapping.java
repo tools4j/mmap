@@ -23,149 +23,182 @@
  */
 package org.tools4j.mmap.mapping.api;
 
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.mapping.impl.DynamicMappings;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import java.io.UncheckedIOException;
 import java.util.function.Predicate;
 
-import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
 /**
- * A dynamic mapping is a {@link Mapping} whose {@linkplain #position() position} can be changed by
- * {@link #moveTo(long) moving} to another position in the file. The underlying memory mapping is performed in blocks
- * of a predefined {@linkplain #regionSize() region size} which also defines the maximum possible
- * {@linkplain #bytesAvailable() bytes available} by the mapping at any point in time.
+ * A dynamic mapping is a {@link Mapping} of a slice of the underlying file whose {@linkplain #position() position} and
+ * {@linkplain #length() length} can be changed by {@link #moveTo(long, int) moving} it to another slice of the file.
  * <p>
- * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
- * {@link RegionMapper}.
+ * The file is mapped into memory in regions of a predefined {@linkplain RegionMetrics#regionSize() region size} (see
+ * {@link #regionMetrics()}) through a {@link RegionMapper}, mapping and unmapping regions as the mapping moves. A slice
+ * can therefore not cross the end of the region its position lies in: its length is at least zero and at most the {@linkplain #maxLengthAtPosition(long)
+ * max length} at its position, the bytes from the position to the end of its region. Moving within the region that is
+ * already mapped only adjusts the {@link #buffer() buffer}.
  * <p>
- * Different dynamic mapping subtypes define details about how mappings can be moved and how many bytes are made
- * available when mapped. The {@link Mapping} documentation provides an overview of the different mapping types.
+ * The mapping keeps the <i>requested length</i>, the length last passed to a move, {@link #length(int)} or
+ * {@link #limit(long)}, and moves without a length map it again at the new position: {@link #STRETCH_LENGTH}, the
+ * initial requested length, stretches to the end of the region at every position, and an explicit length maps exactly
+ * that many bytes, for instance to read values of the same type at successive positions without passing the length
+ * each time. A move throws an {@link IllegalArgumentException} if the requested length exceeds the max length at the
+ * new position, and leaves the mapping as it was.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-public interface DynamicMapping extends Mapping, RegionAware {
+public interface DynamicMapping extends Mapping {
     /**
-     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, a value between
-     * zero and (regionSize - 1)
-     * @return the offset from the region start position: {@code position - regionStartPosition}
+     * Length passed to move methods or {@link #length(int)} to map all bytes from the position to the end of its
+     * region at every move, the initial requested length of a mapping
      */
-    int regionOffset();
+    int STRETCH_LENGTH = -1;
 
     /**
-     * Returns the start position of the region, a multiple of the {@linkplain #regionSize() region size}, or
-     * {@link NullValues#NULL_POSITION NULL_POSITION} if no position has been mapped yet.
+     * Returns the region metrics of this mapping, with the region size the file is mapped in and the operations for
+     * positions related to it.
+     *
+     * @return the region metrics of this mapping
+     */
+    RegionMetrics regionMetrics();
+
+    /**
+     * Moves the mapping to the specified position, mapping the requested length: all bytes to the end of the region
+     * for {@link #STRETCH_LENGTH}, otherwise the length last requested.
      * <p>
-     * If mapped, the region start position is always equal to the
-     * {@linkplain #position() position} minus the {@linkplain #regionOffset() offset}.
-     *
-     * @return the region's start position, equal to the largest region size multiple that is less or equal to the
-     *         current position, or {@link NullValues#NULL_POSITION NULL_POSITION} if unavailable
-     */
-    default long regionStartPosition() {
-        return regionMetrics().regionPosition(position());
-    }
-
-    /**
-     * The step size (or minimum increment) of position values passed to the {@link #moveTo(long)} method. For most
-     * dynamic mapping types step size is equal to 1, except for {@link RegionMapping} where it is equal to the region
-     * size.
-     *
-     * @return the step size for position values, typically one unless this is a region mapping
-     */
-    int positionStepSize();
-
-    /**
-     * Moves the region to the specified position, mapping (and possibly unmapping) file region blocks if necessary.
+     * If the new position lies within the region that is already mapped, only the buffer is adjusted without mapping
+     * a region. Otherwise, the requested region is mapped, and the previous region possibly unmapped, so that it is
+     * illegal to continue using buffers wrapped to the previous address.
      * <p>
      * Returns false if the region is not available yet, for instance because a read-only file has not been extended
      * to this position yet; a later move to the same position may succeed. If mapping fails with an error, the
      * exception is thrown. Either way, the mapping remains at its previous position.
      *
-     * @param position  the position to move to, must be a multiple of {@linkplain #regionSize() region size} unless
-     *                  this is an {@link ElasticMapping} or an {@link AdaptiveMapping}
-     * @return true if the region is ready for data access, and false if it is not available yet
-     * @throws IllegalArgumentException if position is negative or not an allowed position value for this mapping,
-     *                                  or beyond the max file size of a non-rolling file
+     * @param position the position to move to (absolute, not relative to the current position or region start)
+     * @return true if the mapping is ready for data access, and false if the region is not available yet
+     * @throws IllegalArgumentException if position is negative or beyond the max file size of a non-rolling file, or
+     *                                  if the requested length exceeds the {@linkplain #maxLengthAtPosition(long) max
+     *                                  length} at the position
      * @throws IllegalStateException if mapping fails, for instance if the max file size is exceeded
      * @throws UncheckedIOException if mapping fails with an I/O error
      */
     boolean moveTo(long position);
 
     /**
-     * Moves the mapping forward or backward by the specified delta in bytes. Delegates to {@link #moveTo(long)} if
-     * current and resulting position are valid. An exception is thrown if no position is currently mapped or if the
-     * resulting position is negative.
+     * Moves the mapping to the specified position and maps the specified number of bytes, which becomes the requested
+     * length of later moves, like {@link #moveTo(long)} otherwise.
+     *
+     * @param position the position to move to (absolute, not relative to the current position or region start)
+     * @param length   the new length of this mapping, at least zero and no more than the
+     *                 {@linkplain #maxLengthAtPosition(long) max length} at the position, or {@link #STRETCH_LENGTH}
+     * @return true if the mapping is ready for data access, and false if the region is not available yet
+     * @throws IllegalArgumentException if position is negative or beyond the max file size of a non-rolling file, or
+     *                                  if length is less than -1 or exceeds the max length at the position
+     * @throws IllegalStateException if mapping fails, for instance if the max file size is exceeded
+     * @throws UncheckedIOException if mapping fails with an I/O error
+     */
+    boolean moveTo(long position, int length);
+
+    /**
+     * Moves the mapping forward or backward by the specified delta in bytes, mapping the requested length like
+     * {@link #moveTo(long)}.
      * <p>
      * This is equivalent to calling {@code moveTo(position() + delta)}.
      *
      * @param delta the position delta relative to the current position
-     * @return true if the mapping is ready for data access, and false otherwise
+     * @return true if the mapping is ready for data access, and false if the region is not available yet
      * @throws IllegalStateException if this mapping has no current position
-     * @throws IllegalArgumentException if the provided delta value results in a negative position
+     * @throws IllegalArgumentException if the provided delta value results in a negative position, or if the requested
+     *                                  length exceeds the max length at the new position
      */
     default boolean moveBy(final long delta) {
         final long position = position();
         validatePositionState(position);
-        validatePositionDelta(position, delta, positionStepSize());
+        validatePositionDelta(position, delta);
         return moveTo(position + delta);
     }
 
-
     /**
-     * Moves to the start of the region specified by index, mapping (and possibly unmapping) file region blocks if
-     * necessary
+     * Moves the mapping forward or backward by the specified delta in bytes and maps the specified number of bytes,
+     * which becomes the requested length of later moves.
      * <p>
-     * This is equivalent to calling {@code moveTo(regionIndex * regionSize)}.
+     * This is equivalent to calling {@code moveTo(position() + delta, length)}.
      *
-     * @param regionIndex the non-negative region index, zero for first region
-     * @return true if the mapping is ready for data access
-     * @throws IllegalArgumentException if region index is negative
+     * @param delta  the position delta relative to the current position
+     * @param length the new length of this mapping, at least zero and no more than the
+     *               {@linkplain #maxLengthAtPosition(long) max length} at the new position, or {@link #STRETCH_LENGTH}
+     * @return true if the mapping is ready for data access, and false if the region is not available yet
+     * @throws IllegalStateException if this mapping has no current position
+     * @throws IllegalArgumentException if the provided delta value results in a negative position, or the length is
+     *                                  less than -1 or exceeds the max length at the new position
      */
-    default boolean moveToRegion(final long regionIndex) {
-        validateNonNegative("Region index", regionIndex);
-        return moveTo(regionMetrics().regionPositionByIndex(regionIndex));
+    default boolean moveBy(final long delta, final int length) {
+        final long position = position();
+        validatePositionState(position);
+        validatePositionDelta(position, delta);
+        return moveTo(position + delta, length);
     }
 
     /**
-     * Moves the mapping to the start of the first region at position zero.
-     * <p>
-     * This is equivalent to calling {@code moveTo(0)}.
+     * Returns the max length at the current position, or zero if this mapping is not mapped: the bytes from the
+     * current position to the end of its region.
      *
-     * @return true if the mapping is ready for data access, and false otherwise
+     * @return the max length that can be passed to {@link #length(int)}, a value between zero and region size
      */
-    default boolean moveToFirstRegion() {
-        return moveTo(0L);
+    default int maxLengthAtCurrentPosition() {
+        return isMapped() ? maxLengthAtPosition(position()) : 0;
     }
 
     /**
-     * Moves the mapping to the next region start, or to the first region if no region is currently mapped.
+     * Returns the max length at the specified position, or zero if position is negative: the bytes from the position
+     * to the end of its region.
      *
-     * @return true if the mapping is ready for data access, and false otherwise
+     * @param position the position for which the max length is evaluated
+     * @return the max length that can be passed to {@link #moveTo(long, int)} for the specified position, a value
+     *         between zero and region size
      */
-    default boolean moveToNextRegion() {
+    default int maxLengthAtPosition(final long position) {
         final RegionMetrics metrics = regionMetrics();
-        final long regionStartPosition = metrics.regionPosition(position());
-        final long nextStartPosition = regionStartPosition >= 0 ? regionStartPosition + metrics.regionSize() : 0L;
-        return moveTo(nextStartPosition);
+        return position >= 0 ? metrics.regionSize() - metrics.regionOffset(position) : 0;
     }
 
     /**
-     * Moves the mapping to the previous region start. Delegates to {@link #moveTo(long)} if there is a previous region,
-     * and throws an exception if this region is not currently mapped or if it is the first region.
+     * Returns the length of this mapping in bytes, the same as {@link #bytesAvailable()} and equal to the
+     * {@linkplain #buffer() buffer's} {@linkplain MemoryBuffer#capacity() capacity}.
      *
-     * @return true if the mapping is ready for data access, and false otherwise
-     * @throws IllegalStateException if this region is not currently mapped, or if it is the first region
+     * @return the number of bytes mapped and available through the buffer, zero if not {@linkplain #isMapped() mapped}
      */
-    default boolean moveToPreviousRegion() {
-        final long startPosition = regionStartPosition();
-        final int regionSize = regionSize();
-        if (startPosition < regionSize) {
-            throw new IllegalStateException("There is no previous region before position " + position());
-        }
-        return moveTo(startPosition - regionSize);
+    default int length() {
+        return bytesAvailable();
     }
+
+    /**
+     * Sets the length of this mapping, extending or limiting the bytes available through the {@link #buffer() buffer}
+     * at the current position; the length becomes the requested length of later moves.
+     *
+     * @param length the new length of this mapping, at least zero and no more than the
+     *               {@linkplain #maxLengthAtCurrentPosition() max length at the current position}, or
+     *               {@link #STRETCH_LENGTH}
+     * @throws IllegalArgumentException if length is less than -1 or exceeds the max length at the current position
+     */
+    void length(int length);
+
+    /**
+     * Sets the limit of this mapping, the position <i>after</i> the last byte that is accessible through this mapping,
+     * not exceeding the position plus the {@linkplain #maxLengthAtCurrentPosition() max length at the current
+     * position}; the resulting length becomes the requested length of later moves.
+     *
+     * @param limit the new position limit (exclusive)
+     * @throws IllegalArgumentException if the limit is less than the position, or if {@code (limit - position)}
+     *                                  exceeds the max length at the current position
+     * @see #position()
+     */
+    void limit(long limit);
 
     /**
      * Performs a linear search for the last position that still results in a match given the specified matcher. Returns
@@ -173,7 +206,7 @@ public interface DynamicMapping extends Mapping, RegionAware {
      * returned and the mapping is left at the position last tried.
      *
      * @param startPosition     the first position to test
-     * @param positionIncrement the increment added to position at every step, a multiple of {@link #positionStepSize()}
+     * @param positionIncrement the positive increment added to position at every step
      * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
      * @return true if a match is found, and false otherwise
      */
@@ -189,7 +222,7 @@ public interface DynamicMapping extends Mapping, RegionAware {
      * false is returned and the mapping is left at the position last tried.
      *
      * @param startPosition     the first position to test
-     * @param positionIncrement the increment added to position at every step, a multiple of {@link #positionStepSize()}
+     * @param positionIncrement the positive increment added to position at every step
      * @param matcher           the matcher to evaluate whether the position data matches the desired search criteria
      * @return true if a match is found, and false otherwise
      */

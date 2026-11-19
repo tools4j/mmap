@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Queue;
@@ -93,7 +93,7 @@ class LazyReaderMappingsTest {
             assertNull(mappings.header());
             try (final Queue queue = Queue.open(queueFile(), OpenMode.CREATE, CONFIG)) {
                 queueConfig.set(CONFIG);
-                final ElasticMapping header = mappings.header();
+                final DynamicMapping header = mappings.header();
                 assertNotNull(header);
                 assertFalse(header.moveTo(0), "header file does not exist yet");
 
@@ -127,8 +127,8 @@ class LazyReaderMappingsTest {
             appender.append(new byte[8]);
             queueConfig.set(CONFIG);
             final ReaderMappings mappings = readerMappings();
-            final ElasticMapping header = mappings.header();
-            final ElasticMapping payload = mappings.payload(0);
+            final DynamicMapping header = mappings.header();
+            final DynamicMapping payload = mappings.payload(0);
             mappings.close();
             assertTrue(mappings.isClosed());
             assertTrue(header.isClosed());

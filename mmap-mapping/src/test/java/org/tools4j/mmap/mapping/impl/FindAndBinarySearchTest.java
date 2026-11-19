@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -35,6 +34,7 @@ import org.mockito.stubbing.Answer;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
@@ -51,11 +51,11 @@ import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 
 /**
- * Base test class implemented for different concrete mappings to test
- * {@link DynamicMapping#findLast(long, long, Predicate) findLast(..)} and
- * {@link DynamicMapping#binarySearchLast(long, long, Predicate) binarySearchLast(..)}.
+ * Unit test for {@link DynamicMapping#findLast(long, long, Predicate) findLast(..)} and
+ * {@link DynamicMapping#binarySearchLast(long, long, Predicate) binarySearchLast(..)} of {@link DynamicMappingImpl},
+ * implemented by {@link DynamicMappings}.
  */
-abstract class FindAndBinarySearchTest {
+class FindAndBinarySearchTest {
 
     private static final int nOfRegions = 4;
 
@@ -66,8 +66,6 @@ abstract class FindAndBinarySearchTest {
     void init() {
         MockitoAnnotations.openMocks(this);
     }
-
-    abstract DynamicMapping createMapping(RegionMapper regionMapper);
 
 
     @ParameterizedTest(name = "regionSize={0}, bytes={2}, startPosition={1}, expectedPosition={3}")
@@ -138,9 +136,7 @@ abstract class FindAndBinarySearchTest {
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        final DynamicMapping mapping = createMapping(regionMapper);
-        Assumptions.assumeTrue(bytes % mapping.positionStepSize() == 0, bytes +
-                " position increments not supported by " + mapping.getClass().getSimpleName());
+        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
 
         //when
         if (counter != null) counter.set(0);

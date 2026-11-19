@@ -29,13 +29,11 @@ import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
-import org.tools4j.mmap.mapping.impl.AdaptiveMappingImpl;
-import org.tools4j.mmap.mapping.impl.ElasticMappingImpl;
+import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
 import org.tools4j.mmap.mapping.impl.FixedMappingImpl;
 import org.tools4j.mmap.mapping.impl.MappingPoolImpl;
 import org.tools4j.mmap.mapping.impl.NullMapping;
 import org.tools4j.mmap.mapping.impl.OpenModes;
-import org.tools4j.mmap.mapping.impl.RegionMappingImpl;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FileMappers;
 import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
@@ -190,144 +188,50 @@ public enum Mappings {
     }
 
     /**
-     * Creates a region mapping for the specified file using default mapping configuration.
+     * Creates a dynamic mapping for the specified file using default mapping configuration.
      *
      * @param file       the file to map
      * @param openMode   the mode to open the file with
-     * @return a new region mapping for the given file
+     * @return a new dynamic mapping for the given file
      * @see MappingConfig#getDefault()
      */
-    public static RegionMapping regionMapping(final File file, final OpenMode openMode) {
-        return regionMapping(file, openMode, MappingConfig.getDefault());
+    public static DynamicMapping dynamicMapping(final File file, final OpenMode openMode) {
+        return dynamicMapping(file, openMode, MappingConfig.getDefault());
     }
 
     /**
-     * Creates a region mapping for the specified file using the given mapping configuration.
+     * Creates a dynamic mapping for the specified file using the given mapping configuration.
      *
      * @param file       the file to map
      * @param openMode   the mode to open the file with
      * @param config     the mapping configuration to use
-     * @return a new region mapping for the given file
+     * @return a new dynamic mapping for the given file
      */
-    public static RegionMapping regionMapping(final File file, final OpenMode openMode, final MappingConfig config) {
+    public static DynamicMapping dynamicMapping(final File file, final OpenMode openMode, final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
         final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
         final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
-        return regionMapping(regionMapper, true);
+        return dynamicMapping(regionMapper, true);
     }
 
     /**
-     * Creates a region mapping backed by the given region mapper. Closing the returned mapping also closes the given
+     * Creates a dynamic mapping backed by the given region mapper. Closing the returned mapping also closes the given
      * region mapper if {@code closeRegionMapperOnClose} is true.
      * <p>
      * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
      * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
      * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code regionMapping} factory methods instead.
+     * {@code dynamicMapping} factory methods instead.
      *
      * @param regionMapper             the region mapper providing the underlying mapping operations
-     * @param closeRegionMapperOnClose if true the given region mapper is also closed when the returned mapping is closed
-     * @return a new region mapping backed by the given region mapper
+     * @param closeRegionMapperOnClose if true the given region mapper is also closed when the returned mapping is
+     *                                 closed
+     * @return a new dynamic mapping backed by the given region mapper
      */
     @Unsafe
-    public static RegionMapping regionMapping(final RegionMapper regionMapper, final boolean closeRegionMapperOnClose) {
-        return new RegionMappingImpl(regionMapper, closeRegionMapperOnClose);
-    }
-
-    /**
-     * Creates an elastic mapping for the specified file using default mapping configuration.
-     *
-     * @param file       the file to map
-     * @param openMode   the mode to open the file with
-     * @return a new elastic mapping for the given file
-     * @see MappingConfig#getDefault()
-     */
-    public static ElasticMapping elasticMapping(final File file, final OpenMode openMode) {
-        return elasticMapping(file, openMode, MappingConfig.getDefault());
-    }
-
-    /**
-     * Creates an elastic mapping for the specified file using the given mapping configuration.
-     *
-     * @param file       the file to map
-     * @param openMode   the mode to open the file with
-     * @param config     the mapping configuration to use
-     * @return a new elastic mapping for the given file
-     */
-    public static ElasticMapping elasticMapping(final File file,
-                                                final OpenMode openMode,
-                                                final MappingConfig config) {
-        OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
-        return elasticMapping(regionMapper, true);
-    }
-
-    /**
-     * Creates an elastic mapping backed by the given region mapper. Closing the returned mapping also closes the
-     * given region mapper if {@code closeRegionMapperOnClose} is true.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code elasticMapping} factory methods instead.
-     *
-     * @param regionMapper             the region mapper providing the underlying mapping operations
-     * @param closeRegionMapperOnClose if true the given region mapper is also closed when the returned mapping is closed
-     * @return a new elastic mapping backed by the given region mapper
-     */
-    @Unsafe
-    public static ElasticMapping elasticMapping(final RegionMapper regionMapper,
+    public static DynamicMapping dynamicMapping(final RegionMapper regionMapper,
                                                 final boolean closeRegionMapperOnClose) {
-        return new ElasticMappingImpl(regionMapper, closeRegionMapperOnClose);
-    }
-
-    /**
-     * Creates an adaptive mapping for the specified file using default mapping configuration.
-     *
-     * @param file       the file to map
-     * @param openMode   the mode to open the file with
-     * @return a new adaptive mapping for the given file
-     * @see MappingConfig#getDefault()
-     */
-    public static AdaptiveMapping adaptiveMapping(final File file, final OpenMode openMode) {
-        return adaptiveMapping(file, openMode, MappingConfig.getDefault());
-    }
-
-    /**
-     * Creates an adaptive mapping for the specified file using the given mapping configuration.
-     *
-     * @param file       the file to map
-     * @param openMode   the mode to open the file with
-     * @param config     the mapping configuration to use
-     * @return a new adaptive mapping for the given file
-     */
-    public static AdaptiveMapping adaptiveMapping(final File file,
-                                                  final OpenMode openMode,
-                                                  final MappingConfig config) {
-        OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
-        return adaptiveMapping(regionMapper, true);
-    }
-
-    /**
-     * Creates an adaptive mapping backed by the given region mapper. Closing the returned mapping also closes the
-     * given region mapper if {@code closeRegionMapperOnClose} is true.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code adaptiveMapping} factory methods instead.
-     *
-     * @param regionMapper             the region mapper providing the underlying mapping operations
-     * @param closeRegionMapperOnClose if true the given region mapper is also closed when the returned mapping is closed
-     * @return a new adaptive mapping backed by the given region mapper
-     */
-    @Unsafe
-    public static AdaptiveMapping adaptiveMapping(final RegionMapper regionMapper,
-                                                  final boolean closeRegionMapperOnClose) {
-        return new AdaptiveMappingImpl(regionMapper, closeRegionMapperOnClose);
+        return new DynamicMappingImpl(regionMapper, closeRegionMapperOnClose);
     }
 
     /**

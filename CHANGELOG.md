@@ -6,6 +6,17 @@ Notable changes per release. Entries are curated from the commits since the prev
 ## 3.0 (unreleased)
 
 ### Breaking changes
+- `RegionMapping`, `ElasticMapping` and `AdaptiveMapping` are merged into `DynamicMapping`, which maps a slice of the
+  file of any length up to the end of the region its position lies in. Moves without a length map the length last
+  requested: `DynamicMapping.STRETCH_LENGTH`, the default, stretches to the region end at every move, as the former
+  elastic mapping did, and an explicit length maps exactly that length, throwing `IllegalArgumentException` if it
+  does not fit at the new position, where the former adaptive mapping shortened it. `Mappings.dynamicMapping(..)` replaces
+  `regionMapping(..)`, `elasticMapping(..)` and `adaptiveMapping(..)`, and `MappingPool.acquireMapping()` the three
+  acquire methods. The region methods are gone (`regionOffset()`, `regionStartPosition()`, `positionStepSize()`,
+  `moveToRegion(..)` and the moves to the first, next, previous or current region): move to the position instead,
+  with the region arithmetic of `regionMetrics()` if needed. `DynamicMapping` and `MappingPool` no longer extend
+  `RegionAware`: the region size is `regionMetrics().regionSize()`. `maxLength()` is renamed to
+  `maxLengthAtCurrentPosition()`.
 - Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `Mapping.buffer()` and
   `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Entry.buffer()` and the buffer passed to
   `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces
