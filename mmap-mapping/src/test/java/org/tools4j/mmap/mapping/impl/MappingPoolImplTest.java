@@ -29,8 +29,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.MappingPool;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.MutableMappingPool;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -51,7 +52,7 @@ class MappingPoolImplTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
 
-    private MappingPool pool;
+    private MutableMappingPool pool;
 
     @BeforeEach
     void open(@TempDir final Path tempDir) {
@@ -60,7 +61,7 @@ class MappingPoolImplTest {
                 .maxFileSize(4L * REGION_SIZE)
                 .regionSize(REGION_SIZE)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync());
-        pool = Mappings.mappingPool(tempDir.resolve("pool.map").toFile(), OpenMode.OPEN_OR_CREATE, config, 4);
+        pool = Mappings.mutableMappingPool(tempDir.resolve("pool.map").toFile(), OpenMode.OPEN_OR_CREATE, config, 4);
     }
 
     @AfterEach
@@ -80,7 +81,7 @@ class MappingPoolImplTest {
 
     @Test
     void mappingsShareRegionsAndSeeEachOthersWrites() {
-        final DynamicMapping region = pool.acquireMapping();
+        final DynamicMutableMapping region = pool.acquireMapping();
         final DynamicMapping toRegionEnd = pool.acquireMapping();
         final DynamicMapping slice = pool.acquireMapping();
         assertTrue(region.moveTo(REGION_SIZE));
@@ -96,7 +97,7 @@ class MappingPoolImplTest {
 
     @Test
     void sharedRegionStaysMappedUntilLastMappingMovesAway() {
-        final DynamicMapping first = pool.acquireMapping();
+        final DynamicMutableMapping first = pool.acquireMapping();
         final DynamicMapping second = pool.acquireMapping();
         assertTrue(first.moveTo(2L * REGION_SIZE));
         assertTrue(second.moveTo(2L * REGION_SIZE));

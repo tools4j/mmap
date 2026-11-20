@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -78,6 +79,11 @@ class QueueMetaTest {
 
     @TempDir
     Path tempDir;
+
+    /** The open modes opening an existing queue without recreating it */
+    static Stream<OpenMode> existingQueueOpenModes() {
+        return Stream.of(OpenMode.READ_ONLY, OpenMode.READ_ONLY_LAZY, OpenMode.READ_WRITE, OpenMode.OPEN_OR_CREATE);
+    }
 
     @Test
     void metaFileStartsWithMagicAndVersion() throws IOException {
@@ -173,7 +179,7 @@ class QueueMetaTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY", "READ_WRITE", "OPEN_OR_CREATE"})
+    @MethodSource("existingQueueOpenModes")
     void foreignMetaFileIsRejected(final OpenMode openMode) throws IOException {
         Queue.open(queueDir(), OpenMode.CREATE).close();
         writeMetaBytes(0, "t4jmmapx".getBytes(StandardCharsets.US_ASCII));
@@ -181,7 +187,7 @@ class QueueMetaTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY", "READ_WRITE", "OPEN_OR_CREATE"})
+    @MethodSource("existingQueueOpenModes")
     void unsupportedVersionIsRejected(final OpenMode openMode) throws IOException {
         Queue.open(queueDir(), OpenMode.CREATE).close();
         writeMetaBytes(8, ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.LITTLE_ENDIAN)
@@ -205,7 +211,7 @@ class QueueMetaTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY", "READ_WRITE", "OPEN_OR_CREATE"})
+    @MethodSource("existingQueueOpenModes")
     void longerFileWithoutMagicIsRejectedAsForeign(final OpenMode openMode) throws IOException {
         Queue.open(queueDir(), OpenMode.CREATE).close();
         writeMetaBytes(0, new byte[QueueMetaFile.LENGTH + 1]);
@@ -231,20 +237,12 @@ class QueueMetaTest {
             final QueueLayoutConfigImpl layout = new QueueLayoutConfigImpl(REGION_SIZE, 2 * REGION_SIZE,
                     REGION_SIZE, 4L * REGION_SIZE, 2L * REGION_SIZE, 8L * REGION_SIZE,
                     (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0);
-            final File file = tempDir.resolve("meta_" + flags + ".mmq").toFile();
-            assertEquals(layout, QueueMetaFile.open(file, OpenMode.CREATE, () -> layout, () -> {}));
-            assertEquals(layout, QueueMetaFile.read(file), "flags=" + flags);
+            final File dir = tempDir.resolve("queue_" + flags).toFile();
+            assertTrue(dir.mkdir());
+            final QueueFiles files = new QueueFiles(dir);
+            assertEquals(layout, QueueMetaFile.open(files, OpenMode.CREATE, layout));
+            assertEquals(layout, QueueMetaFile.read(files.metaFile()), "flags=" + flags);
         }
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY"})
-    void openingMetaFileForWritingWithReadOnlyModeIsRejected(final OpenMode openMode) {
-        final File file = tempDir.resolve("meta.mmq").toFile();
-        final QueueLayoutConfigImpl layout = QueueLayoutConfigImpl.of(QueueConfig.getDefault());
-        QueueMetaFile.open(file, OpenMode.CREATE, () -> layout, () -> {});
-        assertThrows(IllegalArgumentException.class, () -> QueueMetaFile.open(file, openMode, () -> layout, () -> {}));
-        assertEquals(layout, QueueMetaFile.read(file));
     }
 
     @Test
@@ -263,7 +261,8 @@ class QueueMetaTest {
 
     private void writeMetaBytes(final long position, final byte[] bytes) throws IOException {
         try (final RandomAccessFile raf = new RandomAccessFile(metaFile(), "rw")) {
-            raf.getChannel().write(ByteBuffer.wrap(bytes), position);
+            raf.seek(position);
+            raf.write(bytes);
         }
     }
 

@@ -37,7 +37,6 @@ import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
@@ -135,7 +134,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 456;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 
         //when: move to position
         mapping.moveTo(regionStartPosition);
@@ -196,7 +195,7 @@ public class AsyncRingRegionMapperTest {
         final long position = 123;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 
         //when: map ahead
         regionMapper.map(regionStartPosition);
@@ -251,7 +250,7 @@ public class AsyncRingRegionMapperTest {
         final long position = regionSize + 123;
         final int offsetInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - offsetInRegion;
-        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 
         //when
         mapping.moveTo(position);

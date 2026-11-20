@@ -47,7 +47,7 @@ class DynamicMappingImplTest {
 
     @BeforeEach
     void init(@TempDir final Path tempDir) {
-        mapping = Mappings.dynamicMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE);
+        mapping = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE);
         regionSize = mapping.regionMetrics().regionSize();
     }
 

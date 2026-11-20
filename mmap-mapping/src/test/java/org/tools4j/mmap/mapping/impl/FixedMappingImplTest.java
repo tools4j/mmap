@@ -29,8 +29,9 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
-import org.tools4j.mmap.mapping.api.FixedMapping;
+import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.MutableMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
@@ -96,7 +97,7 @@ class FixedMappingImplTest {
     @Test
     void readOnlyFileLongEnoughIsMapped() throws IOException {
         final File file = Files.write(tempDir.resolve("ok.dat"), new byte[]{1, 2, 3, 4, 5, 6, 7, 8}).toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8)) {
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 0, 8)) {
             assertEquals(8, mapping.bytesAvailable());
             assertEquals(8, mapping.buffer().getByte(7));
         }
@@ -111,7 +112,7 @@ class FixedMappingImplTest {
         }
         final File file = Files.write(tempDir.resolve("unaligned.dat"), bytes).toFile();
         for (final int offset : new int[]{1, 7, granularity - 1, granularity + 3, 2 * granularity + 15}) {
-            try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, offset, 1)) {
+            try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, offset, 1)) {
                 assertEquals(offset, mapping.position(), "offset=" + offset);
                 assertEquals(1, mapping.bytesAvailable(), "offset=" + offset);
                 assertEquals(bytes[offset], mapping.buffer().getByte(0), "offset=" + offset);
@@ -123,7 +124,8 @@ class FixedMappingImplTest {
     void readWriteAtUnalignedOffsetWritesToFilePosition() throws IOException {
         final int offset = (int) REGION_SIZE_GRANULARITY + 5;
         final File file = tempDir.resolve("unaligned.map").toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, offset, 8)) {
+        try (final MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, offset,
+                8)) {
             assertEquals(8, mapping.bytesAvailable());
             mapping.buffer().putLong(0, 0x0102030405060708L);
         }
@@ -136,22 +138,22 @@ class FixedMappingImplTest {
     @Test
     void constructorsMapWholeFileFromOffsetOrGivenLength() {
         final File file = tempDir.resolve("ctor.map").toFile();
-        try (final FixedMapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64))) {
+        try (final MutableMapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64))) {
             assertEquals(0, mapping.position());
             assertEquals(64, mapping.bytesAvailable());
             assertEquals(AccessMode.READ_WRITE, mapping.accessMode());
             mapping.buffer().putLong(8, 42);
         }
-        try (final FixedMapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 8)) {
+        try (final Mapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 8)) {
             assertEquals(8, mapping.position());
             assertEquals(56, mapping.bytesAvailable());
             assertEquals(42, mapping.buffer().getLong(0));
         }
-        try (final FixedMapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 0, 16)) {
+        try (final Mapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 0, 16)) {
             assertEquals(16, mapping.bytesAvailable());
             assertEquals(42, mapping.buffer().getLong(8));
         }
-        try (final FixedMapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 8, 16)) {
+        try (final Mapping mapping = new FixedMappingImpl(fixedSizeFileMapper(file, 64), 8, 16)) {
             assertEquals(8, mapping.position());
             assertEquals(16, mapping.bytesAvailable());
             assertEquals(42, mapping.buffer().getLong(0));
@@ -165,7 +167,7 @@ class FixedMappingImplTest {
     void closeUnmapsOnceAndClosesFileMapperOnlyIfRequested() {
         final File file = tempDir.resolve("close.map").toFile();
         final FixedSizeFileMapper fileMapper = fixedSizeFileMapper(file, 64);
-        final FixedMapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false);
+        final Mapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false);
         assertTrue(mapping.isMapped());
         assertFalse(mapping.isClosed());
 
@@ -176,7 +178,7 @@ class FixedMappingImplTest {
         assertFalse(fileMapper.isClosed());
         mapping.close();
 
-        try (final FixedMapping owning = new FixedMappingImpl(fileMapper, 0, 64, true)) {
+        try (final Mapping owning = new FixedMappingImpl(fileMapper, 0, 64, true)) {
             assertTrue(owning.isMapped());
         }
         assertTrue(fileMapper.isClosed());
@@ -187,7 +189,7 @@ class FixedMappingImplTest {
         final MutableMemoryBuffer data = MemoryBuffers.allocateDirect((int) REGION_SIZE_GRANULARITY);
         final FileMapper fileMapper = mock(FileMapper.class);
         when(fileMapper.map(anyLong(), anyInt(), anyBoolean())).thenReturn(data.address());
-        try (final FixedMapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false)) {
+        try (final Mapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false)) {
             assertTrue(mapping.isMapped());
         }
         verify(fileMapper).map(anyLong(), anyInt(), eq(false));
@@ -217,6 +219,7 @@ class FixedMappingImplTest {
         verifyNoInteractions(fileMapper);
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static FixedSizeFileMapper fixedSizeFileMapper(final File file, final int size) {
         return new FixedSizeFileMapper(file, size, AccessMode.READ_WRITE, FileInitialiser.ZERO);
     }

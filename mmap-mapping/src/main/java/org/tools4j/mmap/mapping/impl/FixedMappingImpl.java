@@ -29,7 +29,7 @@ import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.FixedMapping;
+import org.tools4j.mmap.mapping.api.FixedMutableMapping;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
 
@@ -40,7 +40,7 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFixedMappingLength;
 
-public class FixedMappingImpl implements FixedMapping {
+public final class FixedMappingImpl implements FixedMutableMapping {
     private final FileMapper fileMapper;
     private final boolean closeFileMapperOnClose;
     private final int fileSize;

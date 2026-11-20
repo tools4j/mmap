@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
@@ -50,15 +49,6 @@ class OpenModesTest {
     @TempDir
     Path tempDir;
 
-    @Test
-    void accessMode() {
-        for (final OpenMode openMode : OpenMode.values()) {
-            final boolean readOnly = openMode == OpenMode.READ_ONLY || openMode == OpenMode.READ_ONLY_LAZY;
-            final AccessMode expected = readOnly ? AccessMode.READ_ONLY : AccessMode.READ_WRITE;
-            assertEquals(expected, openMode.accessMode(), openMode.toString());
-        }
-    }
-
     @ParameterizedTest(name = "rollFiles={0}")
     @ValueSource(booleans = {false, true})
     void readOnlyLazyAndOpenOrCreateAcceptMissingFileWithoutCreatingIt(final boolean rollFiles) {
@@ -72,21 +62,19 @@ class OpenModesTest {
     @ValueSource(booleans = {false, true})
     void readOnlyAndReadWriteRequireExistingFile(final boolean rollFiles) throws IOException {
         final File file = file("data.map");
-        for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
-            assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, openMode, rollFiles));
-        }
+        assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, OpenMode.READ_ONLY, rollFiles));
+        assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, OpenMode.READ_WRITE, rollFiles));
         createFiles(rollFiles ? "data_0.map" : "data.map");
-        for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
-            assertDoesNotThrow(() -> OpenModes.apply(file, openMode, rollFiles));
-        }
+        assertDoesNotThrow(() -> OpenModes.apply(file, OpenMode.READ_ONLY, rollFiles));
+        assertDoesNotThrow(() -> OpenModes.apply(file, OpenMode.READ_WRITE, rollFiles));
     }
 
     @Test
     void readOnlyAndReadWriteOfRollingFilesRequireFirstFile() throws IOException {
         createFiles("data_3.map");
-        for (final OpenMode openMode : new OpenMode[] {OpenMode.READ_ONLY, OpenMode.READ_WRITE}) {
-            assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file("data.map"), openMode, true));
-        }
+        final File file = file("data.map");
+        assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, OpenMode.READ_ONLY, true));
+        assertThrows(IllegalArgumentException.class, () -> OpenModes.apply(file, OpenMode.READ_WRITE, true));
     }
 
     @Test

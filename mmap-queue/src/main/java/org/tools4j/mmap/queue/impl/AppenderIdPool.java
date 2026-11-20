@@ -30,8 +30,8 @@ import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.concurrent.AtomicIdBitSet;
 import org.tools4j.mmap.core.config.CoreConfigurations;
 import org.tools4j.mmap.core.internal.Closeables;
-import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.MutableMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.config.QueueConfigurations;
 
@@ -54,7 +54,7 @@ public final class AppenderIdPool implements Closeable, Describable {
     public static final int MAX_IDS = 1 << Byte.SIZE;
     public static final int FILE_SIZE = MAX_IDS / Byte.SIZE;
     private final String name;
-    private final Mapping mapping;
+    private final MutableMapping mapping;
     private final LifecycleListener lifecycleListener;
     private final AtomicIdBitSet ids;
     private int acquiredWhenClosed;//only used for describe string after close
@@ -85,11 +85,11 @@ public final class AppenderIdPool implements Closeable, Describable {
                           final int maxIds,
                           final LifecycleListener lifecycleListener,
                           final ErrorListener errorListener) {
-        this(file.getPath(), Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE, lifecycleListener,
-                errorListener), maxIds, lifecycleListener);
+        this(file.getPath(), Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0L, FILE_SIZE,
+                lifecycleListener, errorListener), maxIds, lifecycleListener);
     }
 
-    public AppenderIdPool(final String name, final Mapping mapping) {
+    public AppenderIdPool(final String name, final MutableMapping mapping) {
         this(name, mapping, MAX_IDS);
     }
 
@@ -101,7 +101,7 @@ public final class AppenderIdPool implements Closeable, Describable {
      * @param mapping   the mapping of {@link #FILE_SIZE} bytes
      * @param maxIds    the max IDs of this pool, only IDs below this value are acquired
      */
-    public AppenderIdPool(final String name, final Mapping mapping, final int maxIds) {
+    public AppenderIdPool(final String name, final MutableMapping mapping, final int maxIds) {
         this(name, mapping, maxIds, QueueConfigurations.defaultLifecycleListener());
     }
 
@@ -115,7 +115,7 @@ public final class AppenderIdPool implements Closeable, Describable {
      * @param lifecycleListener the listener notified when the pool is opened and closed
      */
     public AppenderIdPool(final String name,
-                          final Mapping mapping,
+                          final MutableMapping mapping,
                           final int maxIds,
                           final LifecycleListener lifecycleListener) {
         this.mapping = requireNonNull(mapping);

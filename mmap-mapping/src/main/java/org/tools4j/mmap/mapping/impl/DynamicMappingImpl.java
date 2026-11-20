@@ -28,7 +28,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
@@ -42,7 +42,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePosition;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
-public final class DynamicMappingImpl implements DynamicMapping {
+public final class DynamicMappingImpl implements DynamicMutableMapping {
     private final RegionMapper regionMapper;
     private final boolean closeRegionMapperOnClose;
     private final RegionMetrics regionMetrics;

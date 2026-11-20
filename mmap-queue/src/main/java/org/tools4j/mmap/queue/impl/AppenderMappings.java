@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.core.base.Closeable;
-import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
@@ -50,14 +50,14 @@ interface AppenderMappings extends Closeable {
      *
      * @return header region
      */
-    DynamicMapping header();
+    DynamicMutableMapping header();
 
     /**
      * Returns the payload region mapping.
      *
      * @return payload region
      */
-    DynamicMapping payload();
+    DynamicMutableMapping payload();
 
     /**
      * Returns true if the previous payload region is still mapped after moving to the next region: the region cache
@@ -98,9 +98,9 @@ interface AppenderMappings extends Closeable {
             final MappingConfig payloadCfg = payloadMappingConfig(queueCfg, appenderCfg);
             //NOTE: checked before the payload mapping is created, which may create the file
             final boolean payloadFileExisted = queueFiles.firstPayloadFile(appenderId, payloadCfg.rollFiles()).exists();
-            final DynamicMapping header = Mappings.dynamicMapping(queueFiles.headerFile(), OpenMode.OPEN_OR_CREATE,
-                    headerCfg);
-            final DynamicMapping payload = Mappings.dynamicMapping(queueFiles.payloadFile(appenderId),
+            final DynamicMutableMapping header = Mappings.dynamicMutableMapping(queueFiles.headerFile(),
+                    OpenMode.OPEN_OR_CREATE, headerCfg);
+            final DynamicMutableMapping payload = Mappings.dynamicMutableMapping(queueFiles.payloadFile(appenderId),
                     OpenMode.OPEN_OR_CREATE, payloadCfg);
             final boolean keepsPreviousPayloadRegionMapped = QueueMappingConfigs.keepsPreviousRegionMapped(payloadCfg);
 
@@ -110,12 +110,12 @@ interface AppenderMappings extends Closeable {
             }
 
             @Override
-            public DynamicMapping header() {
+            public DynamicMutableMapping header() {
                 return header;
             }
 
             @Override
-            public DynamicMapping payload() {
+            public DynamicMutableMapping payload() {
                 return payload;
             }
 

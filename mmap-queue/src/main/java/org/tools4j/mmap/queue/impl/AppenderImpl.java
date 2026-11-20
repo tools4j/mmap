@@ -31,6 +31,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
@@ -51,8 +52,8 @@ final class AppenderImpl implements Appender, Describable {
     private final String queueName;
     private final AppenderMappings mappings;
     private final int appenderId;
-    private final DynamicMapping header;
-    private final DynamicMapping payload;
+    private final DynamicMutableMapping header;
+    private final DynamicMutableMapping payload;
     private final AppendingContextImpl context;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
@@ -187,7 +188,7 @@ final class AppenderImpl implements Appender, Describable {
 
     private long appendEntry(final long payloadPosition, final int payloadLength) {
         checkNotClosed();
-        final DynamicMapping hdr = header;
+        final DynamicMutableMapping hdr = header;
         final MutableMemoryBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
@@ -255,7 +256,7 @@ final class AppenderImpl implements Appender, Describable {
     private static final class AppendingContextImpl implements AppendingContext {
         static final int MIN_COPY_BUFFER_CAPACITY = 4096;
         final AppenderImpl appender;
-        final DynamicMapping payload;
+        final DynamicMutableMapping payload;
         final int maxEntrySize;
         final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         int maxLength = -1;
@@ -287,7 +288,7 @@ final class AppenderImpl implements Appender, Describable {
 
         private int initPayloadBuffer(final long lastOwnHeader, final int lastOwnPayloadLen, final int capacity) {
             assert capacity >= 0 && capacity <= maxEntrySize;
-            final DynamicMapping pld = payload;
+            final DynamicMutableMapping pld = payload;
             final int minRequired = capacity + Integer.BYTES;
             final long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
                     Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), lastOwnPayloadLen);
@@ -323,7 +324,7 @@ final class AppenderImpl implements Appender, Describable {
             }
             validateCapacity(capacity);
             final int minRequired = capacity + Integer.BYTES;
-            final DynamicMapping pld = payload;
+            final DynamicMutableMapping pld = payload;
             if (pld.bytesAvailable() < minRequired) {
                 if (max == 0) {
                     //nothing to copy
@@ -370,7 +371,7 @@ final class AppenderImpl implements Appender, Describable {
             maxLength = -1;
             buffer.unwrap();
             validateLength(length, max);
-            final DynamicMapping pld = payload;
+            final DynamicMutableMapping pld = payload;
             pld.buffer().putInt(0, length);
             return appender.appendEntry(pld.position(), length + Integer.BYTES);
         }

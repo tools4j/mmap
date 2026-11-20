@@ -17,9 +17,20 @@ Notable changes per release. Entries are curated from the commits since the prev
   with the region arithmetic of `regionMetrics()` if needed. `DynamicMapping` and `MappingPool` no longer extend
   `RegionAware`: the region size is `regionMetrics().regionSize()`. `maxLength()` is renamed to
   `maxLengthAtCurrentPosition()`.
-- Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `Mapping.buffer()` and
-  `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Entry.buffer()` and the buffer passed to
-  `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces
+- Mappings for reading only and mutable mappings are separate types: `Mapping`, `FixedMapping`, `DynamicMapping` and
+  `MappingPool` are for reading only, `Mapping.buffer()` returning a `MemoryBuffer`, and the new `MutableMapping`,
+  `FixedMutableMapping`, `DynamicMutableMapping` and `MutableMappingPool` extend them for writing, `buffer()`
+  returning a `MutableMemoryBuffer`. `Mappings.fixedMutableMapping(..)`, `dynamicMutableMapping(..)` and
+  `mutableMappingPool(..)` create the mutable ones. The `@Unsafe` factories taking a `FileMapper` or `RegionMapper`
+  are removed from `Mappings`. `OpenMode` is now a sealed interface over the new enums
+  `ReadOnlyOpenMode` (`READ_ONLY`, `READ_ONLY_LAZY`) and `ReadWriteOpenMode` (`READ_WRITE`, `CREATE`,
+  `OPEN_OR_CREATE`, `RECREATE`), whose constants it also defines, so that `OpenMode.READ_ONLY` and the others still
+  work; the mapping factories take the enum of their kind, so that a mutable mapping of a file opened for reading only,
+  or the reverse, does not compile. `Queue.open(..)` still takes any `OpenMode`. As `OpenMode` is no longer an enum,
+  `OpenMode.values()` and `valueOf(..)` are gone, and switches need the enum types.
+- Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `MutableMapping.buffer()` and
+  `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Mapping.buffer()`, `Entry.buffer()` and the buffer
+  passed to `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces
   `append(DirectBuffer, int, int)`. The buffers of read-only mappings are read-only: writes throw
   `ReadOnlyBufferException` instead of failing in the JVM. The buffers are little endian, the native byte order that
   Agrona's used on the usual platforms, so the file format is unchanged there.

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
@@ -57,8 +57,8 @@ class DynamicMappingDefaultMethodsTest {
                 .rollFiles(false)
                 .maxFileSize((long) REGIONS * REGION_SIZE)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync());
-        implementation = Mappings.dynamicMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE,
-                config);
+        implementation = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(),
+                OpenMode.OPEN_OR_CREATE, config);
         mapping = new AbstractMethodsOnlyDynamicMapping(implementation);
     }
 
@@ -144,7 +144,7 @@ class DynamicMappingDefaultMethodsTest {
         }
 
         @Override
-        public MutableMemoryBuffer buffer() {
+        public MemoryBuffer buffer() {
             return delegate.buffer();
         }
 
