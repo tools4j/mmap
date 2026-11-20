@@ -29,7 +29,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.internal.Closeables;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.api.EntryReader;
 import org.tools4j.mmap.queue.api.Index;
 import org.tools4j.mmap.queue.api.ReadingContext;
@@ -65,14 +65,14 @@ final class EntryReaderImpl implements EntryReader, Describable {
     @Override
     public long lastIndex() {
         checkNotClosed();
-        final ElasticMapping header = mappings.header();
+        final DynamicMapping header = mappings.header();
         return header != null ? Headers.binarySearchLastIndex(header, Index.FIRST) : Index.NULL;
     }
 
     @Override
     public boolean hasEntry(final long index) {
         checkNotClosed();
-        final ElasticMapping header = mappings.header();
+        final DynamicMapping header = mappings.header();
         return header != null && Headers.hasNonEmptyHeaderAt(header, index);
     }
 
@@ -150,7 +150,7 @@ final class EntryReaderImpl implements EntryReader, Describable {
         }
 
         private long initPayloadBuffer(final long index) {
-            final ElasticMapping header = mappings.header();
+            final DynamicMapping header = mappings.header();
             if (header == null) {
                 return Index.NULL;
             }
@@ -162,8 +162,8 @@ final class EntryReaderImpl implements EntryReader, Describable {
             }
             final int appenderId = Headers.appenderId(hdr);
             final long position = Headers.payloadPosition(hdr);
-            final ElasticMapping payload = mappings.payload(appenderId);
-            if (!payload.moveTo(position)) {
+            final DynamicMapping payload = mappings.payload(appenderId);
+            if (!payload.moveTo(position, DynamicMapping.STRETCH_LENGTH)) {
                 throw payloadMoveException(reader, appenderId, position);
             }
             final int size = payload.buffer().getInt(0);

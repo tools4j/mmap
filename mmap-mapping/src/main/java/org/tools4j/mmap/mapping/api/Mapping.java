@@ -24,8 +24,8 @@
 package org.tools4j.mmap.mapping.api;
 
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
-import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
@@ -37,25 +37,26 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  * <ul>
  *     <li>{@link FixedMapping}:   A mapping that has arbitrary start and end position, but both are fixed for the
  *                                 lifetime of the mapping.</li>
- *     <li>{@link DynamicMapping}: A mapping that can be moved to map different slices from the underlying file. The
- *                                 mapping operation always maps a whole region into memory of a predefined <i>region
- *                                 size</i> (typically powers of two). The dynamic mapping provides access to the mapped
- *                                 region or a slice of it, depending on the subtype:<ul>
- *         <li>{@link RegionMapping}:   A dynamic mapping that always maps the whole region. As a consequence, move
- *                                      operations are only permitted to positions that are multiples of the region
- *                                      size.</li>
- *         <li>{@link ElasticMapping}:  A dynamic mapping that starts at an offset from the region start
- *                                      position and spans all bytes until the end of that region.</li>
- *         <li>{@link AdaptiveMapping}: A dynamic mapping of an arbitrary slice of the region. Adaptive mappings start
- *                                      at an offset of the region and span a slice that is no longer than the remaining
- *                                      bytes from that region. In other words, the mapped slice can map any slice of
- *                                      the file (including zero length slices) as long as it does not cross region
- *                                      boundaries.</li>
- *     </ul></li>
+ *     <li>{@link DynamicMapping}: A mapping of a slice of the file that can be moved to other slices. The file is
+ *                                 mapped in regions of a predefined <i>region size</i> (typically powers of two), and
+ *                                 a slice can be of any length from zero up to the end of the region its position
+ *                                 lies in.</li>
  * </ul>
  * <p>
- * Use one of the static factory methods in {@link Mappings}, or the acquire methods of a {@link MappingPool}, to
- * create mapping instances.
+ * Each subtype comes in read and read/write variants:
+ * <ul>
+ *     <li>{@link Mapping} &rarr; {@link FixedMapping}, {@link DynamicMapping}.<p>
+ *         Provides read access to the file data through a {@link MemoryBuffer}, for files opened with a
+ *         {@link ReadOnlyOpenMode}.</li>
+ *     <li>{@link MutableMapping} &rarr; {@link FixedMutableMapping}, {@link DynamicMutableMapping}.<p>
+ *         Provides read and write access to the file data through a
+ *         {@link org.tools4j.mmap.core.buffer.MutableMemoryBuffer MutableMemoryBuffer}, for files opened with a
+ *         {@link ReadWriteOpenMode}. A mutable mapping can be used wherever a mapping for reading only is
+ *         expected.</li>
+ * </ul>
+ * <p>
+ * Use one of the static factory methods in {@link Mappings}, or {@link MappingPool#acquireMapping()}, to create
+ * mapping instances.
  */
 public interface Mapping extends Closeable {
     /**
@@ -89,7 +90,7 @@ public interface Mapping extends Closeable {
 
     /**
      * Returns the number of bytes available via {@linkplain #buffer() buffer} which is equal to the buffer's
-     * {@linkplain MutableMemoryBuffer#capacity() capacity}.
+     * {@linkplain MemoryBuffer#capacity() capacity}.
      *
      * @return the number of bytes available via buffer, zero if not {@linkplain #isMapped() mapped}
      */
@@ -112,22 +113,22 @@ public interface Mapping extends Closeable {
      * {@code file[position() + i]} in the mapped file.
      * <p>
      * If the mapping is not ready for data access, the returned buffer will have zero
-     * {@linkplain MutableMemoryBuffer#capacity() capacity}. The buffer of a {@link AccessMode#READ_ONLY read-only}
-     * mapping is {@linkplain MutableMemoryBuffer#isReadOnly() read-only}: writes throw
-     * {@link java.nio.ReadOnlyBufferException}.
+     * {@linkplain MemoryBuffer#capacity() capacity}. The buffer of a {@link AccessMode#READ_ONLY read-only}
+     * mapping is {@linkplain MemoryBuffer#isReadOnly() read-only}.
      * <p>
      * <br>
      * <b>NOTE:</b> The returned buffer follows this mapping: it is re-wrapped when the mapping moves, so it is always
      * safe to use, but then accesses the data at the new position, or none (zero capacity) once the mapping is
      * closed or not mapped. A flyweight wrapping it, or a range of it, through
-     * {@link MemoryBufferFlyweight#wrap(org.tools4j.mmap.core.buffer.MemoryBuffer) MemoryBufferFlyweight.wrap(..)},
+     * {@link MemoryBufferFlyweight#wrap(MemoryBuffer) MemoryBufferFlyweight.wrap(..)},
      * does not: it keeps accessing the memory mapped when it was wrapped, which is unmapped when this mapping is
      * {@link #close() closed} or {@link DynamicMapping#moveTo(long) moved} to a new position, and accessing it then
      * could crash the JVM. Don't keep such a flyweight beyond the next move of this mapping.
      *
-     * @return the buffer to read and/or write mapping data.
+     * @return the buffer to read mapping data
+     * @see MutableMapping#buffer()
      */
-    MutableMemoryBuffer buffer();
+    MemoryBuffer buffer();
 
     /**
      * Returns whether the mapping is mapped to a file block with data available through the buffer.

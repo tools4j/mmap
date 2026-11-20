@@ -24,6 +24,8 @@
 package org.tools4j.mmap.mapping.impl;
 
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.api.ReadOnlyOpenMode;
+import org.tools4j.mmap.mapping.api.ReadWriteOpenMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,14 +47,32 @@ public enum OpenModes {
      * @param file      the file, or the base file of the rolling files
      * @param openMode  the open mode
      * @param rollFiles true if the file is the base file of rolling files
+     * @throws IllegalArgumentException if the file must exist but does not
+     */
+    public static void apply(final File file, final ReadOnlyOpenMode openMode, final boolean rollFiles) {
+        switch (openMode) {
+            case READ_ONLY -> requireExists(firstFile(file, rollFiles));
+            case READ_ONLY_LAZY -> {}
+            default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
+        }
+    }
+
+    /**
+     * Applies the open mode to the given file, or to all rolling files of the given base file. Whether rolling files
+     * exist is determined by the first rolling file alone, as rolling files are never deleted individually; a set of
+     * rolling files whose first file was deleted is not supported.
+     *
+     * @param file      the file, or the base file of the rolling files
+     * @param openMode  the open mode
+     * @param rollFiles true if the file is the base file of rolling files
      * @throws IllegalArgumentException if the file must exist but does not, must not exist but does, or cannot be
      *                                  created or deleted
      */
-    public static void apply(final File file, final OpenMode openMode, final boolean rollFiles) {
+    public static void apply(final File file, final ReadWriteOpenMode openMode, final boolean rollFiles) {
         switch (openMode) {
-            case READ_ONLY_LAZY, OPEN_OR_CREATE -> {}
-            case READ_ONLY, READ_WRITE -> requireExists(firstFile(file, rollFiles));
+            case READ_WRITE -> requireExists(firstFile(file, rollFiles));
             case CREATE -> create(firstFile(file, rollFiles));
+            case OPEN_OR_CREATE -> {}
             case RECREATE -> delete(file, rollFiles);
             default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
         }

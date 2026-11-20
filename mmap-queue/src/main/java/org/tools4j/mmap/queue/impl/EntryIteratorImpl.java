@@ -29,7 +29,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.internal.Closeables;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.api.Entry;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.Index;
@@ -155,7 +155,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             if (index < Index.LAST) {
                 throw invalidIndexException(iterator.iteratorName(), index);
             }
-            final ElasticMapping header = mappings.header();
+            final DynamicMapping header = mappings.header();
             final long lastIndex = header != null ?
                     Headers.binarySearchLastIndex(header, Math.max(maxIndex, Index.FIRST)) : Index.NULL;
             return lastIndex != Index.NULL ? (index == Index.LAST ? lastIndex : lastIndex + 1) : Index.FIRST;
@@ -218,7 +218,7 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             if (hdr != NULL_HEADER) {
                 return true;
             }
-            final ElasticMapping header = mappings.header();
+            final DynamicMapping header = mappings.header();
             hdr = header != null ? Headers.moveAndGetHeader(header, next) : NULL_HEADER;
             if (hdr != NULL_HEADER) {
                 updateMaxIndex(next);
@@ -253,8 +253,8 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             }
             final int appenderId = Headers.appenderId(hdr);
             final long position = Headers.payloadPosition(hdr);
-            final ElasticMapping payload = mappings.payload(appenderId);
-            if (!payload.moveTo(position)) {
+            final DynamicMapping payload = mappings.payload(appenderId);
+            if (!payload.moveTo(position, DynamicMapping.STRETCH_LENGTH)) {
                 throw payloadMoveException(iterator, appenderId, position);
             }
             final int size = payload.buffer().getInt(0);

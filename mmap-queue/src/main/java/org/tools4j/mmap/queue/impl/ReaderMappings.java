@@ -24,7 +24,7 @@
 package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.core.base.Closeable;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.queue.config.IndexReaderConfig;
@@ -48,7 +48,7 @@ interface ReaderMappings extends Closeable {
      *
      * @return header region, or null if the queue does not exist yet
      */
-    ElasticMapping header();
+    DynamicMapping header();
 
     /**
      * Returns the payload region mapping for the given appender. Must only be invoked after reading a header with a
@@ -57,7 +57,7 @@ interface ReaderMappings extends Closeable {
      * @param appenderId appender id
      * @return payload region
      */
-    ElasticMapping payload(int appenderId);
+    DynamicMapping payload(int appenderId);
 
     /**
      * Factory method for reader mappings of pollers, entry readers and entry iterators.

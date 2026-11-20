@@ -21,20 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.tools4j.mmap.mapping.api.AdaptiveMapping;
-import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
-import org.tools4j.mmap.mapping.unsafe.RegionMapper;
+package org.tools4j.mmap.mapping.api;
 
 /**
- * {@link FindAndBinarySearchTest} for {@link AdaptiveMapping} and {@link AdaptiveMappingImpl}.
+ * A {@link DynamicMapping} giving read and write access to the file data, a {@link MutableMapping}.
+ * <p>
+ * The {@link Mapping} documentation provides an overview of the different mapping types.
  */
-class FindAndBinarySearchAdaptiveMappingTest extends FindAndBinarySearchTest {
-    @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper) {
-        return Mappings.adaptiveMapping(regionMapper, true);
-    }
+public interface DynamicMutableMapping extends DynamicMapping, MutableMapping {
+    //nothing to add
 }

@@ -37,9 +37,9 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FileMappers;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -56,9 +56,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
- * The cost of an elastic mapping moving to another region, all regions cached so that no region is actually mapped,
- * with the call from the mapping into its region mapper seeing one region mapper class, or three as soon as an
- * application uses several mapping strategies.
+ * The cost of a dynamic mapping moving to another region, mapping all bytes to the region end as the queue does, all
+ * regions cached so that no region is actually mapped, with the call from the mapping into its region mapper seeing
+ * one region mapper class, or three as soon as an application uses several mapping strategies.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -72,7 +72,7 @@ public class RegionCrossingBenchmark {
     private static final int CACHE_SIZE = 8;
     private static final int POLLUTION_ROUNDS = 200_000;
 
-    /** Which region mapper classes the elastic mappings' calls into their region mappers see. */
+    /** Which region mapper classes the dynamic mappings' calls into their region mappers see. */
     public enum Profile {
         /** Only the ring cache region mapper measured */
         MONOMORPHIC,
@@ -83,20 +83,20 @@ public class RegionCrossingBenchmark {
     @Param({"MONOMORPHIC", "MEGAMORPHIC"})
     public Profile profile;
 
-    private final List<ElasticMapping> mappings = new ArrayList<>();
+    private final List<DynamicMapping> mappings = new ArrayList<>();
     private Path directory;
-    private ElasticMapping mapping;
+    private DynamicMapping mapping;
     private int region;
 
     @Setup(Level.Trial)
     public void setup() throws IOException {
         directory = Files.createTempDirectory("region-crossing");
-        mapping = elasticMapping("ring", fileMapper -> RegionMappers.createSyncRegionMapper(fileMapper, REGION_SIZE,
+        mapping = dynamicMapping("ring", fileMapper -> RegionMappers.createSyncRegionMapper(fileMapper, REGION_SIZE,
                 CACHE_SIZE, 0, true));
         if (profile == Profile.MEGAMORPHIC) {
-            final ElasticMapping lru = elasticMapping("lru", fileMapper -> RegionMappers.createSyncRegionMapper(
+            final DynamicMapping lru = dynamicMapping("lru", fileMapper -> RegionMappers.createSyncRegionMapper(
                     fileMapper, REGION_SIZE, 1, CACHE_SIZE, true));
-            final ElasticMapping refCount = elasticMapping("ref-count", fileMapper ->
+            final DynamicMapping refCount = dynamicMapping("ref-count", fileMapper ->
                     RegionMappers.createRefCountRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper,
                             REGION_SIZE, CACHE_SIZE, 0, true), CACHE_SIZE));
             for (int i = 0; i < POLLUTION_ROUNDS; i++) {
@@ -112,7 +112,7 @@ public class RegionCrossingBenchmark {
         RegionMapper create(FileMapper fileMapper);
     }
 
-    private ElasticMapping elasticMapping(final String name, final RegionMapperFactory factory) {
+    private DynamicMapping dynamicMapping(final String name, final RegionMapperFactory factory) {
         final File file = directory.resolve(name + ".map").toFile();
         final MappingConfig config = MappingConfig.configure()
                 .regionSize(REGION_SIZE)
@@ -120,28 +120,28 @@ public class RegionCrossingBenchmark {
                 .expandFile(false)
                 .rollFiles(false)
                 .toImmutableConfig();
-        final ElasticMapping elasticMapping = Mappings.elasticMapping(
+        final DynamicMapping dynamicMapping = new DynamicMappingImpl(
                 factory.create(FileMappers.create(file, AccessMode.READ_WRITE, config)), true);
-        mappings.add(elasticMapping);
+        mappings.add(dynamicMapping);
         for (int i = 0; i < REGIONS; i++) {
-            move(elasticMapping, position(i));//maps each region once, cached from then on
+            move(dynamicMapping, position(i));//maps each region once, cached from then on
         }
-        return elasticMapping;
+        return dynamicMapping;
     }
 
     private static long position(final int region) {
         return (long) (region & (REGIONS - 1)) * REGION_SIZE + 64;
     }
 
-    private static void move(final ElasticMapping mapping, final long position) {
-        if (!mapping.moveTo(position)) {
+    private static void move(final DynamicMapping mapping, final long position) {
+        if (!mapping.moveTo(position, DynamicMapping.STRETCH_LENGTH)) {
             throw new IllegalStateException("Mapping " + mapping + " not moved to position " + position);
         }
     }
 
     @TearDown(Level.Trial)
     public void tearDown() throws IOException {
-        mappings.forEach(ElasticMapping::close);
+        mappings.forEach(DynamicMapping::close);
         try (final Stream<Path> paths = Files.walk(directory)) {
             for (final Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
                 Files.delete(path);

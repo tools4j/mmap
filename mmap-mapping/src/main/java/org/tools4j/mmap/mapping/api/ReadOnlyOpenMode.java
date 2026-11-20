@@ -21,19 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
-import org.tools4j.mmap.mapping.unsafe.RegionMapper;
+package org.tools4j.mmap.mapping.api;
 
 /**
- * {@link FindAndBinarySearchTest} for {@link ElasticMapping} and {@link ElasticMappingImpl}.
+ * The {@link OpenMode open modes} for reading only, also defined as constants of {@link OpenMode}.
  */
-class FindAndBinarySearchElasticMappingTest extends FindAndBinarySearchTest {
+public enum ReadOnlyOpenMode implements OpenMode {
+    /**
+     * Opens for reading only, which must exist.
+     */
+    READ_ONLY,
+    /**
+     * Opens for reading only, which may not exist yet. A mapping becomes available once its file is created, and a
+     * queue's entries once the queue is created and they are appended.
+     */
+    READ_ONLY_LAZY;
+
+    /**
+     * Returns {@link AccessMode#READ_ONLY READ_ONLY}.
+     *
+     * @return the read-only access mode
+     */
     @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper) {
-        return Mappings.elasticMapping(regionMapper, true);
+    public AccessMode accessMode() {
+        return AccessMode.READ_ONLY;
     }
 }

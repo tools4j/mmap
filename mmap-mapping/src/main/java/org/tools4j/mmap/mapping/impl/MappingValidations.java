@@ -23,7 +23,6 @@
  */
 package org.tools4j.mmap.mapping.impl;
 
-import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import static org.tools4j.mmap.core.internal.PowersOfTwo.isPowerOfTwo;
 import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
@@ -53,32 +52,10 @@ public enum MappingValidations {
         }
     }
 
-    public static void validatePosition(final long position, final long positionStepSize) {
-        assert isPowerOfTwo(positionStepSize);
-        if (position < 0 || 0 != (position & (positionStepSize - 1))) {
-            throw new IllegalArgumentException("Invalid position " + position +
-                    " for mapping with position step size " + positionStepSize);
-        }
-    }
-
-    public static void validateRegionPosition(final long position, final RegionMetrics regionMetrics) {
-        validateRegionPosition(position, regionMetrics.regionSize());
-    }
-
     public static void validateRegionPosition(final long position, final int regionSize) {
         assert isPowerOfTwo(regionSize);
         if (position < 0 || 0 != (position & (regionSize - 1))) {
             throw new IllegalArgumentException("Invalid region position " + position + " for region size " + regionSize);
-        }
-    }
-
-    public static void validateRegionOffset(final int offset, final RegionMetrics regionMetrics) {
-        validateRegionOffset(offset, regionMetrics.regionSize());
-    }
-
-    public static void validateRegionOffset(final int offset, final int regionSize) {
-        if (offset < 0 || offset >= regionSize) {
-            throw new IllegalArgumentException("Invalid region offset " + offset + " for region size " + regionSize);
         }
     }
 
@@ -89,20 +66,10 @@ public enum MappingValidations {
         }
     }
 
-    public static void validatePositionDelta(final long position, final long delta, final long positionStepSize) {
-        assert position >= 0;
-        assert isPowerOfTwo(positionStepSize);
-        final long pos = position + delta;
-        if (pos < 0 || 0 != (pos & (positionStepSize - 1))) {
-            throw new IllegalArgumentException("Invalid position delta " + delta + " from start position " + position +
-                    " for mapping with position step size " + positionStepSize);
-        }
-    }
-
     public static void validateLimit(final long position, final long limit, final int maxLength) {
         if (position > limit || (limit - position) > maxLength) {
             throw new IllegalArgumentException("Invalid limit " + limit + " for position " + position +
-                    " and adaptive mapping with max-length " + maxLength);
+                    " and mapping with max length " + maxLength);
         }
     }
 
@@ -112,10 +79,16 @@ public enum MappingValidations {
                     " and file size " + fileSize);
         }
     }
-    public static void validateAdaptiveMappingLength(final int length, final int maxLength) {
-        if (length < 0 || length > maxLength) {
-            throw new IllegalArgumentException("Invalid length " + length + " for adaptive mapping with max-length " +
-                    maxLength);
+
+    /** Validates a requested length, the explicit length argument of a move or the length kept from previous ones */
+    public static void validateMappingLength(final long position, final int length, final int maxLength) {
+        if (length < 0) {
+            throw new IllegalArgumentException("Invalid length " + length +
+                    ", must be non-negative or STRETCH_LENGTH (-1)");
+        }
+        if (length > maxLength) {
+            throw new IllegalArgumentException("Requested length " + length + " exceeds max length " + maxLength +
+                    " at position " + position);
         }
     }
 

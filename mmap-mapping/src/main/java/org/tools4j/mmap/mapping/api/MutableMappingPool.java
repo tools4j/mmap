@@ -21,20 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.tools4j.mmap.mapping.impl;
-
-import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
-import org.tools4j.mmap.mapping.api.RegionMapping;
-import org.tools4j.mmap.mapping.unsafe.RegionMapper;
+package org.tools4j.mmap.mapping.api;
 
 /**
- * {@link FindAndBinarySearchTest} for {@link RegionMapping} and {@link RegionMappingImpl}.
+ * A {@link MappingPool} providing {@link DynamicMutableMapping mutable mappings}, giving read and write access to the
+ * file data.
  */
-class FindAndBinarySearchRegionMappingTest extends FindAndBinarySearchTest {
+public interface MutableMappingPool extends MappingPool {
+    /**
+     * Acquires and returns a new {@link DynamicMutableMapping}, released back to the pool when it is closed.
+     *
+     * @return a new dynamic mutable mapping instance
+     */
     @Override
-    DynamicMapping createMapping(final RegionMapper regionMapper) {
-        return Mappings.regionMapping(regionMapper, true);
-    }
+    DynamicMutableMapping acquireMapping();
 }

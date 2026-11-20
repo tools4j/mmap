@@ -24,7 +24,8 @@ The project has three library modules, and a benchmark:
 ### Quick start
 Map a block of a file and write to it, through the mapping's buffer:
 ```java
-try (FixedMapping mapping = Mappings.fixedMapping(new File("/tmp/fixed.map"), OpenMode.OPEN_OR_CREATE, 0, 64)) {
+File file = new File("/tmp/fixed.map");
+try (MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0, 64)) {
     mapping.buffer().putInt(0, 42);
 }
 ```

@@ -23,58 +23,56 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * Defines how a file, or a queue, is opened: with which {@linkplain #accessMode() access mode}, and what happens if it
  * does or does not exist yet.
  * <p>
+ * The open modes are the constants of {@link ReadOnlyOpenMode} and {@link ReadWriteOpenMode}, which are also defined
+ * here, each typed by its enum, so that {@code OpenMode.READ_ONLY} can be passed where a {@link ReadOnlyOpenMode} is
+ * expected, for instance to create a read-only mapping, and {@code OpenMode.CREATE} where a {@link ReadWriteOpenMode}
+ * is expected, for instance to create a mutable mapping.
+ * <p>
  * For a mapping, the file exists if the mapped file exists, or for rolling files any of them. For a queue, the
  * queue exists if it has been created before, even if it is still empty.
  */
-public enum OpenMode {
+public sealed interface OpenMode permits ReadOnlyOpenMode, ReadWriteOpenMode {
+    //NOTE: no default methods, they would initialise this interface when the enums are initialised, before its
+    //      constants are assigned, see JLS 12.4.1 and 12.4.2
+
     /**
      * Opens for reading only, which must exist.
      */
-    READ_ONLY(AccessMode.READ_ONLY),
+    ReadOnlyOpenMode READ_ONLY = ReadOnlyOpenMode.READ_ONLY;
     /**
      * Opens for reading only, which may not exist yet. A mapping becomes available once its file is created, and a
      * queue's entries once the queue is created and they are appended.
      */
-    READ_ONLY_LAZY(AccessMode.READ_ONLY),
+    ReadOnlyOpenMode READ_ONLY_LAZY = ReadOnlyOpenMode.READ_ONLY_LAZY;
     /**
      * Opens for reading and writing, which must exist.
      */
-    READ_WRITE(AccessMode.READ_WRITE),
+    ReadWriteOpenMode READ_WRITE = ReadWriteOpenMode.READ_WRITE;
     /**
      * Creates for reading and writing, which must not exist yet.
      */
-    CREATE(AccessMode.READ_WRITE),
+    ReadWriteOpenMode CREATE = ReadWriteOpenMode.CREATE;
     /**
      * Opens for reading and writing if it exists, and creates it otherwise.
      */
-    OPEN_OR_CREATE(AccessMode.READ_WRITE),
+    ReadWriteOpenMode OPEN_OR_CREATE = ReadWriteOpenMode.OPEN_OR_CREATE;
     /**
      * Deletes if it exists, and creates it again for reading and writing.
      * <p>
      * <b>NOTE:</b> must only be used if no one else has it open. On POSIX systems, deleted files stay mapped by those
      * still using them, who silently continue with the old content, while new users get the new content.
      */
-    RECREATE(AccessMode.READ_WRITE);
-
-    private final AccessMode accessMode;
-
-    OpenMode(final AccessMode accessMode) {
-        this.accessMode = requireNonNull(accessMode);
-    }
+    ReadWriteOpenMode RECREATE = ReadWriteOpenMode.RECREATE;
 
     /**
      * Returns the access mode resulting from opening with this open mode.
      *
-     * @return {@link AccessMode#READ_ONLY READ_ONLY} for {@link #READ_ONLY} and {@link #READ_ONLY_LAZY}, and
-     *         {@link AccessMode#READ_WRITE READ_WRITE} otherwise
+     * @return {@link AccessMode#READ_ONLY READ_ONLY} for {@link ReadOnlyOpenMode} constants, and
+     *         {@link AccessMode#READ_WRITE READ_WRITE} for {@link ReadWriteOpenMode} constants
      */
-    public AccessMode accessMode() {
-        return accessMode;
-    }
+    AccessMode accessMode();
 }

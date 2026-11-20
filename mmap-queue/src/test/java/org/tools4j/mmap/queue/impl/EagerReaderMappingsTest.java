@@ -26,10 +26,10 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Queue;
@@ -39,6 +39,7 @@ import org.tools4j.mmap.queue.config.ReaderConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -70,8 +71,13 @@ class EagerReaderMappingsTest {
                 ReaderConfig.configurePoller());
     }
 
+    static Stream<OpenMode> openModesOtherThanReadOnlyLazy() {
+        return Stream.of(OpenMode.READ_ONLY, OpenMode.READ_WRITE, OpenMode.CREATE, OpenMode.OPEN_OR_CREATE,
+                OpenMode.RECREATE);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, mode = EnumSource.Mode.EXCLUDE, names = "READ_ONLY_LAZY")
+    @MethodSource("openModesOtherThanReadOnlyLazy")
     void eagerMappingsAreCreatedForOpenModesOtherThanReadOnlyLazy(final OpenMode openMode) {
         try (final ReaderMappings mappings = readerMappings(openMode)) {
             assertInstanceOf(EagerReaderMappings.class, mappings);
@@ -88,7 +94,7 @@ class EagerReaderMappingsTest {
     void headerExistsRightAwayAndMovesOnceHeaderFileExists() {
         try (final Queue queue = Queue.open(queueFile(), OpenMode.CREATE, CONFIG);
              final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY)) {
-            final ElasticMapping header = mappings.header();
+            final DynamicMapping header = mappings.header();
             assertSame(header, mappings.header());
             assertFalse(header.moveTo(0), "header file does not exist yet");
             try (final Appender ignored = queue.createAppender()) {
@@ -105,7 +111,7 @@ class EagerReaderMappingsTest {
              final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY)) {
             appender0.append(new byte[8]);
             appender1.append(new byte[8]);
-            final ElasticMapping payload = mappings.payload(0);
+            final DynamicMapping payload = mappings.payload(0);
             assertSame(payload, mappings.payload(0));
             assertNotSame(payload, mappings.payload(1));
         }
@@ -124,8 +130,8 @@ class EagerReaderMappingsTest {
              final Appender appender = queue.createAppender()) {
             appender.append(new byte[8]);
             final ReaderMappings mappings = readerMappings(OpenMode.READ_ONLY);
-            final ElasticMapping header = mappings.header();
-            final ElasticMapping payload = mappings.payload(0);
+            final DynamicMapping header = mappings.header();
+            final DynamicMapping payload = mappings.payload(0);
             mappings.close();
             assertTrue(mappings.isClosed());
             assertTrue(header.isClosed());

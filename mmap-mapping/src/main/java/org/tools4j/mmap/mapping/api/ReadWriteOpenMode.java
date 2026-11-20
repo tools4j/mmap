@@ -23,37 +23,37 @@
  */
 package org.tools4j.mmap.mapping.api;
 
-
-import org.tools4j.mmap.mapping.unsafe.RegionMapper;
-
 /**
- * A region mapping is a {@link DynamicMapping} that always maps a whole region. As a consequence, move operations are
- * only permitted to positions that are multiples of the {@linkplain #regionSize() region size}.
- * <p>
- * Moving to a new position triggers mapping and unmapping operations if necessary which are performed through a
- * {@link RegionMapper}.
- * <p>
- * The {@link Mapping} documentation provides an overview of the different mapping types.
+ * The {@link OpenMode open modes} for reading and writing, also defined as constants of {@link OpenMode}.
  */
-public interface RegionMapping extends DynamicMapping {
+public enum ReadWriteOpenMode implements OpenMode {
     /**
-     * Returns the buffer's offset from the {@linkplain #regionStartPosition() region start position}, which is always
-     * zero for a {@code RegionMapping}.
-     *
-     * @return the offset from the region start position, always zero for a region mapping
+     * Opens for reading and writing, which must exist.
      */
-    default int regionOffset() {
-        return 0;
-    }
+    READ_WRITE,
+    /**
+     * Creates for reading and writing, which must not exist yet.
+     */
+    CREATE,
+    /**
+     * Opens for reading and writing if it exists, and creates it otherwise.
+     */
+    OPEN_OR_CREATE,
+    /**
+     * Deletes if it exists, and creates it again for reading and writing.
+     * <p>
+     * <b>NOTE:</b> must only be used if no one else has it open. On POSIX systems, deleted files stay mapped by those
+     * still using them, who silently continue with the old content, while new users get the new content.
+     */
+    RECREATE;
 
     /**
-     * The step size (or minimum increment) of position values passed to the moveTo(long) method, which is the same as
-     * {@link #regionSize()} for a {@code RegionMapping}.
+     * Returns {@link AccessMode#READ_WRITE READ_WRITE}.
      *
-     * @return the step size for position values, same as region size
+     * @return the read-write access mode
      */
     @Override
-    default int positionStepSize() {
-        return regionSize();
+    public AccessMode accessMode() {
+        return AccessMode.READ_WRITE;
     }
 }

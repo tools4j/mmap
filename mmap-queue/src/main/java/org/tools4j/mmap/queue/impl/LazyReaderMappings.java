@@ -23,7 +23,7 @@
  */
 package org.tools4j.mmap.queue.impl;
 
-import org.tools4j.mmap.mapping.api.ElasticMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.util.function.Function;
@@ -57,12 +57,12 @@ final class LazyReaderMappings implements ReaderMappings {
     }
 
     @Override
-    public ElasticMapping header() {
+    public DynamicMapping header() {
         final ReaderMappings mappings = delegate;
         return mappings != null ? mappings.header() : closed ? null : createDelegateHeader();
     }
 
-    private ElasticMapping createDelegateHeader() {
+    private DynamicMapping createDelegateHeader() {
         final QueueConfig cfg = queueConfig.get();
         if (cfg == null) {
             return null;
@@ -73,7 +73,7 @@ final class LazyReaderMappings implements ReaderMappings {
     }
 
     @Override
-    public ElasticMapping payload(final int appenderId) {
+    public DynamicMapping payload(final int appenderId) {
         //NOTE: payload is mapped only after reading a header, hence the queue exists
         assert delegate != null : "queue must exist";
         return delegate.payload(appenderId);

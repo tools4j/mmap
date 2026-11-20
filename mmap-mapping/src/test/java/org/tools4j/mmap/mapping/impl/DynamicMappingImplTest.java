@@ -27,7 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.tools4j.mmap.mapping.api.AdaptiveMapping;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 
@@ -38,17 +38,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for {@link AdaptiveMappingImpl} length handling, in particular the -1 "to end of region" length.
+ * Unit test for {@link DynamicMappingImpl} length handling, in particular {@link DynamicMapping#STRETCH_LENGTH}.
  */
-class AdaptiveMappingImplTest {
+class DynamicMappingImplTest {
 
-    private AdaptiveMapping mapping;
+    private DynamicMapping mapping;
     private int regionSize;
 
     @BeforeEach
     void init(@TempDir final Path tempDir) {
-        mapping = Mappings.adaptiveMapping(tempDir.resolve("adaptive.map").toFile(), OpenMode.OPEN_OR_CREATE);
-        regionSize = mapping.regionSize();
+        mapping = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE);
+        regionSize = mapping.regionMetrics().regionSize();
     }
 
     @AfterEach
@@ -58,14 +58,14 @@ class AdaptiveMappingImplTest {
 
     @Test
     void moveToWithLengthToEndOfRegion() {
-        assertTrue(mapping.moveTo(100, -1));
+        assertTrue(mapping.moveTo(100, DynamicMapping.STRETCH_LENGTH));
         assertEquals(100, mapping.position());
         assertEquals(regionSize - 100, mapping.length());
 
-        assertTrue(mapping.moveTo(200, -1));
+        assertTrue(mapping.moveTo(200, DynamicMapping.STRETCH_LENGTH));
         assertEquals(regionSize - 200, mapping.length());
 
-        assertTrue(mapping.moveTo(regionSize + 300L, -1));
+        assertTrue(mapping.moveTo(regionSize + 300L, DynamicMapping.STRETCH_LENGTH));
         assertEquals(regionSize + 300L, mapping.position());
         assertEquals(regionSize - 300, mapping.length());
     }
@@ -74,11 +74,11 @@ class AdaptiveMappingImplTest {
     void moveByWithLengthToEndOfRegion() {
         assertTrue(mapping.moveTo(100, 10));
 
-        assertTrue(mapping.moveBy(50, -1));
+        assertTrue(mapping.moveBy(50, DynamicMapping.STRETCH_LENGTH));
         assertEquals(150, mapping.position());
         assertEquals(regionSize - 150, mapping.length());
 
-        assertTrue(mapping.moveBy(regionSize, -1));
+        assertTrue(mapping.moveBy(regionSize, DynamicMapping.STRETCH_LENGTH));
         assertEquals(regionSize + 150L, mapping.position());
         assertEquals(regionSize - 150, mapping.length());
     }
@@ -94,7 +94,20 @@ class AdaptiveMappingImplTest {
     }
 
     @Test
-    void moveByPreservesLengthOrTruncatesItAtRegionEnd() {
+    void movesMapToRegionEndByDefault() {
+        assertTrue(mapping.moveTo(100));
+        assertEquals(regionSize - 100, mapping.length());
+        assertTrue(mapping.moveTo(200));
+        assertEquals(regionSize - 200, mapping.length());
+        assertTrue(mapping.moveBy(regionSize));
+        assertEquals(regionSize + 200L, mapping.position());
+        assertEquals(regionSize - 200, mapping.length());
+        assertTrue(mapping.moveTo(regionSize - 1L));
+        assertEquals(1, mapping.length());
+    }
+
+    @Test
+    void movesKeepRequestedLength() {
         assertThrows(IllegalStateException.class, () -> mapping.moveBy(10));
         assertTrue(mapping.moveTo(100, 10));
 
@@ -102,27 +115,44 @@ class AdaptiveMappingImplTest {
         assertEquals(150, mapping.position());
         assertEquals(10, mapping.length());
 
-        assertTrue(mapping.moveBy(regionSize - 155));
-        assertEquals(regionSize - 5, mapping.position());
-        assertEquals(5, mapping.length());
+        assertTrue(mapping.moveTo(regionSize - 10L));
+        assertEquals(10, mapping.length());
 
-        assertTrue(mapping.moveBy(5));
-        assertEquals(regionSize, mapping.position());
-        assertEquals(5, mapping.length());
+        assertTrue(mapping.moveTo(regionSize + 300L));
+        assertEquals(10, mapping.length(), "kept in another region");
 
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-regionSize - 1));
+        mapping.length(DynamicMapping.STRETCH_LENGTH);
+        assertEquals(regionSize - 300, mapping.length());
+        assertTrue(mapping.moveTo(regionSize + 400L));
+        assertEquals(regionSize - 400, mapping.length(), "max length requested again");
     }
 
     @Test
-    void moveToPreservesLengthOrTruncatesItAtRegionEnd() {
-        assertTrue(mapping.moveTo(100));
-        assertEquals(regionSize - 100, mapping.length());
-
+    void moveThrowsIfRequestedLengthDoesNotFitAndKeepsMapping() {
         assertTrue(mapping.moveTo(100, 10));
+        final long address = mapping.address();
+
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(regionSize - 5L));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(regionSize - 105L));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(2L * regionSize - 5));
+        assertEquals(100, mapping.position());
+        assertEquals(10, mapping.length());
+        assertEquals(address, mapping.address());
+
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(200, regionSize));
+        assertTrue(mapping.moveTo(200));
+        assertEquals(10, mapping.length(), "requested length kept after failed move");
+    }
+
+    @Test
+    void lengthAndLimitSetRequestedLength() {
+        assertTrue(mapping.moveTo(100));
+        mapping.length(10);
         assertTrue(mapping.moveTo(200));
         assertEquals(10, mapping.length());
-        assertTrue(mapping.moveTo(regionSize - 3));
-        assertEquals(3, mapping.length());
+        mapping.limit(250);
+        assertTrue(mapping.moveTo(300));
+        assertEquals(50, mapping.length());
     }
 
     @Test
@@ -155,7 +185,7 @@ class AdaptiveMappingImplTest {
         assertEquals(120, mapping.limit());
         mapping.length(20);
         assertEquals(20, mapping.length());
-        mapping.length(-1);
+        mapping.length(DynamicMapping.STRETCH_LENGTH);
         assertEquals(regionSize - 100, mapping.length());
         mapping.length(0);
         assertEquals(0, mapping.length());

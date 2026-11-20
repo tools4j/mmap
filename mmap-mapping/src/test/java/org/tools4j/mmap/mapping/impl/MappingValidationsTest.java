@@ -25,14 +25,13 @@ package org.tools4j.mmap.mapping.impl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
-import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAdaptiveMappingLength;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMappingLength;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAddress;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFileSizeIncrement;
@@ -48,7 +47,6 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionD
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionCacheSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionLruCacheSize;
-import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionOffset;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPosition;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionsToMapAhead;
@@ -61,7 +59,6 @@ class MappingValidationsTest {
 
     private static final int GRANULARITY = (int) REGION_SIZE_GRANULARITY;
     private static final int REGION_SIZE = 4096;
-    private static final RegionMetrics REGION_METRICS = new RegionMetricsImpl(REGION_SIZE);
 
     private static void valid(final Executable validation) {
         assertDoesNotThrow(validation);
@@ -79,30 +76,19 @@ class MappingValidationsTest {
         assertThrows(IllegalStateException.class, () -> validatePositionState(-1));
         valid(() -> validatePosition(0));
         invalid(() -> validatePosition(-1));
-        valid(() -> validatePosition(16, 8));
-        invalid(() -> validatePosition(4, 8));
-        invalid(() -> validatePosition(-8, 8));
     }
 
     @Test
-    void regionPositionAndOffsetConstraints() {
-        valid(() -> validateRegionPosition(2L * REGION_SIZE, REGION_METRICS));
-        invalid(() -> validateRegionPosition(REGION_SIZE + 1, REGION_METRICS));
-        invalid(() -> validateRegionPosition(-REGION_SIZE, REGION_METRICS));
-        valid(() -> validateRegionOffset(0, REGION_METRICS));
-        valid(() -> validateRegionOffset(REGION_SIZE - 1, REGION_METRICS));
-        invalid(() -> validateRegionOffset(REGION_SIZE, REGION_METRICS));
-        invalid(() -> validateRegionOffset(-1, REGION_METRICS));
+    void regionPositionConstraints() {
+        valid(() -> validateRegionPosition(2L * REGION_SIZE, REGION_SIZE));
+        invalid(() -> validateRegionPosition(REGION_SIZE + 1, REGION_SIZE));
+        invalid(() -> validateRegionPosition(-REGION_SIZE, REGION_SIZE));
     }
 
     @Test
     void positionDeltaConstraints() {
         valid(() -> validatePositionDelta(10, -10));
         invalid(() -> validatePositionDelta(10, -11));
-        valid(() -> validatePositionDelta(8, 8, 8));
-        valid(() -> validatePositionDelta(8, -8, 8));
-        invalid(() -> validatePositionDelta(8, 4, 8));
-        invalid(() -> validatePositionDelta(8, -16, 8));
     }
 
     @Test
@@ -114,10 +100,10 @@ class MappingValidationsTest {
         valid(() -> validateFixedMappingLength(0, Integer.MAX_VALUE));
         valid(() -> validateFixedMappingLength(1, Integer.MAX_VALUE + 1L));
         invalid(() -> validateFixedMappingLength(0, Integer.MAX_VALUE + 1L));
-        valid(() -> validateAdaptiveMappingLength(0, 0));
-        valid(() -> validateAdaptiveMappingLength(10, 10));
-        invalid(() -> validateAdaptiveMappingLength(-1, 10));
-        invalid(() -> validateAdaptiveMappingLength(11, 10));
+        valid(() -> validateMappingLength(8, 0, 0));
+        valid(() -> validateMappingLength(8, 10, 10));
+        invalid(() -> validateMappingLength(8, -1, 10));
+        invalid(() -> validateMappingLength(8, 11, 10));
     }
 
     @Test

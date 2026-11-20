@@ -27,11 +27,8 @@ import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.AdaptiveMapping;
-import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.ElasticMapping;
-import org.tools4j.mmap.mapping.api.MappingPool;
-import org.tools4j.mmap.mapping.api.RegionMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
+import org.tools4j.mmap.mapping.api.MutableMappingPool;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -44,10 +41,10 @@ import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.core.internal.Validations.validateNotClosed;
 import static org.tools4j.mmap.mapping.unsafe.RegionMappers.createRefCountRegionMapper;
 
-public final class MappingPoolImpl implements MappingPool, Describable {
+public final class MappingPoolImpl implements MutableMappingPool, Describable {
 
     private final RegionMapper regionMapper;
-    private final List<DynamicMapping> mappings;
+    private final List<DynamicMutableMapping> mappings;
     private final LifecycleListener lifecycleListener;
 
     @Unsafe
@@ -84,24 +81,9 @@ public final class MappingPoolImpl implements MappingPool, Describable {
     }
 
     @Override
-    public RegionMapping acquireRegionMapping() {
+    public DynamicMutableMapping acquireMapping() {
         validateNotClosed(this);
-        return register(new RegionMappingImpl(regionMapper, false));
-    }
-
-    @Override
-    public ElasticMapping acquireElasticMapping() {
-        validateNotClosed(this);
-        return register(new ElasticMappingImpl(regionMapper, false));
-    }
-
-    @Override
-    public AdaptiveMapping acquireAdaptiveMapping() {
-        validateNotClosed(this);
-        return register(new AdaptiveMappingImpl(regionMapper, false));
-    }
-
-    private <T extends DynamicMapping> T register(final T mapping) {
+        final DynamicMutableMapping mapping = new DynamicMappingImpl(regionMapper, false);
         mappings.add(mapping);
         return mapping;
     }
@@ -115,6 +97,7 @@ public final class MappingPoolImpl implements MappingPool, Describable {
     public void close() {
         if (!isClosed()) {
             try {
+                //noinspection ForLoopReplaceableByForEach
                 for (int i = 0; i < mappings.size(); i++) {
                     mappings.get(i).close();
                 }
@@ -131,7 +114,7 @@ public final class MappingPoolImpl implements MappingPool, Describable {
         return sb.append("MappingPoolImpl")
                 .append(":mappings=").append(mappings.size())
                 .append("|accessMode=").append(accessMode())
-                .append("|regionSize=").append(regionSize())
+                .append("|regionSize=").append(regionMetrics().regionSize())
                 .append("|closed=").append(isClosed());
     }
 

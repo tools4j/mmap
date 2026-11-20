@@ -30,8 +30,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
-import org.tools4j.mmap.mapping.unsafe.FileMapper;
-import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -67,12 +65,12 @@ class MappingsTest {
             bytes[i] = (byte) i;
         }
         final File file = Files.write(tempDir.resolve("fixed.dat"), bytes).toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY)) {
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY)) {
             assertEquals(16, mapping.bytesAvailable());
             assertEquals(0, mapping.position());
             assertEquals(15, mapping.buffer().getByte(15));
         }
-        try (final FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 4)) {
+        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 4)) {
             assertEquals(12, mapping.bytesAvailable());
             assertEquals(4, mapping.position());
             assertEquals(4, mapping.buffer().getByte(0));
@@ -81,28 +79,17 @@ class MappingsTest {
     }
 
     @Test
-    void fixedMappingFromFileMapperClosesFileMapper() {
-        final File file = tempDir.resolve("fixed.map").toFile();
-        final FileMapper fileMapper = new FixedSizeFileMapper(file, 64, AccessMode.READ_WRITE,
-                FileInitialiser.ZERO);
-        try (final FixedMapping mapping = Mappings.fixedMapping(fileMapper, 0, 64)) {
-            assertEquals(64, mapping.bytesAvailable());
-            mapping.buffer().putLong(56, VALUE);
-            assertEquals(VALUE, mapping.buffer().getLong(56));
+    void dynamicMappingWithDefaultConfig() {
+        final File file = tempDir.resolve("dynamic-default.map").toFile();
+        final long position = REGION_SIZE + 100L;
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)) {
+            assertTrue(mapping.moveTo(position));
+            assertEquals(REGION_SIZE - 100, mapping.length());
+            mapping.buffer().putLong(0, VALUE);
         }
-        assertTrue(fileMapper.isClosed());
-    }
-
-    @Test
-    void regionMappingWithDefaultConfig() {
-        final File file = tempDir.resolve("region-default.map").toFile();
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE)) {
-            assertTrue(mapping.moveToRegion(1));
-            mapping.buffer().putLong(8, VALUE);
-        }
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY)) {
-            assertTrue(mapping.moveToRegion(1));
-            assertEquals(VALUE, mapping.buffer().getLong(8));
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.READ_ONLY)) {
+            assertTrue(mapping.moveTo(position));
+            assertEquals(VALUE, mapping.buffer().getLong(0));
         }
     }
 
@@ -113,7 +100,7 @@ class MappingsTest {
      */
     @ParameterizedTest(name = "asyncMapAhead={0}")
     @ValueSource(booleans = {true, false})
-    void regionMappingWithRollingFilesAndAsyncStrategy(final boolean asyncMapAhead) {
+    void dynamicMappingWithRollingFilesAndAsyncStrategy(final boolean asyncMapAhead) {
         final int files = 6;
         final int regionsPerFile = 2;
         final MappingConfig config = MappingConfig.configure()
@@ -125,76 +112,56 @@ class MappingsTest {
                         ? MappingStrategyConfig.getDefaultAsyncMapAhead()
                         : MappingStrategyConfig.getDefaultSyncWithAsyncUnmapping());
         final File file = tempDir.resolve("rolling.map").toFile();
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, config)) {
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                config)) {
             for (int region = 0; region < files * regionsPerFile; region++) {
-                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
                 mapping.buffer().putLong(0, VALUE + region);
             }
         }
         for (int fileIndex = 0; fileIndex < files; fileIndex++) {
             assertTrue(tempDir.resolve("rolling_" + fileIndex + ".map").toFile().isFile(), "file " + fileIndex);
         }
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY, config)) {
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.READ_ONLY, config)) {
             for (int region = files * regionsPerFile - 1; region >= 0; region--) {
-                assertTrue(mapping.moveToRegion(region), "region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
                 assertEquals(VALUE + region, mapping.buffer().getLong(0), "region " + region);
             }
         }
     }
 
     @Test
-    void regionMappingWithConfig() {
-        final File file = tempDir.resolve("region.map").toFile();
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.OPEN_OR_CREATE, smallSyncConfig())) {
-            assertTrue(mapping.moveToRegion(3));
+    void dynamicMappingWithConfig() {
+        final File file = tempDir.resolve("dynamic.map").toFile();
+        final long position = 2L * REGION_SIZE + 100;
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                smallSyncConfig())) {
+            assertTrue(mapping.moveTo(position));
+            assertEquals(REGION_SIZE - 100, mapping.length());
+            mapping.buffer().putLong(0, VALUE);
+            assertTrue(mapping.moveTo(3L * REGION_SIZE, DynamicMapping.STRETCH_LENGTH));
+            assertEquals(REGION_SIZE, mapping.length());
             mapping.buffer().putLong(REGION_SIZE - Long.BYTES, VALUE);
         }
-        try (final RegionMapping mapping = Mappings.regionMapping(file, OpenMode.READ_ONLY, smallSyncConfig())) {
-            assertTrue(mapping.moveToRegion(3));
+        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.READ_ONLY, smallSyncConfig())) {
+            assertTrue(mapping.moveTo(position));
+            assertEquals(VALUE, mapping.buffer().getLong(0));
+            assertTrue(mapping.moveTo(3L * REGION_SIZE, DynamicMapping.STRETCH_LENGTH));
             assertEquals(VALUE, mapping.buffer().getLong(REGION_SIZE - Long.BYTES));
-        }
-    }
-
-    @Test
-    void elasticMappingWithDefaultConfig() {
-        final File file = tempDir.resolve("elastic-default.map").toFile();
-        final long position = REGION_SIZE + 100L;
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.OPEN_OR_CREATE)) {
-            assertTrue(mapping.moveTo(position));
-            mapping.buffer().putLong(0, VALUE);
-        }
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.READ_ONLY)) {
-            assertTrue(mapping.moveTo(position));
-            assertEquals(VALUE, mapping.buffer().getLong(0));
-        }
-    }
-
-    @Test
-    void elasticMappingWithConfig() {
-        final File file = tempDir.resolve("elastic.map").toFile();
-        final long position = 2L * REGION_SIZE + 100;
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.OPEN_OR_CREATE, smallSyncConfig())) {
-            assertTrue(mapping.moveTo(position));
-            assertEquals(REGION_SIZE - 100, mapping.bytesAvailable());
-            mapping.buffer().putLong(0, VALUE);
-        }
-        try (final ElasticMapping mapping = Mappings.elasticMapping(file, OpenMode.READ_ONLY, smallSyncConfig())) {
-            assertTrue(mapping.moveTo(position));
-            assertEquals(VALUE, mapping.buffer().getLong(0));
         }
     }
 
     @Test
     void mappingPoolWithDefaultConfig() {
         final File file = tempDir.resolve("pool-default.map").toFile();
-        try (final MappingPool pool = Mappings.mappingPool(file, OpenMode.OPEN_OR_CREATE)) {
-            final ElasticMapping mapping = pool.acquireElasticMapping();
+        try (final MutableMappingPool pool = Mappings.mutableMappingPool(file, OpenMode.OPEN_OR_CREATE)) {
+            final DynamicMutableMapping mapping = pool.acquireMapping();
             assertTrue(mapping.moveTo(REGION_SIZE + 8L));
             mapping.buffer().putLong(0, VALUE);
         }
         try (final MappingPool pool = Mappings.mappingPool(file, OpenMode.READ_ONLY)) {
-            final RegionMapping mapping = pool.acquireRegionMapping();
-            assertTrue(mapping.moveToRegion(1));
+            final DynamicMapping mapping = pool.acquireMapping();
+            assertTrue(mapping.moveTo(REGION_SIZE));
             assertEquals(VALUE, mapping.buffer().getLong(8));
         }
     }
@@ -202,13 +169,14 @@ class MappingsTest {
     @Test
     void mappingPoolWithConfigAndPoolSize() {
         final File file = tempDir.resolve("pool.map").toFile();
-        try (final MappingPool pool = Mappings.mappingPool(file, OpenMode.OPEN_OR_CREATE, smallSyncConfig())) {
-            final AdaptiveMapping mapping = pool.acquireAdaptiveMapping();
+        try (final MutableMappingPool pool = Mappings.mutableMappingPool(file, OpenMode.OPEN_OR_CREATE,
+                smallSyncConfig())) {
+            final DynamicMutableMapping mapping = pool.acquireMapping();
             assertTrue(mapping.moveTo(3L * REGION_SIZE + 16, Long.BYTES));
             mapping.buffer().putLong(0, VALUE);
         }
         try (final MappingPool pool = Mappings.mappingPool(file, OpenMode.READ_ONLY, smallSyncConfig(), 2)) {
-            final ElasticMapping mapping = pool.acquireElasticMapping();
+            final DynamicMapping mapping = pool.acquireMapping();
             assertTrue(mapping.moveTo(3L * REGION_SIZE + 16));
             assertEquals(VALUE, mapping.buffer().getLong(0));
         }
