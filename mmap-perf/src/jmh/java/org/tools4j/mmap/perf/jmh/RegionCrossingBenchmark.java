@@ -38,8 +38,8 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FileMappers;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -120,7 +120,7 @@ public class RegionCrossingBenchmark {
                 .expandFile(false)
                 .rollFiles(false)
                 .toImmutableConfig();
-        final DynamicMapping dynamicMapping = Mappings.dynamicMapping(
+        final DynamicMapping dynamicMapping = new DynamicMappingImpl(
                 factory.create(FileMappers.create(file, AccessMode.READ_WRITE, config)), true);
         mappings.add(dynamicMapping);
         for (int i = 0; i < REGIONS; i++) {

@@ -26,12 +26,12 @@ package org.tools4j.mmap.mapping.impl;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AccessMode;
-import org.tools4j.mmap.mapping.api.Mapping;
+import org.tools4j.mmap.mapping.api.MutableMapping;
 
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 
-public enum NullMapping implements Mapping {
+public enum NullMapping implements MutableMapping {
     INSTANCE;
 
     @Override

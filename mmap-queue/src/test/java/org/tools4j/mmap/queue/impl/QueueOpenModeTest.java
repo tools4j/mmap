@@ -27,7 +27,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.api.ReadOnlyOpenMode;
+import org.tools4j.mmap.mapping.api.ReadWriteOpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
@@ -37,6 +40,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,8 +57,18 @@ class QueueOpenModeTest {
     @TempDir
     Path tempDir;
 
+    /** The open modes requiring an existing queue */
+    static Stream<OpenMode> existingQueueRequiringOpenModes() {
+        return Stream.of(OpenMode.READ_ONLY, OpenMode.READ_WRITE);
+    }
+
+    /** The open modes opening an existing queue without recreating it */
+    static Stream<OpenMode> existingQueueOpenModes() {
+        return Stream.of(OpenMode.READ_ONLY, OpenMode.READ_ONLY_LAZY, OpenMode.READ_WRITE, OpenMode.OPEN_OR_CREATE);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_WRITE"})
+    @MethodSource("existingQueueRequiringOpenModes")
     void openingMissingQueueFails(final OpenMode openMode) {
         final File dir = queueDir();
         assertThrows(IllegalArgumentException.class, () -> Queue.open(dir, openMode));
@@ -62,8 +76,8 @@ class QueueOpenModeTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"CREATE", "OPEN_OR_CREATE", "RECREATE"})
-    void creatingMissingQueueCreatesDirectory(final OpenMode openMode) {
+    @EnumSource(value = ReadWriteOpenMode.class, names = {"CREATE", "OPEN_OR_CREATE", "RECREATE"})
+    void creatingMissingQueueCreatesDirectory(final ReadWriteOpenMode openMode) {
         final File dir = queueDir();
         try (final Queue queue = Queue.open(dir, openMode)) {
             assertTrue(dir.isDirectory());
@@ -85,7 +99,7 @@ class QueueOpenModeTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY", "READ_WRITE", "OPEN_OR_CREATE"})
+    @MethodSource("existingQueueOpenModes")
     void openingExistingQueueKeepsEntries(final OpenMode openMode) {
         final File dir = queueDir();
         appendTo(dir, OpenMode.CREATE, "first");
@@ -129,8 +143,8 @@ class QueueOpenModeTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, names = {"READ_ONLY", "READ_ONLY_LAZY"})
-    void readOnlyQueueRejectsAppendersAndDoesNotTouchIdPool(final OpenMode openMode) {
+    @EnumSource(ReadOnlyOpenMode.class)
+    void readOnlyQueueRejectsAppendersAndDoesNotTouchIdPool(final ReadOnlyOpenMode openMode) {
         final File dir = queueDir();
         Queue.open(dir, OpenMode.CREATE).close();
         final File idPoolFile = new File(dir, dir.getName() + "_ids.mmq");

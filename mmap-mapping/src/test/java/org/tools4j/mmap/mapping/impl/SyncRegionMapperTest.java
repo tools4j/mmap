@@ -36,7 +36,7 @@ import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
@@ -111,7 +111,7 @@ public class SyncRegionMapperTest {
         //given
         regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize,
                 deferUnmapping);
-        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMutableMapping region = new DynamicMappingImpl(regionMapper, true);
         final long failingRegionPosition = 2L * regionSize;
         final IllegalStateException error = new IllegalStateException("test mapping error");
         doThrow(error).when(fileMapper).map(eq(failingRegionPosition), eq(regionSize), anyBoolean());
@@ -150,7 +150,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping region = new DynamicMappingImpl(regionMapper, true);
 
         //when
         region.moveTo(position);
@@ -203,7 +203,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
-        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping region = new DynamicMappingImpl(regionMapper, true);
 
         //when
         region.moveTo(position);
@@ -250,7 +250,7 @@ public class SyncRegionMapperTest {
         final long position = 456;
         final int offset = (int) (position % regionSize);
         final long regionStartPosition = position - offset;
-        final DynamicMapping region = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping region = new DynamicMappingImpl(regionMapper, true);
         long unmapAddress;
 
         //when

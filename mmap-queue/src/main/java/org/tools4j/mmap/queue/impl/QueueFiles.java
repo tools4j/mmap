@@ -107,6 +107,16 @@ final class QueueFiles {
         return queueFile.listFiles((dir, name) -> name != null && name.endsWith(FILE_ENDING));
     }
 
+    /** Deletes all queue files other than the meta file, to recreate the queue while holding the meta file lock */
+    public void deleteAllButMetaFile() {
+        for (final File file : listFiles()) {
+            if (!file.equals(metaFile)) {
+                final boolean deleted = file.delete();
+                assert deleted : queueName();
+            }
+        }
+    }
+
     @Override
     public String toString() {
         return "QueueFiles:queue=" + queueName();

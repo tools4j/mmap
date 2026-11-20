@@ -30,6 +30,8 @@ import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.internal.Closeables;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.api.ReadOnlyOpenMode;
+import org.tools4j.mmap.mapping.api.ReadWriteOpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.EntryIterator;
 import org.tools4j.mmap.queue.api.EntryReader;
@@ -133,8 +135,20 @@ public final class QueueImpl implements Queue, Describable {
      * @return the config in effect, or null if the queue does not exist yet (lazy read-only only)
      */
     private QueueConfig openQueue(final OpenMode openMode) {
+        final QueueLayoutConfig layout;
+        if (openMode instanceof ReadOnlyOpenMode readOnlyMode) {
+            layout = readLayout(readOnlyMode);
+        } else if (openMode instanceof ReadWriteOpenMode readWriteMode) {
+            layout = openLayout(readWriteMode);
+        } else {
+            throw new IllegalArgumentException("Unsupported open mode: " + openMode);
+        }
+        return layout == null ? null : applyLayout(layout);
+    }
+
+    private QueueLayoutConfig readLayout(final ReadOnlyOpenMode openMode) {
         final File metaFile = files.metaFile();
-        final QueueLayoutConfig layout = switch (openMode) {
+        return switch (openMode) {
             case READ_ONLY -> {
                 final QueueLayoutConfig existing = QueueMetaFile.read(metaFile);
                 if (existing == null) {
@@ -143,14 +157,17 @@ public final class QueueImpl implements Queue, Describable {
                 yield existing;
             }
             case READ_ONLY_LAZY -> QueueMetaFile.read(metaFile);
-            case READ_WRITE -> QueueMetaFile.open(metaFile, openMode, () -> QueueLayoutConfigImpl.of(config), () -> {});
+        };
+    }
+
+    private QueueLayoutConfig openLayout(final ReadWriteOpenMode openMode) {
+        return switch (openMode) {
+            case READ_WRITE -> QueueMetaFile.open(files, openMode, config);
             case CREATE, OPEN_OR_CREATE, RECREATE -> {
-                createQueueDir(metaFile.getParentFile());
-                yield QueueMetaFile.open(metaFile, openMode, () -> QueueLayoutConfigImpl.of(config),
-                        this::deleteOtherQueueFiles);
+                createQueueDir(files.metaFile().getParentFile());
+                yield QueueMetaFile.open(files, openMode, config);
             }
         };
-        return layout == null ? null : applyLayout(layout);
     }
 
     private QueueConfig effectiveConfig() {
@@ -181,15 +198,6 @@ public final class QueueImpl implements Queue, Describable {
         final CharSequence differences = QueueLayoutConfigs.diff(layout, config);
         if (differences != null) {
             errorListener.onWarning(this, "Queue was created with a different layout, using: " + differences);
-        }
-    }
-
-    private void deleteOtherQueueFiles() {
-        for (final File file : files.listFiles()) {
-            if (!file.equals(files.metaFile())) {
-                final boolean deleted = file.delete();
-                assert deleted : files.queueName();
-            }
         }
     }
 

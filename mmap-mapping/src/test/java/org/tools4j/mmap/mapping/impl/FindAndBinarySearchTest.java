@@ -34,7 +34,6 @@ import org.mockito.stubbing.Answer;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
@@ -136,7 +135,7 @@ class FindAndBinarySearchTest {
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
         when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
-        final DynamicMapping mapping = Mappings.dynamicMapping(regionMapper, true);
+        final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 
         //when
         if (counter != null) counter.set(0);

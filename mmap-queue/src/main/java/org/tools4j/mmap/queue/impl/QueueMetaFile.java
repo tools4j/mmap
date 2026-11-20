@@ -25,6 +25,7 @@ package org.tools4j.mmap.queue.impl;
 
 import org.tools4j.mmap.core.internal.FileChannelLock;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.api.ReadWriteOpenMode;
 import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
 import java.io.File;
@@ -34,7 +35,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.function.Supplier;
 
 /**
  * Reads and writes the queue meta file, which stores the {@link QueueLayoutConfig queue layout}. The file is
@@ -110,19 +110,18 @@ enum QueueMetaFile {
      * Opens the meta file for writing as defined by the open mode, and returns the existing or newly written queue
      * layout.
      *
-     * @param file                    the meta file
-     * @param openMode                the open mode, one with read/write access
-     * @param layoutToCreate          supplies the queue layout to write if the queue is created
-     * @param deleteOtherQueueFiles   deletes all other queue files, invoked under the meta file lock if the queue is
-     *                                recreated
-     * @return the existing queue layout, or the supplied one if the queue was created
+     * @param files           the queue files, the other files than the meta file deleted under the meta file lock if
+     *                        the queue is recreated
+     * @param openMode        the open mode
+     * @param layoutToCreate  the queue layout to write if the queue is created
+     * @return the existing queue layout, or a snapshot of the given one if the queue was created
      * @throws IllegalArgumentException if the queue cannot be opened as defined by the open mode
      * @throws IllegalStateException if the file is not a queue meta file, or has an unsupported format version
      */
-    static QueueLayoutConfig open(final File file,
-                                  final OpenMode openMode,
-                                  final Supplier<QueueLayoutConfig> layoutToCreate,
-                                  final Runnable deleteOtherQueueFiles) {
+    static QueueLayoutConfig open(final QueueFiles files,
+                                  final ReadWriteOpenMode openMode,
+                                  final QueueLayoutConfig layoutToCreate) {
+        final File file = files.metaFile();
         if (openMode == OpenMode.READ_WRITE && !file.isFile()) {
             throw new IllegalArgumentException("Queue does not exist: " + file.getParentFile());
         }
@@ -130,7 +129,7 @@ enum QueueMetaFile {
              final FileChannelLock lock = FileChannelLock.create(raf.getChannel())) {
             lock.lock();
             try {
-                return openLocked(file, raf.getChannel(), openMode, layoutToCreate, deleteOtherQueueFiles);
+                return openLocked(files, raf.getChannel(), openMode, layoutToCreate);
             } finally {
                 lock.unlock();
             }
@@ -139,11 +138,11 @@ enum QueueMetaFile {
         }
     }
 
-    private static QueueLayoutConfig openLocked(final File file,
+    private static QueueLayoutConfig openLocked(final QueueFiles files,
                                                 final FileChannel channel,
-                                                final OpenMode openMode,
-                                                final Supplier<QueueLayoutConfig> layoutToCreate,
-                                                final Runnable deleteOtherQueueFiles) throws IOException {
+                                                final ReadWriteOpenMode openMode,
+                                                final QueueLayoutConfig layoutToCreate) throws IOException {
+        final File file = files.metaFile();
         final QueueLayoutConfig existing = read(file, channel);
         switch (openMode) {
             case READ_WRITE -> {
@@ -164,11 +163,11 @@ enum QueueMetaFile {
             }
             case RECREATE -> {
                 channel.truncate(0);
-                deleteOtherQueueFiles.run();
+                files.deleteAllButMetaFile();
             }
-            default -> throw new IllegalArgumentException("Unsupported open mode for writing: " + openMode);
+            default -> throw new IllegalArgumentException("Unsupported open mode: " + openMode);
         }
-        final QueueLayoutConfig layout = layoutToCreate.get();
+        final QueueLayoutConfig layout = QueueLayoutConfigImpl.of(layoutToCreate);
         write(channel, layout);
         return layout;
     }

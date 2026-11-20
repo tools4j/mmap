@@ -5,15 +5,20 @@ Configuration is in `org.tools4j.mmap.mapping.config`. The low-level mapping eng
 
 Main classes:
 * `Mappings`: factory methods for all mapping types and mapping pools
-* `Mapping`: a block of a file mapped into memory, accessed via its `buffer()`, a `MutableMemoryBuffer` of mmap-core,
-  read-only for read-only mappings
-* `FixedMapping`: a mapping with fixed start and end position
+* `Mapping`: a block of a file mapped into memory for reading, accessed via its `buffer()`, a `MemoryBuffer` of
+  mmap-core
+* `MutableMapping`: a mapping also for writing, its `buffer()` a `MutableMemoryBuffer`
+* `FixedMapping`: a mapping with fixed start and end position, `FixedMutableMapping` its mutable variant
 * `DynamicMapping`: a mapping of a slice of the file that can be moved to any position, with a length from zero up to
   the end of the region the position lies in; moves map the length last requested, by default
-  `DynamicMapping.STRETCH_LENGTH`, all bytes to the region end, and throw if an explicit length does not fit
-* `MappingPool`: provides many mappings of the same file that share the underlying mapped regions
-* `OpenMode`: how a file is opened: read-only (optionally before it exists), read/write, create, open or create,
-  or recreate
+  `DynamicMapping.STRETCH_LENGTH`, all bytes to the region end, and throw if an explicit length does not fit;
+  `DynamicMutableMapping` its mutable variant
+* `MappingPool`: provides many mappings of the same file that share the underlying mapped regions,
+  `MutableMappingPool` mutable ones
+* `OpenMode`: how a file is opened, a `ReadOnlyOpenMode` (`READ_ONLY`, `READ_ONLY_LAZY` before it exists) for
+  mappings, or a `ReadWriteOpenMode` (`READ_WRITE`, `CREATE`, `OPEN_OR_CREATE`, `RECREATE`) for mutable mappings,
+  e.g. `Mappings.dynamicMapping(file, OpenMode.READ_ONLY)` and
+  `Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)`; the other kind of open mode does not compile
 * `MappingConfig` and `MappingStrategyConfig`: file size, rolling files, region size, region caching and async
   mapping/unmapping; defaults can be set via system properties
 
@@ -32,14 +37,14 @@ the next entry.
 ```java
 File file = new File("/tmp/fixed.map");
 
-//FixedMapping: maps a fixed slice of the file, here the first 64 bytes
-try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0, 64)) {
+//fixed mutable mapping: maps a fixed slice of the file for writing, here the first 64 bytes
+try (MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0, 64)) {
     mapping.buffer().putInt(0, 42);
     mapping.buffer().putInt(60, 43);
 }
 
-//without length, the mapping spans from the offset to the end of the file
-try (FixedMapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 60)) {
+//fixed mapping for reading only; without length, it spans from the offset to the end of the file
+try (Mapping mapping = Mappings.fixedMapping(file, OpenMode.READ_ONLY, 60)) {
     int available = mapping.bytesAvailable();//4
     int value = mapping.buffer().getInt(0);//43
 }
@@ -49,8 +54,8 @@ Dynamic mappings can be moved within a file, mapping regions of the file on dema
 File file = new File("/tmp/data.map");
 long mb = 1 << 20;
 
-//DynamicMapping: maps a slice of the file that can be moved, here spanning to the end of the region
-try (DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.OPEN_OR_CREATE)) {
+//DynamicMutableMapping: maps a slice of the file that can be moved, here spanning to the region end
+try (DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)) {
     for (int i = 0; i < 10; i++) {
         mapping.moveTo(i * mb, DynamicMapping.STRETCH_LENGTH);
         mapping.buffer().putInt(0, 100 * i);
@@ -58,7 +63,7 @@ try (DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.OPEN_OR_CRE
     }
 }
 
-//moves keep the length, here 4 bytes for reading one int after another
+//DynamicMapping for reading only; moves keep the length, here 4 bytes for one int after another
 try (DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.READ_ONLY)) {
     mapping.moveTo(5 * mb, Integer.BYTES);
     int value = mapping.buffer().getInt(0);//500
@@ -88,7 +93,7 @@ MappingConfig config = MappingConfig.configure()
         .mappingStrategy(cfg -> cfg.asyncMapping(true));
 File file = new File("/tmp/rolling.map");//creates rolling_0.map, rolling_1.map, ...
 
-try (var mapping = Mappings.dynamicMapping(file, OpenMode.OPEN_OR_CREATE, config)) {
+try (var mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE, config)) {
     for (int region = 0; region < 64; region++) {
         mapping.moveTo((long) region * regionSize);
         mapping.buffer().putInt(0, region);

@@ -26,7 +26,6 @@ package org.tools4j.mmap.mapping.api;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
-import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
@@ -53,6 +52,11 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFixedMapp
  * <p>
  * Methods mapping a file throw an {@link IllegalArgumentException} if the file cannot be opened as defined by the
  * given {@link OpenMode}, for instance if it must exist but does not.
+ * <p>
+ * Mappings for reading only are created for files opened with a {@link ReadOnlyOpenMode}, such as
+ * {@link OpenMode#READ_ONLY}, and {@link MutableMapping mutable mappings} for files opened with a
+ * {@link ReadWriteOpenMode}, such as {@link OpenMode#OPEN_OR_CREATE}; passing the other kind of open mode does not
+ * compile.
  */
 public enum Mappings {
     ;
@@ -61,44 +65,44 @@ public enum Mappings {
      * Returns an empty, unmapped null-mapping.
      * @return the null mapping singleton instance
      */
-    public static Mapping nullMapping() {
+    public static MutableMapping nullMapping() {
         return NullMapping.INSTANCE;
     }
 
     /**
-     * Creates a fixed mapping over the whole of the specified file, with a length determined by the actual file size.
+     * Creates a fixed mapping for reading only over the whole of the specified file, with a length determined by the
+     * actual file size.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @return a new fixed mapping covering the whole file
      */
-    public static FixedMapping fixedMapping(final File file, final OpenMode openMode) {
+    public static FixedMapping fixedMapping(final File file, final ReadOnlyOpenMode openMode) {
         return fixedMapping(file, openMode, 0L);
     }
 
     /**
-     * Creates a fixed mapping over the specified file from the given offset to the end of the file, with a length
-     * determined by the actual file size.
+     * Creates a fixed mapping for reading only over the specified file from the given offset to the end of the file,
+     * with a length determined by the actual file size.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @param offset     the start offset in the file
      * @return a new fixed mapping from the offset to the end of the file
      */
     public static FixedMapping fixedMapping(final File file,
-                                            final OpenMode openMode,
+                                            final ReadOnlyOpenMode openMode,
                                             final long offset) {
         return fixedMapping(file, openMode, offset, -1);
     }
 
     /**
-     * Creates a fixed mapping over the specified slice of the given file.
+     * Creates a fixed mapping for reading only over the specified slice of the given file.
      * <p>
-     * The file is mapped immediately, hence it must exist when opened for reading only, also with
-     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}.
+     * The file is mapped immediately, hence it must exist, also with {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @param offset     the start offset in the file
      * @param length     the length of the mapped slice, or -1 to map from offset to the actual end of the file
      * @return a new fixed mapping for the specified file slice
@@ -107,7 +111,7 @@ public enum Mappings {
      *                               {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}
      */
     public static FixedMapping fixedMapping(final File file,
-                                            final OpenMode openMode,
+                                            final ReadOnlyOpenMode openMode,
                                             final long offset,
                                             final int length) {
         return fixedMapping(file, openMode, offset, length, MappingConfigurations.defaultLifecycleListener(),
@@ -115,160 +119,206 @@ public enum Mappings {
     }
 
     /**
-     * Creates a fixed mapping over the specified slice of the given file, notifying the given listeners.
+     * Creates a fixed mapping for reading only over the specified slice of the given file, notifying the given
+     * listeners.
      * <p>
-     * The file is mapped immediately, hence it must exist when opened for reading only, also with
-     * {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY}. A writable file shorter than the mapped slice is extended with
-     * {@link FileInitialiser#ZERO zero bytes}, and opening a read-only file that is too short fails with an
-     * {@link IllegalArgumentException}.
+     * The file is mapped immediately, hence it must exist, also with {@link OpenMode#READ_ONLY_LAZY READ_ONLY_LAZY},
+     * and opening a file that is too short fails with an {@link IllegalArgumentException}.
      *
      * @param file              the file to map
-     * @param openMode          the mode to open the file with
+     * @param openMode          the mode to open the file with for reading only
      * @param offset            the start offset in the file
      * @param length            the length of the mapped slice, or -1 to map from offset to the actual end of the file
-     * @param lifecycleListener the listener notified when the file is created, opened and closed
+     * @param lifecycleListener the listener notified when the file is opened and closed
      * @param errorListener     the listener notified about errors that cannot be thrown, such as close errors
      * @return a new fixed mapping for the specified file slice
      */
     public static FixedMapping fixedMapping(final File file,
-                                            final OpenMode openMode,
+                                            final ReadOnlyOpenMode openMode,
                                             final long offset,
                                             final int length,
                                             final LifecycleListener lifecycleListener,
                                             final ErrorListener errorListener) {
         OpenModes.apply(file, openMode, false);
+        return fixedMappingImpl(file, openMode, offset, length, lifecycleListener, errorListener);
+    }
+
+    /**
+     * Creates a fixed mutable mapping over the whole of the specified file, with a length determined by the actual
+     * file size.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @return a new fixed mutable mapping covering the whole file
+     */
+    public static FixedMutableMapping fixedMutableMapping(final File file, final ReadWriteOpenMode openMode) {
+        return fixedMutableMapping(file, openMode, 0L);
+    }
+
+    /**
+     * Creates a fixed mutable mapping over the specified file from the given offset to the end of the file, with a
+     * length determined by the actual file size.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @param offset     the start offset in the file
+     * @return a new fixed mutable mapping from the offset to the end of the file
+     */
+    public static FixedMutableMapping fixedMutableMapping(final File file,
+                                                          final ReadWriteOpenMode openMode,
+                                                          final long offset) {
+        return fixedMutableMapping(file, openMode, offset, -1);
+    }
+
+    /**
+     * Creates a fixed mutable mapping over the specified slice of the given file.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @param offset     the start offset in the file
+     * @param length     the length of the mapped slice, or -1 to map from offset to the actual end of the file
+     * @return a new fixed mutable mapping for the specified file slice
+     * @throws IllegalArgumentException if the resulting mapping length exceeds the integer range
+     */
+    public static FixedMutableMapping fixedMutableMapping(final File file,
+                                                          final ReadWriteOpenMode openMode,
+                                                          final long offset,
+                                                          final int length) {
+        return fixedMutableMapping(file, openMode, offset, length, MappingConfigurations.defaultLifecycleListener(),
+                CoreConfigurations.defaultErrorListener());
+    }
+
+    /**
+     * Creates a fixed mutable mapping over the specified slice of the given file, notifying the given listeners.
+     * <p>
+     * A file shorter than the mapped slice is extended with {@link FileInitialiser#ZERO zero bytes}.
+     *
+     * @param file              the file to map
+     * @param openMode          the mode to open the file with for reading and writing
+     * @param offset            the start offset in the file
+     * @param length            the length of the mapped slice, or -1 to map from offset to the actual end of the file
+     * @param lifecycleListener the listener notified when the file is created, opened and closed
+     * @param errorListener     the listener notified about errors that cannot be thrown, such as close errors
+     * @return a new fixed mutable mapping for the specified file slice
+     */
+    public static FixedMutableMapping fixedMutableMapping(final File file,
+                                                          final ReadWriteOpenMode openMode,
+                                                          final long offset,
+                                                          final int length,
+                                                          final LifecycleListener lifecycleListener,
+                                                          final ErrorListener errorListener) {
+        OpenModes.apply(file, openMode, false);
+        return fixedMappingImpl(file, openMode, offset, length, lifecycleListener, errorListener);
+    }
+
+    private static FixedMappingImpl fixedMappingImpl(final File file,
+                                                     final OpenMode openMode,
+                                                     final long offset,
+                                                     final int length,
+                                                     final LifecycleListener lifecycleListener,
+                                                     final ErrorListener errorListener) {
         final long fileSize = length >= 0 ? offset + length : file.length();
         validateFixedMappingLength(offset, fileSize);
         final FileMapper fileMapper = new FixedSizeFileMapper(file, fileSize, openMode.accessMode(),
                 FileInitialiser.ZERO, lifecycleListener, errorListener);
-        return fixedMapping(fileMapper, offset, (int)(fileSize - offset), true);
+        return new FixedMappingImpl(fileMapper, offset, (int)(fileSize - offset), true);
     }
 
     /**
-     * Creates a fixed mapping over the specified slice of the file already mapped by the given file mapper. Closing
-     * the returned mapping also closes the given file mapper.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code fixedMapping} factory methods instead.
-     *
-     * @param fileMapper the file mapper providing access to the underlying file
-     * @param offset     the start offset in the file
-     * @param length     the length of the mapped slice
-     * @return a new fixed mapping for the specified file slice
-     */
-    @Unsafe
-    public static FixedMapping fixedMapping(final FileMapper fileMapper,
-                                            final long offset,
-                                            final int length) {
-        return fixedMapping(fileMapper, offset, length, true);
-    }
-
-    /**
-     * Creates a fixed mapping over the specified slice of the file already mapped by the given file mapper.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link FileMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code fixedMapping} factory methods instead.
-     *
-     * @param fileMapper             the file mapper providing access to the underlying file
-     * @param offset                 the start offset in the file
-     * @param length                 the length of the mapped slice
-     * @param closeFileMapperOnClose if true the given file mapper is also closed when the returned mapping is closed
-     * @return a new fixed mapping for the specified file slice
-     */
-    @Unsafe
-    public static FixedMapping fixedMapping(final FileMapper fileMapper,
-                                            final long offset,
-                                            final int length,
-                                            final boolean closeFileMapperOnClose) {
-        return new FixedMappingImpl(fileMapper, offset, length, closeFileMapperOnClose);
-    }
-
-    /**
-     * Creates a dynamic mapping for the specified file using default mapping configuration.
+     * Creates a dynamic mapping for reading only for the specified file using default mapping configuration.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @return a new dynamic mapping for the given file
      * @see MappingConfig#getDefault()
      */
-    public static DynamicMapping dynamicMapping(final File file, final OpenMode openMode) {
+    public static DynamicMapping dynamicMapping(final File file, final ReadOnlyOpenMode openMode) {
         return dynamicMapping(file, openMode, MappingConfig.getDefault());
     }
 
     /**
-     * Creates a dynamic mapping for the specified file using the given mapping configuration.
+     * Creates a dynamic mapping for reading only for the specified file using the given mapping configuration.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @param config     the mapping configuration to use
      * @return a new dynamic mapping for the given file
      */
-    public static DynamicMapping dynamicMapping(final File file, final OpenMode openMode, final MappingConfig config) {
+    public static DynamicMapping dynamicMapping(final File file,
+                                                final ReadOnlyOpenMode openMode,
+                                                final MappingConfig config) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
-        return dynamicMapping(regionMapper, true);
+        return new DynamicMappingImpl(regionMapper(file, openMode, config), true);
     }
 
     /**
-     * Creates a dynamic mapping backed by the given region mapper. Closing the returned mapping also closes the given
-     * region mapper if {@code closeRegionMapperOnClose} is true.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code dynamicMapping} factory methods instead.
-     *
-     * @param regionMapper             the region mapper providing the underlying mapping operations
-     * @param closeRegionMapperOnClose if true the given region mapper is also closed when the returned mapping is
-     *                                 closed
-     * @return a new dynamic mapping backed by the given region mapper
-     */
-    @Unsafe
-    public static DynamicMapping dynamicMapping(final RegionMapper regionMapper,
-                                                final boolean closeRegionMapperOnClose) {
-        return new DynamicMappingImpl(regionMapper, closeRegionMapperOnClose);
-    }
-
-    /**
-     * Creates a mapping pool for the specified file using default mapping configuration and the default initial pool
-     * size.
+     * Creates a dynamic mutable mapping for the specified file using default mapping configuration.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading and writing
+     * @return a new dynamic mutable mapping for the given file
+     * @see MappingConfig#getDefault()
+     */
+    public static DynamicMutableMapping dynamicMutableMapping(final File file, final ReadWriteOpenMode openMode) {
+        return dynamicMutableMapping(file, openMode, MappingConfig.getDefault());
+    }
+
+    /**
+     * Creates a dynamic mutable mapping for the specified file using the given mapping configuration.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @param config     the mapping configuration to use
+     * @return a new dynamic mutable mapping for the given file
+     */
+    public static DynamicMutableMapping dynamicMutableMapping(final File file,
+                                                              final ReadWriteOpenMode openMode,
+                                                              final MappingConfig config) {
+        OpenModes.apply(file, openMode, config.rollFiles());
+        return new DynamicMappingImpl(regionMapper(file, openMode, config), true);
+    }
+
+    private static RegionMapper regionMapper(final File file, final OpenMode openMode, final MappingConfig config) {
+        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
+        return RegionMappers.create(fileMapper, config);
+    }
+
+    /**
+     * Creates a mapping pool providing mappings for reading only for the specified file using default mapping
+     * configuration and the default initial pool size.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading only
      * @return a new mapping pool for the given file
      * @see MappingConfig#getDefault()
      * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
-    public static MappingPool mappingPool(final File file, final OpenMode openMode) {
+    public static MappingPool mappingPool(final File file, final ReadOnlyOpenMode openMode) {
         return mappingPool(file, openMode, MappingConfig.getDefault());
     }
 
     /**
-     * Creates a mapping pool for the specified file using the given mapping configuration and the default initial
-     * pool size.
+     * Creates a mapping pool providing mappings for reading only for the specified file using the given mapping
+     * configuration and the default initial pool size.
      *
      * @param file       the file to map
-     * @param openMode   the mode to open the file with
+     * @param openMode   the mode to open the file with for reading only
      * @param config     the mapping configuration to use
      * @return a new mapping pool for the given file
      * @see MappingConfigurations#defaultInitialMappingPoolSize()
      */
     public static MappingPool mappingPool(final File file,
-                                          final OpenMode openMode,
+                                          final ReadOnlyOpenMode openMode,
                                           final MappingConfig config) {
         return mappingPool(file, openMode, config, defaultInitialMappingPoolSize());
     }
 
     /**
-     * Creates a mapping pool for the specified file using the given mapping configuration and initial pool size.
+     * Creates a mapping pool providing mappings for reading only for the specified file using the given mapping
+     * configuration and initial pool size.
      *
      * @param file            the file to map
-     * @param openMode        the mode to open the file with
+     * @param openMode        the mode to open the file with for reading only
      * @param config          the mapping configuration to use
      * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
      *                        for its internal tracking structures (mappings themselves are still created lazily,
@@ -276,31 +326,60 @@ public enum Mappings {
      * @return a new mapping pool for the given file
      */
     public static MappingPool mappingPool(final File file,
-                                          final OpenMode openMode,
+                                          final ReadOnlyOpenMode openMode,
                                           final MappingConfig config,
                                           final int initialPoolSize) {
         OpenModes.apply(file, openMode, config.rollFiles());
-        final FileMapper fileMapper = FileMappers.create(file, openMode.accessMode(), config);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper, config);
-        return new MappingPoolImpl(regionMapper, initialPoolSize, config.lifecycleListener());
+        return new MappingPoolImpl(regionMapper(file, openMode, config), initialPoolSize, config.lifecycleListener());
     }
 
     /**
-     * Creates a mapping pool backed by the given region mapper, sized for the specified expected number of mappings.
-     * <p>
-     * <b>NOTE:</b> Using this method directly is unsafe and could lead to a JVM crash in the worst case. It exposes
-     * the underlying {@link RegionMapper} directly, bypassing the usual {@code File}/{@link OpenMode}-based
-     * construction. Application code should not normally need to call it directly; prefer one of the other
-     * {@code mappingPool} factory methods instead.
+     * Creates a mutable mapping pool for the specified file using default mapping configuration and the default
+     * initial pool size.
      *
-     * @param regionMapper    the region mapper providing the underlying mapping operations
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @return a new mutable mapping pool for the given file
+     * @see MappingConfig#getDefault()
+     * @see MappingConfigurations#defaultInitialMappingPoolSize()
+     */
+    public static MutableMappingPool mutableMappingPool(final File file, final ReadWriteOpenMode openMode) {
+        return mutableMappingPool(file, openMode, MappingConfig.getDefault());
+    }
+
+    /**
+     * Creates a mutable mapping pool for the specified file using the given mapping configuration and the default
+     * initial pool size.
+     *
+     * @param file       the file to map
+     * @param openMode   the mode to open the file with for reading and writing
+     * @param config     the mapping configuration to use
+     * @return a new mutable mapping pool for the given file
+     * @see MappingConfigurations#defaultInitialMappingPoolSize()
+     */
+    public static MutableMappingPool mutableMappingPool(final File file,
+                                                        final ReadWriteOpenMode openMode,
+                                                        final MappingConfig config) {
+        return mutableMappingPool(file, openMode, config, defaultInitialMappingPoolSize());
+    }
+
+    /**
+     * Creates a mutable mapping pool for the specified file using the given mapping configuration and initial pool
+     * size.
+     *
+     * @param file            the file to map
+     * @param openMode        the mode to open the file with for reading and writing
+     * @param config          the mapping configuration to use
      * @param initialPoolSize the expected number of mappings to be acquired from the pool, used as a capacity hint
      *                        for its internal tracking structures (mappings themselves are still created lazily,
      *                        on each acquire call)
-     * @return a new mapping pool backed by the given region mapper
+     * @return a new mutable mapping pool for the given file
      */
-    @Unsafe
-    public static MappingPool mappingPool(final RegionMapper regionMapper, final int initialPoolSize) {
-        return new MappingPoolImpl(regionMapper, initialPoolSize);
+    public static MutableMappingPool mutableMappingPool(final File file,
+                                                        final ReadWriteOpenMode openMode,
+                                                        final MappingConfig config,
+                                                        final int initialPoolSize) {
+        OpenModes.apply(file, openMode, config.rollFiles());
+        return new MappingPoolImpl(regionMapper(file, openMode, config), initialPoolSize, config.lifecycleListener());
     }
 }

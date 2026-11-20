@@ -26,7 +26,7 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
@@ -39,6 +39,7 @@ import org.tools4j.mmap.queue.config.ReaderConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -70,8 +71,13 @@ class EagerReaderMappingsTest {
                 ReaderConfig.configurePoller());
     }
 
+    static Stream<OpenMode> openModesOtherThanReadOnlyLazy() {
+        return Stream.of(OpenMode.READ_ONLY, OpenMode.READ_WRITE, OpenMode.CREATE, OpenMode.OPEN_OR_CREATE,
+                OpenMode.RECREATE);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = OpenMode.class, mode = EnumSource.Mode.EXCLUDE, names = "READ_ONLY_LAZY")
+    @MethodSource("openModesOtherThanReadOnlyLazy")
     void eagerMappingsAreCreatedForOpenModesOtherThanReadOnlyLazy(final OpenMode openMode) {
         try (final ReaderMappings mappings = readerMappings(openMode)) {
             assertInstanceOf(EagerReaderMappings.class, mappings);

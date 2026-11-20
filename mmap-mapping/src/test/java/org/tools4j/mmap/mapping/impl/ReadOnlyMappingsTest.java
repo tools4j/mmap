@@ -28,9 +28,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
-import org.tools4j.mmap.mapping.api.FixedMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.MutableMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
@@ -43,12 +44,13 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for the buffers of read-only {@link FixedMappingImpl} and {@link DynamicMappingImpl}, created through
- * {@link Mappings}.
+ * {@link Mappings}, refusing writes also through the mutable type of the implementations.
  */
 class ReadOnlyMappingsTest {
 
@@ -60,7 +62,7 @@ class ReadOnlyMappingsTest {
     @BeforeEach
     void writeFile() {
         file = tempDir.resolve("read-only.dat").toFile();
-        try (final DynamicMapping mapping = Mappings.dynamicMapping(file, OpenMode.CREATE)) {
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.CREATE)) {
             assertTrue(mapping.moveTo(0));
             assertFalse(mapping.buffer().isReadOnly());
             mapping.buffer().putLong(0, 42);
@@ -72,7 +74,7 @@ class ReadOnlyMappingsTest {
     void fixedMappingBufferIsReadOnly() throws IOException {
         final byte[] bytes = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).putLong(42).putLong(43).array();
         final File fixedFile = Files.write(tempDir.resolve("fixed.dat"), bytes).toFile();
-        try (final FixedMapping mapping = Mappings.fixedMapping(fixedFile, OpenMode.READ_ONLY, 0, 16)) {
+        try (final Mapping mapping = Mappings.fixedMapping(fixedFile, OpenMode.READ_ONLY, 0, 16)) {
             assertReadOnly(mapping, 42);
         }
     }
@@ -93,9 +95,10 @@ class ReadOnlyMappingsTest {
     }
 
     private static void assertReadOnly(final Mapping mapping, final long value) {
-        final MutableMemoryBuffer buffer = mapping.buffer();
-        assertTrue(buffer.isReadOnly());
-        assertEquals(value, buffer.getLong(0));
+        assertTrue(mapping.buffer().isReadOnly());
+        assertEquals(value, mapping.buffer().getLong(0));
+        //NOTE: the implementations are mutable mappings, whose buffer must still refuse writes
+        final MutableMemoryBuffer buffer = assertInstanceOf(MutableMapping.class, mapping).buffer();
         assertThrows(ReadOnlyBufferException.class, () -> buffer.putLong(0, 0));
         assertEquals(value, buffer.getLong(0));
     }

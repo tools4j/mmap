@@ -27,8 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.tools4j.mmap.mapping.api.Mapping;
 import org.tools4j.mmap.mapping.api.Mappings;
+import org.tools4j.mmap.mapping.api.MutableMapping;
 import org.tools4j.mmap.mapping.api.OpenMode;
 
 import java.io.File;
@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Unit test for {@link AppenderIdPool}.
  */
-class IdPoolTest {
+class AppenderIdPoolTest {
 
     private static final long TIMEOUT_MILLIS = 3_000;
 
@@ -187,7 +187,7 @@ class IdPoolTest {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
         final AppenderIdPool pool = new AppenderIdPool(file.getPath(),
-                Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE));
+                Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE));
         assertFalse(pool.release(70));
         assertEquals(0, pool.acquire());
         assertTrue(pool.release(0));
@@ -202,11 +202,13 @@ class IdPoolTest {
     void mappingOfWrongSizeIsRejected() throws Exception {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        try (final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, Long.BYTES)) {
+        try (final MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0L,
+                Long.BYTES)) {
             assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file.getPath(), mapping));
             assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
         }
-        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE);
+        final MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0L,
+                AppenderIdPool.FILE_SIZE);
         assertThrows(NullPointerException.class, () -> new AppenderIdPool(null, mapping));
         assertTrue(mapping.isClosed(), "owned mapping must be closed if name is null");
     }
@@ -225,11 +227,17 @@ class IdPoolTest {
     void invalidMaxIds() throws Exception {
         final Path tmpDir = Files.createTempDirectory(getClass().getSimpleName());
         final File file = new File(tmpDir.toFile(), "test.ids");
-        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file, 0));
-        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file, AppenderIdPool.MAX_IDS + 1));
-        final Mapping mapping = Mappings.fixedMapping(file, OpenMode.OPEN_OR_CREATE, 0L, AppenderIdPool.FILE_SIZE);
+        assertInvalidMaxIds(file, 0);
+        assertInvalidMaxIds(file, AppenderIdPool.MAX_IDS + 1);
+        final MutableMapping mapping = Mappings.fixedMutableMapping(file, OpenMode.OPEN_OR_CREATE, 0L,
+                AppenderIdPool.FILE_SIZE);
         assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file.getPath(), mapping, 0));
         assertTrue(mapping.isClosed(), "owned mapping must be closed if construction fails");
+    }
+
+    private static void assertInvalidMaxIds(final File file, final int maxIds) {
+        //NOTE: closes the pool if construction unexpectedly succeeds
+        assertThrows(IllegalArgumentException.class, () -> new AppenderIdPool(file, maxIds).close());
     }
 
     private void runConcurrentTest(final PoolFactory poolFactory,
@@ -313,7 +321,10 @@ class IdPoolTest {
 
     private static void await(final CountDownLatch latch) {
         try {
-            latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            if (!latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException("Timed out after " + TIMEOUT_MILLIS + " ms waiting for " +
+                        latch.getCount() + " threads to acquire an ID");
+            }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while waiting", e);
