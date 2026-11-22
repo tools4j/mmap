@@ -51,7 +51,7 @@ class QueueIntroTest {
             //append: copy from a byte array or buffer, or encode in place (zero-copy) and commit
             final Appender appender = queue.createAppender();
             appender.append("Hello".getBytes(StandardCharsets.US_ASCII));
-            try (final AppendingContext context = appender.appending(64)) {
+            try (final AppendingContext context = appender.appending()) {
                 final int length = context.buffer().putTextLatin1(0, "World");
                 context.commit(length);
             }

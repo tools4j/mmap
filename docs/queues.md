@@ -20,6 +20,25 @@ Main classes:
 Appenders, pollers and readers are not thread-safe: each thread needs its own instances. Multiple appenders can
 append to the same queue concurrently, and pollers and readers can read the queue while entries are being appended.
 
+## Entry length
+An entry is stored in the payload file of its appender as a 4-byte length followed by its data, at a position that is
+a multiple of 8, so that the data starts 4 bytes after a multiple of 8; applications needing 8-byte aligned data can
+start their entries with a 4-byte field. Payload regions are mapped with an overlap beyond their end (see
+[Region overlap](mappings.md#region-overlap)), so that an entry is accessible in one piece from the region it starts
+in, also across a region end or the end of a payload file. Two entry lengths follow from the queue layout, available
+through `Queue.layout()`:
+* the **safe entry length**, the payload overlap size plus 4 bytes, `QueueLayoutConfig.safeEntryLength()`: an entry up
+  to this length fits at every position, and it is the capacity of `Appender.appending()`
+* the **max entry length**, the payload region size plus the payload overlap size minus 4 bytes,
+  `QueueLayoutConfig.maxEntryLength()`, for `Appender.appending(capacity)` and the `append(..)` methods: a longer entry
+  that does not fit at the next position starts at the next payload region instead, leaving the rest of the current
+  region unused
+
+The payload overlap size is part of the queue layout, stored when the queue is created: 64 KB by default (system
+property `mmap.queue.payloadOverlapSize`, or `QueueConfigurator.payloadOverlapSize(..)`), limited to the payload region
+size unless set explicitly, and a positive multiple of 4096 up to the payload region size. Payload files are
+physically larger than the max payload file size by the overlap size.
+
 ## Quick example
 ```java
 try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
@@ -27,7 +46,7 @@ try (Queue queue = Queue.open(new File("/tmp/myQueue"))) {
     //append: copy from a byte array or buffer, or encode in place (zero-copy) and commit
     Appender appender = queue.createAppender();
     appender.append("Hello".getBytes(StandardCharsets.US_ASCII));
-    try (AppendingContext context = appender.appending(64)) {
+    try (AppendingContext context = appender.appending()) {
         int length = context.buffer().putTextLatin1(0, "World");
         context.commit(length);
     }

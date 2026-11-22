@@ -48,6 +48,7 @@ enum QueueLayoutConfigs {
                 layout.maxPayloadFileSize(),
                 layout.headerRegionSize(),
                 layout.payloadRegionSize(),
+                layout.payloadOverlapSize(),
                 layout.expandHeaderFile(),
                 layout.expandPayloadFiles(),
                 layout.rollHeaderFile(),
@@ -74,6 +75,7 @@ enum QueueLayoutConfigs {
         //noinspection ConstantValue
         diffs = appendDiff(diffs, "headerRegionSize", layout.headerRegionSize(), config.headerRegionSize());
         diffs = appendDiff(diffs, "payloadRegionSize", layout.payloadRegionSize(), config.payloadRegionSize());
+        diffs = appendDiff(diffs, "payloadOverlapSize", layout.payloadOverlapSize(), config.payloadOverlapSize());
         diffs = appendDiff(diffs, "minHeaderFileSize", layout.minHeaderFileSize(), config.minHeaderFileSize());
         diffs = appendDiff(diffs, "maxHeaderFileSize", layout.maxHeaderFileSize(), config.maxHeaderFileSize());
         diffs = appendDiff(diffs, "minPayloadFileSize", layout.minPayloadFileSize(), config.minPayloadFileSize());

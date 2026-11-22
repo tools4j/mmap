@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.MappingValidations;
 import org.tools4j.mmap.queue.impl.AppenderIdPool;
+import org.tools4j.mmap.queue.impl.QueueValidations;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
@@ -135,6 +136,18 @@ public enum QueueConfigurations {
      * {@linkplain QueueLayoutConfig#payloadRegionSize() payload region size}.
      */
     public static final String PAYLOAD_REGION_SIZE_PROPERTY = "mmap.queue.payloadRegionSize";
+    /**
+     * Name of the system property to override the default
+     * {@linkplain QueueLayoutConfig#payloadOverlapSize() payload overlap size}.
+     */
+    public static final String PAYLOAD_OVERLAP_SIZE_PROPERTY = "mmap.queue.payloadOverlapSize";
+    /**
+     * The default {@linkplain QueueLayoutConfig#payloadOverlapSize() payload overlap size}, used if system property
+     * {@value #PAYLOAD_OVERLAP_SIZE_PROPERTY} is not set: 64 KB, so that entries of up to 64 KB plus 4 bytes can be
+     * appended. A default payload overlap size is limited to the payload region size of the configuration it is used
+     * for.
+     */
+    public static final int PAYLOAD_OVERLAP_SIZE_DEFAULT = 64*1024;
     /**
      * Name of the system property to override the default
      * {@linkplain QueueLayoutConfig#expandHeaderFile() expand-header-file flag}.
@@ -590,6 +603,19 @@ public enum QueueConfigurations {
      */
     public static int defaultPayloadRegionSize() {
         return intProperty(PAYLOAD_REGION_SIZE_PROPERTY, MappingValidations::validateRegionSize, MappingConfigurations::defaultRegionSize);
+    }
+
+    /**
+     * Returns the default {@linkplain QueueLayoutConfig#payloadOverlapSize() payload overlap size}. A queue
+     * configuration uses at most its payload region size of it.
+     *
+     * @return the value of system property {@value #PAYLOAD_OVERLAP_SIZE_PROPERTY} if set, and
+     *         {@link #PAYLOAD_OVERLAP_SIZE_DEFAULT} otherwise
+     * @throws IllegalArgumentException if the system property value is invalid
+     */
+    public static int defaultPayloadOverlapSize() {
+        return intProperty(PAYLOAD_OVERLAP_SIZE_PROPERTY, QueueValidations::validatePayloadOverlapSize,
+                PAYLOAD_OVERLAP_SIZE_DEFAULT);
     }
 
     /**

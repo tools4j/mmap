@@ -47,6 +47,7 @@ public enum ConfigPrinter {
      */
     public static void describeConfig(final QueueConfig config, final StringBuilder sb) {
         sb.append("regionSize            : ").append(regionSize(config)).append('\n');
+        sb.append("payloadOverlapSize    : ").append(size(config.payloadOverlapSize())).append('\n');
         sb.append("mappingStrategy       : ").append(mappingStrategy(config)).append('\n');
         sb.append("cacheSize             : ").append(cacheSize(config)).append('\n');
         sb.append("regionsToMapAhead     : ").append(regionsToMapAhead(config)).append('\n');

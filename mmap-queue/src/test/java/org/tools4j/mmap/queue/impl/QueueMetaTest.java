@@ -62,6 +62,7 @@ import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 class QueueMetaTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
+    private static final int PAYLOAD_OVERLAP_SIZE = 4096;
     private static final int ENTRY_LENGTH = 100;
     private static final int ENTRIES = 5000;
 
@@ -69,6 +70,7 @@ class QueueMetaTest {
     private static final QueueConfig CREATOR_CONFIG = QueueConfig.configure()
             .headerRegionSize(REGION_SIZE)
             .payloadRegionSize(REGION_SIZE)
+            .payloadOverlapSize(PAYLOAD_OVERLAP_SIZE)
             .minHeaderFileSize(0)
             .maxHeaderFileSize(REGION_SIZE)
             .minPayloadFileSize(0)
@@ -93,6 +95,7 @@ class QueueMetaTest {
         assertEquals(QueueMetaFile.LENGTH, bytes.capacity());
         assertEquals("t4jmmapq", new String(Arrays.copyOf(bytes.array(), 8), StandardCharsets.US_ASCII));
         assertEquals(QueueMetaFile.VERSION, bytes.getInt(8));
+        assertEquals(QueueConfig.getDefault().payloadOverlapSize(), bytes.getInt(56));
     }
 
     @Test
@@ -106,6 +109,7 @@ class QueueMetaTest {
     void layoutToStringListsAllValues() {
         assertEquals("QueueLayoutConfigImpl:headerRegionSize=" + REGION_SIZE +
                         "|payloadRegionSize=" + REGION_SIZE +
+                        "|payloadOverlapSize=" + PAYLOAD_OVERLAP_SIZE +
                         "|minHeaderFileSize=0" +
                         "|maxHeaderFileSize=" + REGION_SIZE +
                         "|minPayloadFileSize=0" +
@@ -139,6 +143,28 @@ class QueueMetaTest {
             assertThrows(IllegalStateException.class, single::createAppender);
             multi.createAppender();
             multi.createAppender();
+        }
+    }
+
+    @Test
+    void queueLayoutIsStoredLayout() {
+        final File dir = queueDir();
+        Queue.open(dir, OpenMode.CREATE, CREATOR_CONFIG).close();
+        for (final OpenMode openMode : List.of(OpenMode.READ_ONLY, OpenMode.READ_WRITE)) {
+            try (final Queue queue = Queue.open(dir, openMode, QueueConfig.getDefault())) {
+                assertEquals(QueueLayoutConfigImpl.of(CREATOR_CONFIG), QueueLayoutConfigImpl.of(queue.layout()),
+                        openMode.toString());
+            }
+        }
+    }
+
+    @Test
+    void lazyQueueHasLayoutOnceCreated() {
+        final File dir = queueDir();
+        try (final Queue queue = Queue.open(dir, OpenMode.READ_ONLY_LAZY)) {
+            assertNull(queue.layout());
+            Queue.open(dir, OpenMode.CREATE, CREATOR_CONFIG).close();
+            assertEquals(QueueLayoutConfigImpl.of(CREATOR_CONFIG), QueueLayoutConfigImpl.of(queue.layout()));
         }
     }
 
@@ -197,6 +223,22 @@ class QueueMetaTest {
         assertNotNull(exception.getMessage());
     }
 
+    @Test
+    void version1WithoutPayloadOverlapIsRejected() throws IOException {
+        Queue.open(queueDir(), OpenMode.CREATE).close();
+        writeMetaBytes(8, ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.LITTLE_ENDIAN).putInt(0, 1).array());
+        final IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> Queue.open(queueDir(), OpenMode.READ_ONLY));
+        assertTrue(exception.getMessage().contains("Unsupported queue format version 1"), exception.getMessage());
+    }
+
+    @Test
+    void invalidPayloadOverlapSizeIsRejected() throws IOException {
+        Queue.open(queueDir(), OpenMode.CREATE).close();
+        writeMetaBytes(56, new byte[Integer.BYTES]);
+        assertThrows(IllegalArgumentException.class, () -> QueueMetaFile.read(metaFile()));
+    }
+
     @ParameterizedTest(name = "length={0}")
     @ValueSource(ints = {8, 11, 12, QueueMetaFile.LENGTH - 1})
     void truncatedMetaFileWithMagicIsRejected(final int length) throws IOException {
@@ -235,7 +277,7 @@ class QueueMetaTest {
     void allFlagCombinationsRoundTrip() {
         for (int flags = 0; flags < 16; flags++) {
             final QueueLayoutConfigImpl layout = new QueueLayoutConfigImpl(REGION_SIZE, 2 * REGION_SIZE,
-                    REGION_SIZE, 4L * REGION_SIZE, 2L * REGION_SIZE, 8L * REGION_SIZE,
+                    PAYLOAD_OVERLAP_SIZE, REGION_SIZE, 4L * REGION_SIZE, 2L * REGION_SIZE, 8L * REGION_SIZE,
                     (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0);
             final File dir = tempDir.resolve("queue_" + flags).toFile();
             assertTrue(dir.mkdir());

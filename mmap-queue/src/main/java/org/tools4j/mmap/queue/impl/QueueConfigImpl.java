@@ -41,6 +41,7 @@ public class QueueConfigImpl implements QueueConfig {
     private final long maxPayloadFileSize;
     private final int headerRegionSize;
     private final int payloadRegionSize;
+    private final int payloadOverlapSize;
     private final boolean expandHeaderFile;
     private final boolean expandPayloadFiles;
     private final boolean rollHeaderFile;
@@ -65,6 +66,7 @@ public class QueueConfigImpl implements QueueConfig {
                 queueConfig.maxPayloadFileSize(),
                 queueConfig.headerRegionSize(),
                 queueConfig.payloadRegionSize(),
+                queueConfig.payloadOverlapSize(),
                 queueConfig.expandHeaderFile(),
                 queueConfig.expandPayloadFiles(),
                 queueConfig.rollHeaderFile(),
@@ -85,6 +87,7 @@ public class QueueConfigImpl implements QueueConfig {
                            final long maxPayloadFileSize,
                            final int headerRegionSize,
                            final int payloadRegionSize,
+                           final int payloadOverlapSize,
                            final boolean expandHeaderFile,
                            final boolean expandPayloadFiles,
                            final boolean rollHeaderFile,
@@ -103,6 +106,7 @@ public class QueueConfigImpl implements QueueConfig {
         this.maxPayloadFileSize = maxPayloadFileSize;
         this.headerRegionSize = headerRegionSize;
         this.payloadRegionSize = payloadRegionSize;
+        this.payloadOverlapSize = payloadOverlapSize;
         this.expandHeaderFile = expandHeaderFile;
         this.expandPayloadFiles = expandPayloadFiles;
         this.rollHeaderFile = rollHeaderFile;
@@ -149,6 +153,11 @@ public class QueueConfigImpl implements QueueConfig {
     @Override
     public int payloadRegionSize() {
         return payloadRegionSize;
+    }
+
+    @Override
+    public int payloadOverlapSize() {
+        return payloadOverlapSize;
     }
 
     @Override
@@ -221,6 +230,7 @@ public class QueueConfigImpl implements QueueConfig {
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|headerRegionSize=" + headerRegionSize +
                 "|payloadRegionSize=" + payloadRegionSize +
+                "|payloadOverlapSize=" + payloadOverlapSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +

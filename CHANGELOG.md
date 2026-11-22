@@ -36,9 +36,20 @@ Notable changes per release. Entries are curated from the commits since the prev
   is mapped with its overlap too, so that **files are physically larger than the max file size by the overlap size**;
   with rolling files, this tail is not continued in the next file. A file must be read with an overlap size no larger
   than the one it was written with, or the last region of the file never becomes available to the reader.
-  `overlapSize(0)` restores the previous behaviour and file sizes. `RegionMetrics` has the new `overlapSize()` and
-  `mappingSize()`, and no longer extends `RegionAware`, which is removed; the `@Unsafe` `RegionMappers` factories take
-  `RegionMetrics` instead of a region size.
+  `overlapSize(0)` restores the previous behaviour and file sizes. `RegionMetrics` has the new `overlapSize()`,
+  `mappingSize()`, `maxLengthAtPosition(..)` and `safeLength(..)`, and no longer extends `RegionAware`, which is
+  removed; the `@Unsafe` `RegionMappers` factories take `RegionMetrics` instead of a region size.
+- Queues map their payload with an overlap, the payload overlap size stored in the queue layout,
+  `QueueLayoutConfig.payloadOverlapSize()`: 64 KB by default (system property `mmap.queue.payloadOverlapSize`),
+  limited to the payload region size unless set explicitly, a positive multiple of 4096. An entry up to the new
+  `QueueLayoutConfig.safeEntryLength()`, the payload overlap size plus 4 bytes, fits at every position, also across
+  region and file ends; the new `Appender.appending()` has this capacity. `Appender.appending(capacity)` and the
+  `append(..)` methods accept entries up to the new `QueueLayoutConfig.maxEntryLength()`, the payload region size plus
+  the payload overlap size minus 4 bytes (was the payload region size minus 4 bytes), starting a longer entry at the
+  next payload region if it does not fit at the next position. **`AppendingContext.ensureCapacity(..)` is removed**:
+  use `appending()`, or `appending(capacity)` with the capacity needed. The new `Queue.layout()` returns the layout
+  stored with the queue. Payload files are larger than the max payload file size by the overlap size. The queue
+  format version is 2: queues created with version 1 can't be opened.
 - Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `MutableMapping.buffer()` and
   `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Mapping.buffer()`, `Entry.buffer()` and the buffer
   passed to `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces

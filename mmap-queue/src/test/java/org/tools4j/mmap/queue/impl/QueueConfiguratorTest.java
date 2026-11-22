@@ -64,7 +64,7 @@ class QueueConfiguratorTest {
     /** Every value differs from the system defaults, and header from payload values */
     private static QueueConfig customDefaults() {
         return new QueueConfigImpl(5, FILE_SIZE, 2 * FILE_SIZE, 4 * FILE_SIZE, 8 * FILE_SIZE,
-                REGION_SIZE, 2 * REGION_SIZE, true, false, false, true,
+                REGION_SIZE, 2 * REGION_SIZE, 4096, true, false, false, true,
                 new AppenderConfigImpl(STRATEGY_A, STRATEGY_B, 11, 12, 1, 2, true, true),
                 new ReaderConfigImpl(STRATEGY_A, STRATEGY_B, 21, 22),
                 new ReaderConfigImpl(STRATEGY_B, STRATEGY_A, 31, 32),
@@ -81,6 +81,7 @@ class QueueConfiguratorTest {
         assertEquals(expected.maxPayloadFileSize(), actual.maxPayloadFileSize(), "maxPayloadFileSize");
         assertEquals(expected.headerRegionSize(), actual.headerRegionSize(), "headerRegionSize");
         assertEquals(expected.payloadRegionSize(), actual.payloadRegionSize(), "payloadRegionSize");
+        assertEquals(expected.payloadOverlapSize(), actual.payloadOverlapSize(), "payloadOverlapSize");
         assertEquals(expected.expandHeaderFile(), actual.expandHeaderFile(), "expandHeaderFile");
         assertEquals(expected.expandPayloadFiles(), actual.expandPayloadFiles(), "expandPayloadFiles");
         assertEquals(expected.rollHeaderFile(), actual.rollHeaderFile(), "rollHeaderFile");
@@ -109,6 +110,8 @@ class QueueConfiguratorTest {
         assertEquals(QueueConfigurations.defaultMaxPayloadFileSize(), config.maxPayloadFileSize());
         assertEquals(QueueConfigurations.defaultHeaderRegionSize(), config.headerRegionSize());
         assertEquals(QueueConfigurations.defaultPayloadRegionSize(), config.payloadRegionSize());
+        assertEquals(Math.min(QueueConfigurations.defaultPayloadOverlapSize(), config.payloadRegionSize()),
+                config.payloadOverlapSize());
         assertEquals(QueueConfigurations.defaultExpandHeaderFile(), config.expandHeaderFile());
         assertEquals(QueueConfigurations.defaultExpandPayloadFiles(), config.expandPayloadFiles());
         assertEquals(QueueConfigurations.defaultRollHeaderFile(), config.rollHeaderFile());
@@ -146,6 +149,7 @@ class QueueConfiguratorTest {
                 .maxPayloadFileSize(2 * FILE_SIZE)
                 .headerRegionSize(4 * REGION_SIZE)
                 .payloadRegionSize(8 * REGION_SIZE)
+                .payloadOverlapSize(8192)
                 .expandHeaderFile(false)
                 .expandPayloadFiles(true)
                 .rollHeaderFile(true)
@@ -158,11 +162,30 @@ class QueueConfiguratorTest {
                 .lifecycleListener(LifecycleListener.NO_OP)
                 .errorListener(ErrorListener.NO_OP);
         assertQueueConfig(new QueueConfigImpl(7, 0, FILE_SIZE, 0, 2 * FILE_SIZE,
-                4 * REGION_SIZE, 8 * REGION_SIZE, false, true, true, false,
+                4 * REGION_SIZE, 8 * REGION_SIZE, 8192, false, true, true, false,
                 appenderConfig, pollerConfig, entryReaderConfig, entryIteratorConfig, indexReaderConfig,
                 LifecycleListener.NO_OP, ErrorListener.NO_OP), config);
         config.reset();
         assertQueueConfig(customDefaults(), config);
+    }
+
+    @Test
+    void unsetPayloadOverlapSizeIsLimitedToPayloadRegionSizeSetLater() {
+        final QueueConfigurator config = QueueConfig.configure();
+        final int defaultOverlapSize = QueueConfigurations.defaultPayloadOverlapSize();
+        assertEquals(Math.min(defaultOverlapSize, REGION_SIZE),
+                config.payloadRegionSize(REGION_SIZE).payloadOverlapSize());
+        assertEquals(defaultOverlapSize, config.payloadRegionSize(1 << 20).payloadOverlapSize());
+        assertEquals(4096, config.payloadOverlapSize(4096).payloadRegionSize(REGION_SIZE).payloadOverlapSize());
+    }
+
+    @Test
+    void payloadOverlapSizeExceedingPayloadRegionSizeIsRejectedByLayout() {
+        final QueueConfig config = QueueConfig.configure()
+                .payloadRegionSize(REGION_SIZE)
+                .payloadOverlapSize(2 * REGION_SIZE)
+                .toImmutableQueueConfig();
+        assertThrows(IllegalArgumentException.class, () -> QueueLayoutConfigImpl.of(config));
     }
 
     @Test
@@ -176,6 +199,9 @@ class QueueConfiguratorTest {
         assertThrows(IllegalArgumentException.class, () -> config.maxPayloadFileSize(3 * REGION_SIZE_GRANULARITY));
         assertThrows(IllegalArgumentException.class, () -> config.headerRegionSize(0));
         assertThrows(IllegalArgumentException.class, () -> config.payloadRegionSize(REGION_SIZE + 1));
+        assertThrows(IllegalArgumentException.class, () -> config.payloadOverlapSize(0));
+        assertThrows(IllegalArgumentException.class, () -> config.payloadOverlapSize(-4096));
+        assertThrows(IllegalArgumentException.class, () -> config.payloadOverlapSize(4096 + 8));
         assertThrows(NullPointerException.class, () -> config.appenderConfig((AppenderConfig) null));
         assertThrows(NullPointerException.class, () -> config.pollerConfig((ReaderConfig) null));
         assertThrows(NullPointerException.class, () -> config.entryReaderConfig((ReaderConfig) null));

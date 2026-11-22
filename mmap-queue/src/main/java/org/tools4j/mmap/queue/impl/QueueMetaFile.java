@@ -38,7 +38,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Reads and writes the queue meta file, which stores the {@link QueueLayoutConfig queue layout}. The file is
- * binary, little-endian, and starts with a magic number and a format version; version 1 has the following layout:
+ * binary, little-endian, and starts with a magic number and a format version; version 2 has the following layout:
  * <pre>
  *     offset  size  field
  *          0     8  magic, the ASCII bytes "t4jmmapq"
@@ -51,10 +51,12 @@ import java.nio.charset.StandardCharsets;
  *         32     8  max header file size
  *         40     8  min payload file size
  *         48     8  max payload file size
- *         56     8  reserved, zero
+ *         56     4  payload overlap size
+ *         60     4  reserved, zero
  * </pre>
  * The format version also covers the layout of the other queue files, such as the header encoding and the
- * index-to-header-position bijection defined in {@link Headers}.
+ * index-to-header-position bijection defined in {@link Headers}. Version 1 had no payload overlap, and is not
+ * supported.
  * <p>
  * The meta file is written under an exclusive file lock, and read under a shared file lock. The magic number is
  * written last, so that a meta file without magic number is incomplete, for instance because its creator crashed, and
@@ -62,7 +64,7 @@ import java.nio.charset.StandardCharsets;
  */
 enum QueueMetaFile {
     ;
-    static final int VERSION = 1;
+    static final int VERSION = 2;
     static final int LENGTH = 64;
 
     /** The ASCII bytes "t4jmmapq" read as a little-endian long */
@@ -77,6 +79,7 @@ enum QueueMetaFile {
     private static final int MAX_HEADER_FILE_SIZE_OFFSET = 32;
     private static final int MIN_PAYLOAD_FILE_SIZE_OFFSET = 40;
     private static final int MAX_PAYLOAD_FILE_SIZE_OFFSET = 48;
+    private static final int PAYLOAD_OVERLAP_SIZE_OFFSET = 56;
     private static final int EXPAND_HEADER_FILE_FLAG = 1;
     private static final int EXPAND_PAYLOAD_FILES_FLAG = 1 << 1;
     private static final int ROLL_HEADER_FILE_FLAG = 1 << 2;
@@ -201,6 +204,7 @@ enum QueueMetaFile {
         return new QueueLayoutConfigImpl(
                 buffer.getInt(HEADER_REGION_SIZE_OFFSET),
                 buffer.getInt(PAYLOAD_REGION_SIZE_OFFSET),
+                buffer.getInt(PAYLOAD_OVERLAP_SIZE_OFFSET),
                 buffer.getLong(MIN_HEADER_FILE_SIZE_OFFSET),
                 buffer.getLong(MAX_HEADER_FILE_SIZE_OFFSET),
                 buffer.getLong(MIN_PAYLOAD_FILE_SIZE_OFFSET),
@@ -221,6 +225,7 @@ enum QueueMetaFile {
         buffer.putInt(VERSION_OFFSET, VERSION);
         buffer.putInt(HEADER_REGION_SIZE_OFFSET, layout.headerRegionSize());
         buffer.putInt(PAYLOAD_REGION_SIZE_OFFSET, layout.payloadRegionSize());
+        buffer.putInt(PAYLOAD_OVERLAP_SIZE_OFFSET, layout.payloadOverlapSize());
         buffer.putInt(FLAGS_OFFSET, flags(layout));
         buffer.putLong(MIN_HEADER_FILE_SIZE_OFFSET, layout.minHeaderFileSize());
         buffer.putLong(MAX_HEADER_FILE_SIZE_OFFSET, layout.maxHeaderFileSize());

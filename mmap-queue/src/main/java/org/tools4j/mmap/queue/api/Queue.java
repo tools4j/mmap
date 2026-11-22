@@ -39,6 +39,18 @@ import java.io.File;
  */
 public interface Queue extends Closeable {
     /**
+     * Returns the layout of this queue, as stored with the queue when it was created, which may differ from the
+     * configuration the queue was opened with; for instance, {@link QueueLayoutConfig#safeEntryLength()} and
+     * {@link QueueLayoutConfig#maxEntryLength()} are the entry lengths an appender of this queue supports.
+     * <p>
+     * For a queue opened {@linkplain OpenMode#READ_ONLY_LAZY lazily} that does not exist yet, this method reads the
+     * queue's meta file on every call until the queue is created, and returns null until then.
+     *
+     * @return the queue layout, or null if the queue was opened lazily and does not exist yet
+     */
+    QueueLayoutConfig layout();
+
+    /**
      * Creates an appender using the queue's default {@link QueueConfig#appenderConfig() appender configuration}.
      *
      * @return new instance of an appender

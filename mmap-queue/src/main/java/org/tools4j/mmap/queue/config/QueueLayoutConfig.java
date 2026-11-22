@@ -65,12 +65,47 @@ public interface QueueLayoutConfig {
     int headerRegionSize();
 
     /**
-     * Returns the payload region size, which is also the maximum size of a queue entry including its length prefix,
-     * since entries never cross a region boundary.
+     * Returns the payload region size, the size of the payload file blocks mapped into memory.
      *
      * @return the payload region size in bytes
      */
     int payloadRegionSize();
+
+    /**
+     * Returns the payload overlap size, the number of bytes mapped beyond the end of every payload region, which
+     * defines the {@linkplain #safeEntryLength() safe entry length}. Payload files are physically larger than the max
+     * payload file size by the overlap size.
+     *
+     * @return the payload overlap size in bytes, a positive multiple of 4096 no greater than the payload region size
+     */
+    int payloadOverlapSize();
+
+    /**
+     * Returns the safe entry length, the payload overlap size plus 4 bytes: an entry is stored as a 4-byte length
+     * followed by its data, starting at a payload position that is a multiple of 8, so that an entry of up to the safe
+     * entry length fits at every position, accessible in one piece from the region its position lies in, also across a
+     * region end or the max payload file size. It is the capacity of {@link org.tools4j.mmap.queue.api.Appender#appending()}.
+     * <p>
+     * The entry data starts 4 bytes after a multiple of 8; applications needing 8-byte aligned data can start their
+     * entries with a 4-byte field.
+     *
+     * @return the safe entry length in bytes, the payload overlap size plus 4
+     */
+    default int safeEntryLength() {
+        return payloadOverlapSize() + Integer.BYTES;
+    }
+
+    /**
+     * Returns the max entry length, the payload region size plus the payload overlap size minus 4 bytes for the length:
+     * the length of an entry starting at a payload region start. An entry longer than the
+     * {@linkplain #safeEntryLength() safe entry length} that does not fit at the next payload position starts at the
+     * next payload region instead, leaving the rest of the current region unused.
+     *
+     * @return the max entry length in bytes, the payload region size plus the payload overlap size minus 4
+     */
+    default int maxEntryLength() {
+        return payloadRegionSize() + payloadOverlapSize() - Integer.BYTES;
+    }
 
     /**
      * Returns true if the header file is expanded as needed, and false if it is created with maximum size.

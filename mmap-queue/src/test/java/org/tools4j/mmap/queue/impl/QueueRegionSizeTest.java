@@ -40,7 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Unit test for the queue region sizes of {@link QueueConfigurator} and {@link QueueConfiguratorImpl}.
+ * Unit test for the queue region and payload overlap sizes of {@link QueueConfigurator} and
+ * {@link QueueConfiguratorImpl}.
  */
 class QueueRegionSizeTest {
 
@@ -65,16 +66,28 @@ class QueueRegionSizeTest {
     }
 
     @Test
-    void payloadRegionSizeLimitsEntrySize() {
-        final QueueConfig config = QueueConfig.configure().headerRegionSize(REGION_SIZE).payloadRegionSize(REGION_SIZE);
+    void payloadRegionAndOverlapSizesDefineEntryLengths() {
+        final int payloadOverlapSize = 4096;
+        final QueueConfig config = QueueConfig.configure()
+                .headerRegionSize(REGION_SIZE)
+                .payloadRegionSize(REGION_SIZE)
+                .payloadOverlapSize(payloadOverlapSize);
+        assertEquals(payloadOverlapSize + Integer.BYTES, config.safeEntryLength());
+        assertEquals(REGION_SIZE + payloadOverlapSize - Integer.BYTES, config.maxEntryLength());
         try (final Queue queue = Queue.open(tempDir.resolve("queue").toFile(), OpenMode.CREATE, config)) {
+            assertEquals(config.safeEntryLength(), queue.layout().safeEntryLength());
+            assertEquals(config.maxEntryLength(), queue.layout().maxEntryLength());
             final Appender appender = queue.createAppender();
-            final int maxEntrySize = REGION_SIZE - Integer.BYTES;
-            try (final AppendingContext context = appender.appending(maxEntrySize)) {
-                context.commit(maxEntrySize);
+            try (final AppendingContext context = appender.appending()) {
+                assertEquals(config.safeEntryLength(), context.buffer().capacity());
+                context.commit(config.safeEntryLength());
             }
-            assertThrows(IllegalArgumentException.class, () -> appender.appending(maxEntrySize + 1));
-            assertEquals(1, queue.createIndexReader().size());
+            try (final AppendingContext context = appender.appending(config.maxEntryLength())) {
+                assertEquals(config.maxEntryLength(), context.buffer().capacity());
+                context.commit(config.maxEntryLength());
+            }
+            assertThrows(IllegalArgumentException.class, () -> appender.appending(config.maxEntryLength() + 1));
+            assertEquals(2, queue.createIndexReader().size());
         }
     }
 }

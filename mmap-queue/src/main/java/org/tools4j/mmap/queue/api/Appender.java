@@ -39,7 +39,8 @@ public interface Appender extends Closeable {
      *
      * @param bytes entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if array length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalArgumentException if array length exceeds the
+     *                                  {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(byte[] bytes);
@@ -51,7 +52,7 @@ public interface Appender extends Closeable {
      * @param offset offset of the entry data in the array
      * @param length length of the entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalArgumentException if length exceeds the {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(byte[] bytes, int offset, int length);
@@ -64,8 +65,8 @@ public interface Appender extends Closeable {
      *
      * @param buffer buffer containing entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if the buffer's remaining bytes exceeds the maximum length for an entry allowed
-     *                                  by the queue
+     * @throws IllegalArgumentException if the buffer's remaining bytes exceed the
+     *                                  {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(ByteBuffer buffer);
@@ -79,7 +80,7 @@ public interface Appender extends Closeable {
      * @param buffer buffer containing entry data
      * @param length length of the entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalArgumentException if length exceeds the {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(ByteBuffer buffer, int length);
@@ -94,39 +95,35 @@ public interface Appender extends Closeable {
      * @param offset offset of the entry data in the buffer
      * @param length length of the entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalArgumentException if length exceeds the {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(ByteBuffer buffer, int offset, int length);
 
     /**
      * Appends an entry copying the data provided in the given buffer. For zero-copy coding directly into the queue
-     * buffer the {@link #appending(int)} method can be used instead.
+     * buffer the {@link #appending()} method can be used instead.
      *
      * @param buffer buffer containing entry data, direct or heap memory
      * @param offset offset of the entry data in the buffer
      * @param length length of the entry data
      * @return  queue index at which entry was appended
-     * @throws IllegalArgumentException if length exceeds the maximum length for an entry allowed by the queue
+     * @throws IllegalArgumentException if length exceeds the {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     long append(MemoryBuffer buffer, int offset, int length);
 
     /**
      * Provides an appending context for zero-copy encoding of the new entry into the queue
-     * {@link AppendingContext#buffer() buffer}. The queue buffer is guaranteed to have capacity for at least the
-     * specified number of bytes.
-     * <p>
-     * Capacity can later be increased up to the entry size limit through
-     * {@link AppendingContext#ensureCapacity(int) ensureCapacity(..)}, but this may require copying the already encoded
-     * data to the next payload region, and with some payload mapping strategies the allocation of an off-heap copy
-     * buffer. Specifying sufficient capacity here avoids both.
+     * {@link AppendingContext#buffer() buffer}, with a capacity of the
+     * {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#safeEntryLength() safe entry length}, the payload
+     * overlap size plus 4 bytes, 64 KB plus 4 bytes by default; see {@link Queue#layout()}. The entry is appended at
+     * the next payload position, where an entry of up to the safe entry length always fits.
      * <p>
      * Coding of the entry has to be committed when completed (or it can be aborted). This is best performed by using a
      * try-resource block:
      * <pre>
-     * int maxLength = 1000;
-     * try (AppendingContext context = appending(maxLength)) {
+     * try (AppendingContext context = appending()) {
      *     MutableMemoryBuffer buffer = context.buffer();
      *     //code entry data into buffer here
      *     int length = ...;//actual number of bytes encoded
@@ -134,9 +131,23 @@ public interface Appender extends Closeable {
      * }
      * </pre>
      *
+     * @return appending context for writing of entry data
+     * @throws IllegalStateException if the appender or the underlying queue is closed
+     */
+    AppendingContext appending();
+
+    /**
+     * Provides an appending context for zero-copy encoding of the new entry into the queue
+     * {@link AppendingContext#buffer() buffer}, with the given capacity, up to the
+     * {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#maxEntryLength() max entry length}, the payload region size plus the payload overlap size minus 4 bytes; see
+     * {@link Queue#layout()}. An entry with a capacity exceeding the
+     * {@linkplain org.tools4j.mmap.queue.config.QueueLayoutConfig#safeEntryLength() safe entry length} that does not
+     * fit at the next payload position starts at the next payload region instead, leaving the rest of the current
+     * region unused. The entry is committed or aborted as with {@link #appending()}.
+     *
      * @param capacity the maximum length of the entry data in bytes
      * @return appending context for writing of entry data
-     * @throws IllegalArgumentException if the specified capacity parameter exceeds the entry size limit
+     * @throws IllegalArgumentException if capacity exceeds the max entry length
      * @throws IllegalStateException if the appender or the underlying queue is closed
      */
     AppendingContext appending(int capacity);
