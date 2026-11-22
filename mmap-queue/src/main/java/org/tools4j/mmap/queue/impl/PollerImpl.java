@@ -48,7 +48,10 @@ final class PollerImpl implements Poller, Describable {
     private long nextIndex;
     private long currentIndex;
     private long currentHeader;
-    private int errorState = PENDING_OPEN;
+    /** True once the header has been mapped, distinguishing PENDING_NEXT from PENDING_OPEN */
+    private boolean opened;
+    /** Written by close() only, so that a poll racing a close from another thread cannot reopen the poller */
+    private boolean closed;
 
     PollerImpl(final String queueName, final ReaderMappings mappings, final Runnable onClose,
                final LifecycleListener lifecycleListener,
@@ -162,17 +165,16 @@ final class PollerImpl implements Poller, Describable {
     }
 
     private int moveTo(final long curIndex, final int inc) {
-        final int error = errorState;
-        if (error == CLOSED) {
+        if (closed) {
             return CLOSED;
         }
         final long index = curIndex + inc;
         final long position = Headers.headerPositionForIndex(index);
         final DynamicMapping headerMapping = mappings.header();
         if (headerMapping == null || !headerMapping.moveTo(position, Headers.HEADER_LENGTH)) {
-            return error;
+            return opened ? PENDING_NEXT : PENDING_OPEN;
         }
-        errorState = PENDING_NEXT;
+        opened = true;
         final long header = headerMapping.buffer().getLongAcquire(0);
         if (header == NULL_HEADER) {
             final long next = nextIndex;
@@ -194,7 +196,7 @@ final class PollerImpl implements Poller, Describable {
 
     @Override
     public boolean isClosed() {
-        return errorState == CLOSED;
+        return closed;
     }
 
     private void checkNotClosed() {
@@ -206,7 +208,7 @@ final class PollerImpl implements Poller, Describable {
     @Override
     public void close() {
         if (!isClosed()) {
-            errorState = CLOSED;
+            closed = true;
             nextIndex = Index.FIRST;
             currentIndex = Index.NULL;
             currentHeader = NULL_HEADER;
