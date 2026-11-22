@@ -120,8 +120,14 @@ Notable changes per release. Entries are curated from the commits since the prev
   of all its implementations.
 - File locks, taken when files are opened and extended, allocate nothing any more, and closing a file no longer
   releases a lock that another mapping of the same file in the JVM holds at the time.
+- `AppendingContext.commit(length)` with an invalid length throws without closing the context, so that the entry can
+  still be committed with a valid length or aborted; it used to abort the entry.
 
 ### Fixed
+- Closing an appender aborts its open appending context, whose buffer then has zero capacity and whose commit throws
+  `IllegalStateException`; the buffer used to stay wrapped around the unmapped payload, so that accessing it could
+  crash the JVM, and a commit threw `IndexOutOfBoundsException`. An aborted context's buffer has zero capacity too,
+  as documented.
 - A queue meta file without magic number that is longer than a meta file is rejected as foreign instead of being
   treated as an incomplete meta file and overwritten, and a meta file longer than its format defines is rejected.
 

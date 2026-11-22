@@ -253,6 +253,7 @@ final class AppenderImpl implements Appender, Describable {
     public void close() {
         if (!isClosed()) {
             closed = true;
+            context.abort();
             endIndex = Index.NULL;
             lastOwnHeader = NULL_HEADER;
             lastOwnPayloadLength = -1;
@@ -320,28 +321,28 @@ final class AppenderImpl implements Appender, Describable {
 
         @Override
         public void abort() {
-            this.maxLength = -1;
+            maxLength = -1;
+            buffer.unwrap();
         }
 
         @Override
         public long commit(final int length) {
-            final int max = maxLength;
-            maxLength = -1;
-            buffer.unwrap();
-            validateLength(length, max);
+            validateLength(length, maxLength);
+            abort();
             final DynamicMutableMapping pld = payload;
             pld.buffer().putInt(0, length);
             return appender.appendEntry(pld.position(), length + Integer.BYTES);
         }
 
-        static void validateLength(final int length, final int maxLength) {
+        private static void validateLength(final int length, final int maxLength) {
+            if (maxLength < 0) {
+                throw new IllegalStateException("Appending context is closed");
+            }
             if (length < 0) {
                 throw new IllegalArgumentException("Length cannot be negative: " + length);
-            } else if (length > maxLength) {
-                if (maxLength >= 0) {
-                    throw new IllegalArgumentException("Length " + length + " exceeds max length " + maxLength);
-                }
-                throw new IllegalStateException("Appending context is closed");
+            }
+            if (length > maxLength) {
+                throw new IllegalArgumentException("Length " + length + " exceeds max length " + maxLength);
             }
         }
 
