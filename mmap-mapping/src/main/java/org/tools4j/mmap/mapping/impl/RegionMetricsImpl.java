@@ -26,19 +26,23 @@ package org.tools4j.mmap.mapping.impl;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import static org.tools4j.mmap.core.internal.PowersOfTwo.isPowerOfTwo;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 
 public final class RegionMetricsImpl implements RegionMetrics {
 
     private final int regionSize;
+    private final int overlapSize;
     private final int offsetMask;
     private final long regionMask;
     private final int regionShift;
 
-    public RegionMetricsImpl(final int regionSize) {
+    public RegionMetricsImpl(final int regionSize, final int overlapSize) {
         if (!isPowerOfTwo(regionSize)) {
             throw new IllegalArgumentException("Region size must be a positive power of 2: " + regionSize);
         }
+        validateOverlapSize(regionSize, overlapSize);
         this.regionSize = regionSize;
+        this.overlapSize = overlapSize;
         this.offsetMask = regionSize - 1;
         this.regionMask = -regionSize;
         this.regionShift = Integer.SIZE - Integer.numberOfLeadingZeros(regionSize - 1);
@@ -47,6 +51,26 @@ public final class RegionMetricsImpl implements RegionMetrics {
     @Override
     public int regionSize() {
         return regionSize;
+    }
+
+    @Override
+    public int overlapSize() {
+        return overlapSize;
+    }
+
+    @Override
+    public int mappingSize() {
+        return regionSize + overlapSize;
+    }
+
+    @Override
+    public int maxLengthAtPosition(final long position) {
+        return mappingSize() - regionOffset(position);
+    }
+
+    @Override
+    public int safeLength(final int alignment) {
+        return overlapSize + alignment;
     }
 
     @Override
@@ -71,6 +95,6 @@ public final class RegionMetricsImpl implements RegionMetrics {
 
     @Override
     public String toString() {
-        return "RegionMetricsImpl:regionSize=" + regionSize;
+        return "RegionMetricsImpl:regionSize=" + regionSize + "|overlapSize=" + overlapSize;
     }
 }

@@ -38,8 +38,10 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
+import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FileMappers;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
@@ -69,6 +71,7 @@ import java.util.stream.Stream;
 public class RegionCrossingBenchmark {
     private static final int REGION_SIZE = 64 * 1024;
     private static final int REGIONS = 4;//crossed in turn, fewer than cached, a power of two
+    private static final RegionMetrics REGION_METRICS = new RegionMetricsImpl(REGION_SIZE, 0);
     private static final int CACHE_SIZE = 8;
     private static final int POLLUTION_ROUNDS = 200_000;
 
@@ -91,14 +94,14 @@ public class RegionCrossingBenchmark {
     @Setup(Level.Trial)
     public void setup() throws IOException {
         directory = Files.createTempDirectory("region-crossing");
-        mapping = dynamicMapping("ring", fileMapper -> RegionMappers.createSyncRegionMapper(fileMapper, REGION_SIZE,
+        mapping = dynamicMapping("ring", fileMapper -> RegionMappers.createSyncRegionMapper(fileMapper, REGION_METRICS,
                 CACHE_SIZE, 0, true));
         if (profile == Profile.MEGAMORPHIC) {
             final DynamicMapping lru = dynamicMapping("lru", fileMapper -> RegionMappers.createSyncRegionMapper(
-                    fileMapper, REGION_SIZE, 1, CACHE_SIZE, true));
+                    fileMapper, REGION_METRICS, 1, CACHE_SIZE, true));
             final DynamicMapping refCount = dynamicMapping("ref-count", fileMapper ->
                     RegionMappers.createRefCountRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper,
-                            REGION_SIZE, CACHE_SIZE, 0, true), CACHE_SIZE));
+                            REGION_METRICS, CACHE_SIZE, 0, true), CACHE_SIZE));
             for (int i = 0; i < POLLUTION_ROUNDS; i++) {
                 final long position = position(i);
                 move(mapping, position);
@@ -116,6 +119,7 @@ public class RegionCrossingBenchmark {
         final File file = directory.resolve(name + ".map").toFile();
         final MappingConfig config = MappingConfig.configure()
                 .regionSize(REGION_SIZE)
+                .overlapSize(REGION_METRICS.overlapSize())
                 .maxFileSize((long) REGION_SIZE * REGIONS)
                 .expandFile(false)
                 .rollFiles(false)

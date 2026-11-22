@@ -77,11 +77,11 @@ class MappingConfigImplTest {
     @Test
     void invalidIndividualValuesAreRejected() {
         final MappingStrategyConfig strategy = MappingStrategyConfig.configure().toImmutableConfig();
-        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(3, REGION_SIZE, REGION_SIZE, true,
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(3, REGION_SIZE, REGION_SIZE, 0, true,
                 true, 1, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
-        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE, true,
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE, 0, true,
                 true, 0, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
-        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE + 1,
+        assertThrows(IllegalArgumentException.class, () -> new MappingConfigImpl(0, REGION_SIZE, REGION_SIZE + 1, 0,
                 true, true, 1, 0, FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP));
     }
 }

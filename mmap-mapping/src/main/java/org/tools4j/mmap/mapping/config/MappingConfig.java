@@ -43,11 +43,17 @@ public interface MappingConfig {
     long minFileSize();
 
     /**
-     * Returns the maximum file size. Files are created with this size unless {@linkplain #expandFile() expand-file}
-     * mode is in use, in which case files grow up to this size. If {@linkplain #rollFiles() file rolling} is used,
-     * this is the size of every individual file, and the next file is used for positions beyond.
+     * Returns the maximum file size, the size of the data a file holds: positions from zero up to the max file size.
+     * Files are created with this size unless {@linkplain #expandFile() expand-file} mode is in use, in which case
+     * files grow up to this size. If {@linkplain #rollFiles() file rolling} is used, this is the size of every
+     * individual file, and the next file is used for positions beyond.
+     * <p>
+     * Files are physically larger than this by the {@linkplain #overlapSize() overlap size}, so that the last region
+     * of a file can be mapped with its overlap as well. These extra bytes are only accessible through the overlap of
+     * the last region; with file rolling, they are not the first bytes of the next file.
      *
-     * @return the maximum file size in bytes, a power of two and a multiple of the region size
+     * @return the maximum file size in bytes, a power of two and a multiple of the region size, not including the
+     *         overlap size
      */
     long maxFileSize();
 
@@ -57,6 +63,28 @@ public interface MappingConfig {
      * @return the region size in bytes, a power of two and a multiple of the OS page size
      */
     int regionSize();
+
+    /**
+     * Returns the overlap size, the number of bytes mapped beyond the end of every region, so that at least this many
+     * contiguous bytes are accessible from any position through the mapping of the region the position lies in. This
+     * includes the last region of a file, whose overlap lies beyond the {@linkplain #maxFileSize() max file size}:
+     * files are physically larger than their max size by the overlap size, also with
+     * {@linkplain #rollFiles() file rolling}, where the overlap of a file's last region is not continued in the next
+     * file: data written there is only accessible through the last region of the file.
+     * <p>
+     * A file must be read with an overlap size no larger than the one it was written with. A read-only mapping of a
+     * region is only available once the file covers the region plus its overlap: with a larger overlap than the
+     * writer's, the last region of a file never becomes available, as the file does not grow beyond the writer's
+     * overlap. A smaller overlap is fine, but limits the contiguous bytes accessible to the reader's overlap. A
+     * writable mapping with a larger overlap than the file was created with grows the file by the difference.
+     * <p>
+     * Unless set explicitly, the overlap size is the {@linkplain MappingConfigurations#defaultOverlapSize() default},
+     * limited to the {@linkplain #regionSize() region size}.
+     *
+     * @return the overlap size in bytes, between zero and region size, and a multiple of the OS page size
+     * @see org.tools4j.mmap.mapping.api.RegionMetrics#overlapSize()
+     */
+    int overlapSize();
 
     /**
      * Returns whether files should be expanded as needed, or created at maximum size upfront.

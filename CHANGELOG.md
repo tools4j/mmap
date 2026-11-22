@@ -28,6 +28,17 @@ Notable changes per release. Entries are curated from the commits since the prev
   work; the mapping factories take the enum of their kind, so that a mutable mapping of a file opened for reading only,
   or the reverse, does not compile. `Queue.open(..)` still takes any `OpenMode`. As `OpenMode` is no longer an enum,
   `OpenMode.values()` and `valueOf(..)` are gone, and switches need the enum types.
+- Dynamic mappings map every region with an overlap beyond its end, the first bytes of the next region, so that at
+  least the overlap size of contiguous bytes is accessible from any position: `MappingConfig.overlapSize()`, 64 KB by
+  default (system property `mmap.mapping.overlapSize`), limited to the region size unless set explicitly. The max
+  length at a position and `DynamicMapping.STRETCH_LENGTH` extend to the end of the overlap, and the new
+  `DynamicMapping.safeLength(alignment)` is the length that fits at every aligned position. The last region of a file
+  is mapped with its overlap too, so that **files are physically larger than the max file size by the overlap size**;
+  with rolling files, this tail is not continued in the next file. A file must be read with an overlap size no larger
+  than the one it was written with, or the last region of the file never becomes available to the reader.
+  `overlapSize(0)` restores the previous behaviour and file sizes. `RegionMetrics` has the new `overlapSize()` and
+  `mappingSize()`, and no longer extends `RegionAware`, which is removed; the `@Unsafe` `RegionMappers` factories take
+  `RegionMetrics` instead of a region size.
 - Mappings and queues expose mmap-core's memory buffers instead of Agrona's: `MutableMapping.buffer()` and
   `AppendingContext.buffer()` return a `MutableMemoryBuffer`, `Mapping.buffer()`, `Entry.buffer()` and the buffer
   passed to `EntryHandler.onEntry(..)` are `MemoryBuffer`s, and `Appender.append(MemoryBuffer, int, int)` replaces

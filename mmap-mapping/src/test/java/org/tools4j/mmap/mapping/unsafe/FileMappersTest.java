@@ -85,18 +85,21 @@ class FileMappersTest {
     }
 
     @Test
-    void mappingLimitIsMaxFileSizeUnlessRollingOrReadOnly() {
+    void mappingLimitIsMaxFileSizePlusOverlapUnlessRollingOrReadOnly() {
         final File file = tempDir.resolve("limit.map").toFile();
+        final int overlapSize = (int) REGION_SIZE_GRANULARITY;
         final MappingConfig expandable = MappingConfig.configure()
-                .rollFiles(false).expandFile(true).minFileSize(0).maxFileSize(MAX_FILE_SIZE).regionSize(REGION_SIZE);
+                .rollFiles(false).expandFile(true).minFileSize(0).maxFileSize(MAX_FILE_SIZE).regionSize(REGION_SIZE)
+                .overlapSize(overlapSize);
         final MappingConfig fixed = MappingConfig.configure(expandable).expandFile(false);
         try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, expandable)) {
             assertInstanceOf(ExpandableSizeFileMapper.class, mapper);
-            assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
+            assertEquals(MAX_FILE_SIZE + overlapSize, mapper.mappingLimit());
         }
         try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_WRITE, fixed)) {
             assertInstanceOf(FixedSizeFileMapper.class, mapper);
-            assertEquals(MAX_FILE_SIZE, mapper.mappingLimit());
+            assertEquals(MAX_FILE_SIZE + overlapSize, mapper.mappingLimit());
+            assertEquals(MAX_FILE_SIZE + overlapSize, file.length(), "fixed size file");
         }
         try (final FileMapper mapper = FileMappers.create(file, AccessMode.READ_ONLY, fixed)) {
             assertInstanceOf(ReadOnlyFileMapper.class, mapper);
@@ -129,7 +132,7 @@ class FileMappersTest {
     void forThreadReturnsNewPerThreadFileMapperForConcurrentRollingFileMapper() {
         try (final FileMapper concurrent = ConcurrentRollingFileMapper.forReadWrite(
                 tempDir.resolve("concurrent.map").toFile(), AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE,
-                REGION_SIZE, 0, 3, FILE_INITIALISER)) {
+                REGION_SIZE, 0, 0, 3, FILE_INITIALISER)) {
             final FileMapper sibling = FileMappers.forThread(concurrent);
             assertNotSame(concurrent, sibling);
             assertNotSame(sibling, FileMappers.forThread(sibling));
@@ -139,7 +142,7 @@ class FileMappersTest {
     @Test
     void forThreadRejectsSingleThreadedFileMapper() {
         try (final FileMapper rolling = RollingFileMapper.forReadWrite(tempDir.resolve("rolling.map").toFile(),
-                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 2, FILE_INITIALISER)) {
+                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 0, 2, FILE_INITIALISER)) {
             assertThrows(IllegalArgumentException.class, () -> FileMappers.forThread(rolling));
         }
     }

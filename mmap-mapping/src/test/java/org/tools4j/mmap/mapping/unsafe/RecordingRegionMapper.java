@@ -48,7 +48,7 @@ final class RecordingRegionMapper implements RegionMapper {
     private static final long ADDRESS_BASE = 1L << 40;
     private static final long GENERATION_STEP = 1L << 36;
 
-    private final RegionMetrics regionMetrics = new RegionMetricsImpl(REGION_SIZE);
+    private final RegionMetrics regionMetrics = new RegionMetricsImpl(REGION_SIZE, 0);
     private final long maxPosition;
     private final List<String> calls = new ArrayList<>();
     private final Set<Long> liveAddresses = new HashSet<>();

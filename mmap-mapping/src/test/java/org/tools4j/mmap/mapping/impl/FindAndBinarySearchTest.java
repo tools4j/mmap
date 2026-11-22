@@ -126,14 +126,13 @@ class FindAndBinarySearchTest {
                          final long expectedPosition,
                          final boolean count) {
         //given
-        final RegionMetrics regionMetrics = new RegionMetricsImpl(regionSize);
+        final RegionMetrics regionMetrics = new RegionMetricsImpl(regionSize, 0);
         final AtomicInteger counter = count ? new AtomicInteger() : null;
         final int expectedLinearCount = 1 + (int) ceil(Math.max(0, 1 + expectedPosition - startPosition), bytes);
         final int expectedLogCount = Math.max(1, 2 * (int) Math.ceil(log2(expectedLinearCount)));
         final Predicate<DynamicMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
         final MutableMemoryBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
-        when(regionMapper.regionSize()).thenReturn(regionSize);
         when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
         final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 

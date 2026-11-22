@@ -69,7 +69,7 @@ class ExpandableSizeFileMapperTest {
 
     private ExpandableSizeFileMapper mapper(final long minFileSize) {
         file = tempDir.resolve("expandable.map").toFile();
-        return new ExpandableSizeFileMapper(file, minFileSize, MAX_FILE_SIZE, REGION_SIZE, FILE_INITIALISER);
+        return new ExpandableSizeFileMapper(file, minFileSize, MAX_FILE_SIZE, REGION_SIZE, 0, FILE_INITIALISER);
     }
 
     private static long mapAndWrite(final FileMapper mapper, final long position, final long value) {
@@ -106,6 +106,31 @@ class ExpandableSizeFileMapperTest {
     }
 
     @Test
+    void growsInMultiplesOfMinFileSizePlusOverlap() {
+        final int overlapSize = REGION_SIZE;
+        final int mappingSize = REGION_SIZE + overlapSize;
+        file = tempDir.resolve("overlap.map").toFile();
+        try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 2L * REGION_SIZE,
+                MAX_FILE_SIZE, REGION_SIZE, overlapSize, FILE_INITIALISER)) {
+            assertEquals(MAX_FILE_SIZE + overlapSize, mapper.mappingLimit());
+            assertEquals(0, file.length(), "not opened yet");
+            final long address = mapper.map(0, mappingSize, false);
+            assertEquals(2L * REGION_SIZE + overlapSize, file.length(), "min file size plus overlap");
+            TestBuffers.wrap(address, mappingSize).putLong(REGION_SIZE, 0x0102030405060708L);
+            mapper.unmap(0, address, mappingSize);
+            final long next = mapper.map(REGION_SIZE, mappingSize, false);
+            assertEquals(2L * REGION_SIZE + overlapSize, file.length(), "next region fits with overlap");
+            assertEquals(0x0102030405060708L, TestBuffers.wrap(next, mappingSize).getLong(0), "overlap");
+            mapper.unmap(REGION_SIZE, next, mappingSize);
+            mapper.unmap(2L * REGION_SIZE, mapper.map(2L * REGION_SIZE, mappingSize, false), mappingSize);
+            assertEquals(4L * REGION_SIZE + overlapSize, file.length());
+            mapper.unmap(7L * REGION_SIZE, mapper.map(7L * REGION_SIZE, mappingSize, false), mappingSize);
+            assertEquals(MAX_FILE_SIZE + overlapSize, file.length(), "last region with overlap");
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(8L * REGION_SIZE, mappingSize, false));
+        }
+    }
+
+    @Test
     void dataSurvivesReopening() {
         try (final ExpandableSizeFileMapper mapper = mapper(0)) {
             mapAndWrite(mapper, 5L * REGION_SIZE, 0x0102030405060708L);
@@ -124,7 +149,7 @@ class ExpandableSizeFileMapperTest {
         assertTrue(notADirectory.createNewFile());
         file = new File(notADirectory, "expandable.map");
         try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
-                FILE_INITIALISER)) {
+                0, FILE_INITIALISER)) {
             for (int i = 0; i < 2; i++) {
                 final UncheckedIOException error = assertThrows(UncheckedIOException.class,
                         () -> mapper.map(0, REGION_SIZE, false));
@@ -144,7 +169,7 @@ class ExpandableSizeFileMapperTest {
         };
         file = tempDir.resolve("expandable.map").toFile();
         try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
-                accessMode -> failingInitialiser)) {
+                0, accessMode -> failingInitialiser)) {
             for (int i = 0; i < 2; i++) {
                 assertSame(cause, assertThrows(UncheckedIOException.class, () -> mapper.map(0, REGION_SIZE, false))
                         .getCause());
@@ -165,13 +190,15 @@ class ExpandableSizeFileMapperTest {
     void invalidSizesAreRejected() {
         final File file = tempDir.resolve("invalid.map").toFile();
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 0,
-                REGION_SIZE / 2, REGION_SIZE, FILE_INITIALISER), "max smaller than region");
+                REGION_SIZE / 2, REGION_SIZE, 0, FILE_INITIALISER), "max smaller than region");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 4L * REGION_SIZE,
-                2L * REGION_SIZE, REGION_SIZE, FILE_INITIALISER), "max smaller than min");
+                2L * REGION_SIZE, REGION_SIZE, 0, FILE_INITIALISER), "max smaller than min");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, REGION_SIZE,
-                MAX_FILE_SIZE, 2 * REGION_SIZE, FILE_INITIALISER), "min smaller than region");
+                MAX_FILE_SIZE, 2 * REGION_SIZE, 0, FILE_INITIALISER), "min smaller than region");
         assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 3L * REGION_SIZE,
-                MAX_FILE_SIZE, REGION_SIZE, FILE_INITIALISER), "min not a power of two");
+                MAX_FILE_SIZE, REGION_SIZE, 0, FILE_INITIALISER), "min not a power of two");
+        assertThrows(IllegalArgumentException.class, () -> new ExpandableSizeFileMapper(file, 0,
+                MAX_FILE_SIZE, REGION_SIZE, 2 * REGION_SIZE, FILE_INITIALISER), "overlap larger than region");
     }
 
     @Test

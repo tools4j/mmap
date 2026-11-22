@@ -59,10 +59,6 @@ final class RefCountRegionMapper implements RegionMapper {
         return baseMapper.regionMetrics();
     }
 
-    @Override
-    public int regionSize() {
-        return RegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -75,13 +71,13 @@ final class RefCountRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int mappingSize) {
         long addr = positionToAddress.get(position);
         if (addr != NULL_ADDRESS) {
             positionToRefCount.put(position, positionToRefCount.get(position) + 1);
             return addr;
         }
-        addr = baseMapper.mapInternal(position, regionSize);
+        addr = baseMapper.mapInternal(position, mappingSize);
         if (addr != NULL_ADDRESS) {
             positionToAddress.put(position, addr);
             positionToRefCount.put(position, 1);
@@ -100,7 +96,7 @@ final class RefCountRegionMapper implements RegionMapper {
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
         final long addr = positionToAddress.get(position);
         if (addr != address) {
             throw new IllegalArgumentException("Position " + position + " is mapped to " + addr +
@@ -113,7 +109,7 @@ final class RefCountRegionMapper implements RegionMapper {
             assert remaining == 0 : "remaining is negative";
             positionToRefCount.remove(position);
             positionToAddress.remove(position);
-            baseMapper.unmapInternal(position, address, regionSize);
+            baseMapper.unmapInternal(position, address, mappingSize);
         }
     }
 
@@ -127,11 +123,11 @@ final class RefCountRegionMapper implements RegionMapper {
         if (!isClosed()) {
             try {
                 if (!positionToAddress.isEmpty()) {
-                    final int regionSize = regionSize();
+                    final int mappingSize = regionMetrics().mappingSize();
                     //NOTE: some garbage here
                     positionToAddress.forEach((pos, addr) -> {
                         if (pos != NULL_POSITION) {
-                            baseMapper.unmapInternal(pos, addr, regionSize);
+                            baseMapper.unmapInternal(pos, addr, mappingSize);
                         }
                     });
                 }

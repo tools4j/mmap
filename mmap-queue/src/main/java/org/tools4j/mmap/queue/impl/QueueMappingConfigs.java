@@ -79,6 +79,11 @@ enum QueueMappingConfigs {
             }
 
             @Override
+            public int overlapSize() {
+                return 0;
+            }
+
+            @Override
             public boolean expandFile() {
                 return queueConfig.expandHeaderFile();
             }
@@ -165,6 +170,11 @@ enum QueueMappingConfigs {
             @Override
             public int regionSize() {
                 return queueConfig.payloadRegionSize();
+            }
+
+            @Override
+            public int overlapSize() {
+                return 0;
             }
 
             @Override

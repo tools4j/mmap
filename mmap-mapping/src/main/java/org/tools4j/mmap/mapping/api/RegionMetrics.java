@@ -25,14 +25,64 @@ package org.tools4j.mmap.mapping.api;
 
 
 /**
- * Region metrics define operations for file positions related to the region size. It provides methods to calculate
- * region start position, offset from the region start and logical region index.
+ * Region metrics define the geometry of the regions a file is mapped in, and operations for file positions related to
+ * the region size. It provides methods to calculate region start position, offset from the region start and logical
+ * region index.
+ * <p>
+ * Every region is mapped with an {@linkplain #overlapSize() overlap} beyond its end, the first bytes of the next
+ * region mapped a second time, so that contiguous bytes beyond the region end are accessible through the mapping of the
+ * region a position lies in. This includes the last region of a file, whose overlap lies beyond the max file size: files
+ * are physically larger than their max size by the overlap size. Positions, offsets and indices relate to the region
+ * size only.
  */
-public interface RegionMetrics extends RegionAware {
-    @Override
-    default RegionMetrics regionMetrics() {
-        return this;
-    }
+public interface RegionMetrics {
+    /**
+     * Returns the region size, the number of bytes from one region start position to the next.
+     *
+     * @return the region size in bytes, a power of two
+     */
+    int regionSize();
+
+    /**
+     * Returns the overlap size, the number of bytes mapped beyond the end of every region. They are the first bytes of
+     * the next region, mapped a second time, or for the last region of a file bytes beyond its max size.
+     *
+     * @return the overlap size in bytes, at least zero and at most the {@linkplain #regionSize() region size}
+     */
+    int overlapSize();
+
+    /**
+     * Returns the mapping size, the number of bytes mapped for every region from its start position: the
+     * {@linkplain #regionSize() region size} plus the {@linkplain #overlapSize() overlap size}.
+     *
+     * @return the mapping size in bytes, region size plus overlap size
+     */
+    int mappingSize();
+
+    /**
+     * Returns the max length at the specified position: the bytes from the position to the end of its region's
+     * overlap, that is, the {@linkplain #mappingSize() mapping size} minus the {@linkplain #regionOffset(long) region
+     * offset} of the position.
+     * <p>
+     * The position is not validated, see {@link DynamicMapping#maxLengthAtPosition(long)} for a variant accepting any
+     * position.
+     *
+     * @param position non-negative position
+     * @return the max length at the specified position, a value between overlap size plus one and the mapping size
+     */
+    int maxLengthAtPosition(long position);
+
+    /**
+     * Returns the safe length for positions that are a multiple of the given alignment: the length that fits at every
+     * such position, since its offset within its region is at most region size minus alignment. This is the
+     * {@linkplain #overlapSize() overlap size} plus alignment.
+     * <p>
+     * The alignment is not validated, see {@link DynamicMapping#safeLength(int)} for a validating variant.
+     *
+     * @param alignment the alignment of positions, a power of two no greater than the region size
+     * @return the length that fits at every position that is a multiple of alignment
+     */
+    int safeLength(int alignment);
 
     /**
      * Returns the region byte offset given the absolute byte position.

@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.tools4j.mmap.mapping.config.MappingConfigurations.OVERLAP_SIZE_DEFAULT;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 import static org.tools4j.mmap.mapping.impl.MappingStrategyConfigDefaults.MAPPING_STRATEGY_CONFIG_DEFAULTS;
 
@@ -64,6 +65,11 @@ class MappingConfiguratorImplTest {
         @Override
         public int regionSize() {
             return 0;
+        }
+
+        @Override
+        public int overlapSize() {
+            return -1;
         }
 
         @Override
@@ -123,6 +129,8 @@ class MappingConfiguratorImplTest {
         assertEquals(MappingConfigurations.defaultMinFileSize(), config.minFileSize());
         assertEquals(MappingConfigurations.defaultMaxFileSize(), config.maxFileSize());
         assertEquals(MappingConfigurations.defaultRegionSize(), config.regionSize());
+        assertEquals(Math.min(MappingConfigurations.defaultOverlapSize(), MappingConfigurations.defaultRegionSize()),
+                config.overlapSize());
         assertEquals(MappingConfigurations.defaultMaxOpenFiles(), config.maxOpenFiles());
         assertEquals(MappingConfigurations.defaultFilesToCreateAhead(), config.filesToCreateAhead());
         assertSame(MappingConfigurations.defaultFileInitialiser(), config.fileInitialiser());
@@ -134,14 +142,16 @@ class MappingConfiguratorImplTest {
     @Test
     void valuesAreResolvedFromDefaults() {
         final MappingConfig defaults = MappingConfigurator.configure()
-                .minFileSize(FILE_SIZE).maxFileSize(2 * FILE_SIZE).regionSize(REGION_SIZE).expandFile(true)
-                .rollFiles(false).maxOpenFiles(7).filesToCreateAhead(2).fileInitialiser(FileInitialiser.ZERO)
+                .minFileSize(FILE_SIZE).maxFileSize(2 * FILE_SIZE).regionSize(REGION_SIZE)
+                .overlapSize((int) REGION_SIZE_GRANULARITY).expandFile(true).rollFiles(false).maxOpenFiles(7)
+                .filesToCreateAhead(2).fileInitialiser(FileInitialiser.ZERO)
                 .mappingStrategy(MappingStrategyConfig.getDefaultSync())
                 .lifecycleListener(LifecycleListener.NO_OP).errorListener(ErrorListener.NO_OP);
         final MappingConfigurator config = MappingConfigurator.configure(defaults);
         assertEquals(FILE_SIZE, config.minFileSize());
         assertEquals(2 * FILE_SIZE, config.maxFileSize());
         assertEquals(REGION_SIZE, config.regionSize());
+        assertEquals(REGION_SIZE_GRANULARITY, config.overlapSize());
         assertTrue(config.expandFile());
         assertFalse(config.rollFiles());
         assertEquals(7, config.maxOpenFiles());
@@ -155,17 +165,42 @@ class MappingConfiguratorImplTest {
     @Test
     void explicitValuesOverrideDefaults() {
         final MappingConfig defaults = MappingConfigurator.configure()
-                .minFileSize(FILE_SIZE).regionSize(REGION_SIZE).rollFiles(true).maxOpenFiles(7).filesToCreateAhead(2)
-                .fileInitialiser(FileInitialiser.MINUS_ONE);
+                .minFileSize(FILE_SIZE).regionSize(REGION_SIZE).overlapSize(REGION_SIZE).rollFiles(true).maxOpenFiles(7)
+                .filesToCreateAhead(2).fileInitialiser(FileInitialiser.MINUS_ONE);
         final MappingConfigurator config = MappingConfigurator.configure(defaults)
-                .minFileSize(0).regionSize(2 * REGION_SIZE).rollFiles(false).maxOpenFiles(1).filesToCreateAhead(0)
-                .fileInitialiser(FileInitialiser.LAZY);
+                .minFileSize(0).regionSize(2 * REGION_SIZE).overlapSize(0).rollFiles(false).maxOpenFiles(1)
+                .filesToCreateAhead(0).fileInitialiser(FileInitialiser.LAZY);
         assertEquals(0, config.minFileSize());
         assertEquals(2 * REGION_SIZE, config.regionSize());
+        assertEquals(0, config.overlapSize());
         assertFalse(config.rollFiles());
         assertEquals(1, config.maxOpenFiles());
         assertEquals(0, config.filesToCreateAhead());
         assertSame(FileInitialiser.LAZY, config.fileInitialiser());
+    }
+
+    @Test
+    void defaultOverlapSizeIsLimitedToRegionSize() {
+        final int smallRegionSize = (int) REGION_SIZE_GRANULARITY;
+        final MappingConfigurator config = MappingConfigurator.configure().regionSize(smallRegionSize);
+        assertEquals(Math.min(OVERLAP_SIZE_DEFAULT, smallRegionSize), config.overlapSize());
+        assertEquals(config.overlapSize(), config.toImmutableConfig().overlapSize());
+        config.regionSize(4 * OVERLAP_SIZE_DEFAULT);
+        assertEquals(OVERLAP_SIZE_DEFAULT, config.overlapSize(), "follows a region size set later");
+
+        final MappingConfig defaults = MappingConfigurator.configure().regionSize(REGION_SIZE).overlapSize(REGION_SIZE);
+        assertEquals(smallRegionSize, MappingConfigurator.configure(defaults).regionSize(smallRegionSize).overlapSize(),
+                "overlap of defaults limited to own region size");
+    }
+
+    @Test
+    void explicitOverlapSizeIsNotLimitedButRejectedIfLargerThanRegionSize() {
+        final MappingConfigurator config = MappingConfigurator.configure()
+                .regionSize(REGION_SIZE).overlapSize(2 * REGION_SIZE);
+        assertEquals(2 * REGION_SIZE, config.overlapSize());
+        assertThrows(IllegalArgumentException.class, config::toImmutableConfig);
+        config.overlapSize(REGION_SIZE);
+        assertEquals(REGION_SIZE, config.toImmutableConfig().overlapSize());
     }
 
     @Test
@@ -183,6 +218,8 @@ class MappingConfiguratorImplTest {
         assertThrows(IllegalArgumentException.class, () -> config.minFileSize(3));
         assertThrows(IllegalArgumentException.class, () -> config.maxFileSize(0));
         assertThrows(IllegalArgumentException.class, () -> config.regionSize(REGION_SIZE + 1));
+        assertThrows(IllegalArgumentException.class, () -> config.overlapSize(-1));
+        assertThrows(IllegalArgumentException.class, () -> config.overlapSize(REGION_SIZE + 1));
         assertThrows(IllegalArgumentException.class, () -> config.maxOpenFiles(-1));
         assertThrows(IllegalArgumentException.class, () -> config.filesToCreateAhead(-1));
         assertThrows(NullPointerException.class, () -> config.fileInitialiser(null));
@@ -205,15 +242,17 @@ class MappingConfiguratorImplTest {
     @Test
     void toStringShowsUnresolvedValuesAndDefaults() {
         final MappingConfigurator config = MappingConfigurator.configure(UNSET_DEFAULTS);
-        assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=null|maxOpenFiles=0|filesToCreateAhead=-1|fileInitialiser=null|mappingStrategy=null" +
+        assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|overlapSize=-1" +
+                "|expandFile=null|rollFiles=null|maxOpenFiles=0|filesToCreateAhead=-1|fileInitialiser=null" +
+                "|mappingStrategy=null" +
                 "|lifecycleListener=null" +
                 "|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());
         config.maxOpenFiles(5);
         config.rollFiles();
-        assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|expandFile=null" +
-                "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|fileInitialiser=null|mappingStrategy=null" +
+        assertEquals("MappingConfiguratorImpl:minFileSize=-1|maxFileSize=0|regionSize=0|overlapSize=-1" +
+                "|expandFile=null|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=-1|fileInitialiser=null" +
+                "|mappingStrategy=null" +
                 "|lifecycleListener=null" +
                 "|errorListener=null|defaults=UNSET_DEFAULTS",
                 config.toString());

@@ -10,17 +10,40 @@ Main classes:
 * `MutableMapping`: a mapping also for writing, its `buffer()` a `MutableMemoryBuffer`
 * `FixedMapping`: a mapping with fixed start and end position, `FixedMutableMapping` its mutable variant
 * `DynamicMapping`: a mapping of a slice of the file that can be moved to any position, with a length from zero up to
-  the end of the region the position lies in; moves map the length last requested, by default
-  `DynamicMapping.STRETCH_LENGTH`, all bytes to the region end, and throw if an explicit length does not fit;
-  `DynamicMutableMapping` its mutable variant
+  the end of the overlap of the region the position lies in (see [Region overlap](#region-overlap));
+  moves map the length last requested, by default `DynamicMapping.STRETCH_LENGTH`, all bytes to the end of the
+  overlap, and throw if an explicit length does not fit; `DynamicMutableMapping` its mutable variant
 * `MappingPool`: provides many mappings of the same file that share the underlying mapped regions,
   `MutableMappingPool` mutable ones
 * `OpenMode`: how a file is opened, a `ReadOnlyOpenMode` (`READ_ONLY`, `READ_ONLY_LAZY` before it exists) for
   mappings, or a `ReadWriteOpenMode` (`READ_WRITE`, `CREATE`, `OPEN_OR_CREATE`, `RECREATE`) for mutable mappings,
   e.g. `Mappings.dynamicMapping(file, OpenMode.READ_ONLY)` and
   `Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)`; the other kind of open mode does not compile
-* `MappingConfig` and `MappingStrategyConfig`: file size, rolling files, region size, region caching and async
-  mapping/unmapping; defaults can be set via system properties
+* `MappingConfig` and `MappingStrategyConfig`: file size, rolling files, region size, overlap size, region caching and
+  async mapping/unmapping; defaults can be set via system properties
+
+## Region overlap
+Dynamic mappings map the file in regions of the region size, and every region with an overlap beyond its end: the
+region at position `k * regionSize` is mapped with `regionSize + overlapSize` bytes, the overlap being the first bytes
+of the next region, mapped a second time. A slice can extend to the end of the overlap, so that at least the overlap
+size of contiguous bytes is accessible from any position, also across a region end. `safeLength(alignment)` is the
+length that fits at every position that is a multiple of the alignment, the overlap size plus the alignment.
+
+The last region of a file has its overlap too, so that the safe length holds at every position: **files are physically
+larger than the max file size by the overlap size.** The max file size is the size of the data a file holds, and the
+extra bytes at its end are only accessible through the overlap of its last region. With rolling files, the next file
+starts with its own bytes: the tail of a file is not continued in the next one, so data written across the max file
+size stays in the file it started in, and is read back through the same region.
+
+The overlap size is 64 KB by default (system property `mmap.mapping.overlapSize`), limited to the region size unless
+set explicitly through `MappingConfigurator.overlapSize(..)`; it is a multiple of the OS page size, at most the region
+size, and zero for no overlap.
+
+**A file must be read with an overlap size no larger than the one it was written with.** A region can only be mapped
+for reading once the file covers the region plus the reader's overlap, so with a larger overlap, the last region of a
+file never becomes available: the writer does not grow the file beyond its own overlap. A smaller overlap is fine, but
+limits the contiguous bytes accessible to the reader's overlap. A writable mapping with a larger overlap than a file was
+created with grows the file by the difference.
 
 ## Concurrent Access
 Mappings and mapping pools are not thread-safe: each thread needs its own mappings, or its own pool. The mapped
@@ -54,7 +77,7 @@ Dynamic mappings can be moved within a file, mapping regions of the file on dema
 File file = new File("/tmp/data.map");
 long mb = 1 << 20;
 
-//DynamicMutableMapping: maps a slice of the file that can be moved, here spanning to the region end
+//DynamicMutableMapping: maps a slice of the file that can be moved, here spanning to the end of the overlap
 try (DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)) {
     for (int i = 0; i < 10; i++) {
         mapping.moveTo(i * mb, DynamicMapping.STRETCH_LENGTH);

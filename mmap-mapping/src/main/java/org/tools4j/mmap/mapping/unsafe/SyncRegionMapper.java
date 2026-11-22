@@ -26,7 +26,6 @@ package org.tools4j.mmap.mapping.unsafe;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
@@ -37,10 +36,6 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
  */
 @Unsafe
 record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) implements DirectRegionMapper {
-
-    public SyncRegionMapper(final FileMapper fileMapper, final int regionSize) {
-        this(fileMapper, new RegionMetricsImpl(regionSize));
-    }
 
     public SyncRegionMapper(final FileMapper fileMapper, final RegionMetrics regionMetrics) {
         this.fileMapper = requireNonNull(fileMapper);
@@ -57,10 +52,6 @@ record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) impl
         return DirectRegionMapper.super.isMappedInCache(position);
     }
 
-    @Override
-    public int regionSize() {
-        return DirectRegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -73,15 +64,15 @@ record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) impl
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int mappingSize) {
         //NOTE: no pre-touch, mapped synchronously for immediate use
-        final long addr = fileMapper.map(position, regionSize, false);
+        final long addr = fileMapper.map(position, mappingSize, false);
         return addr > 0 ? addr : NULL_ADDRESS;
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
-        fileMapper.unmap(position, address, regionSize);
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
+        fileMapper.unmap(position, address, mappingSize);
     }
 
     @Override
@@ -100,7 +91,7 @@ record SyncRegionMapper(FileMapper fileMapper, RegionMetrics regionMetrics) impl
     public String toString() {
         return "SyncRegionMapper" +
                 ":fileMapper=" + fileMapper +
-                "|regionSize=" + regionSize() +
+                "|regionMetrics=" + regionMetrics +
                 "|closed=" + isClosed();
     }
 }

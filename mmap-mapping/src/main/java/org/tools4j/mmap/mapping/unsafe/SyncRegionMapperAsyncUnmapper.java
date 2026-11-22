@@ -30,13 +30,11 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
-import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.CACHE_LINE_LENGTH;
-import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * A direct region mapper that delegates mapping operations synchronously to the underlying {@link FileMapper} and
@@ -50,17 +48,10 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
 
     public SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
                                          final FileMapper fileMapper,
-                                         final int regionSize,
-                                         final int unmapCacheSize) {
-        this(asyncRuntime, fileMapper, new RegionMetricsImpl(regionSize), unmapCacheSize);
-    }
-
-    public SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
-                                         final FileMapper fileMapper,
                                          final RegionMetrics regionMetrics,
                                          final int unmapCacheSize) {
         this(asyncRuntime, fileMapper, regionMetrics,
-                startAsyncUnmapper(asyncRuntime, fileMapper, regionMetrics.regionSize(), unmapCacheSize));
+                startAsyncUnmapper(asyncRuntime, fileMapper, regionMetrics, unmapCacheSize));
     }
 
     SyncRegionMapperAsyncUnmapper(final AsyncRuntime asyncRuntime,
@@ -75,11 +66,10 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
 
     private static AsyncUnmapper startAsyncUnmapper(final AsyncRuntime asyncRuntime,
                                                     final FileMapper fileMapper,
-                                                    final int regionSize,
+                                                    final RegionMetrics regionMetrics,
                                                     final int unmapCacheSize) {
-        validateRegionSize(regionSize);
         validatePowerOfTwo("Unmap cache size", unmapCacheSize);
-        final AsyncUnmapper unmapper = new AsyncUnmapper(fileMapper, regionSize, unmapCacheSize);
+        final AsyncUnmapper unmapper = new AsyncUnmapper(fileMapper, regionMetrics, unmapCacheSize);
         asyncRuntime.register(unmapper);
         return unmapper;
     }
@@ -104,10 +94,6 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
         return DirectRegionMapper.super.isMappedInCache(position);
     }
 
-    @Override
-    public int regionSize() {
-        return DirectRegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -120,16 +106,16 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int mappingSize) {
         //NOTE: no pre-touch, mapped synchronously for immediate use
-        final long addr = fileMapper.map(position, regionSize, false);
+        final long addr = fileMapper.map(position, mappingSize, false);
         return addr > 0 ? addr : NULL_ADDRESS;
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
         if (!asyncUnmapper.unmap(position, address)) {
-            fileMapper.unmap(position, address, regionSize);
+            fileMapper.unmap(position, address, mappingSize);
         }
     }
 
@@ -151,7 +137,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
     public String toString() {
         return "SyncRegionMapperAsyncUnmapper" +
                 ":fileMapper=" + fileMapper +
-                "|regionSize=" + regionSize() +
+                "|regionMetrics=" + regionMetrics +
                 "|unmappingCacheSize=" + (asyncUnmapper.ringMask + 1) +
                 "|closed=" + isClosed();
     }
@@ -163,14 +149,14 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
         static final int RECORD_LENGTH = Long.BYTES + Long.BYTES;
         static final int RECORD_SHIFT = 4;
         final FileMapper fileMapper;
-        final int regionSize;
+        final RegionMetrics regionMetrics;
         final int ringMask;
         final MutableMemoryBuffer buffer;//header, then pos/addr pairs
         final Timeout closeTimeout = new Timeout();
 
-        AsyncUnmapper(final FileMapper fileMapper, final int regionSize, final int unmapCacheSize) {
+        AsyncUnmapper(final FileMapper fileMapper, final RegionMetrics regionMetrics, final int unmapCacheSize) {
             this.fileMapper = requireNonNull(fileMapper);
-            this.regionSize = regionSize;
+            this.regionMetrics = requireNonNull(regionMetrics);
             this.ringMask = unmapCacheSize - 1;
             this.buffer = MemoryBuffers.allocateDirect(HEADER_LENGTH + unmapCacheSize * RECORD_LENGTH,
                     CACHE_LINE_LENGTH);
@@ -220,7 +206,7 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
             final long addr = buffer.getLong(offset + Long.BYTES);
             buffer.setMemory(offset, Long.BYTES + Long.BYTES, (byte)0);
             buffer.putIntRelease(CONSUMER_OFFSET, ixConsumerNew);
-            fileMapper.unmap(pos, addr, regionSize);
+            fileMapper.unmap(pos, addr, regionMetrics.mappingSize());
             return 1;
         }
 

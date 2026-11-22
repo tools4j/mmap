@@ -37,6 +37,7 @@ import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
@@ -77,6 +78,7 @@ public class AsyncRingRegionMapperTest {
     private final List<Recurring> asyncRecurringList = new CopyOnWriteArrayList<>();
 
     private final int regionSize = (int)Constants.REGION_SIZE_GRANULARITY;
+    private final RegionMetrics regionMetrics = new RegionMetricsImpl(regionSize, 0);
     private final int cacheSize = 4;
     private final int lruCacheSize = 0;
     private final int regionsToMapAhead = 1;
@@ -113,7 +115,7 @@ public class AsyncRingRegionMapperTest {
             return null;
         }).when(fileMapper).close();
         regionMapper = new LoggingRegionMapper(RegionMappers.createAsyncRunAheadRegionMapper(
-                new LoggingFileMapper(fileMapper), regionSize, cacheSize, lruCacheSize, deferUnmap,
+                new LoggingFileMapper(fileMapper), regionMetrics, cacheSize, lruCacheSize, deferUnmap,
                 asyncRuntime, regionsToMapAhead, mapAheadCacheSize, asyncRuntime, unmapCacheSize,
                 LifecycleListener.NO_OP
         ));

@@ -106,9 +106,9 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         this.asyncRuntime = requireNonNull(asyncRuntime);
         this.baseMapper = requireNonNull(baseMapper);
         this.lifecycleListener = requireNonNull(lifecycleListener);
-        this.maxAheadPosition = baseMapper.fileMapper().mappingLimit() - baseMapper.regionSize();
+        this.maxAheadPosition = baseMapper.fileMapper().mappingLimit() - baseMapper.regionMetrics().mappingSize();
         this.cachingMapper = cacheFactory.apply(new AheadMapper());
-        this.sharedState = new SharedState(cacheSize, baseMapper.regionSize());
+        this.sharedState = new SharedState(cacheSize, baseMapper.regionMetrics());
         this.asyncMapper = startAsyncMapper(baseMapper);
         this.mapAhead = mapAhead;
         this.lastPositionMapped = NULL_POSITION;
@@ -143,10 +143,6 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         return baseMapper.regionMetrics();
     }
 
-    @Override
-    public int regionSize() {
-        return RegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -159,8 +155,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
-        return cachingMapper.mapInternal(position, regionSize);
+    public long mapInternal(final long position, final int mappingSize) {
+        return cachingMapper.mapInternal(position, mappingSize);
     }
 
     @Override
@@ -168,12 +164,13 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         return cachingMapper.isMappedInCache(position);
     }
 
-    private void mapAhead(final long position, final int regionSize) {
+    private void mapAhead(final long position) {
         assert position >= 0;
         final int mapAhead = this.mapAhead;
         if (mapAhead <= 0) {
             return;
         }
+        final int regionSize = regionMetrics().regionSize();
         final long lastPosMapped = lastPositionMapped;
         if (position != lastPosMapped) {
             lastPositionMapped = position;
@@ -200,8 +197,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
-        cachingMapper.unmapInternal(position, address, regionSize);
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
+        cachingMapper.unmapInternal(position, address, mappingSize);
     }
 
     @Override
@@ -240,10 +237,6 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
             return AsyncRunAheadRegionMapper.this.accessMode();
         }
 
-        @Override
-        public int regionSize() {
-            return RegionMapper.super.regionSize();
-        }
 
         @Override
         public long map(final long position) {
@@ -256,25 +249,25 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         }
 
         @Override
-        public long mapInternal(final long position, final int regionSize) {
+        public long mapInternal(final long position, final int mappingSize) {
             long addr = sharedState.consumeAddressIfMapped(position);
             if (addr >= NULL_ADDRESS) {
                 asyncStats++;
             }
             if (addr <= NULL_ADDRESS) {
                 syncStats++;
-                addr = baseMapper.mapInternal(position, regionSize);
+                addr = baseMapper.mapInternal(position, mappingSize);
                 if (addr == NULL_ADDRESS) {
                     return NULL_ADDRESS;
                 }
             }
-            mapAhead(position, regionSize);
+            mapAhead(position);
             return addr;
         }
 
         @Override
-        public void unmapInternal(final long position, final long address, final int regionSize) {
-            baseMapper.unmapInternal(position, address, regionSize);
+        public void unmapInternal(final long position, final long address, final int mappingSize) {
+            baseMapper.unmapInternal(position, address, mappingSize);
         }
 
         @Override
@@ -292,7 +285,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
             if (!isClosed()) {
                 asyncMapper.stopAndWait();
                 asyncRuntime.deregister(asyncMapper);
-                sharedState.unmapAll(asyncMapper.fileMapper, asyncMapper.regionSize);
+                sharedState.unmapAll(asyncMapper.fileMapper);
                 baseMapper.close();
             }
         }
@@ -310,13 +303,11 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
 
     private static final class AsyncMapper implements Recurring {
         final FileMapper fileMapper;
-        final int regionSize;
         final SharedState sharedState;
         final Timeout closeTimeout = new Timeout();
 
         AsyncMapper(final DirectRegionMapper regionMapper, final SharedState sharedState) {
             this.fileMapper = FileMappers.forThread(regionMapper.fileMapper());
-            this.regionSize = regionMapper.regionSize();
             this.sharedState = requireNonNull(sharedState);
         }
 
@@ -326,7 +317,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
                 closeTimeout.stopped();
                 return 0;
             }
-            return sharedState.mapNext(fileMapper, regionSize);
+            return sharedState.mapNext(fileMapper);
         }
 
         void stopAndWait() {
@@ -349,12 +340,15 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         final MutableMemoryBuffer ownershipPadded;
         final long[] recordValues;
         final int indexMask;
+        final RegionMetrics regionMetrics;
         final int regionSizeShift;
         long requestSequence;
 
-        SharedState(final int aheadCache, final int regionSize) {
+        SharedState(final int aheadCache, final RegionMetrics regionMetrics) {
+            final int regionSize = regionMetrics.regionSize();
             validatePowerOfTwo("Ahead cache size", aheadCache);
             validatePowerOfTwo("Region size", regionSize);
+            this.regionMetrics = regionMetrics;
             ownershipPadded = MemoryBuffers.allocateDirect(aheadCache * OWNERSHIP_ENTRY_LENGTH, CACHE_LINE_LENGTH);
             recordValues = new long[aheadCache * VALUES_PER_RECORD];
             indexMask = aheadCache - 1;
@@ -441,10 +435,10 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
             return true;
         }
 
-        int mapNext(final FileMapper fileMapper, final int regionSize) {
+        int mapNext(final FileMapper fileMapper) {
             final int index = indexOfMinRequestSequence();
             if (index >= 0) {
-                map(fileMapper, regionSize, index);
+                map(fileMapper, index);
                 return 1;
             }
             return 0;
@@ -464,14 +458,14 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
             return index;
         }
 
-        private void map(final FileMapper fileMapper, final int regionSize, final int index) {
+        private void map(final FileMapper fileMapper, final int index) {
             final long req = recordValues[recordValueIndex(index, REQ_POSITION_OFFSET)];
             final long pos = recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)];
             if (pos != req) {
                 final long addr = recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)];
                 if (addr != NULL_ADDRESS) {
                     assert pos != NULL_POSITION;
-                    fileMapper.unmap(pos, addr, regionSize);
+                    fileMapper.unmap(pos, addr, regionMetrics.mappingSize());
                     recordValues[recordValueIndex(index, MAP_POSITION_OFFSET)] = NULL_POSITION;
                     recordValues[recordValueIndex(index, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
                 } else {
@@ -481,7 +475,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
                     long mappedAddr;
                     try {
                         //NOTE: pre-touch, mapped ahead on the mapping thread before the requester uses it
-                        mappedAddr = fileMapper.map(req, regionSize, true);
+                        mappedAddr = fileMapper.map(req, regionMetrics.mappingSize(), true);
                     } catch (final RuntimeException e) {
                         //NOTE: mapping ahead is speculative, the requester maps synchronously when needed and gets
                         //      the error then; the slot must be handed back to the requester in any case
@@ -494,7 +488,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
             assignToRequester(index);
         }
 
-        void unmapAll(final FileMapper fileMapper, final int regionSize) {
+        void unmapAll(final FileMapper fileMapper) {
             final int len = recordValues.length >>> SHIFT_PER_RECORD;
             for (int i = 0; i < len; i++) {
                 final long pos = recordValues[recordValueIndex(i, MAP_POSITION_OFFSET)];
@@ -504,7 +498,7 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
                 recordValues[recordValueIndex(i, MAP_POSITION_OFFSET)] = NULL_POSITION;
                 recordValues[recordValueIndex(i, MAP_ADDRESS_OFFSET)] = NULL_ADDRESS;
                 if (pos != NULL_POSITION && addr != NULL_ADDRESS) {
-                    fileMapper.unmap(pos, addr, regionSize);
+                    fileMapper.unmap(pos, addr, regionMetrics.mappingSize());
                 }
             }
         }

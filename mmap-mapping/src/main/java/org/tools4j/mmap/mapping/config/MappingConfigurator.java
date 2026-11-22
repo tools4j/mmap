@@ -81,6 +81,18 @@ public interface MappingConfigurator extends MappingConfig {
     MappingConfigurator regionSize(int regionSize);
 
     /**
+     * Sets the overlap size, the number of bytes mapped beyond the end of every region, see
+     * {@link MappingConfig#overlapSize()}. The overlap size must be a multiple of the OS dependant
+     * {@linkplain org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY page size}, and no more than the
+     * {@linkplain #regionSize() region size}, which is validated when the configuration is used.
+     *
+     * @param overlapSize the overlap size in bytes, zero for no overlap
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if overlap size is negative or not a multiple of the OS page size
+     */
+    MappingConfigurator overlapSize(int overlapSize);
+
+    /**
      * Sets the expand-file option, true if files should be expanded as needed, and false to create the full-size file
      * on initiation.
      * @param expandFile true if files should be expanded as needed, and false to create the max-size file on initiation

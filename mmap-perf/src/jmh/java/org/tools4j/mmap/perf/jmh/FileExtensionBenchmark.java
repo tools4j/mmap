@@ -101,7 +101,7 @@ public class FileExtensionBenchmark {
     public void createFile() throws IOException {
         System.setProperty(MappingConfigurations.ZERO_FILL_PROPERTY, fill.zeroFillMode);
         file = Files.createTempFile("file-extension", ".map").toFile();
-        fileMapper = new ExpandableSizeFileMapper(file, REGION_SIZE, (long) REGION_SIZE * BATCH, REGION_SIZE,
+        fileMapper = new ExpandableSizeFileMapper(file, REGION_SIZE, (long) REGION_SIZE * BATCH, REGION_SIZE, 0,
                 fill.initialiser);
         position = 0;
     }
