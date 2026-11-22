@@ -172,13 +172,12 @@ final class PollerImpl implements Poller, Describable {
         if (headerMapping == null || !headerMapping.moveTo(position, Headers.HEADER_LENGTH)) {
             return error;
         }
-        if (error == PENDING_OPEN) {
-            errorState = PENDING_NEXT;
-        }
+        errorState = PENDING_NEXT;
         final long header = headerMapping.buffer().getLongAcquire(0);
         if (header == NULL_HEADER) {
             final long next = nextIndex;
             if (next > Index.MAX && inc > 0) {
+                //noinspection ConstantValue
                 assert next == Index.LAST || next == Index.END : "invalid special index";
                 if (index > 0 && next == Index.LAST) {
                     nextIndex = index - 1;

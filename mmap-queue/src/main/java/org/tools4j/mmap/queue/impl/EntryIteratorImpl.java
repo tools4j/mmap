@@ -235,22 +235,20 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
         @Override
         public Entry next() {
             if (hasNext()) {
-                final int inc = increment;
-                final long cur = moveToNextAndInitPayload(nextIndex, nextHeader);
-                final long next = cur + inc;
+                final long cur = nextIndex;
+                initPayload(nextHeader);
+                final long next = cur + increment;
                 index = cur;
-                nextIndex = inc != 0 && next >= Index.FIRST && next <= Index.MAX ? next : Index.NULL;
+                nextIndex = next >= Index.FIRST && next <= Index.MAX ? next : Index.NULL;
                 nextHeader = NULL_HEADER;
                 return this;
             }
             throw new NoSuchElementException();
         }
 
-        private long moveToNextAndInitPayload(final long index, final long hdr) {
-            if (hdr == NULL_HEADER) {
-                buffer.unwrap();
-                return Index.NULL;
-            }
+        /** Wraps the buffer around the payload of the header, which hasNext() returning true has read */
+        private void initPayload(final long hdr) {
+            assert hdr != NULL_HEADER : "header must not be null";
             final int appenderId = Headers.appenderId(hdr);
             final long position = Headers.payloadPosition(hdr);
             final DynamicMapping payload = mappings.payload(appenderId);
@@ -259,7 +257,6 @@ final class EntryIteratorImpl implements EntryIterator, Describable {
             }
             final int size = payload.buffer().getInt(0);
             buffer.wrap(payload.buffer(), Integer.BYTES, size);
-            return index;
         }
 
         @Override
