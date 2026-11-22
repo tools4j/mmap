@@ -27,6 +27,9 @@ import org.tools4j.mmap.core.base.Closeable;
 
 /**
  * API for reading and checking entry indices of a {@link Queue}.
+ * <p>
+ * Not thread-safe: an index reader is used and closed by one thread at a time, a thread taking it over only after a
+ * happens-before edge with the previous one; see {@link Queue#close()} for closing it with its queue.
  */
 public interface IndexReader extends Closeable {
 

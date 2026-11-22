@@ -32,6 +32,9 @@ import java.nio.ByteBuffer;
  * API to append entries at the end of a {@link Queue}. Existing data can be appended through
  * {@link #append(MemoryBuffer, int, int)}. Alternatively a new entry can be coded directly into the
  * {@link AppendingContext#buffer() queue buffer} provided through {@link #appending(int)}.
+ * <p>
+ * Not thread-safe: an appender is used and closed by one thread at a time, a thread taking it over only after a
+ * happens-before edge with the previous one; see {@link Queue#close()} for closing it with its queue.
  */
 public interface Appender extends Closeable {
     /**

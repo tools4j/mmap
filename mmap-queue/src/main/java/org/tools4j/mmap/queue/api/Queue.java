@@ -132,7 +132,14 @@ public interface Queue extends Closeable {
 
     /**
      * Closes this queue and all appenders, pollers, entry readers, entry iterators and index readers created through
-     * it. Exceptions thrown while closing those are ignored.
+     * it that are still open. Errors closing those are reported to the queue's
+     * {@linkplain QueueConfig#errorListener() error listener}, and the others are still closed.
+     * <p>
+     * Closing releases the queue elements but does not stop the threads using them: they are not thread-safe, and
+     * closing one while another thread uses it can crash the JVM, since its memory is unmapped. Call this method only
+     * once the threads using the elements have finished with them, with a happens-before edge to this call, for
+     * instance through {@link Thread#join()} or a volatile flag the threads set when done. Preferably each thread
+     * closes its own elements, leaving this method to close the queue only.
      */
     @Override
     void close();
