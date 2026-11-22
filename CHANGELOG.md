@@ -109,6 +109,9 @@ Notable changes per release. Entries are curated from the commits since the prev
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.
+- `Queue.close()` warns through the error listener of each appender, poller and reader still open that another thread
+  created, before closing any of them: that thread should have closed it, and closing one still in use can crash the
+  JVM, which the warning then precedes.
 
 ### Changed
 - The only JVM option needed is `--add-exports java.base/jdk.internal.misc=ALL-UNNAMED` (or `--add-opens`):

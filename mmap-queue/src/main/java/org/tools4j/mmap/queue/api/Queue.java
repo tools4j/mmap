@@ -140,6 +140,11 @@ public interface Queue extends Closeable {
      * once the threads using the elements have finished with them, with a happens-before edge to this call, for
      * instance through {@link Thread#join()} or a volatile flag the threads set when done. Preferably each thread
      * closes its own elements, leaving this method to close the queue only.
+     * <p>
+     * Before closing any element, this method warns through the error listener of every element still open that
+     * another thread created, which should have closed it. If that thread still uses the element, the warning hints at
+     * the cause of a crash, provided that the listener writes it synchronously, as the default logging listener does
+     * with a synchronous log appender.
      */
     @Override
     void close();

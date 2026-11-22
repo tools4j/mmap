@@ -23,7 +23,9 @@ append to the same queue concurrently, and pollers and readers can read the queu
 Closing a queue also closes the appenders, pollers and readers created through it that are still open, but it does not
 stop the threads using them: closing one while another thread still uses it can crash the JVM, as its memory is
 unmapped. Close the queue only once those threads have finished, with a happens-before edge such as `Thread.join()`
-or a volatile flag they set when done; preferably each thread closes its own instances.
+or a volatile flag they set when done; preferably each thread closes its own instances. Before closing any of them,
+the queue warns through its error listener of each one still open that another thread created, so that the warning
+precedes a crash if that thread still uses it (with a synchronous log appender).
 
 ## Entry length
 An entry is stored in the payload file of its appender as a 4-byte length followed by its data, at a position that is
