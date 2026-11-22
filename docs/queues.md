@@ -20,6 +20,11 @@ Main classes:
 Appenders, pollers and readers are not thread-safe: each thread needs its own instances. Multiple appenders can
 append to the same queue concurrently, and pollers and readers can read the queue while entries are being appended.
 
+Closing a queue also closes the appenders, pollers and readers created through it that are still open, but it does not
+stop the threads using them: closing one while another thread still uses it can crash the JVM, as its memory is
+unmapped. Close the queue only once those threads have finished, with a happens-before edge such as `Thread.join()`
+or a volatile flag they set when done; preferably each thread closes its own instances.
+
 ## Entry length
 An entry is stored in the payload file of its appender as a 4-byte length followed by its data, at a position that is
 a multiple of 8, so that the data starts 4 bytes after a multiple of 8; applications needing 8-byte aligned data can

@@ -27,6 +27,9 @@ import org.tools4j.mmap.core.base.Closeable;
 
 /**
  * Poller for sequential retrieval of {@link Queue} entries with callback to an {@link EntryHandler}.
+ * <p>
+ * Not thread-safe: a poller is used and closed by one thread at a time, a thread taking it over only after a
+ * happens-before edge with the previous one; see {@link Queue#close()} for closing it with its queue.
  */
 public interface Poller extends Closeable {
     /** No entry was polled but the cursor was moved towards {@link #nextIndex()}, or the next index was resolved */

@@ -25,6 +25,9 @@ package org.tools4j.mmap.queue.api;
 
 /**
  * API for random read access of entries from a {@link Queue}.
+ * <p>
+ * Not thread-safe: an entry reader is used and closed by one thread at a time, a thread taking it over only after a
+ * happens-before edge with the previous one; see {@link Queue#close()} for closing it with its queue.
  */
 public interface EntryReader extends IndexReader {
     /**

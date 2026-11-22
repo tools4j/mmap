@@ -33,6 +33,9 @@ import org.tools4j.mmap.core.base.Closeable;
  * {@link java.util.Iterator#hasNext() hasNext()} returns false. It can also iterate
  * {@linkplain IterableContext#backward() backward}, or {@linkplain IterableContext#continuous() continuously},
  * returning entries appended later like a continuous query; see {@link IterationMode}.
+ * <p>
+ * Not thread-safe: an entry iterator is used and closed by one thread at a time, a thread taking it over only after a
+ * happens-before edge with the previous one; see {@link Queue#close()} for closing it with its queue.
  */
 public interface EntryIterator extends Closeable {
     /**
