@@ -257,10 +257,10 @@ class AppenderTest {
     @Test
     void resumingAppenderAppendsAfterLastEntryInRolledPayloadFile() {
         final File dir = tempDir.resolve("queue").toFile();
-        //one entry per region, two regions per payload file
+        final QueueConfig config = smallConfig(true);
         final int length = REGION_SIZE / 2;
         final List<String> expected = new ArrayList<>();
-        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, smallConfig(true))) {
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
             try (final Appender appender = queue.createAppender()) {
                 for (int i = 0; i < 5; i++) {
                     expected.add(append(appender, filler(length, i)));
@@ -272,10 +272,9 @@ class AppenderTest {
             }
             assertEquals(expected, pollAll(queue.createPoller()));
         }
-        //the previous owner's last entry is in region 4, that is, in the third rolled payload file
-        final File thirdPayloadFile = new File(dir, dir.getName() + "_dat_0_2.mmq");
-        assertTrue(thirdPayloadFile.isFile(), () -> "missing " + thirdPayloadFile + " in " +
-                Arrays.toString(dir.list()));
+        final long previousOwnersLastPosition = payloadPositions(dir, config, 5).get(4);
+        assertTrue(previousOwnersLastPosition >= config.maxPayloadFileSize(),
+                () -> "previous owner's last entry at " + previousOwnersLastPosition + " is in the first payload file");
     }
 
     @Test
