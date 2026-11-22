@@ -25,12 +25,15 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
 import org.tools4j.mmap.mapping.impl.Constants;
 
+import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,25 +62,34 @@ class AsyncRunAheadRegionMapperTest {
     private static final int REGION_SIZE = (int) Constants.REGION_SIZE_GRANULARITY;
     private static final int REGIONS = 4;
 
-    private final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(REGIONS * REGION_SIZE);
+    private final MutableMemoryBuffer data = MemoryBuffers.allocateDirect((REGIONS + 1) * REGION_SIZE);
     private final List<Recurring> recurring = new ArrayList<>();
     private final FileMapper fileMapper = mock(FileMapper.class);
     private AsyncRunAheadRegionMapper regionMapper;
 
     private RegionMapper regionMapper(final long mappingLimit, final int mapAhead, final int mapAheadCacheSize) {
+        return regionMapper(mappingLimit, mapAhead, mapAheadCacheSize, 0);
+    }
+
+    private RegionMapper regionMapper(final long mappingLimit,
+                                      final int mapAhead,
+                                      final int mapAheadCacheSize,
+                                      final int overlapSize) {
         final AsyncRuntime asyncRuntime = mock(AsyncRuntime.class);
         doAnswer(invocation -> recurring.add(invocation.getArgument(0))).when(asyncRuntime).register(any());
         doAnswer(invocation -> recurring.remove(invocation.getArgument(0))).when(asyncRuntime).deregister(any());
         when(fileMapper.mappingLimit()).thenReturn(mappingLimit);
-        when(fileMapper.map(anyLong(), eq(REGION_SIZE), anyBoolean())).thenAnswer(invocation -> address(invocation.getArgument(0)));
-        regionMapper = new AsyncRunAheadRegionMapper(asyncRuntime, new SyncRegionMapper(fileMapper, REGION_SIZE),
+        when(fileMapper.map(anyLong(), eq(REGION_SIZE + overlapSize), anyBoolean()))
+                .thenAnswer(invocation -> address(invocation.getArgument(0)));
+        regionMapper = new AsyncRunAheadRegionMapper(asyncRuntime,
+                new SyncRegionMapper(fileMapper, new RegionMetricsImpl(REGION_SIZE, overlapSize)),
                 4, true, mapAhead, mapAheadCacheSize);
         assertEquals(1, recurring.size());
         return regionMapper;
     }
 
     private long address(final long position) {
-        if (position + REGION_SIZE > REGIONS * REGION_SIZE) {
+        if (position + REGION_SIZE > (REGIONS + 1L) * REGION_SIZE) {
             throw new IllegalArgumentException("Attempt to map region at " + position + " exceeds max file size");
         }
         return data.address() + position;
@@ -107,6 +119,21 @@ class AsyncRunAheadRegionMapperTest {
             executeAsyncMapper();
         }
         verify(fileMapper, never()).map(longThat(position -> position >= REGIONS * REGION_SIZE), anyInt(), anyBoolean());
+    }
+
+    @ParameterizedTest(name = "fileCoversOverlap={0}")
+    @ValueSource(booleans = {true, false})
+    void mapAheadStopsAtMappingLimitForRegionPlusOverlap(final boolean fileCoversOverlap) {
+        final int overlapSize = REGION_SIZE;
+        final long lastRegion = (REGIONS - 1L) * REGION_SIZE;
+        final long mappingLimit = (long) REGIONS * REGION_SIZE + (fileCoversOverlap ? overlapSize : 0);
+        final RegionMapper mapper = regionMapper(mappingLimit, 2, 0, overlapSize);
+        for (long position = 0; position < lastRegion; position += REGION_SIZE) {
+            assertEquals(address(position), mapper.map(position));
+            executeAsyncMapper();
+        }
+        verify(fileMapper, never()).map(longThat(position -> position > lastRegion), anyInt(), anyBoolean());
+        verify(fileMapper, fileCoversOverlap ? times(1) : never()).map(lastRegion, REGION_SIZE + overlapSize, true);
     }
 
     @Test

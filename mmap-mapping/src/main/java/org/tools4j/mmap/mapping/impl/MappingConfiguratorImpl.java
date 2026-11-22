@@ -42,6 +42,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCr
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 public class MappingConfiguratorImpl implements MappingConfigurator {
@@ -49,6 +50,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     protected long minFileSize;
     protected long maxFileSize;
     protected int regionSize;
+    protected int overlapSize;
     protected Boolean expandFile;
     protected Boolean rollFiles;
     protected int maxOpenFiles;
@@ -72,6 +74,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
         this.minFileSize = -1;
         this.maxFileSize = 0;
         this.regionSize = 0;
+        this.overlapSize = -1;
         this.expandFile = null;
         this.rollFiles = null;
         this.maxOpenFiles = 0;
@@ -119,6 +122,22 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
             regionSize = MappingConfigurations.defaultRegionSize();
         }
         return regionSize;
+    }
+
+    /**
+     * Returns the overlap size if set, and otherwise the default limited to the region size; the default is not kept,
+     * so that it follows a region size set later
+     */
+    @Override
+    public int overlapSize() {
+        if (overlapSize >= 0) {
+            return overlapSize;
+        }
+        int defaultOverlapSize = defaults.overlapSize();
+        if (defaultOverlapSize < 0) {
+            defaultOverlapSize = MappingConfigurations.defaultOverlapSize();
+        }
+        return Math.min(defaultOverlapSize, regionSize());
     }
 
     @Override
@@ -225,6 +244,13 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
     }
 
     @Override
+    public MappingConfigurator overlapSize(final int overlapSize) {
+        validateOverlapSize(overlapSize);
+        this.overlapSize = overlapSize;
+        return this;
+    }
+
+    @Override
     public MappingConfigurator expandFile(final boolean expandFile) {
         this.expandFile = expandFile;
         return this;
@@ -289,6 +315,7 @@ public class MappingConfiguratorImpl implements MappingConfigurator {
                 ":minFileSize=" + minFileSize +
                 "|maxFileSize=" + maxFileSize +
                 "|regionSize=" + regionSize +
+                "|overlapSize=" + overlapSize +
                 "|expandFile=" + expandFile +
                 "|rollFiles=" + rollFiles +
                 "|maxOpenFiles=" + maxOpenFiles +

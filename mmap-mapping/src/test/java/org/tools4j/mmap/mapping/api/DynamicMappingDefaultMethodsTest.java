@@ -50,6 +50,8 @@ class DynamicMappingDefaultMethodsTest {
 
     private DynamicMapping implementation;
     private DynamicMapping mapping;
+    private int overlapSize;
+    private int mappingSize;
 
     @BeforeEach
     void open(@TempDir final Path tempDir) {
@@ -60,6 +62,8 @@ class DynamicMappingDefaultMethodsTest {
         implementation = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(),
                 OpenMode.OPEN_OR_CREATE, config);
         mapping = new AbstractMethodsOnlyDynamicMapping(implementation);
+        overlapSize = implementation.regionMetrics().overlapSize();
+        mappingSize = implementation.regionMetrics().mappingSize();
     }
 
     @AfterEach
@@ -72,11 +76,26 @@ class DynamicMappingDefaultMethodsTest {
         assertFalse(mapping.isMapped());
         assertEquals(0, mapping.maxLengthAtCurrentPosition(), "unmapped");
         assertEquals(0, mapping.maxLengthAtPosition(-1));
-        assertEquals(REGION_SIZE, mapping.maxLengthAtPosition(REGION_SIZE));
-        assertEquals(REGION_SIZE - 100, mapping.maxLengthAtPosition(REGION_SIZE + 100L));
+        assertEquals(mappingSize, mapping.maxLengthAtPosition(REGION_SIZE));
+        assertEquals(mappingSize - 100, mapping.maxLengthAtPosition(REGION_SIZE + 100L));
+        assertEquals(overlapSize + 1, mapping.maxLengthAtPosition(REGION_SIZE - 1L));
         assertTrue(mapping.moveTo(100, 10));
-        assertEquals(REGION_SIZE - 100, mapping.maxLengthAtCurrentPosition());
+        assertEquals(mappingSize - 100, mapping.maxLengthAtCurrentPosition());
         assertEquals(10, mapping.length());
+    }
+
+    @Test
+    void safeLength() {
+        assertTrue(overlapSize > 0, "default overlap");
+        assertEquals(overlapSize + 1, mapping.safeLength(1));
+        assertEquals(overlapSize + Long.BYTES, mapping.safeLength(Long.BYTES));
+        assertEquals(mappingSize, mapping.safeLength(REGION_SIZE));
+        assertTrue(mapping.moveTo(REGION_SIZE - Long.BYTES, mapping.safeLength(Long.BYTES)), "fits at last aligned");
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(REGION_SIZE - 1L,
+                mapping.safeLength(Long.BYTES)), "does not fit at unaligned position");
+        assertThrows(IllegalArgumentException.class, () -> mapping.safeLength(0));
+        assertThrows(IllegalArgumentException.class, () -> mapping.safeLength(3));
+        assertThrows(IllegalArgumentException.class, () -> mapping.safeLength(2 * REGION_SIZE));
     }
 
     @Test
@@ -94,7 +113,7 @@ class DynamicMappingDefaultMethodsTest {
         assertTrue(mapping.moveBy(REGION_SIZE));
         assertEquals(20, mapping.length(), "kept in another region");
         assertTrue(mapping.moveBy(10, DynamicMapping.STRETCH_LENGTH));
-        assertEquals(REGION_SIZE - 215, mapping.length());
+        assertEquals(mappingSize - 215, mapping.length());
 
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-4L * REGION_SIZE));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(-4L * REGION_SIZE, 5));

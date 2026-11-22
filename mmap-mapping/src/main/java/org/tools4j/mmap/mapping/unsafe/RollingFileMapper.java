@@ -50,11 +50,16 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * A {@link FileMapper} that splits a logical stream across multiple physical files ("rolling"), creating a new file
  * once the current one reaches its maximum size and keeping at most a configured number of files open at a time.
+ * <p>
+ * Every file is physically larger than the max file size by the overlap size, so that its last region can be mapped
+ * with the overlap. This tail is only accessible through the last region of the file: positions beyond the max file
+ * size are mapped from the next file, whose first bytes are not the ones in the tail of the previous file.
  * <p>
  * <b>Note:</b> {@code map} is <b>not thread safe</b> and must only be called from a single thread; {@code unmap} is
  * thread-safe (it needs no file access), e.g. for async unmapping. See {@link ConcurrentRollingFileMapper} for an
@@ -68,6 +73,7 @@ public class RollingFileMapper implements FileMapper, Describable {
     private final Function<? super File, ? extends FileMapper> fileMapperFactory;
     private final long maxFileSize;
     private final int regionSize;
+    private final int overlapSize;
     private final int filesToCreateAhead;
     private final int maxOpenFiles;
     private final AccessMode accessMode;
@@ -88,6 +94,7 @@ public class RollingFileMapper implements FileMapper, Describable {
                               final Function<? super File, ? extends FileMapper> fileMapperFactory,
                               final long maxFileSize,
                               final int regionSize,
+                              final int overlapSize,
                               final int filesToCreateAhead,
                               final int maxOpenFiles,
                               final AccessMode accessMode,
@@ -96,6 +103,7 @@ public class RollingFileMapper implements FileMapper, Describable {
         requireNonNull(fileMapperFactory);
         validateMaxFileSize(maxFileSize);
         validateRegionSize(regionSize);
+        validateOverlapSize(regionSize, overlapSize);
         validateFilesToCreateAhead(filesToCreateAhead);
         validateMaxOpenFiles(maxOpenFiles);
         requireNonNull(accessMode);
@@ -111,6 +119,7 @@ public class RollingFileMapper implements FileMapper, Describable {
         this.fileMapperFactory = fileMapperFactory;
         this.maxFileSize = maxFileSize;
         this.regionSize = regionSize;
+        this.overlapSize = overlapSize;
         this.filesToCreateAhead = filesToCreateAhead;
         this.maxOpenFiles = maxOpenFiles;
         this.accessMode = accessMode;
@@ -122,22 +131,24 @@ public class RollingFileMapper implements FileMapper, Describable {
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final MappingConfig config) {
-        return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.maxOpenFiles(),
-                config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
+        return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.overlapSize(),
+                config.maxOpenFiles(), config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final long maxFileSize,
                                          final int regionSize,
+                                         final int overlapSize,
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(baseFile, maxFileSize, regionSize, maxOpenFiles, fileInitialiser,
+        return forReadOnly(baseFile, maxFileSize, regionSize, overlapSize, maxOpenFiles, fileInitialiser,
                 MappingConfigurations.defaultLifecycleListener(), CoreConfigurations.defaultErrorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final long maxFileSize,
                                          final int regionSize,
+                                         final int overlapSize,
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser,
                                          final LifecycleListener lifecycleListener,
@@ -147,14 +158,14 @@ public class RollingFileMapper implements FileMapper, Describable {
         requireNonNull(errorListener);
         return new RollingFileMapper(baseFile,
                 file -> new ReadOnlyFileMapper(file, fileInitialiser, lifecycleListener, errorListener),
-                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY, lifecycleListener);
+                maxFileSize, regionSize, overlapSize, 0, maxOpenFiles, AccessMode.READ_ONLY, lifecycleListener);
     }
 
     public static FileMapper forReadWrite(final File baseFile,
                                           final AccessMode accessMode,
                                           final MappingConfig config) {
         return forReadWrite(baseFile, accessMode, config.expandFile(), config.minFileSize(), config.maxFileSize(),
-                config.regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
+                config.regionSize(), config.overlapSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
                 config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
@@ -164,10 +175,11 @@ public class RollingFileMapper implements FileMapper, Describable {
                                           final long minFileSize,
                                           final long maxFileSize,
                                           final int regionSize,
+                                          final int overlapSize,
                                           final int filesToCreateAhead,
                                           final int maxOpenFiles,
                                           final FileInitialiser fileInitialiser) {
-        return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize,
+        return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize, overlapSize,
                 filesToCreateAhead, maxOpenFiles, fileInitialiser, MappingConfigurations.defaultLifecycleListener(),
                 CoreConfigurations.defaultErrorListener());
     }
@@ -178,6 +190,7 @@ public class RollingFileMapper implements FileMapper, Describable {
                                           final long minFileSize,
                                           final long maxFileSize,
                                           final int regionSize,
+                                          final int overlapSize,
                                           final int filesToCreateAhead,
                                           final int maxOpenFiles,
                                           final FileInitialiser fileInitialiser,
@@ -188,12 +201,12 @@ public class RollingFileMapper implements FileMapper, Describable {
         requireNonNull(lifecycleListener);
         requireNonNull(errorListener);
         final Function<File, FileMapper> fileMapperFactory = expandFile ?
-                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
-                        lifecycleListener, errorListener) :
-                file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser, lifecycleListener,
-                        errorListener);
-        return new RollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
-                maxOpenFiles, accessMode, lifecycleListener);
+                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, overlapSize,
+                        fileInitialiser, lifecycleListener, errorListener) :
+                file -> new FixedSizeFileMapper(file, maxFileSize + overlapSize, accessMode, fileInitialiser,
+                        lifecycleListener, errorListener);
+        return new RollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, overlapSize,
+                filesToCreateAhead, maxOpenFiles, accessMode, lifecycleListener);
     }
 
     private File getOrCreateFile(final int fileIndex) {
@@ -283,8 +296,9 @@ public class RollingFileMapper implements FileMapper, Describable {
         if (position < 0) {
             return NULL_ADDRESS;
         }
-        if (length != regionSize) {
-            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
+        if (length != regionSize + overlapSize) {
+            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize +
+                    " plus overlap size " + overlapSize);
         }
 
         final int fileIndex = positionToFileIndex(position);
@@ -325,8 +339,9 @@ public class RollingFileMapper implements FileMapper, Describable {
         assert address > NULL_ADDRESS;
         assert position > NULL_POSITION;
         validateNotClosed(this);
-        if (length != regionSize) {
-            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
+        if (length != regionSize + overlapSize) {
+            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize +
+                    " plus overlap size " + overlapSize);
         }
         //NOTE: unmapping needs no file mapper, the mapping outlives the file if it was closed meanwhile
         FileChannels.unmap(address, length);
@@ -376,6 +391,7 @@ public class RollingFileMapper implements FileMapper, Describable {
                 .append("|accessMode=").append(accessMode)
                 .append("|maxFileSize=").append(maxFileSize)
                 .append("|regionSize=").append(regionSize)
+                .append("|overlapSize=").append(overlapSize)
                 .append("|filesToCreateAhead=").append(filesToCreateAhead)
                 .append("|maxOpenFiles=").append(maxOpenFiles)
                 .append("|openFiles=").append(openFiles)

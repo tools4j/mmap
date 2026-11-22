@@ -72,7 +72,7 @@ class ConcurrentRollingFileMapperTest {
                                                                   final int filesToCreateAhead,
                                                                   final int maxOpenFiles) {
         return (ConcurrentRollingFileMapper.PerThreadFileMapper) ConcurrentRollingFileMapper.forReadWrite(baseFile,
-                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, filesToCreateAhead, maxOpenFiles,
+                AccessMode.READ_WRITE, false, 0, MAX_FILE_SIZE, REGION_SIZE, 0, filesToCreateAhead, maxOpenFiles,
                 FILE_INITIALISER);
     }
 
@@ -143,7 +143,7 @@ class ConcurrentRollingFileMapperTest {
             writeRegion(writer, 0, 0);
         }
         try (final FileMapper reader = ConcurrentRollingFileMapper.forReadOnly(baseFile("ro.map"), MAX_FILE_SIZE,
-                REGION_SIZE, 2, FILE_INITIALISER)) {
+                REGION_SIZE, 0, 2, FILE_INITIALISER)) {
             assertEquals(AccessMode.READ_ONLY, reader.accessMode());
             assertEquals(valueFor(0), readRegion(reader, 0, 0));
             assertEquals(NULL_ADDRESS, reader.map(filePosition(1), REGION_SIZE, false));
@@ -298,7 +298,7 @@ class ConcurrentRollingFileMapperTest {
     void expandableFilesGrowOnDemand() {
         final File baseFile = baseFile("grow.map");
         try (final FileMapper mapper = ConcurrentRollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE,
-                true, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 2, FILE_INITIALISER)) {
+                true, 0, MAX_FILE_SIZE, REGION_SIZE, 0, 0, 2, FILE_INITIALISER)) {
             writeRegion(mapper, 0, 0);
             assertEquals(REGION_SIZE, baseFile("grow_0.map").length());
             writeRegion(mapper, REGIONS_PER_FILE + 1, 0);
@@ -319,7 +319,7 @@ class ConcurrentRollingFileMapperTest {
     void invalidConfigurationIsRejected() {
         final File baseFile = baseFile("invalid.map");
         assertThrows(IllegalArgumentException.class, () -> ConcurrentRollingFileMapper.forReadWrite(baseFile,
-                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 2,
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 0, 2,
                 FILE_INITIALISER));
         assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, 2, 2),
                 "filesToCreateAhead must be smaller than maxOpenFiles");

@@ -54,11 +54,11 @@ public enum FileMappers {
                 }
                 if (config.expandFile()) {
                     return new ExpandableSizeFileMapper(file, config.minFileSize(), config.maxFileSize(),
-                            config.regionSize(), config.fileInitialiser(), config.lifecycleListener(),
-                            config.errorListener());
+                            config.regionSize(), config.overlapSize(), config.fileInitialiser(),
+                            config.lifecycleListener(), config.errorListener());
                 }
-                return new FixedSizeFileMapper(file, config.maxFileSize(), accessMode, config.fileInitialiser(),
-                        config.lifecycleListener(), config.errorListener());
+                return new FixedSizeFileMapper(file, config.maxFileSize() + config.overlapSize(), accessMode,
+                        config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
             default:
                 throw new IllegalArgumentException("Unsupported access mode: " + accessMode);
         }

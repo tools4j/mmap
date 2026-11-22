@@ -44,10 +44,12 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
- * A {@link FileMapper} for a file that grows on demand between a minimum and maximum size.
+ * A {@link FileMapper} for a file that grows on demand between a minimum and maximum size, in multiples of the minimum
+ * size. The file is physically larger by the overlap size, so that the last region can be mapped with its overlap.
  * <p>
  * <b>Note:</b> This class is <b>thread safe</b>; {@code map} and {@code unmap} may be called concurrently from
  * multiple threads.
@@ -57,6 +59,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     private final File file;
     private final long minFileSize;
     private final long maxFileSize;
+    private final int overlapSize;
     private final FileHandle fileHandle;
     private final PreToucher preToucher;
     private final AtomicLong fileLengthCache = new AtomicLong();
@@ -66,8 +69,9 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
                                     final long minFileSize,
                                     final long maxFileSize,
                                     final int regionSize,
+                                    final int overlapSize,
                                     final FileInitialiser fileInitialiser) {
-        this(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
+        this(file, minFileSize, maxFileSize, regionSize, overlapSize, fileInitialiser,
                 MappingConfigurations.defaultLifecycleListener(), CoreConfigurations.defaultErrorListener());
     }
 
@@ -75,6 +79,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
                                     final long minFileSize,
                                     final long maxFileSize,
                                     final int regionSize,
+                                    final int overlapSize,
                                     final FileInitialiser fileInitialiser,
                                     final LifecycleListener lifecycleListener,
                                     final ErrorListener errorListener) {
@@ -82,6 +87,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         validateRegionSize(regionSize);
         validateMinFileSize(minFileSize);
         validateMaxFileSize(maxFileSize);
+        validateOverlapSize(regionSize, overlapSize);
         //noinspection IfStatementWithIdenticalBranches
         if (minFileSize == 0) {
             if (maxFileSize % regionSize != 0) {
@@ -102,8 +108,9 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
             this.minFileSize = minFileSize;
             this.maxFileSize = maxFileSize;
         }
+        this.overlapSize = overlapSize;
         this.fileHandle = new FileHandle(this, AccessMode.READ_WRITE, file, fileInitialiser,
-                minFileSize, MappingConfigurations.defaultZeroFillMode(),
+                minFileSize == 0 ? 0 : minFileSize + overlapSize, MappingConfigurations.defaultZeroFillMode(),
                 lifecycleListener, errorListener);
         this.preToucher = new PreToucher();
     }
@@ -118,9 +125,9 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         assert position >= 0;
         assert length >= 0;
         //NOTE: relying on fileHandle's closed check
-        if (position + length > maxFileSize) {
+        if (position + length > mappingLimit()) {
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
-                    "exceeds max file size " + maxFileSize + " for file " + file);
+                    "exceeds max file size " + maxFileSize + " plus overlap size " + overlapSize + " for file " + file);
         }
         final FileChannel channel = fileHandle.channel();
         if (channel == null || !channel.isOpen()) {
@@ -136,7 +143,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
 
     @Override
     public long mappingLimit() {
-        return maxFileSize;
+        return maxFileSize + overlapSize;
     }
 
     @Override
@@ -152,8 +159,9 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         if (minLength <= cachedFileLength) {
             return;
         }
-        if (minLength > maxFileSize) {
-            throw new IllegalStateException("Exceeded max file size " + maxFileSize + " for file " + file);
+        if (minLength > mappingLimit()) {
+            throw new IllegalStateException("Exceeded max file size " + maxFileSize + " plus overlap size " +
+                    overlapSize + " for file " + file);
         }
         //NOTE: threads waiting for another thread's extension spin on the cached length, published before the latch is
         //      released, so they neither query the file length nor contend for the channel's lock meanwhile; they
@@ -175,9 +183,11 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
         }
     }
 
+    /** Returns the smallest multiple of min file size plus overlap size that is at least the given length */
     private long newFileLength(final long minLength) {
-        final long newFileLength = minFileSize + minFileSize * ((minLength - 1) / minFileSize);
-        assert newFileLength <= maxFileSize : "newFileLen exceeds maxFileSize";
+        final long minLogicalLength = Math.max(1, minLength - overlapSize);
+        final long newFileLength = minFileSize + minFileSize * ((minLogicalLength - 1) / minFileSize) + overlapSize;
+        assert newFileLength <= mappingLimit() : "newFileLen exceeds maxFileSize plus overlapSize";
         return newFileLength;
     }
 
@@ -199,6 +209,7 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
                 .append(":file=").append(file.getPath())
                 .append("|minFileSize=").append(minFileSize)
                 .append("|maxFileSize=").append(maxFileSize)
+                .append("|overlapSize=").append(overlapSize)
                 .append("|closed=").append(isClosed());
     }
 

@@ -65,11 +65,11 @@ class RollingFileMapperTest {
                                         final int filesToCreateAhead,
                                         final int maxOpenFiles) {
         return RollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE, expandFile, 0, MAX_FILE_SIZE,
-                REGION_SIZE, filesToCreateAhead, maxOpenFiles, FILE_INITIALISER);
+                REGION_SIZE, 0, filesToCreateAhead, maxOpenFiles, FILE_INITIALISER);
     }
 
     private static FileMapper readOnly(final File baseFile, final int maxOpenFiles) {
-        return RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE, maxOpenFiles, FILE_INITIALISER);
+        return RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE, 0, maxOpenFiles, FILE_INITIALISER);
     }
 
     private static long position(final int region) {
@@ -100,6 +100,38 @@ class RollingFileMapperTest {
 
     private static long valueFor(final int region) {
         return 0x1234_5678_0000_0000L + region;
+    }
+
+    @ParameterizedTest(name = "expandFile={0}")
+    @ValueSource(booleans = {false, true})
+    void overlapOfLastRegionIsTailOfFile(final boolean expandFile) {
+        final File baseFile = baseFile("overlap.map");
+        final int overlapSize = REGION_SIZE;
+        final int mappingSize = REGION_SIZE + overlapSize;
+        final long tailValue = 0x0102030405060708L;
+        try (final FileMapper mapper = RollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE, expandFile, 0,
+                MAX_FILE_SIZE, REGION_SIZE, overlapSize, 0, 2, FILE_INITIALISER)) {
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, REGION_SIZE, false), "without overlap");
+            final long lastRegion = position(REGIONS_PER_FILE - 1);
+            final long address = mapper.map(lastRegion, mappingSize, false);
+            TestBuffers.wrap(address, mappingSize).putLong(REGION_SIZE, tailValue);
+            mapper.unmap(lastRegion, address, mappingSize);
+            final long nextFile = position(REGIONS_PER_FILE);
+            final long next = mapper.map(nextFile, mappingSize, false);
+            assertEquals(0, TestBuffers.wrap(next, mappingSize).getLong(0), "next file starts with own bytes");
+            mapper.unmap(nextFile, next, mappingSize);
+        }
+        assertEquals(MAX_FILE_SIZE + overlapSize, baseFile("overlap_0.map").length(), "file 0 with tail");
+        assertEquals(expandFile ? REGION_SIZE + overlapSize : MAX_FILE_SIZE + overlapSize,
+                baseFile("overlap_1.map").length(), "file 1");
+        try (final FileMapper reader = RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE,
+                overlapSize, 2, FILE_INITIALISER)) {
+            final long lastRegion = position(REGIONS_PER_FILE - 1);
+            final long address = reader.map(lastRegion, mappingSize, false);
+            assertNotEquals(NULL_ADDRESS, address);
+            assertEquals(tailValue, TestBuffers.wrap(address, mappingSize).getLong(REGION_SIZE), "tail read back");
+            reader.unmap(lastRegion, address, mappingSize);
+        }
     }
 
     @ParameterizedTest(name = "expandFile={0}")
@@ -261,7 +293,7 @@ class RollingFileMapperTest {
     @Test
     void maxFileSizeNotMultipleOfRegionSizeIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile("invalid.map"),
-                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 2,
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE + REGION_SIZE / 2, REGION_SIZE, 0, 0, 2,
                 FILE_INITIALISER));
     }
 
@@ -269,7 +301,7 @@ class RollingFileMapperTest {
     void invalidConfigurationIsRejected() {
         final File baseFile = baseFile("invalid.map");
         assertThrows(IllegalArgumentException.class, () -> RollingFileMapper.forReadWrite(baseFile,
-                AccessMode.READ_WRITE, false, 0, REGION_SIZE / 2, REGION_SIZE, 0, 2, FILE_INITIALISER));
+                AccessMode.READ_WRITE, false, 0, REGION_SIZE / 2, REGION_SIZE, 0, 0, 2, FILE_INITIALISER));
         assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, false, 2, 2),
                 "filesToCreateAhead must be smaller than maxOpenFiles");
         assertThrows(IllegalArgumentException.class, () -> readWrite(baseFile, false, 0, 0));

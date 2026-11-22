@@ -25,6 +25,7 @@ package org.tools4j.mmap.mapping.unsafe;
 
 import org.junit.jupiter.api.Test;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
+import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -39,7 +40,8 @@ class RegionMappersTest {
         final FileMapper fileMapper = mock(FileMapper.class);
         final int regionSize = MappingConfigurations.REGION_SIZE_DEFAULT;
         //LRU cache size deliberately not a power of two, which a ring cache would reject
-        final RegionMapper mapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, 4, 3, false);
+        final RegionMapper mapper = RegionMappers.createSyncRegionMapper(fileMapper,
+                new RegionMetricsImpl(regionSize, 0), 4, 3, false);
         final String description = mapper.toString();
         assertTrue(description.startsWith("RingCacheRegionMapper:cacheSize=4|"), description);
         assertTrue(description.contains("baseMapper=LruCacheRegionMapper"), description);

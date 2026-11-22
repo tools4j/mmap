@@ -109,6 +109,14 @@ public enum MappingConfigurations {
      * interrupting other threads of the process, rare when data is accessed sequentially.
      */
     public static final int REGION_SIZE_DEFAULT = (int)Math.max(2*1024*1024, REGION_SIZE_GRANULARITY);
+    /** Name of the system property to override the default overlap size. */
+    public static final String OVERLAP_SIZE_PROPERTY = "mmap.mapping.overlapSize";
+    /**
+     * The default overlap size, used if system property {@value #OVERLAP_SIZE_PROPERTY} is not set: 64 KB, a multiple
+     * of all common OS page sizes (4 KB, 16 KB and 64 KB). A default overlap size is limited to the region size of the
+     * configuration it is used for.
+     */
+    public static final int OVERLAP_SIZE_DEFAULT = (int)Math.max(64*1024, REGION_SIZE_GRANULARITY);
     /** Name of the system property to override the default initial mapping pool size. */
     public static final String INITIAL_MAPPING_POOL_SIZE_PROPERTY = "mmap.mapping.initialMappingPoolSize";
     /**
@@ -368,6 +376,19 @@ public enum MappingConfigurations {
      */
     public static int defaultRegionSize() {
         return intProperty(REGION_SIZE_PROPERTY, MappingValidations::validateRegionSize, REGION_SIZE_DEFAULT);
+    }
+
+    /**
+     * Returns the default overlap size. A mapping configuration uses at most its region size of it, see
+     * {@link MappingConfig#overlapSize()}.
+     *
+     * @return the value of system property {@value #OVERLAP_SIZE_PROPERTY} if set, and {@link #OVERLAP_SIZE_DEFAULT}
+     *         otherwise
+     * @throws IllegalArgumentException if the system property value is invalid
+     * @see MappingConfig#overlapSize()
+     */
+    public static int defaultOverlapSize() {
+        return intProperty(OVERLAP_SIZE_PROPERTY, MappingValidations::validateOverlapSize, OVERLAP_SIZE_DEFAULT);
     }
 
     /**

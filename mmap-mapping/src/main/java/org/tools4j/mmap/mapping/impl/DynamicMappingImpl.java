@@ -116,8 +116,7 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
 
     @Override
     public int maxLengthAtPosition(final long position) {
-        final RegionMetrics metrics = regionMetrics;
-        return position >= 0 ? metrics.regionSize() - metrics.regionOffset(position) : 0;
+        return position >= 0 ? regionMetrics.maxLengthAtPosition(position) : 0;
     }
 
     @Override
@@ -272,6 +271,7 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
                 "|requestedLength=" + requestedLength +
                 "|maxLengthAtCurrentPosition=" + maxLengthAtCurrentPosition() +
                 "|regionSize=" + regionMetrics.regionSize() +
+                "|overlapSize=" + regionMetrics.overlapSize() +
                 "|accessMode=" + accessMode() +
                 "|closed=" + isClosed();
     }

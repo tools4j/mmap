@@ -38,9 +38,9 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
  *     <li>{@link FixedMapping}:   A mapping that has arbitrary start and end position, but both are fixed for the
  *                                 lifetime of the mapping.</li>
  *     <li>{@link DynamicMapping}: A mapping of a slice of the file that can be moved to other slices. The file is
- *                                 mapped in regions of a predefined <i>region size</i> (typically powers of two), and
- *                                 a slice can be of any length from zero up to the end of the region its position
- *                                 lies in.</li>
+ *                                 mapped in regions of a predefined <i>region size</i> (typically powers of two), each
+ *                                 with an <i>overlap</i> beyond its end, and a slice can be of any length from zero up
+ *                                 to the end of the overlap of the region its position lies in.</li>
  * </ul>
  * <p>
  * Each subtype comes in read and read/write variants:

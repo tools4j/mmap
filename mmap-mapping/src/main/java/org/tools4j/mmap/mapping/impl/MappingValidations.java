@@ -99,6 +99,32 @@ public enum MappingValidations {
         }
     }
 
+    public static void validateOverlapSize(final int overlapSize) {
+        if (overlapSize < 0 || overlapSize % REGION_SIZE_GRANULARITY != 0) {
+            throw new IllegalArgumentException("Overlap size must be non-negative and a multiple of " +
+                    REGION_SIZE_GRANULARITY + " but was " + overlapSize);
+        }
+    }
+
+    public static void validateAlignment(final int alignment, final int regionSize) {
+        if (!isPowerOfTwo(alignment) || alignment > regionSize) {
+            throw new IllegalArgumentException("Alignment must be a power of two no greater than region size " +
+                    regionSize + " but was " + alignment);
+        }
+    }
+
+    /** Validates the overlap size relative to the region size, which is expected to be valid */
+    public static void validateOverlapSize(final int regionSize, final int overlapSize) {
+        if (overlapSize < 0 || overlapSize > regionSize) {
+            throw new IllegalArgumentException("Overlap size must be between zero and region size " + regionSize +
+                    " but was " + overlapSize);
+        }
+        if ((long)regionSize + overlapSize > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Region size " + regionSize + " plus overlap size " + overlapSize +
+                    " exceeds max mapping size " + Integer.MAX_VALUE);
+        }
+    }
+
     public static void validateInitialPoolSize(final int initialPoolSize) {
         validateNonNegative("Initial pool size", initialPoolSize);
     }

@@ -49,11 +49,16 @@ import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCreateAhead;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 /**
  * Splits a logical stream across multiple physical files ("rolling"), creating a new file once the current one reaches
  * its maximum size and keeping at most a configured number of files open at a time.
+ * <p>
+ * Every file is physically larger than the max file size by the overlap size, so that its last region can be mapped
+ * with the overlap. This tail is only accessible through the last region of the file: positions beyond the max file
+ * size are mapped from the next file, whose first bytes are not the ones in the tail of the previous file.
  * <p>
  * The files are shared by {@link PerThreadFileMapper}s. The factory methods return the owner; per-thread file mappers
  * for other threads are obtained via {@link FileMappers#forThread(FileMapper)}.
@@ -71,6 +76,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
     private final Function<? super File, ? extends FileMapper> fileMapperFactory;
     private final long maxFileSize;
     private final int regionSize;
+    private final int overlapSize;
     private final int filesToCreateAhead;
     private final int maxOpenFiles;
     private final AccessMode accessMode;
@@ -90,6 +96,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                                         final Function<? super File, ? extends FileMapper> fileMapperFactory,
                                         final long maxFileSize,
                                         final int regionSize,
+                                        final int overlapSize,
                                         final int filesToCreateAhead,
                                         final int maxOpenFiles,
                                         final AccessMode accessMode,
@@ -99,6 +106,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
         requireNonNull(fileMapperFactory);
         validateMaxFileSize(maxFileSize);
         validateRegionSize(regionSize);
+        validateOverlapSize(regionSize, overlapSize);
         validateFilesToCreateAhead(filesToCreateAhead);
         validateMaxOpenFiles(maxOpenFiles);
         requireNonNull(accessMode);
@@ -118,6 +126,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
         this.fileMapperFactory = fileMapperFactory;
         this.maxFileSize = maxFileSize;
         this.regionSize = regionSize;
+        this.overlapSize = overlapSize;
         this.filesToCreateAhead = filesToCreateAhead;
         this.maxOpenFiles = maxOpenFiles;
         this.accessMode = accessMode;
@@ -132,22 +141,24 @@ public final class ConcurrentRollingFileMapper implements Describable {
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final MappingConfig config) {
-        return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.maxOpenFiles(),
-                config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
+        return forReadOnly(baseFile, config.maxFileSize(), config.regionSize(), config.overlapSize(),
+                config.maxOpenFiles(), config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final long maxFileSize,
                                          final int regionSize,
+                                         final int overlapSize,
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser) {
-        return forReadOnly(baseFile, maxFileSize, regionSize, maxOpenFiles, fileInitialiser,
+        return forReadOnly(baseFile, maxFileSize, regionSize, overlapSize, maxOpenFiles, fileInitialiser,
                 MappingConfigurations.defaultLifecycleListener(), CoreConfigurations.defaultErrorListener());
     }
 
     public static FileMapper forReadOnly(final File baseFile,
                                          final long maxFileSize,
                                          final int regionSize,
+                                         final int overlapSize,
                                          final int maxOpenFiles,
                                          final FileInitialiser fileInitialiser,
                                          final LifecycleListener lifecycleListener,
@@ -157,14 +168,15 @@ public final class ConcurrentRollingFileMapper implements Describable {
         requireNonNull(errorListener);
         return new ConcurrentRollingFileMapper(baseFile,
                 file -> new ReadOnlyFileMapper(file, fileInitialiser, lifecycleListener, errorListener),
-                maxFileSize, regionSize, 0, maxOpenFiles, AccessMode.READ_ONLY, lifecycleListener, errorListener).newOwnerMapper();
+                maxFileSize, regionSize, overlapSize, 0, maxOpenFiles, AccessMode.READ_ONLY, lifecycleListener,
+                errorListener).newOwnerMapper();
     }
 
     public static FileMapper forReadWrite(final File baseFile,
                                           final AccessMode accessMode,
                                           final MappingConfig config) {
         return forReadWrite(baseFile, accessMode, config.expandFile(), config.minFileSize(), config.maxFileSize(),
-                config.regionSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
+                config.regionSize(), config.overlapSize(), config.filesToCreateAhead(), config.maxOpenFiles(),
                 config.fileInitialiser(), config.lifecycleListener(), config.errorListener());
     }
 
@@ -174,10 +186,11 @@ public final class ConcurrentRollingFileMapper implements Describable {
                                           final long minFileSize,
                                           final long maxFileSize,
                                           final int regionSize,
+                                          final int overlapSize,
                                           final int filesToCreateAhead,
                                           final int maxOpenFiles,
                                           final FileInitialiser fileInitialiser) {
-        return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize,
+        return forReadWrite(baseFile, accessMode, expandFile, minFileSize, maxFileSize, regionSize, overlapSize,
                 filesToCreateAhead, maxOpenFiles, fileInitialiser, MappingConfigurations.defaultLifecycleListener(),
                 CoreConfigurations.defaultErrorListener());
     }
@@ -188,6 +201,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                                           final long minFileSize,
                                           final long maxFileSize,
                                           final int regionSize,
+                                          final int overlapSize,
                                           final int filesToCreateAhead,
                                           final int maxOpenFiles,
                                           final FileInitialiser fileInitialiser,
@@ -198,12 +212,12 @@ public final class ConcurrentRollingFileMapper implements Describable {
         requireNonNull(lifecycleListener);
         requireNonNull(errorListener);
         final Function<File, FileMapper> fileMapperFactory = expandFile ?
-                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, fileInitialiser,
-                        lifecycleListener, errorListener) :
-                file -> new FixedSizeFileMapper(file, maxFileSize, accessMode, fileInitialiser, lifecycleListener,
-                        errorListener);
-        return new ConcurrentRollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, filesToCreateAhead,
-                maxOpenFiles, accessMode, lifecycleListener, errorListener).newOwnerMapper();
+                file -> new ExpandableSizeFileMapper(file, minFileSize, maxFileSize, regionSize, overlapSize,
+                        fileInitialiser, lifecycleListener, errorListener) :
+                file -> new FixedSizeFileMapper(file, maxFileSize + overlapSize, accessMode, fileInitialiser,
+                        lifecycleListener, errorListener);
+        return new ConcurrentRollingFileMapper(baseFile, fileMapperFactory, maxFileSize, regionSize, overlapSize,
+                filesToCreateAhead, maxOpenFiles, accessMode, lifecycleListener, errorListener).newOwnerMapper();
     }
 
     private PerThreadFileMapper newOwnerMapper() {
@@ -233,8 +247,9 @@ public final class ConcurrentRollingFileMapper implements Describable {
     }
 
     private void validateRegionLength(final int length) {
-        if (length != regionSize) {
-            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize);
+        if (length != regionSize + overlapSize) {
+            throw new IllegalArgumentException("Length " + length + " must match region size " + regionSize +
+                    " plus overlap size " + overlapSize);
         }
     }
 
@@ -266,6 +281,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
                 .append("|accessMode=").append(accessMode)
                 .append("|maxFileSize=").append(maxFileSize)
                 .append("|regionSize=").append(regionSize)
+                .append("|overlapSize=").append(overlapSize)
                 .append("|filesToCreateAhead=").append(filesToCreateAhead)
                 .append("|maxOpenFiles=").append(maxOpenFiles)
                 .append("|openFiles=").append(openFiles())

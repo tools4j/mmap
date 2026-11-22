@@ -38,17 +38,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit test for {@link DynamicMappingImpl} length handling, in particular {@link DynamicMapping#STRETCH_LENGTH}.
+ * Unit test for {@link DynamicMappingImpl} length handling, in particular {@link DynamicMapping#STRETCH_LENGTH}, with
+ * the default overlap.
  */
 class DynamicMappingImplTest {
 
     private DynamicMapping mapping;
     private int regionSize;
+    private int overlapSize;
+    private int mappingSize;
 
     @BeforeEach
     void init(@TempDir final Path tempDir) {
         mapping = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE);
         regionSize = mapping.regionMetrics().regionSize();
+        overlapSize = mapping.regionMetrics().overlapSize();
+        mappingSize = mapping.regionMetrics().mappingSize();
+        assertTrue(overlapSize > 0, "default overlap");
     }
 
     @AfterEach
@@ -57,30 +63,30 @@ class DynamicMappingImplTest {
     }
 
     @Test
-    void moveToWithLengthToEndOfRegion() {
+    void moveToWithStretchLength() {
         assertTrue(mapping.moveTo(100, DynamicMapping.STRETCH_LENGTH));
         assertEquals(100, mapping.position());
-        assertEquals(regionSize - 100, mapping.length());
+        assertEquals(mappingSize - 100, mapping.length());
 
         assertTrue(mapping.moveTo(200, DynamicMapping.STRETCH_LENGTH));
-        assertEquals(regionSize - 200, mapping.length());
+        assertEquals(mappingSize - 200, mapping.length());
 
         assertTrue(mapping.moveTo(regionSize + 300L, DynamicMapping.STRETCH_LENGTH));
         assertEquals(regionSize + 300L, mapping.position());
-        assertEquals(regionSize - 300, mapping.length());
+        assertEquals(mappingSize - 300, mapping.length());
     }
 
     @Test
-    void moveByWithLengthToEndOfRegion() {
+    void moveByWithStretchLength() {
         assertTrue(mapping.moveTo(100, 10));
 
         assertTrue(mapping.moveBy(50, DynamicMapping.STRETCH_LENGTH));
         assertEquals(150, mapping.position());
-        assertEquals(regionSize - 150, mapping.length());
+        assertEquals(mappingSize - 150, mapping.length());
 
         assertTrue(mapping.moveBy(regionSize, DynamicMapping.STRETCH_LENGTH));
         assertEquals(regionSize + 150L, mapping.position());
-        assertEquals(regionSize - 150, mapping.length());
+        assertEquals(mappingSize - 150, mapping.length());
     }
 
     @Test
@@ -94,16 +100,16 @@ class DynamicMappingImplTest {
     }
 
     @Test
-    void movesMapToRegionEndByDefault() {
+    void movesStretchByDefault() {
         assertTrue(mapping.moveTo(100));
-        assertEquals(regionSize - 100, mapping.length());
+        assertEquals(mappingSize - 100, mapping.length());
         assertTrue(mapping.moveTo(200));
-        assertEquals(regionSize - 200, mapping.length());
+        assertEquals(mappingSize - 200, mapping.length());
         assertTrue(mapping.moveBy(regionSize));
         assertEquals(regionSize + 200L, mapping.position());
-        assertEquals(regionSize - 200, mapping.length());
+        assertEquals(mappingSize - 200, mapping.length());
         assertTrue(mapping.moveTo(regionSize - 1L));
-        assertEquals(1, mapping.length());
+        assertEquals(overlapSize + 1, mapping.length());
     }
 
     @Test
@@ -122,26 +128,29 @@ class DynamicMappingImplTest {
         assertEquals(10, mapping.length(), "kept in another region");
 
         mapping.length(DynamicMapping.STRETCH_LENGTH);
-        assertEquals(regionSize - 300, mapping.length());
+        assertEquals(mappingSize - 300, mapping.length());
         assertTrue(mapping.moveTo(regionSize + 400L));
-        assertEquals(regionSize - 400, mapping.length(), "max length requested again");
+        assertEquals(mappingSize - 400, mapping.length(), "max length requested again");
     }
 
     @Test
     void moveThrowsIfRequestedLengthDoesNotFitAndKeepsMapping() {
-        assertTrue(mapping.moveTo(100, 10));
+        final int length = overlapSize + 10;
+        assertTrue(mapping.moveTo(100, length));
         final long address = mapping.address();
 
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(regionSize - 5L));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(regionSize - 105L));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(2L * regionSize - 5));
         assertEquals(100, mapping.position());
-        assertEquals(10, mapping.length());
+        assertEquals(length, mapping.length());
         assertEquals(address, mapping.address());
 
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(200, regionSize));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(200, mappingSize - 199));
         assertTrue(mapping.moveTo(200));
-        assertEquals(10, mapping.length(), "requested length kept after failed move");
+        assertEquals(length, mapping.length(), "requested length kept after failed move");
+        assertTrue(mapping.moveTo(regionSize - 10L));
+        assertEquals(length, mapping.length(), "fits into overlap");
     }
 
     @Test
@@ -186,11 +195,11 @@ class DynamicMappingImplTest {
         mapping.length(20);
         assertEquals(20, mapping.length());
         mapping.length(DynamicMapping.STRETCH_LENGTH);
-        assertEquals(regionSize - 100, mapping.length());
+        assertEquals(mappingSize - 100, mapping.length());
         mapping.length(0);
         assertEquals(0, mapping.length());
         assertThrows(IllegalArgumentException.class, () -> mapping.length(-2));
-        assertThrows(IllegalArgumentException.class, () -> mapping.length(regionSize - 99));
+        assertThrows(IllegalArgumentException.class, () -> mapping.length(mappingSize - 99));
         assertEquals(100, mapping.position());
     }
 
@@ -206,17 +215,19 @@ class DynamicMappingImplTest {
         assertEquals(0, mapping.length());
         mapping.limit(regionSize);
         assertEquals(regionSize - 100, mapping.length());
+        mapping.limit(mappingSize);
+        assertEquals(mappingSize - 100, mapping.length());
         assertThrows(IllegalArgumentException.class, () -> mapping.limit(99));
-        assertThrows(IllegalArgumentException.class, () -> mapping.limit(regionSize + 1L));
+        assertThrows(IllegalArgumentException.class, () -> mapping.limit(mappingSize + 1L));
         assertEquals(100, mapping.position());
     }
 
     @Test
     void invalidLengthThrows() {
         assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, -2));
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, regionSize - 99));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveTo(100, mappingSize - 99));
         assertTrue(mapping.moveTo(100, 10));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, -2));
-        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, regionSize - 109));
+        assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, mappingSize - 109));
     }
 }

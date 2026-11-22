@@ -30,6 +30,7 @@ import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import java.io.UncheckedIOException;
 import java.util.function.Predicate;
 
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAlignment;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionDelta;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionState;
 
@@ -38,14 +39,17 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionS
  * {@linkplain #length() length} can be changed by {@link #moveTo(long, int) moving} it to another slice of the file.
  * <p>
  * The file is mapped into memory in regions of a predefined {@linkplain RegionMetrics#regionSize() region size} (see
- * {@link #regionMetrics()}) through a {@link RegionMapper}, mapping and unmapping regions as the mapping moves. A slice
- * can therefore not cross the end of the region its position lies in: its length is at least zero and at most the {@linkplain #maxLengthAtPosition(long)
- * max length} at its position, the bytes from the position to the end of its region. Moving within the region that is
- * already mapped only adjusts the {@link #buffer() buffer}.
+ * {@link #regionMetrics()}) through a {@link RegionMapper}, mapping and unmapping regions as the mapping moves. Every
+ * region is mapped with an {@linkplain RegionMetrics#overlapSize() overlap} beyond its end, the first bytes of the next
+ * region, or beyond the max file size for the last region of a file. A slice can therefore not cross the end of the
+ * overlap of the region its position lies in: its length is at least zero and at most the
+ * {@linkplain #maxLengthAtPosition(long) max length} at its position, the bytes from the position to the end of its
+ * region's overlap. A length up to the {@linkplain #safeLength(int) safe length} fits at every position. Moving within
+ * the region that is already mapped only adjusts the {@link #buffer() buffer}.
  * <p>
  * The mapping keeps the <i>requested length</i>, the length last passed to a move, {@link #length(int)} or
  * {@link #limit(long)}, and moves without a length map it again at the new position: {@link #STRETCH_LENGTH}, the
- * initial requested length, stretches to the end of the region at every position, and an explicit length maps exactly
+ * initial requested length, stretches to the max length at every position, and an explicit length maps exactly
  * that many bytes, for instance to read values of the same type at successive positions without passing the length
  * each time. A move throws an {@link IllegalArgumentException} if the requested length exceeds the max length at the
  * new position, and leaves the mapping as it was.
@@ -54,22 +58,24 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validatePositionS
  */
 public interface DynamicMapping extends Mapping {
     /**
-     * Length passed to move methods or {@link #length(int)} to map all bytes from the position to the end of its
-     * region at every move, the initial requested length of a mapping
+     * Length passed to move methods or {@link #length(int)} to map the {@linkplain #maxLengthAtPosition(long) max
+     * length}, all bytes from the position to the end of its region's mapping, at every move; the initial requested
+     * length of a mapping
      */
     int STRETCH_LENGTH = -1;
 
     /**
-     * Returns the region metrics of this mapping, with the region size the file is mapped in and the operations for
-     * positions related to it.
+     * Returns the region metrics of this mapping, with the region size the file is mapped in, the overlap size and the
+     * operations for positions related to them.
      *
      * @return the region metrics of this mapping
      */
     RegionMetrics regionMetrics();
 
     /**
-     * Moves the mapping to the specified position, mapping the requested length: all bytes to the end of the region
-     * for {@link #STRETCH_LENGTH}, otherwise the length last requested.
+     * Moves the mapping to the specified position, mapping the requested length: the
+     * {@linkplain #maxLengthAtPosition(long) max length} for {@link #STRETCH_LENGTH}, otherwise the length last
+     * requested.
      * <p>
      * If the new position lies within the region that is already mapped, only the buffer is adjusted without mapping
      * a region. Otherwise, the requested region is mapped, and the previous region possibly unmapped, so that it is
@@ -146,25 +152,51 @@ public interface DynamicMapping extends Mapping {
 
     /**
      * Returns the max length at the current position, or zero if this mapping is not mapped: the bytes from the
-     * current position to the end of its region.
+     * current position to the end of its region's mapping, see {@link #maxLengthAtPosition(long)}. This is the length
+     * of this mapping after {@link #length(int) length}{@code (}{@link #STRETCH_LENGTH}{@code )}, and its length if it
+     * was moved here with {@link #STRETCH_LENGTH}.
      *
-     * @return the max length that can be passed to {@link #length(int)}, a value between zero and region size
+     * @return the max length that can be passed to {@link #length(int)}, zero if not mapped, and otherwise a value
+     *         between overlap size plus one and the {@linkplain RegionMetrics#mappingSize() mapping size}
      */
     default int maxLengthAtCurrentPosition() {
-        return isMapped() ? maxLengthAtPosition(position()) : 0;
+        return maxLengthAtPosition(position());
     }
 
     /**
      * Returns the max length at the specified position, or zero if position is negative: the bytes from the position
-     * to the end of its region.
+     * to the end of its region's overlap, that is, the {@linkplain RegionMetrics#mappingSize() mapping size} minus the
+     * {@linkplain RegionMetrics#regionOffset(long) region offset} of the position. For a non-negative position, this
+     * is the {@linkplain RegionMetrics#maxLengthAtPosition(long) max length} of the {@linkplain #regionMetrics()
+     * region metrics}, and the length a move to the position maps with {@link #STRETCH_LENGTH}.
      *
      * @param position the position for which the max length is evaluated
-     * @return the max length that can be passed to {@link #moveTo(long, int)} for the specified position, a value
-     *         between zero and region size
+     * @return the max length that can be passed to {@link #moveTo(long, int)} for the specified position, zero if
+     *         position is negative, and otherwise a value between overlap size plus one and the
+     *         {@linkplain RegionMetrics#mappingSize() mapping size}
      */
     default int maxLengthAtPosition(final long position) {
+        return position >= 0 ? regionMetrics().maxLengthAtPosition(position) : 0;
+    }
+
+    /**
+     * Returns the safe length for positions that are a multiple of the given alignment: the length that fits at every
+     * such position, since its offset within its region is at most region size minus alignment. This is the
+     * {@linkplain RegionMetrics#overlapSize() overlap size} plus alignment, the
+     * {@linkplain RegionMetrics#safeLength(int) safe length} of the {@linkplain #regionMetrics() region metrics}, with
+     * the alignment validated.
+     * <p>
+     * For instance, a mapping moved only to multiples of 8 can map {@code safeLength(8)} bytes at every move, and
+     * {@code safeLength(1)}, overlap size plus one, fits at any position.
+     *
+     * @param alignment the alignment of positions, a power of two no greater than the region size
+     * @return the length that fits at every position that is a multiple of alignment
+     * @throws IllegalArgumentException if alignment is not a power of two, or exceeds the region size
+     */
+    default int safeLength(final int alignment) {
         final RegionMetrics metrics = regionMetrics();
-        return position >= 0 ? metrics.regionSize() - metrics.regionOffset(position) : 0;
+        validateAlignment(alignment, metrics.regionSize());
+        return metrics.safeLength(alignment);
     }
 
     /**

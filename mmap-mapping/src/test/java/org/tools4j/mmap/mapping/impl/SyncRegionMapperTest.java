@@ -37,6 +37,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 import org.tools4j.mmap.mapping.unsafe.RegionMappers;
@@ -70,6 +71,7 @@ public class SyncRegionMapperTest {
     private RegionMapper regionMapper;
 
     private final int regionSize = (int)Constants.REGION_SIZE_GRANULARITY;
+    private final RegionMetrics regionMetrics = new RegionMetricsImpl(regionSize, 0);
 
     @BeforeEach
     public void setUp() {
@@ -92,7 +94,7 @@ public class SyncRegionMapperTest {
 
     @Test
     public void mapsWithoutPreTouch() {
-        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize);
+        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics);
         regionMapper.map(0);
         verify(fileMapper).map(0L, regionSize, false);
     }
@@ -109,7 +111,7 @@ public class SyncRegionMapperTest {
                                                                final int lruCacheSize,
                                                                final boolean deferUnmapping) {
         //given
-        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize,
+        regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics, cacheSize, lruCacheSize,
                 deferUnmapping);
         final DynamicMutableMapping region = new DynamicMappingImpl(regionMapper, true);
         final long failingRegionPosition = 2L * regionSize;
@@ -146,7 +148,8 @@ public class SyncRegionMapperTest {
     public void map_and_access_data(final int cacheSize, final boolean deferUnmapping) {
         //given
         final int lruCacheSize = 0;
-        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize, deferUnmapping));
+        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics,
+                cacheSize, lruCacheSize, deferUnmapping));
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
@@ -199,7 +202,8 @@ public class SyncRegionMapperTest {
     public void map_and_unmap(final int cacheSize, final boolean deferUnmapping) {
         //given
         final int lruCacheSize = 0;
-        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize, deferUnmapping));
+        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics,
+                cacheSize, lruCacheSize, deferUnmapping));
         final long position = 456;
         final int positionInRegion = (int) (position % regionSize);
         final long regionStartPosition = position - positionInRegion;
@@ -246,7 +250,8 @@ public class SyncRegionMapperTest {
     public void map_and_remap(final int cacheSize, final boolean deferUnmapping) {
         //given
         final int lruCacheSize = 0;
-        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionSize, cacheSize, lruCacheSize, deferUnmapping));
+        regionMapper = new LoggingRegionMapper(RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics,
+                cacheSize, lruCacheSize, deferUnmapping));
         final long position = 456;
         final int offset = (int) (position % regionSize);
         final long regionStartPosition = position - offset;

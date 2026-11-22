@@ -28,8 +28,10 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.AsyncRuntime.Recurring;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.impl.Constants;
 
+import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,6 +51,7 @@ import static org.mockito.Mockito.when;
 class SyncRegionMapperAsyncUnmapperTest {
 
     private static final int REGION_SIZE = (int) Constants.REGION_SIZE_GRANULARITY;
+    private static final RegionMetrics REGION_METRICS = new RegionMetricsImpl(REGION_SIZE, 0);
 
     @Test
     void mapsWithoutPreTouch() throws InterruptedException {
@@ -58,7 +61,8 @@ class SyncRegionMapperAsyncUnmapperTest {
         final AsyncRuntime asyncRuntime = mock(AsyncRuntime.class);
         final List<Recurring> recurring = new ArrayList<>();
         doAnswer(invocation -> recurring.add(invocation.getArgument(0))).when(asyncRuntime).register(any());
-        final RegionMapper regionMapper = new SyncRegionMapperAsyncUnmapper(asyncRuntime, fileMapper, REGION_SIZE, 32);
+        final RegionMapper regionMapper = new SyncRegionMapperAsyncUnmapper(asyncRuntime, fileMapper, REGION_METRICS,
+                32);
         assertEquals(data.address(), regionMapper.map(0));
         verify(fileMapper).map(0L, REGION_SIZE, false);
         RecurringTasks.closeWhileExecuting(regionMapper::close, recurring.get(0));

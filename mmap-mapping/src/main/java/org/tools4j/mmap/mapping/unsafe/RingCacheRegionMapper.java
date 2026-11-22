@@ -60,11 +60,11 @@ final class RingCacheRegionMapper implements RegionMapper {
     private final long[] addresses;
 
     public RingCacheRegionMapper(final RegionMapper baseMapper, final int cacheSize, final boolean deferUnmapping) {
-        validateRegionSize(baseMapper.regionSize());
+        validateRegionSize(baseMapper.regionMetrics().regionSize());
         validateRegionCacheSize(cacheSize);
         this.baseMapper = requireNonNull(baseMapper);
         this.deferUnmapping = deferUnmapping;
-        this.regionSizeBits = Integer.SIZE - Integer.numberOfLeadingZeros(baseMapper.regionSize() - 1);
+        this.regionSizeBits = Integer.SIZE - Integer.numberOfLeadingZeros(baseMapper.regionMetrics().regionSize() - 1);
         this.cacheSizeMask = cacheSize - 1;
         this.positions = new long[cacheSize];
         this.addresses = new long[cacheSize];
@@ -86,10 +86,6 @@ final class RingCacheRegionMapper implements RegionMapper {
         return (int) (cacheSizeMask & (position >>> regionSizeBits));
     }
 
-    @Override
-    public int regionSize() {
-        return RegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -102,7 +98,7 @@ final class RingCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int mappingSize) {
         final int cacheIndex = cacheIndex(position);
         final long curPosition = positions[cacheIndex];
         if (curPosition == position) {
@@ -113,12 +109,12 @@ final class RingCacheRegionMapper implements RegionMapper {
             positions[cacheIndex] = position;
             return addresses[cacheIndex];
         }
-        final long addr = baseMapper.mapInternal(position, regionSize);
+        final long addr = baseMapper.mapInternal(position, mappingSize);
         if (addr == NULL_ADDRESS) {
             return NULL_ADDRESS;
         }
         if (curPosition != NULL_POSITION && (curPosition & UNUSED_BIT) != 0) {
-            baseMapper.unmapInternal(unmaskedPosition, addresses[cacheIndex], regionSize);
+            baseMapper.unmapInternal(unmaskedPosition, addresses[cacheIndex], mappingSize);
         }
         positions[cacheIndex] = position;
         addresses[cacheIndex] = addr;
@@ -137,7 +133,7 @@ final class RingCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
         final int cacheIndex = cacheIndex(position);
         if (positions[cacheIndex] == position) {
             if (deferUnmapping) {
@@ -147,7 +143,7 @@ final class RingCacheRegionMapper implements RegionMapper {
             positions[cacheIndex] = NULL_POSITION;
             addresses[cacheIndex] = NULL_ADDRESS;
         }
-        baseMapper.unmapInternal(position, address, regionSize);
+        baseMapper.unmapInternal(position, address, mappingSize);
     }
 
     @Override

@@ -28,7 +28,7 @@ import org.tools4j.mmap.core.base.OverrideAll;
 import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.Mapping;
-import org.tools4j.mmap.mapping.api.RegionAware;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import java.io.UncheckedIOException;
 
@@ -38,7 +38,9 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPos
 
 /**
  * Low level API to map regions with implementation dependant optimisations such as unmapping, caching and pre-mapping
- * of regions. All mapped regions have the same {@linkplain #regionSize() size}.
+ * of regions. All regions have the same {@linkplain RegionMetrics#regionSize() size}, and are mapped with the
+ * {@linkplain RegionMetrics#mappingSize() mapping size}, the region size plus the
+ * {@linkplain RegionMetrics#overlapSize() overlap size}.
  * <p>
  * <br>
  * Applications should not use this class directly and instead use any of the {@link Mapping} implementations.
@@ -56,11 +58,19 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPos
  */
 @Unsafe
 @OverrideAll
-public interface RegionMapper extends RegionAware, Closeable {
+public interface RegionMapper extends Closeable {
     AccessMode accessMode();
 
     /**
-     * Attempts to map the buffer at the specified position and returns the address at which the region was mapped.
+     * Returns the region metrics with the region size and overlap size the regions are mapped with.
+     *
+     * @return the region metrics of this mapper
+     */
+    RegionMetrics regionMetrics();
+
+    /**
+     * Attempts to map the region at the specified position with its {@linkplain RegionMetrics#mappingSize()
+     * mapping size}, and returns the address at which the region was mapped.
      *
      * @param position      the requested position, a non-negative value and a multiple of region size
      * @return  the address at which the region was mapped, or {@code NULL_ADDRESS} if the region is not available yet,
@@ -68,32 +78,33 @@ public interface RegionMapper extends RegionAware, Closeable {
      * @throws IllegalArgumentException if position is negative or not a multiple of region size
      * @throws IllegalStateException if this mapper is closed, or if mapping fails, see {@link FileMapper#map(long, int, boolean)}
      * @throws UncheckedIOException if mapping fails with an I/O error
-     * @see #regionSize()
+     * @see #regionMetrics()
      */
     default long map(final long position) {
-        final int regionSize = regionSize();
-        validateRegionPosition(position, regionSize);
+        final RegionMetrics metrics = regionMetrics();
+        validateRegionPosition(position, metrics.regionSize());
         validateNotClosed(this);
-        return mapInternal(position, regionSize);
+        return mapInternal(position, metrics.mappingSize());
     }
 
-    long mapInternal(long position, int regionSize);
+    long mapInternal(long position, int mappingSize);
 
     /**
-     * Unmaps previously mapped address of the region starting at absolute position with length.
+     * Unmaps previously mapped address of the region starting at absolute position, mapped with its
+     * {@linkplain RegionMetrics#mappingSize() mapping size}.
      *
      * @param position absolute position
      * @param address  previously mapped address
      */
     default void unmap(final long position, final long address) {
-        final int regionSize = regionSize();
-        validateRegionPosition(position, regionSize);
+        final RegionMetrics metrics = regionMetrics();
+        validateRegionPosition(position, metrics.regionSize());
         validateAddress(address);
         validateNotClosed(this);
-        unmapInternal(position, address, regionSize);
+        unmapInternal(position, address, metrics.mappingSize());
     }
 
-    void unmapInternal(long position, long address, int regionSize);
+    void unmapInternal(long position, long address, int mappingSize);
 
     boolean isMappedInCache(long position);
 

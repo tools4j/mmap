@@ -96,10 +96,6 @@ final class LruCacheRegionMapper implements RegionMapper {
         return baseMapper.regionMetrics();
     }
 
-    @Override
-    public int regionSize() {
-        return RegionMapper.super.regionSize();
-    }
 
     @Override
     public long map(final long position) {
@@ -112,7 +108,7 @@ final class LruCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int mappingSize) {
         long addr, posn;
         int index = (int)positionToIndex.get(position);
         if (index >= 0) {
@@ -129,7 +125,7 @@ final class LruCacheRegionMapper implements RegionMapper {
             }
             return addr;
         }
-        addr = baseMapper.mapInternal(position, regionSize);
+        addr = baseMapper.mapInternal(position, mappingSize);
         if (addr != NULL_ADDRESS) {
             index = acquireIndex();
             positions[index] = position;
@@ -150,10 +146,10 @@ final class LruCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public void unmapInternal(final long position, final long address, final int regionSize) {
+    public void unmapInternal(final long position, final long address, final int mappingSize) {
         final int index = (int)positionToIndex.get(position);
         if (index < 0 || addresses[index] != address) {
-            baseMapper.unmapInternal(position, address, regionSize);
+            baseMapper.unmapInternal(position, address, mappingSize);
             return;
         }
         assert positions[index] == position;
@@ -163,7 +159,7 @@ final class LruCacheRegionMapper implements RegionMapper {
             positions[index] = NULL_POSITION;
             addresses[index] = NULL_ADDRESS;
             positionToIndex.remove(position);
-            baseMapper.unmapInternal(position, address, regionSize);
+            baseMapper.unmapInternal(position, address, mappingSize);
         }
         markMostRecentlyFreed(index);
     }
@@ -217,7 +213,7 @@ final class LruCacheRegionMapper implements RegionMapper {
         if (addr != NULL_ADDRESS) {
             assert posn != NULL_POSITION;
             final long posUnmasked = posn & USED_MASK;
-            baseMapper.unmapInternal(posUnmasked, addr, regionSize());
+            baseMapper.unmapInternal(posUnmasked, addr, regionMetrics().mappingSize());
             positions[index] = NULL_POSITION;
             addresses[index] = NULL_ADDRESS;
             final long rem = positionToIndex.remove(posUnmasked);
@@ -288,12 +284,12 @@ final class LruCacheRegionMapper implements RegionMapper {
         if (!isClosed()) {
             try {
                 if (!positionToIndex.isEmpty()) {
-                    final int regionSize = regionSize();
+                    final int mappingSize = regionMetrics().mappingSize();
                     //NOTE: some garbage here
                     positionToIndex.forEach((pos, index) -> {
                         final long addr = addresses[(int)index];
                         assert pos != NULL_POSITION && addr != NULL_ADDRESS;
-                        baseMapper.unmapInternal(pos & USED_MASK, addr, regionSize);
+                        baseMapper.unmapInternal(pos & USED_MASK, addr, mappingSize);
                     });
                 }
             } finally {

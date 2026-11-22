@@ -59,7 +59,7 @@ class MappingIntroTest {
         final File file = tempDir.resolve("data.map").toFile();
         final long mb = 1 << 20;
 
-        //DynamicMutableMapping: maps a slice of the file that can be moved, here spanning to the region end
+        //DynamicMutableMapping: maps a slice of the file that can be moved, here spanning to the end of the overlap
         try (DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE)) {
             for (int i = 0; i < 10; i++) {
                 mapping.moveTo(i * mb, DynamicMapping.STRETCH_LENGTH);

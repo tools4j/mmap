@@ -114,12 +114,12 @@ class ConfigImplTest {
     @Test
     void mappingConfigImpl() {
         final MappingStrategyConfig strategy = MappingStrategyConfig.getDefaultSync().toImmutableConfig();
-        final MappingConfigImpl config = new MappingConfigImpl(0, 4L * REGION_SIZE, REGION_SIZE, true, false, 5, 1,
+        final MappingConfigImpl config = new MappingConfigImpl(0, 4L * REGION_SIZE, REGION_SIZE, 0, true, false, 5, 1,
                 FileInitialiser.ZERO, strategy, LifecycleListener.NO_OP, ErrorListener.NO_OP);
         assertSame(config, config.toImmutableConfig());
         assertEquals(config, new MappingConfigImpl(config));
         assertEquals("MappingConfigImpl:minFileSize=0|maxFileSize=" + 4L * REGION_SIZE + "|regionSize=" + REGION_SIZE +
-                "|expandFile=true" +
+                "|overlapSize=0|expandFile=true" +
                 "|rollFiles=false|maxOpenFiles=5|filesToCreateAhead=1|fileInitialiser=ZERO" +
                 "|mappingStrategy=" + strategy +
                 "|lifecycleListener=LifecycleListener.NO_OP|errorListener=ErrorListener.NO_OP", config.toString());
@@ -131,6 +131,8 @@ class ConfigImplTest {
         final MappingConfig defaults = MappingConfig.getDefault();
         assertEquals(defaults.minFileSize(), config.minFileSize());
         assertEquals(defaults.maxFileSize(), config.maxFileSize());
+        assertEquals(defaults.regionSize(), config.regionSize());
+        assertEquals(defaults.overlapSize(), config.overlapSize());
         assertEquals(defaults.expandFile(), config.expandFile());
         assertEquals(defaults.rollFiles(), config.rollFiles());
         assertEquals(defaults.maxOpenFiles(), config.maxOpenFiles());

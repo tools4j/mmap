@@ -36,10 +36,11 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFilesToCr
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxOpenFiles;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
+import static org.tools4j.mmap.mapping.impl.MappingValidations.validateOverlapSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
 
 
-public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSize, boolean expandFile,
+public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSize, int overlapSize, boolean expandFile,
                                 boolean rollFiles, int maxOpenFiles, int filesToCreateAhead,
                                 FileInitialiser fileInitialiser, MappingStrategyConfig mappingStrategy,
                                 LifecycleListener lifecycleListener, ErrorListener errorListener)
@@ -49,7 +50,7 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
     }
 
     public MappingConfigImpl(final MappingConfig toCopy) {
-        this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.regionSize(), toCopy.expandFile(),
+        this(toCopy.minFileSize(), toCopy.maxFileSize(), toCopy.regionSize(), toCopy.overlapSize(), toCopy.expandFile(),
                 toCopy.rollFiles(), toCopy.maxOpenFiles(), toCopy.filesToCreateAhead(),
                 toCopy.fileInitialiser(), toCopy.mappingStrategy().toImmutableConfig(), toCopy.lifecycleListener(),
                 toCopy.errorListener());
@@ -59,6 +60,8 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
         validateMinFileSize(minFileSize);
         validateMaxFileSize(maxFileSize);
         validateRegionSize(regionSize);
+        validateOverlapSize(overlapSize);
+        validateOverlapSize(regionSize, overlapSize);
         validateMaxOpenFiles(maxOpenFiles);
         validateFilesToCreateAhead(filesToCreateAhead);
         requireNonNull(fileInitialiser);
@@ -83,6 +86,7 @@ public record MappingConfigImpl(long minFileSize, long maxFileSize, int regionSi
                 ":minFileSize=" + config.minFileSize() +
                 "|maxFileSize=" + config.maxFileSize() +
                 "|regionSize=" + config.regionSize() +
+                "|overlapSize=" + config.overlapSize() +
                 "|expandFile=" + config.expandFile() +
                 "|rollFiles=" + config.rollFiles() +
                 "|maxOpenFiles=" + config.maxOpenFiles() +

@@ -32,9 +32,11 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
+import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 import org.tools4j.mmap.mapping.config.MappingStrategyConfigurator;
 import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
+import org.tools4j.mmap.mapping.impl.RegionMetricsImpl;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -46,10 +48,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
- * Unit test for the region mapper decorator chains assembled by {@link RegionMappers#create(FileMapper, int,
+ * Unit test for the region mapper decorator chains assembled by {@link RegionMappers#create(FileMapper, RegionMetrics,
  * MappingStrategyConfig)}: every combination of sync/async mapping, sync/async unmapping, ring and LRU cache settings
- * writes
- * and reads back data, and is assembled from the expected mappers.
+ * writes and reads back data, and is assembled from the expected mappers.
  */
 class RegionMapperChainTest {
     /** Idler parking for 1 ms, so that test runtimes don't keep a CPU busy */
@@ -59,6 +60,7 @@ class RegionMapperChainTest {
 
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
     private static final int REGIONS = 8;
+    private static final RegionMetrics REGION_METRICS = new RegionMetricsImpl(REGION_SIZE, 0);
 
     @TempDir
     Path tempDir;
@@ -118,7 +120,11 @@ class RegionMapperChainTest {
     }
 
     private FileMapper fileMapper(final File file) {
-        return new FixedSizeFileMapper(file, (long) REGIONS * REGION_SIZE, AccessMode.READ_WRITE,
+        return fileMapper(file, 0);
+    }
+
+    private FileMapper fileMapper(final File file, final int overlapSize) {
+        return new FixedSizeFileMapper(file, (long) REGIONS * REGION_SIZE + overlapSize, AccessMode.READ_WRITE,
                 FileInitialiser.LAZY);
     }
 
@@ -137,7 +143,7 @@ class RegionMapperChainTest {
         final File file = tempDir.resolve("chain.map").toFile();
         final MappingStrategyConfig config = strategy(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
                 deferUnmapping);
-        final RegionMapper regionMapper = RegionMappers.create(fileMapper(file), REGION_SIZE, config);
+        final RegionMapper regionMapper = RegionMappers.create(fileMapper(file), REGION_METRICS, config);
         final String chain = regionMapper.toString();
         assertTrue(chain.startsWith(expectedChainStart(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
                 deferUnmapping)), chain);
@@ -156,7 +162,7 @@ class RegionMapperChainTest {
         }
         assertTrue(regionMapper.isClosed());
 
-        final RegionMapper syncMapper = RegionMappers.create(fileMapper(file), REGION_SIZE,
+        final RegionMapper syncMapper = RegionMappers.create(fileMapper(file), REGION_METRICS,
                 MappingStrategyConfig.getDefaultSync());
         try (final DynamicMapping mapping = new DynamicMappingImpl(syncMapper, true)) {
             for (int region = 0; region < REGIONS; region++) {
@@ -164,5 +170,45 @@ class RegionMapperChainTest {
                 assertEquals(valueFor(region), mapping.buffer().getLong(8), "reopened, region " + region);
             }
         }
+    }
+
+    /**
+     * Every chain with overlap: values written across region ends are read back through the next region, and the
+     * last region of the file is mapped with its overlap too, into the tail of the file beyond the max file size.
+     */
+    @ParameterizedTest(name = "asyncMapping={0}, asyncUnmapping={1}, cacheSize={2}, lruCacheSize={3}, " +
+            "deferUnmapping={4}")
+    @MethodSource("strategies")
+    void writeAcrossRegionEndsAndReadBackWithOverlap(final boolean asyncMapping,
+                                                     final boolean asyncUnmapping,
+                                                     final int cacheSize,
+                                                     final int lruCacheSize,
+                                                     final boolean deferUnmapping) {
+        final File file = tempDir.resolve("chain-overlap.map").toFile();
+        final int overlapSize = REGION_SIZE;
+        final RegionMetrics metrics = new RegionMetricsImpl(REGION_SIZE, overlapSize);
+        final MappingStrategyConfig config = strategy(asyncMapping, asyncUnmapping, cacheSize, lruCacheSize,
+                deferUnmapping);
+        try (final DynamicMutableMapping mapping = new DynamicMappingImpl(
+                RegionMappers.create(fileMapper(file, overlapSize), metrics, config), true)) {
+            for (int region = 1; region < REGIONS; region++) {
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE - Integer.BYTES, Long.BYTES), "region " + region);
+                mapping.buffer().putLong(0, valueFor(region));
+            }
+            final long lastPosition = (long) REGIONS * REGION_SIZE - Integer.BYTES;
+            assertTrue(mapping.moveTo(lastPosition, mapping.safeLength(Integer.BYTES)), "last region");
+            mapping.buffer().putLong(0, valueFor(REGIONS));
+            assertTrue(mapping.moveTo((REGIONS - 1L) * REGION_SIZE, DynamicMapping.STRETCH_LENGTH));
+            assertEquals(REGION_SIZE + overlapSize, mapping.length(), "last region with overlap");
+            assertEquals(valueFor(REGIONS), mapping.buffer().getLong(REGION_SIZE - Integer.BYTES), "tail");
+            for (int region = REGIONS - 1; region >= 1; region--) {
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE, Integer.BYTES), "region " + region);
+                assertEquals((int) (valueFor(region) >>> Integer.SIZE), mapping.buffer().getInt(0),
+                        "next region, region " + region);
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE - Integer.BYTES, Long.BYTES), "region " + region);
+                assertEquals(valueFor(region), mapping.buffer().getLong(0), "region " + region);
+            }
+        }
+        assertEquals((long) REGIONS * REGION_SIZE + overlapSize, file.length());
     }
 }
