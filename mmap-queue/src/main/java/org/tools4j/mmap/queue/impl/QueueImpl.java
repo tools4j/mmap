@@ -226,6 +226,8 @@ public final class QueueImpl implements Queue, Describable {
 
     /** Registration of an open element, which unregisters itself when run */
     private final class Registration implements Runnable {
+        /** The thread creating the element, which should close it, reported if the queue closes it instead */
+        final Thread creator = Thread.currentThread();
         /** Plain field, published through adding the registration to the registrations queue */
         Closeable closeable;
 
@@ -332,12 +334,30 @@ public final class QueueImpl implements Queue, Describable {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
+            warnOfOpenElementsOfOtherThreads();
             for (final Registration registration : registrations) {
                 closeReportingError(registration.closeable);
             }
             registrations.clear();
-            closeReportingError(idPool);
+            if (idPool != null) {
+                closeReportingError(idPool);
+            }
             lifecycleListener.onClosed(this);
+        }
+    }
+
+    /**
+     * Warns of every open element created by another thread, which should have closed it, before closing any of them:
+     * closing an element its thread still uses can crash the JVM, and the warnings then hint at the cause.
+     */
+    private void warnOfOpenElementsOfOtherThreads() {
+        final Thread current = Thread.currentThread();
+        for (final Registration registration : registrations) {
+            if (registration.creator != current) {
+                //NOTE: allocates the message, once per element on close only
+                errorListener.onWarning(this, "Closing " + registration.closeable +
+                        " created by thread " + registration.creator.getName() + " that should have closed it");
+            }
         }
     }
 

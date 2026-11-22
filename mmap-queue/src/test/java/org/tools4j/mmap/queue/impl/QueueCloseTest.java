@@ -26,14 +26,19 @@ package org.tools4j.mmap.queue.impl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.base.Closeable;
+import org.tools4j.mmap.core.base.Describable;
+import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,6 +60,8 @@ class QueueCloseTest {
     @TempDir
     Path tempDir;
 
+    private final RecordingErrorListener errorListener = new RecordingErrorListener();
+
     @Test
     void closingElementsIndividuallyUnregistersThem() {
         try (final QueueImpl queue = (QueueImpl) Queue.open(queueDir())) {
@@ -70,8 +77,8 @@ class QueueCloseTest {
     }
 
     @Test
-    void closingQueueClosesOpenElements() {
-        final QueueImpl queue = (QueueImpl) Queue.open(queueDir());
+    void closingQueueClosesOpenElementsOfClosingThreadWithoutWarning() {
+        final QueueImpl queue = (QueueImpl) Queue.open(queueDir(), OpenMode.CREATE, config());
         final List<Closeable> elements = createAllElements(queue);
         elements.get(0).close();
         queue.close();
@@ -80,6 +87,43 @@ class QueueCloseTest {
             assertTrue(element.isClosed(), element::toString);
         }
         assertThrows(IllegalStateException.class, queue::createPoller);
+        assertEquals(List.of(), errorListener.warnings);
+        assertEquals(List.of(), errorListener.errors);
+    }
+
+    @Test
+    void closingQueueWarnsOfOpenElementsOfOtherThreadsBeforeClosingAny() throws Exception {
+        final QueueImpl queue = (QueueImpl) Queue.open(queueDir(), OpenMode.CREATE, config());
+        final List<Closeable> elements = new ArrayList<>();
+        final Thread creator = new Thread(() -> elements.addAll(createAllElements(queue)), "element-creator");
+        creator.start();
+        creator.join(MAX_WAIT_MILLIS);
+        assertFalse(creator.isAlive());
+        elements.get(0).close();
+        final List<Closeable> openElements = elements.subList(1, elements.size());
+        errorListener.onWarning = () -> openElements.forEach(
+                element -> assertFalse(element.isClosed(), element::toString));
+        queue.close();
+        assertEquals(openElements.size(), errorListener.warnings.size(), errorListener.warnings::toString);
+        for (int i = 0; i < openElements.size(); i++) {
+            final String warning = errorListener.warnings.get(i);
+            final String elementType = openElements.get(i).getClass().getSimpleName();
+            assertTrue(warning.startsWith("Closing " + elementType + ":"), warning);
+            assertTrue(warning.endsWith("created by thread element-creator that should have closed it"), warning);
+        }
+        openElements.forEach(element -> assertTrue(element.isClosed(), element::toString));
+        assertEquals(List.of(), errorListener.errors);
+    }
+
+    @Test
+    void closingReadOnlyQueueWithoutIdPoolReportsNoError() {
+        final File dir = queueDir();
+        Queue.open(dir, OpenMode.CREATE).close();
+        final QueueImpl queue = (QueueImpl) Queue.open(dir, OpenMode.READ_ONLY, config());
+        queue.createPoller();
+        queue.close();
+        assertTrue(queue.isClosed());
+        assertEquals(List.of(), errorListener.errors);
     }
 
     @Test
@@ -100,7 +144,8 @@ class QueueCloseTest {
         Queue.open(dir, OpenMode.CREATE).close();
         final long deadline = System.currentTimeMillis() + MAX_WAIT_MILLIS;
         for (int round = 0; round < ROUNDS; round++) {
-            final QueueImpl queue = (QueueImpl) Queue.open(dir, OpenMode.READ_ONLY);
+            //pollers of the creator thread still open, which the queue warns of
+            final QueueImpl queue = (QueueImpl) Queue.open(dir, OpenMode.READ_ONLY, config());
             final java.util.Queue<Poller> pollers = new ConcurrentLinkedQueue<>();
             final AtomicReference<Throwable> error = new AtomicReference<>();
             final CountDownLatch started = new CountDownLatch(1);
@@ -127,6 +172,11 @@ class QueueCloseTest {
                 assertTrue(poller.isClosed(), "poller not closed in round " + round);
             }
         }
+        assertEquals(List.of(), errorListener.errors);
+    }
+
+    private QueueConfig config() {
+        return QueueConfig.configure().errorListener(errorListener);
     }
 
     private File queueDir() {
@@ -140,5 +190,23 @@ class QueueCloseTest {
                 queue.createEntryReader(),
                 queue.createEntryIterator(),
                 queue.createIndexReader());
+    }
+
+    /** Records errors and warnings, running a check on each warning */
+    private static final class RecordingErrorListener implements ErrorListener {
+        final List<String> errors = new CopyOnWriteArrayList<>();
+        final List<String> warnings = new CopyOnWriteArrayList<>();
+        volatile Runnable onWarning = () -> {};
+
+        @Override
+        public void onError(final Describable source, final String message, final Throwable error) {
+            errors.add(message + ": " + error);
+        }
+
+        @Override
+        public void onWarning(final Describable source, final CharSequence message) {
+            onWarning.run();
+            warnings.add(message.toString());
+        }
     }
 }
