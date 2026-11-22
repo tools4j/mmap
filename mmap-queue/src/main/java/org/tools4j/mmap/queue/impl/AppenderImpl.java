@@ -36,11 +36,11 @@ import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
 import org.tools4j.mmap.queue.api.Index;
+import org.tools4j.mmap.queue.config.QueueLayoutConfig;
 
 import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
-import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 import static org.tools4j.mmap.queue.impl.Exceptions.headerMoveException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadMoveException;
 import static org.tools4j.mmap.queue.impl.Exceptions.payloadPositionExceedsMaxException;
@@ -55,6 +55,8 @@ final class AppenderImpl implements Appender, Describable {
     private final DynamicMutableMapping header;
     private final DynamicMutableMapping payload;
     private final AppendingContextImpl context;
+    private final int safeEntryLength;
+    private final int maxEntryLength;
     private final Runnable onClose;
     private final LifecycleListener lifecycleListener;
     private long endIndex;
@@ -62,14 +64,16 @@ final class AppenderImpl implements Appender, Describable {
     private int lastOwnPayloadLength;
     private boolean closed;
 
-    public AppenderImpl(final String queueName, final AppenderMappings mappings, final Runnable onClose,
-                        final LifecycleListener lifecycleListener) {
+    public AppenderImpl(final String queueName, final AppenderMappings mappings, final QueueLayoutConfig layout,
+                        final Runnable onClose, final LifecycleListener lifecycleListener) {
         try {
             this.queueName = requireNonNull(queueName);
             this.mappings = requireNonNull(mappings);
             this.appenderId = mappings.appenderId();
             this.header = requireNonNull(mappings.header());
             this.payload = requireNonNull(mappings.payload());
+            this.safeEntryLength = layout.safeEntryLength();
+            this.maxEntryLength = layout.maxEntryLength();
             this.context = new AppendingContextImpl(this);
             this.onClose = requireNonNull(onClose);
             this.lifecycleListener = requireNonNull(lifecycleListener);
@@ -181,6 +185,11 @@ final class AppenderImpl implements Appender, Describable {
     }
 
     @Override
+    public AppendingContext appending() {
+        return appending(safeEntryLength);
+    }
+
+    @Override
     public AppendingContext appending(final int capacity) {
         checkNotClosed();
         return context.init(capacity);
@@ -254,26 +263,14 @@ final class AppenderImpl implements Appender, Describable {
     }
 
     private static final class AppendingContextImpl implements AppendingContext {
-        static final int MIN_COPY_BUFFER_CAPACITY = 4096;
         final AppenderImpl appender;
         final DynamicMutableMapping payload;
-        final int maxEntrySize;
         final MemoryBufferFlyweight buffer = MemoryBuffers.flyweight();
         int maxLength = -1;
-        /** Lazily allocated to copy encoded data to the next region if the previous region is not kept mapped */
-        MutableMemoryBuffer copyBuffer;
 
         AppendingContextImpl(final AppenderImpl appender) {
             this.appender = requireNonNull(appender);
             this.payload = requireNonNull(appender.payload);
-            this.maxEntrySize = payload.regionMetrics().regionSize() - Integer.BYTES;
-        }
-
-        private void validateCapacity(final int capacity) {
-            if (capacity > maxEntrySize) {
-                throw new IllegalArgumentException("Capacity " + capacity + " exceeds maximum allowed entry size " +
-                        maxEntrySize);
-            }
         }
 
         AppendingContext init(final int capacity) {
@@ -281,78 +278,39 @@ final class AppenderImpl implements Appender, Describable {
                 abort();
                 throw new IllegalStateException("Appending context has not been closed");
             }
-            validateCapacity(capacity);
+            if (capacity > appender.maxEntryLength) {
+                throw new IllegalArgumentException("Capacity " + capacity + " exceeds max entry length " +
+                        appender.maxEntryLength);
+            }
             this.maxLength = initPayloadBuffer(appender.lastOwnHeader, appender.lastOwnPayloadLength, Math.max(0, capacity));
             return this;
         }
 
         private int initPayloadBuffer(final long lastOwnHeader, final int lastOwnPayloadLen, final int capacity) {
-            assert capacity >= 0 && capacity <= maxEntrySize;
+            assert capacity >= 0 && capacity <= appender.maxEntryLength;
             final DynamicMutableMapping pld = payload;
-            final int minRequired = capacity + Integer.BYTES;
-            final long payloadPosition = lastOwnHeader == NULL_HEADER ? 0L :
+            final long nextPosition = lastOwnHeader == NULL_HEADER ? 0L :
                     Headers.nextPayloadPosition(Headers.payloadPosition(lastOwnHeader), lastOwnPayloadLen);
+            final long payloadPosition = entryPosition(pld.regionMetrics(), nextPosition, capacity);
+            if (payloadPosition > MAX_PAYLOAD_POSITION) {
+                throw payloadPositionExceedsMaxException(appender, payloadPosition);
+            }
             if (!pld.moveTo(payloadPosition, DynamicMapping.STRETCH_LENGTH)) {
                 throw payloadMoveException(appender, payloadPosition);
-            }
-            if (pld.bytesAvailable() < minRequired) {
-                moveToNextPayloadRegion(pld);
-            }
-            if (pld.position() > MAX_PAYLOAD_POSITION) {
-                throw payloadPositionExceedsMaxException(appender, payloadPosition);
             }
             buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
             return capacity;
         }
 
-        private void moveToNextPayloadRegion(final DynamicMapping payload) {
-            final RegionMetrics metrics = payload.regionMetrics();
-            final long nextRegionPosition = metrics.regionPosition(payload.position()) + metrics.regionSize();
-            if (!payload.moveTo(nextRegionPosition, DynamicMapping.STRETCH_LENGTH)) {
-                throw payloadMoveException(appender, nextRegionPosition);
+        /**
+         * Returns the next payload position if the entry fits there, which an entry up to the safe entry length always
+         * does, and otherwise the start of the next payload region
+         */
+        private static long entryPosition(final RegionMetrics metrics, final long nextPosition, final int capacity) {
+            if (Integer.BYTES + capacity <= metrics.maxLengthAtPosition(nextPosition)) {
+                return nextPosition;
             }
-        }
-
-        @Override
-        public void ensureCapacity(final int capacity) {
-            final int max = maxLength;
-            if (max < 0) {
-                throw new IllegalStateException("Appending context is closed");
-            }
-            if (capacity <= max) {
-                return;
-            }
-            validateCapacity(capacity);
-            final int minRequired = capacity + Integer.BYTES;
-            final DynamicMutableMapping pld = payload;
-            if (pld.bytesAvailable() < minRequired) {
-                if (max == 0) {
-                    //nothing to copy
-                    moveToNextPayloadRegion(pld);
-                } else if (appender.mappings.keepsPreviousPayloadRegionMapped()) {
-                    moveToNextPayloadRegion(pld);
-                    //NOTE: copy data from buffer to the mapping buffer
-                    //      --> the buffer is still wrapped at old region address
-                    //      --> old region address is still mapped because the region cache defers unmapping
-                    buffer.getBytes(0, pld.buffer(), Integer.BYTES, max);
-                } else {
-                    final MutableMemoryBuffer copy = copyBuffer(max);
-                    buffer.getBytes(0, copy, 0, max);
-                    moveToNextPayloadRegion(pld);
-                    copy.getBytes(0, pld.buffer(), Integer.BYTES, max);
-                }
-            }
-            buffer.wrap(pld.buffer(), Integer.BYTES, capacity);
-            maxLength = capacity;
-        }
-
-        private MutableMemoryBuffer copyBuffer(final int length) {
-            final MutableMemoryBuffer copy = copyBuffer;
-            if (copy != null && copy.capacity() >= length) {
-                return copy;
-            }
-            final int capacity = ceilingPowerOfTwo(Math.max(MIN_COPY_BUFFER_CAPACITY, length));
-            return copyBuffer = MemoryBuffers.allocateDirect(capacity);
+            return metrics.regionPosition(nextPosition) + metrics.regionSize();
         }
 
         @Override

@@ -30,6 +30,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateFileSizes
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMaxFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateMinFileSize;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSize;
+import static org.tools4j.mmap.queue.impl.QueueValidations.validatePayloadOverlapSize;
 
 /**
  * Immutable {@link QueueLayoutConfig queue layout}, as stored in the queue's {@link QueueMetaFile meta file}; it
@@ -37,7 +38,8 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSiz
  *
  * @param headerRegionSize   the header region size, defining the increments of expanded header files if the minimum
  *                           header file size is zero
- * @param payloadRegionSize  the payload region size, defining where payload entries wrap to the next region
+ * @param payloadRegionSize  the payload region size
+ * @param payloadOverlapSize the payload overlap size, defining the maximum entry length
  * @param minHeaderFileSize  the minimum header file size, used if the header file is expanded
  * @param maxHeaderFileSize  the maximum header file size, defining the file index if the header file is rolled
  * @param minPayloadFileSize the minimum payload file size, used if payload files are expanded
@@ -49,6 +51,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionSiz
  */
 record QueueLayoutConfigImpl(int headerRegionSize,
                              int payloadRegionSize,
+                             int payloadOverlapSize,
                              long minHeaderFileSize,
                              long maxHeaderFileSize,
                              long minPayloadFileSize,
@@ -61,6 +64,7 @@ record QueueLayoutConfigImpl(int headerRegionSize,
     QueueLayoutConfigImpl {
         validateRegionSize(headerRegionSize);
         validateRegionSize(payloadRegionSize);
+        validatePayloadOverlapSize(payloadRegionSize, payloadOverlapSize);
         validateMinFileSize(minHeaderFileSize);
         validateMaxFileSize(maxHeaderFileSize);
         validateMinFileSize(minPayloadFileSize);
@@ -73,6 +77,7 @@ record QueueLayoutConfigImpl(int headerRegionSize,
         return new QueueLayoutConfigImpl(
                 config.headerRegionSize(),
                 config.payloadRegionSize(),
+                config.payloadOverlapSize(),
                 config.minHeaderFileSize(),
                 config.maxHeaderFileSize(),
                 config.minPayloadFileSize(),
@@ -88,6 +93,7 @@ record QueueLayoutConfigImpl(int headerRegionSize,
         return "QueueLayoutConfigImpl" +
                 ":headerRegionSize=" + headerRegionSize +
                 "|payloadRegionSize=" + payloadRegionSize +
+                "|payloadOverlapSize=" + payloadOverlapSize +
                 "|minHeaderFileSize=" + minHeaderFileSize +
                 "|maxHeaderFileSize=" + maxHeaderFileSize +
                 "|minPayloadFileSize=" + minPayloadFileSize +

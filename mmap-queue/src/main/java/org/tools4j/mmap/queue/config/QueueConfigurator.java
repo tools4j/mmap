@@ -111,6 +111,17 @@ public interface QueueConfigurator extends QueueConfig {
     QueueConfigurator payloadRegionSize(int payloadRegionSize);
 
     /**
+     * Sets the payload overlap size in bytes, defining the maximum entry length, see
+     * {@link QueueLayoutConfig#payloadOverlapSize()}. If not set, the default is limited to the payload region size.
+     * It is part of the queue layout, used only when the queue is created; an existing queue uses its stored layout.
+     *
+     * @param payloadOverlapSize the payload overlap size in bytes
+     * @return this configurator for method chaining
+     * @throws IllegalArgumentException if the value is not a positive multiple of 4096
+     */
+    QueueConfigurator payloadOverlapSize(int payloadOverlapSize);
+
+    /**
      * Sets the flag whether the header file is expanded on demand, see {@link QueueLayoutConfig#expandHeaderFile()}.
      * It is part of the queue layout, used only when the queue is created; an existing queue uses its stored layout.
      *

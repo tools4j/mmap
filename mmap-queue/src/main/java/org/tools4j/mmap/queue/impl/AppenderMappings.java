@@ -60,12 +60,6 @@ interface AppenderMappings extends Closeable {
     DynamicMutableMapping payload();
 
     /**
-     * Returns true if the previous payload region is still mapped after moving to the next region: the region cache
-     * must defer unmapping, and be large enough that mapping the next and the map-ahead regions does not evict it.
-     */
-    boolean keepsPreviousPayloadRegionMapped();
-
-    /**
      * Returns true if a payload file of the appender ID existed before these mappings were created; false means that
      * the appender ID has no entries in the queue.
      *
@@ -102,7 +96,6 @@ interface AppenderMappings extends Closeable {
                     OpenMode.OPEN_OR_CREATE, headerCfg);
             final DynamicMutableMapping payload = Mappings.dynamicMutableMapping(queueFiles.payloadFile(appenderId),
                     OpenMode.OPEN_OR_CREATE, payloadCfg);
-            final boolean keepsPreviousPayloadRegionMapped = QueueMappingConfigs.keepsPreviousRegionMapped(payloadCfg);
 
             @Override
             public int appenderId() {
@@ -117,11 +110,6 @@ interface AppenderMappings extends Closeable {
             @Override
             public DynamicMutableMapping payload() {
                 return payload;
-            }
-
-            @Override
-            public boolean keepsPreviousPayloadRegionMapped() {
-                return keepsPreviousPayloadRegionMapped;
             }
 
             @Override

@@ -121,6 +121,7 @@ public final class QueueImpl implements Queue, Describable {
             this.appenderFactory = factory((appenderConfig, onClose) -> new AppenderImpl(
                     queueNameIfNotClosed(),
                     AppenderMappings.create(files, pool, writerConfig, appenderConfig),
+                    writerConfig,
                     onClose,
                     lifecycleListener
             ));
@@ -168,6 +169,11 @@ public final class QueueImpl implements Queue, Describable {
                 yield QueueMetaFile.open(files, openMode, config);
             }
         };
+    }
+
+    @Override
+    public QueueLayoutConfig layout() {
+        return effectiveConfig();
     }
 
     private QueueConfig effectiveConfig() {

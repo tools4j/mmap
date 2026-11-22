@@ -51,9 +51,11 @@ import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxHeader
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMaxPayloadFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinHeaderFileSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultMinPayloadFileSize;
+import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadOverlapSize;
 import static org.tools4j.mmap.queue.config.QueueConfigurations.defaultPayloadRegionSize;
 import static org.tools4j.mmap.queue.impl.AppenderIdPool.validateMaxAppenders;
 import static org.tools4j.mmap.queue.impl.QueueConfigDefaults.QUEUE_CONFIG_DEFAULTS;
+import static org.tools4j.mmap.queue.impl.QueueValidations.validatePayloadOverlapSize;
 
 public class QueueConfiguratorImpl implements QueueConfigurator {
     private final QueueConfig defaults;
@@ -64,6 +66,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     private long maxPayloadFileSize;
     private int headerRegionSize;
     private int payloadRegionSize;
+    private int payloadOverlapSize;
     private Boolean expandHeaderFile;
     private Boolean expandPayloadFiles;
     private Boolean rollHeaderFile;
@@ -94,6 +97,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
         maxPayloadFileSize = 0;
         headerRegionSize = 0;
         payloadRegionSize = 0;
+        payloadOverlapSize = 0;
         expandHeaderFile = null;
         expandPayloadFiles = null;
         rollHeaderFile = null;
@@ -231,6 +235,29 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
     public QueueConfigurator payloadRegionSize(final int payloadRegionSize) {
         validateRegionSize(payloadRegionSize);
         this.payloadRegionSize = payloadRegionSize;
+        return this;
+    }
+
+    /**
+     * Returns the payload overlap size if set, and otherwise the default limited to the payload region size; the
+     * default is not kept, so that it follows a payload region size set later
+     */
+    @Override
+    public int payloadOverlapSize() {
+        if (payloadOverlapSize > 0) {
+            return payloadOverlapSize;
+        }
+        int defaultOverlapSize = defaults.payloadOverlapSize();
+        if (defaultOverlapSize <= 0) {
+            defaultOverlapSize = defaultPayloadOverlapSize();
+        }
+        return Math.min(defaultOverlapSize, payloadRegionSize());
+    }
+
+    @Override
+    public QueueConfigurator payloadOverlapSize(final int payloadOverlapSize) {
+        validatePayloadOverlapSize(payloadOverlapSize);
+        this.payloadOverlapSize = payloadOverlapSize;
         return this;
     }
 
@@ -553,6 +580,7 @@ public class QueueConfiguratorImpl implements QueueConfigurator {
                 "|maxPayloadFileSize=" + maxPayloadFileSize +
                 "|headerRegionSize=" + headerRegionSize +
                 "|payloadRegionSize=" + payloadRegionSize +
+                "|payloadOverlapSize=" + payloadOverlapSize +
                 "|expandHeaderFile=" + expandHeaderFile +
                 "|expandPayloadFiles=" + expandPayloadFiles +
                 "|rollHeaderFile=" + rollHeaderFile +

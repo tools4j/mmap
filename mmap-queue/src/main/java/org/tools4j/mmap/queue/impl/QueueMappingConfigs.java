@@ -138,6 +138,7 @@ enum QueueMappingConfigs {
             }
         };
     }
+
     static MappingConfig payloadMappingConfig(final QueueConfig queueConfig, final AppenderConfig appenderConfig) {
         return payloadMappingConfig(queueConfig, appenderConfig.payloadMappingStrategy(),
                 appenderConfig.maxOpenPayloadFiles(), appenderConfig.payloadFilesToCreateAhead(),
@@ -174,7 +175,7 @@ enum QueueMappingConfigs {
 
             @Override
             public int overlapSize() {
-                return 0;
+                return queueConfig.payloadOverlapSize();
             }
 
             @Override
@@ -231,17 +232,5 @@ enum QueueMappingConfigs {
                 return MappingConfigImpl.toString("PayloadMappingConfig", this);
             }
         };
-    }
-
-    /**
-     * Returns true if the previous region is still mapped after moving to the next region: the region cache must
-     * defer unmapping, and be large enough that mapping the next and the map-ahead regions does not evict it.
-     */
-    static boolean keepsPreviousRegionMapped(final MappingConfig mappingConfig) {
-        final MappingStrategyConfig mappingStrategy = mappingConfig.mappingStrategy();
-        final int cacheSize = mappingStrategy.cacheSize();
-        final int mapAhead = mappingStrategy.asyncMapping().isPresent() ?
-                mappingStrategy.asyncMapping().get().regionsToMapAhead() : 0;
-        return mappingStrategy.deferUnmapping() && cacheSize > Math.max(1, mapAhead + 1);
     }
 }

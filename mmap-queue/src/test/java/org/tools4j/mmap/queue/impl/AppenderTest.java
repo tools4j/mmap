@@ -31,14 +31,21 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
+import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
 import org.tools4j.mmap.queue.api.AppendingContext;
+import org.tools4j.mmap.queue.api.Entry;
+import org.tools4j.mmap.queue.api.EntryReader;
+import org.tools4j.mmap.queue.api.IterableContext;
 import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
+import org.tools4j.mmap.queue.api.ReadingContext;
 import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
@@ -71,7 +78,10 @@ class AppenderTest {
 
     private static final long MAX_WAIT_MILLIS = 10_000;
     private static final int REGION_SIZE = (int) REGION_SIZE_GRANULARITY;
-    private static final int MAX_ENTRY_LENGTH = REGION_SIZE - Integer.BYTES;
+    /** Payload overlap size of the small config, as large as its region size */
+    private static final int PAYLOAD_OVERLAP_SIZE = REGION_SIZE;
+    private static final int SAFE_ENTRY_LENGTH = PAYLOAD_OVERLAP_SIZE + Integer.BYTES;
+    private static final int MAX_ENTRY_LENGTH = REGION_SIZE + PAYLOAD_OVERLAP_SIZE - Integer.BYTES;
     /** Entries of a queue spanning three header regions */
     private static final int LONG_QUEUE_ENTRIES = 3 * REGION_SIZE / Headers.HEADER_LENGTH + 7;
 
@@ -228,13 +238,14 @@ class AppenderTest {
 
     @ParameterizedTest(name = "lastEntryLength={0}")
     @MethodSource("regionBoundaryLengths")
-    void resumingAppenderMovesToNextRegionIfLastEntryFillsRegion(final int lastEntryLength) {
-        assertResumeAfterEntryOfLength(smallConfig(false), lastEntryLength);
+    void resumingAppenderAppendsAfterLastEntryAtRegionEnd(final int lastEntryLength) {
+        assertResumeAfterEntryOfLength(longQueueConfig(false), lastEntryLength);
     }
 
     static IntStream regionBoundaryLengths() {
-        //leaving 8 bytes (too few for the next entry), 4 bytes (padded to full region) and none (max entry length)
-        return IntStream.of(REGION_SIZE - 12, REGION_SIZE - 8, MAX_ENTRY_LENGTH);
+        //leaving 8 bytes (the next entry crosses the region end), 4 bytes (padded to the region end), none, and the
+        //safe and max entry lengths (ending in the next region)
+        return IntStream.of(REGION_SIZE - 12, REGION_SIZE - 8, REGION_SIZE - 4, SAFE_ENTRY_LENGTH, MAX_ENTRY_LENGTH);
     }
 
     @ParameterizedTest(name = "lastEntryLength={0}")
@@ -325,74 +336,110 @@ class AppenderTest {
         }
     }
 
-    @ParameterizedTest(name = "asyncMapping={0}")
-    @ValueSource(booleans = {false, true})
-    void ensureCapacityBeyondRegionEndMovesEncodedDataToNextRegion(final boolean asyncMapping) {
-        final File dir = tempDir.resolve("queue").toFile();
-        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, payloadRegionCacheConfig(asyncMapping, 4, true))) {
-            final List<String> expected = new ArrayList<>();
-            try (final Appender appender = queue.createAppender()) {
-                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
-                final String head = filler(100, 1);
-                final String tail = filler(400, 2);
-                try (final AppendingContext context = appender.appending(head.length())) {
-                    context.buffer().putTextLatin1(0, head);
-                    context.ensureCapacity(head.length() + tail.length());
-                    context.buffer().putTextLatin1(head.length(), tail);
-                    context.commit(head.length() + tail.length());
-                }
-                expected.add(head + tail);
-                expected.add(append(appender, "last"));
-            }
-            assertEquals(expected, pollAll(queue.createPoller()));
-        }
-    }
-
-    @Test
-    void ensureCapacityWithinRegionKeepsEncodedDataWithoutRegionCache() {
-        final File dir = tempDir.resolve("queue").toFile();
-        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, payloadRegionCacheConfig(false, 1, false))) {
-            try (final Appender appender = queue.createAppender()) {
-                try (final AppendingContext context = appender.appending(4)) {
-                    context.buffer().putTextLatin1(0, "head");
-                    context.ensureCapacity(2);
-                    context.ensureCapacity(8);
-                    context.buffer().putTextLatin1(4, "tail");
-                    context.commit(8);
-                }
-            }
-            assertEquals(List.of("headtail"), pollAll(queue.createPoller()));
-        }
-    }
-
     @ParameterizedTest(name = "asyncMapping={0}, cacheSize={1}, deferUnmapping={2}")
     @CsvSource({
             "false, 1, true",   //no region cache
             "false, 4, false",  //previous region unmapped when moving to the next one
+            "false, 4, true",
             "true, 2, true",    //previous region evicted by map-ahead regions
-            "true, 4, false"    //previous region unmapped when moving to the next one
+            "true, 4, false",
+            "true, 4, true"
     })
-    void ensureCapacityBeyondRegionEndCopiesEncodedDataIfPreviousRegionIsNotKeptMapped(final boolean asyncMapping,
-                                                                                      final int cacheSize,
-                                                                                      final boolean deferUnmapping) {
+    void entriesBeyondSafeLengthStartAtNextRegionOnlyIfNotFitting(final boolean asyncMapping,
+                                                                  final int cacheSize,
+                                                                  final boolean deferUnmapping) {
         final File dir = tempDir.resolve("queue").toFile();
         final QueueConfig config = payloadRegionCacheConfig(asyncMapping, cacheSize, deferUnmapping);
-        assertFalse(keepsPreviousPayloadRegionMapped(config));
+        final List<String> expected = new ArrayList<>();
         try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
-            final List<String> expected = new ArrayList<>();
             try (final Appender appender = queue.createAppender()) {
-                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
-                expected.add(appendGrowingAcrossRegion(appender, filler(100, 1), filler(400, 2)));
-                //larger encoded data on the second crossing re-allocates the copy buffer if it exceeds its capacity
-                final String head = filler(MAX_ENTRY_LENGTH / 2, 3);
-                expected.add(append(appender, fillerLeavingBytesInRegion(head.length() + 64)));
-                expected.add(appendGrowingAcrossRegion(appender, head, filler(MAX_ENTRY_LENGTH / 4, 4)));
-                //nothing encoded yet: no data to copy
-                expected.add(append(appender, fillerLeavingBytesInRegion(128)));
-                expected.add(appendGrowingAcrossRegion(appender, "", filler(400, 5)));
+                expected.add(append(appender, fillerLeaving128BytesInRegion()));
+                //safe length crossing the region end, at R - 128
+                try (final AppendingContext context = appender.appending()) {
+                    assertEquals(SAFE_ENTRY_LENGTH, context.buffer().capacity());
+                    final String entry = filler(SAFE_ENTRY_LENGTH, 1);
+                    context.buffer().putTextLatin1(0, entry);
+                    context.commit(entry.length());
+                    expected.add(entry);
+                }
+                //at 2R - 120, 120 bytes before the end of the next region's overlap, fitting
+                expected.add(append(appender, filler(REGION_SIZE + 100, 2)));
+                //at 3R - 16, not fitting, starting at 3R
+                expected.add(append(appender, filler(REGION_SIZE + 100, 3)));
+                //at 4R + 104, not fitting, starting at 5R
+                expected.add(append(appender, filler(MAX_ENTRY_LENGTH, 4)));
                 expected.add(append(appender, "last"));
+                assertThrows(IllegalArgumentException.class, () -> appender.append(new byte[MAX_ENTRY_LENGTH + 1]));
             }
             assertEquals(expected, pollAll(queue.createPoller()));
+        }
+        assertEquals(List.of(0L, REGION_SIZE - 128L, 2L * REGION_SIZE - 120, 3L * REGION_SIZE, 5L * REGION_SIZE,
+                7L * REGION_SIZE), payloadPositions(dir, config, expected.size()));
+    }
+
+    /** The payload positions of the entries from the header file */
+    private static List<Long> payloadPositions(final File dir, final QueueConfig config, final int entries) {
+        final List<Long> positions = new ArrayList<>();
+        try (final DynamicMapping header = Mappings.dynamicMapping(new QueueFiles(dir).headerFile(),
+                OpenMode.READ_ONLY, QueueMappingConfigs.headerMappingConfig(config, config.pollerConfig()))) {
+            for (int index = 0; index < entries; index++) {
+                positions.add(Headers.payloadPosition(Headers.moveAndGetHeader(header, index)));
+            }
+        }
+        return positions;
+    }
+
+    static IntStream payloadOverlapSizes() {
+        return IntStream.of(4096, 4 * REGION_SIZE);
+    }
+
+    @ParameterizedTest(name = "payloadOverlapSize={0}")
+    @MethodSource("payloadOverlapSizes")
+    void entriesOfSafeLengthCrossRegionAndRolledFileEnds(final int payloadOverlapSize) {
+        final File dir = tempDir.resolve("queue").toFile();
+        final int regionSize = 4 * REGION_SIZE;
+        final long maxFileSize = 2L * regionSize;
+        final QueueConfig config = QueueConfig.configure(smallConfig(true))
+                .payloadRegionSize(regionSize)
+                .payloadOverlapSize(payloadOverlapSize)
+                .maxPayloadFileSize(maxFileSize)
+                .toImmutableQueueConfig();
+        final int safeEntryLength = payloadOverlapSize + Integer.BYTES;
+        //spanning three payload files
+        final int entries = (int) (2 * maxFileSize / safeEntryLength) + 2;
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
+            assertEquals(safeEntryLength, queue.layout().safeEntryLength());
+            final List<String> expected = new ArrayList<>();
+            try (final Appender appender = queue.createAppender()) {
+                for (int i = 0; i < entries; i++) {
+                    expected.add(append(appender, filler(safeEntryLength, i)));
+                }
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+            final EntryReader reader = queue.createEntryReader();
+            for (int index = 0; index < entries; index++) {
+                try (final ReadingContext entry = reader.reading(index)) {
+                    assertEquals(expected.get(index), text(entry.buffer()), "entry reader, index " + index);
+                }
+            }
+            final List<String> iterated = new ArrayList<>();
+            try (final IterableContext context = queue.createEntryIterator().readingFromFirst()) {
+                for (final Entry entry : context) {
+                    iterated.add(text(entry.buffer()));
+                }
+            }
+            assertEquals(expected, iterated, "entry iterator");
+        }
+        //the first two files are full, with the overlap tail of their last region
+        for (int fileIndex = 0; fileIndex < 2; fileIndex++) {
+            final File payloadFile = new File(dir, "queue_dat_0_" + fileIndex + ".mmq");
+            assertEquals(maxFileSize + payloadOverlapSize, payloadFile.length(), payloadFile.getName());
+        }
+        //no entry started at a region start, none was skipped
+        final List<Long> positions = payloadPositions(dir, config, entries);
+        for (int index = 1; index < entries; index++) {
+            assertEquals(Headers.nextPayloadPosition(positions.get(index - 1), Integer.BYTES + safeEntryLength),
+                    positions.get(index), "index " + index);
         }
     }
 
@@ -437,7 +484,8 @@ class AppenderTest {
         for (final File file : queueFiles(dir, "_hdr", "_dat")) {
             final long allocated = allocatedBytes(file);
             final String message = file.getName() + " allocated " + allocated + " of " + file.length() + " bytes";
-            assertEquals(8L * REGION_SIZE, file.length(), message);
+            final long overlapSize = file.getName().contains("_dat") ? PAYLOAD_OVERLAP_SIZE : 0;
+            assertEquals(8L * REGION_SIZE + overlapSize, file.length(), message);
             if (prefillFiles) {
                 assertTrue(allocated >= file.length(), message);
             } else if (OS.current() == OS.LINUX) {//APFS on macOS allocates the whole mapped file once it is closed
@@ -462,27 +510,6 @@ class AppenderTest {
         final String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.US_ASCII).trim();
         assertEquals(0, process.waitFor(), "du exit code");
         return 1024L * Long.parseLong(output.split("\\s+")[0]);
-    }
-
-    @Test
-    void defaultConfigCopiesEncodedDataDirectlyFromPreviousRegion() {
-        assertTrue(keepsPreviousPayloadRegionMapped(QueueConfig.getDefault()));
-    }
-
-    private static boolean keepsPreviousPayloadRegionMapped(final QueueConfig config) {
-        return QueueMappingConfigs.keepsPreviousRegionMapped(
-                QueueMappingConfigs.payloadMappingConfig(config, config.appenderConfig()));
-    }
-
-    /** Encodes head, then ensures capacity for head and tail, which must not fit into the current region */
-    private static String appendGrowingAcrossRegion(final Appender appender, final String head, final String tail) {
-        try (final AppendingContext context = appender.appending(head.length())) {
-            context.buffer().putTextLatin1(0, head);
-            context.ensureCapacity(head.length() + tail.length());
-            context.buffer().putTextLatin1(head.length(), tail);
-            context.commit(head.length() + tail.length());
-        }
-        return head + tail;
     }
 
     @Test
@@ -511,17 +538,6 @@ class AppenderTest {
                     //poll all
                 }
                 assertEquals(capacity, polled.get());
-            }
-        }
-    }
-
-    @Test
-    void ensureCapacityOfClosedContextThrows() {
-        try (final Queue queue = Queue.open(tempDir.resolve("queue").toFile())) {
-            try (final Appender appender = queue.createAppender()) {
-                final AppendingContext context = appender.appending(4);
-                context.abort();
-                assertThrows(IllegalStateException.class, () -> context.ensureCapacity(8));
             }
         }
     }
@@ -588,8 +604,8 @@ class AppenderTest {
              final Appender appender = queue.createAppender()) {
             assertThrows(IllegalArgumentException.class, () -> appender.appending(MAX_ENTRY_LENGTH + 1));
             assertThrows(IllegalArgumentException.class, () -> appender.append(new byte[MAX_ENTRY_LENGTH + 1]));
-            try (final AppendingContext context = appender.appending(4)) {
-                assertThrows(IllegalArgumentException.class, () -> context.ensureCapacity(MAX_ENTRY_LENGTH + 1));
+            try (final AppendingContext context = appender.appending()) {
+                assertThrows(IllegalArgumentException.class, () -> context.commit(SAFE_ENTRY_LENGTH + 1));
             }
             append(appender, filler(MAX_ENTRY_LENGTH, 0));
             assertEquals(1, queue.createIndexReader().size());
@@ -610,9 +626,9 @@ class AppenderTest {
         }
     }
 
-    /** Filler entry that leaves the given number of bytes in its payload region, including the next length prefix */
-    private static String fillerLeavingBytesInRegion(final int bytes) {
-        return filler(REGION_SIZE - bytes - Integer.BYTES, 0);
+    /** Filler entry that leaves 128 bytes in its payload region, including the next length prefix */
+    private static String fillerLeaving128BytesInRegion() {
+        return filler(REGION_SIZE - 128 - Integer.BYTES, 0);
     }
 
     private static QueueConfig payloadRegionCacheConfig(final boolean asyncMapping,
@@ -650,6 +666,7 @@ class AppenderTest {
         return QueueConfig.configure()
                 .headerRegionSize(REGION_SIZE)
                 .payloadRegionSize(REGION_SIZE)
+                .payloadOverlapSize(PAYLOAD_OVERLAP_SIZE)
                 .minHeaderFileSize(0)
                 .maxHeaderFileSize(16L * REGION_SIZE)
                 .minPayloadFileSize(0)
@@ -685,6 +702,10 @@ class AppenderTest {
         final AppendingContext context = appender.appending(entry.length());
         context.buffer().putTextLatin1(0, entry);
         context.abort();
+    }
+
+    private static String text(final MemoryBuffer buffer) {
+        return buffer.getTextLatin1(0, buffer.capacity());
     }
 
     private static String filler(final int length, final int seed) {
