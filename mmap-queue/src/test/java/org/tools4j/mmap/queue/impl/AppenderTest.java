@@ -561,24 +561,69 @@ class AppenderTest {
     }
 
     @Test
-    void invalidCommitLengthThrowsAndClosesContext() {
+    void invalidCommitLengthThrowsAndKeepsContextOpen() {
         final File dir = tempDir.resolve("queue").toFile();
         try (final Queue queue = Queue.open(dir);
              final Appender appender = queue.createAppender()) {
-            final AppendingContext negative = appender.appending(4);
-            assertThrows(IllegalArgumentException.class, () -> negative.commit(-1));
-            assertTrue(negative.isClosed());
+            final AppendingContext context = appender.appending(4);
+            context.buffer().putTextLatin1(0, "kept");
+            assertThrows(IllegalArgumentException.class, () -> context.commit(-1));
+            assertThrows(IllegalArgumentException.class, () -> context.commit(5));
+            assertFalse(context.isClosed());
+            assertEquals("kept", text(context.buffer()));
+            context.commit(4);
+            assertEquals(List.of("kept"), pollAll(queue.createPoller()));
+        }
+    }
 
-            final AppendingContext tooLong = appender.appending(4);
-            assertThrows(IllegalArgumentException.class, () -> tooLong.commit(5));
-            assertTrue(tooLong.isClosed());
+    @Test
+    void committedContextIsClosedRejectingCommitAndIgnoringAbort() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir);
+             final Appender appender = queue.createAppender()) {
+            final AppendingContext context = appender.appending(4);
+            context.buffer().putTextLatin1(0, "once");
+            assertEquals(0, context.commit(4));
+            assertTrue(context.isClosed());
+            assertEquals(0, context.buffer().capacity());
+            assertThrows(IllegalStateException.class, () -> context.commit(4));
+            assertThrows(IllegalStateException.class, () -> context.commit(-1));
+            context.abort();
+            context.close();
+            assertEquals(List.of("once"), pollAll(queue.createPoller()));
+        }
+    }
 
-            final AppendingContext aborted = appender.appending(4);
-            aborted.abort();
-            assertThrows(IllegalStateException.class, () -> aborted.commit(4));
-
+    @Test
+    void abortedContextIsClosedRejectingCommitAndIgnoringAbort() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir);
+             final Appender appender = queue.createAppender()) {
+            final AppendingContext context = appender.appending(4);
+            context.buffer().putTextLatin1(0, "lost");
+            context.abort();
+            assertTrue(context.isClosed());
+            assertEquals(0, context.buffer().capacity());
+            context.abort();
+            context.close();
+            assertThrows(IllegalStateException.class, () -> context.commit(4));
             append(appender, "ok");
             assertEquals(List.of("ok"), pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void closingAppenderAbortsOpenContext() {
+        final File dir = tempDir.resolve("queue").toFile();
+        try (final Queue queue = Queue.open(dir)) {
+            final Appender appender = queue.createAppender();
+            final AppendingContext context = appender.appending(4);
+            context.buffer().putTextLatin1(0, "lost");
+            appender.close();
+            assertTrue(context.isClosed());
+            assertEquals(0, context.buffer().capacity());
+            assertThrows(IllegalStateException.class, () -> context.commit(4));
+            assertEquals(0, queue.createIndexReader().size());
         }
     }
 

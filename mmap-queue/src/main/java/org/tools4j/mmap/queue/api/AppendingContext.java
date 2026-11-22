@@ -27,7 +27,9 @@ import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 
 /**
- * Flyweight returned by {@link Appender#appending(int)} to encode a new entry directly to the queue {@link #buffer()}.
+ * Flyweight returned by {@link Appender#appending()} and {@link Appender#appending(int)} to encode a new entry directly
+ * to the queue {@link #buffer()}. The context is open until the entry is {@linkplain #commit(int) committed} or
+ * {@linkplain #abort() aborted}, or the appender is closed, which aborts it.
  */
 public interface AppendingContext extends Closeable {
     /**
@@ -44,24 +46,27 @@ public interface AppendingContext extends Closeable {
     MutableMemoryBuffer buffer();
 
     /**
-     * Aborts appending the entry
+     * Aborts appending the entry and closes this context. Has no effect if the entry has already been committed or
+     * aborted, so it can be called any number of times.
      */
     void abort();
 
     /**
-     * Commits the entry that was encoded into the {@link #buffer()}
+     * Commits the entry that was encoded into the {@link #buffer()} and closes this context. An invalid length leaves
+     * the context open, so that the entry can still be committed with a valid length, or aborted.
      *
      * @param length length of the entry in bytes
      * @return queue index at which the entry was appended
      * @throws IllegalArgumentException if length is negative or exceeds the capacity of the {@link #buffer()}
-     * @throws IllegalStateException    if the context, the appender or the underlying queue is closed
+     * @throws IllegalStateException    if the context is closed, as the entry has already been committed or aborted,
+     *                                  or if the appender or the underlying queue is closed
      */
     long commit(int length);
 
     /**
      * Closes this appending context, {@linkplain #abort() aborting} the entry unless it has already been committed or
-     * aborted. The context must be closed before the next appending context is requested from the same
-     * {@link Appender}, otherwise an {@link IllegalStateException} is thrown at that point.
+     * aborted, so it can be called any number of times. The context must be closed before the next appending context
+     * is requested from the same {@link Appender}, otherwise an {@link IllegalStateException} is thrown at that point.
      */
     @Override
     default void close() {
