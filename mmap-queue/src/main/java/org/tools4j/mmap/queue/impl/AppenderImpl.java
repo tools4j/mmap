@@ -196,12 +196,12 @@ final class AppenderImpl implements Appender, Describable {
     }
 
     private long appendEntry(final long payloadPosition, final int payloadLength) {
-        checkNotClosed();
+        assert !isClosed() : "Appender is closed";//on commit, i.e. open context, which the appender aborts when closed
         final DynamicMutableMapping hdr = header;
         final MutableMemoryBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
-        checkIndexNotExceedingMax(index);
+        assert index <= Index.MAX : "endIndex never exceeds max index, only the retry loop advances beyond it";
         while (!buf.compareAndSetLong(0, NULL_HEADER, headerValue)) {
             do {
                 index++;
