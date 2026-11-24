@@ -33,6 +33,7 @@ import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurator;
+import org.tools4j.mmap.mapping.config.MappingStrategyConfig;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -239,9 +240,13 @@ class DynamicMappingImplTest {
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, mappingSize - 109));
     }
 
-    /** A single expandable file: min file size 2 regions, max file size 8 regions */
+    /**
+     * A single expandable file: min file size 2 regions, max file size 8 regions, with sync mapping, as mapping ahead
+     * would extend the file asynchronously
+     */
     private MappingConfig expandableConfig() {
         return MappingConfigurator.configure()
+                .mappingStrategy(MappingStrategyConfig.getDefaultSync())
                 .regionSize(regionSize)
                 .minFileSize(2L * regionSize)
                 .maxFileSize(8L * regionSize)
