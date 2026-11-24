@@ -26,6 +26,8 @@ package org.tools4j.mmap.mapping.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
@@ -35,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -131,6 +134,54 @@ class MappingsTest {
                 assertEquals(VALUE + region, mapping.buffer().getLong(0), "region " + region);
             }
         }
+    }
+
+    @Test
+    void mappedBytesAndMappingCountCountMappedRegions() {
+        final File file = tempDir.resolve("counted.map").toFile();
+        final long bytes = Mappings.mappedBytes();
+        final long count = Mappings.mappingCount();
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                smallSyncConfig())) {
+            assertEquals(bytes, Mappings.mappedBytes(), "nothing mapped before the first move");
+            assertTrue(mapping.moveTo(0));
+            assertEquals(bytes + MAPPING_SIZE, Mappings.mappedBytes());
+            assertEquals(count + 1, Mappings.mappingCount());
+        }
+        assertEquals(bytes, Mappings.mappedBytes());
+        assertEquals(count, Mappings.mappingCount());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("mappingStrategies")
+    void closingMappingsAndPoolsUnmapsAllTheyMapped(final String name, final MappingStrategyConfig strategy) {
+        final File file = tempDir.resolve("unmapped.map").toFile();
+        final MappingConfig config = MappingConfig.configure()
+                .rollFiles(true)
+                .maxFileSize(2L * REGION_SIZE)
+                .mappingStrategy(strategy);
+        final long bytes = Mappings.mappedBytes();
+        final long count = Mappings.mappingCount();
+        try (final DynamicMutableMapping mapping = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                config);
+             final MutableMappingPool pool = Mappings.mutableMappingPool(file, OpenMode.OPEN_OR_CREATE, config)) {
+            for (int region = 0; region < 8; region++) {
+                assertTrue(mapping.moveTo((long) region * REGION_SIZE), "region " + region);
+            }
+            assertTrue(pool.acquireMapping().moveTo(0));
+            assertTrue(pool.acquireMapping().moveTo(3L * REGION_SIZE));
+            assertTrue(Mappings.mappingCount() > count, "mapped while open");
+        }
+        //closing stops the background threads and unmaps what they mapped before returning
+        assertEquals(bytes, Mappings.mappedBytes(), "mapped bytes");
+        assertEquals(count, Mappings.mappingCount(), "mapping count");
+    }
+
+    private static Stream<Arguments> mappingStrategies() {
+        return Stream.of(
+                Arguments.of("sync", MappingStrategyConfig.getDefaultSync()),
+                Arguments.of("syncWithAsyncUnmapping", MappingStrategyConfig.getDefaultSyncWithAsyncUnmapping()),
+                Arguments.of("asyncMapAhead", MappingStrategyConfig.getDefaultAsyncMapAhead()));
     }
 
     @Test

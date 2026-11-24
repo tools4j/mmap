@@ -114,6 +114,9 @@ Notable changes per release. Entries are curated from the commits since the prev
 - `DynamicMapping.moveToExisting(position)` and `moveToExisting(position, length)` move only to regions the file
   already has, returning false instead of creating the file or extending it, for instance to search a file without
   growing it.
+- `Mappings.mappedBytes()` and `Mappings.mappingCount()` return the bytes and the number of memory mappings
+  currently mapped by the library in the JVM, for monitoring the address space it takes, the number of mappings
+  against limits such as Linux's `vm.max_map_count`, or that closing releases all mappings.
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.

@@ -26,6 +26,7 @@ package org.tools4j.mmap.mapping.api;
 import org.tools4j.mmap.core.base.ErrorListener;
 import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.config.CoreConfigurations;
+import org.tools4j.mmap.core.internal.FileChannels;
 import org.tools4j.mmap.mapping.config.MappingConfig;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import org.tools4j.mmap.mapping.impl.DynamicMappingImpl;
@@ -381,5 +382,30 @@ public enum Mappings {
                                                         final int initialPoolSize) {
         OpenModes.apply(file, openMode, config.rollFiles());
         return new MappingPoolImpl(regionMapper(file, openMode, config), initialPoolSize, config.lifecycleListener());
+    }
+
+    /**
+     * Returns the number of bytes currently mapped by all mappings and mapping pools of this library in the JVM,
+     * including regions that are cached, or mapped ahead or not unmapped yet by background threads. It is the virtual
+     * address space the mappings take, not the memory they use: pages that were never accessed take no memory, and a
+     * file region mapped several times counts for each mapping. Once all mappings and pools are closed, it returns to
+     * what it was before they were created, for instance to zero.
+     *
+     * @return the bytes currently mapped by this library
+     * @see #mappingCount()
+     */
+    public static long mappedBytes() {
+        return FileChannels.mappedBytes();
+    }
+
+    /**
+     * Returns the number of memory mappings currently mapped by all mappings and mapping pools of this library in the
+     * JVM, counted like {@link #mappedBytes()}. The operating system may limit the number of mappings of a process,
+     * for instance through {@code vm.max_map_count} on Linux, which also counts mappings of the JVM itself.
+     *
+     * @return the number of memory mappings currently mapped by this library
+     */
+    public static long mappingCount() {
+        return FileChannels.mappingCount();
     }
 }

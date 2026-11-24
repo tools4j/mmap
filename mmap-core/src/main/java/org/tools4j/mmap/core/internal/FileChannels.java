@@ -38,6 +38,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.concurrent.atomic.AtomicLongArray;
+
+import static org.tools4j.mmap.core.internal.CacheLines.CACHE_LINE_LENGTH;
 
 /**
  * Maps, unmaps and locks files without allocating, through the JDK's internal file channel implementation and its
@@ -48,7 +51,8 @@ import java.nio.channels.FileChannel.MapMode;
  * <p>
  * Locking and allocating are package-private: all locks on our files are taken through {@link FileChannelLock},
  * which needs to see them all, since OS locks belong to the process, and allocates while holding the lock; mapping and
- * unmapping are public, for the file mappers.
+ * unmapping are public, for the file mappers, which pass the same length to unmap as to map. The bytes currently
+ * mapped and the number of mappings are counted, for {@link #mappedBytes()} and {@link #mappingCount()}.
  */
 @Unsafe
 public enum FileChannels {
@@ -61,6 +65,33 @@ public enum FileChannels {
     private static final int MAP_READ_ONLY = 0;
     private static final int MAP_READ_WRITE = 1;
     private static final int MAP_PRIVATE = 2;
+
+    //NOTE: bytes and count share a cache line, written together on the rare map and unmap, padded on both sides with
+    //      a cache line, as array objects are only 8-byte aligned, so that no other data shares their line(s)
+    private static final int COUNTER_PADDING = CACHE_LINE_LENGTH / Long.BYTES;
+    private static final int MAPPED_BYTES = COUNTER_PADDING;
+    private static final int MAPPING_COUNT = COUNTER_PADDING + 1;
+    private static final AtomicLongArray COUNTERS = new AtomicLongArray(MAPPING_COUNT + 1 + COUNTER_PADDING);
+
+    /**
+     * Returns the number of bytes currently mapped through {@link #map(FileChannel, MapMode, long, long)} and not
+     * unmapped yet, the virtual address space taken by mappings of this library, not the memory they use.
+     *
+     * @return the bytes currently mapped
+     */
+    public static long mappedBytes() {
+        return COUNTERS.get(MAPPED_BYTES);
+    }
+
+    /**
+     * Returns the number of mappings currently mapped through {@link #map(FileChannel, MapMode, long, long)} and not
+     * unmapped yet.
+     *
+     * @return the number of mappings currently mapped
+     */
+    public static long mappingCount() {
+        return COUNTERS.get(MAPPING_COUNT);
+    }
 
     /**
      * Map a range of a file and return the address at which the range begins.
@@ -76,8 +107,9 @@ public enum FileChannels {
                            final MapMode mode,
                            final long offset,
                            final long length) {
+        final long address;
         try {
-            return (long) Internals.MAP.invokeExact(fileChannel, protection(mode), offset, length, false);
+            address = (long) Internals.MAP.invokeExact(fileChannel, protection(mode), offset, length, false);
         } catch (final IOException ex) {
             throw new UncheckedIOException("Failed to map " + length + " bytes at offset " + offset + " with mode " +
                     mode, ex);
@@ -87,6 +119,9 @@ public enum FileChannels {
             throw new IllegalStateException("Failed to map " + length + " bytes at offset " + offset + " with mode " +
                     mode, ex);
         }
+        COUNTERS.getAndAdd(MAPPED_BYTES, length);
+        COUNTERS.getAndIncrement(MAPPING_COUNT);
+        return address;
     }
 
     /**
@@ -106,6 +141,8 @@ public enum FileChannels {
         } catch (final Throwable ex) {
             throw new IllegalStateException("Failed to unmap " + length + " bytes at address " + address, ex);
         }
+        COUNTERS.getAndAdd(MAPPED_BYTES, -length);
+        COUNTERS.getAndDecrement(MAPPING_COUNT);
     }
 
     /**
