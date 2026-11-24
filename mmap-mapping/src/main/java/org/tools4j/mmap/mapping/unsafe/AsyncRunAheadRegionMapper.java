@@ -37,12 +37,12 @@ import org.tools4j.mmap.mapping.config.MappingConfigurations;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.CacheLines.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.core.internal.PowersOfTwo.ceilingPowerOfTwo;
 import static org.tools4j.mmap.core.internal.Validations.validateGreaterThanZero;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_POSITION;
-import static org.tools4j.mmap.mapping.impl.Constants.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.mapping.impl.MappingValidations.validateAheadMappingCacheSize;
 
 /**
