@@ -86,6 +86,11 @@ Notable changes per release. Entries are curated from the commits since the prev
   `default(Un)mappingRuntimeIdler()`.
 - Agrona is no longer a dependency of `mmap-mapping` and `mmap-queue`: applications using Agrona themselves need
   their own dependency on it. It remains an optional dependency of `mmap-core` for CPU pinning on Java 17 to 21.
+- The `@Unsafe` `FileMapper.map(..)`, `RegionMapper.map(..)` and `RegionMapper.mapInternal(..)` take a `MappingMode`
+  (replacing the pre-touch flag; `RegionMapper.map(position)` has no overload without it): `MAP_OR_CREATE` creates or
+  extends the file as needed, `MAP_AND_TOUCH` also touches the pages (the former pre-touch), and the new
+  `MAP_IF_EXISTS` maps only what exists, returning `NULL_ADDRESS` instead of creating or extending the file; read-only
+  mappers ignore it.
 
 ### Added
 - Memory buffers in `mmap-core` (`org.tools4j.mmap.core.buffer`, entry point `MemoryBuffers`), to replace Agrona's
@@ -106,6 +111,9 @@ Notable changes per release. Entries are curated from the commits since the prev
   property `mmap.mapping.zeroFill` selects the mode: `AUTO` (the default, allocating if native access is enabled),
   `FALLOCATE` (allocating whenever the JVM allows it, warning when writing zeros instead) or `WRITE` (always writing
   zeros), see [Zero fill](docs/jvm-options.md#zero-fill). A file system without `fallocate` is detected once per file.
+- `DynamicMapping.moveToExisting(position)` and `moveToExisting(position, length)` move only to regions the file
+  already has, returning false instead of creating the file or extending it, for instance to search a file without
+  growing it.
 - Queues can log lifecycle events differently from the mapping module, with the system property
   `mmap.queue.lifecycleListener`, accepting the values of `mmap.mapping.lifecycleListener`, whose value it uses if not
   set.
@@ -127,6 +135,9 @@ Notable changes per release. Entries are curated from the commits since the prev
   still be committed with a valid length or aborted; it used to abort the entry.
 
 ### Fixed
+- `DynamicMapping.findLast(..)` and `binarySearchLast(..)` no longer create or extend files: probing beyond the last
+  match of a mutable mapping extended the file or created rolling files, and threw beyond the max file size of a
+  non-rolling file.
 - Closing an appender aborts its open appending context, whose buffer then has zero capacity and whose commit throws
   `IllegalStateException`; the buffer used to stay wrapped around the unmapped payload, so that accessing it could
   crash the JVM, and a commit threw `IndexOutOfBoundsException`. An aborted context's buffer has zero capacity too,

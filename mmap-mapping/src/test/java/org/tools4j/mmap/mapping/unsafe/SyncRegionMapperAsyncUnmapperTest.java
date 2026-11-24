@@ -37,13 +37,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link SyncRegionMapperAsyncUnmapper}.
@@ -57,14 +57,14 @@ class SyncRegionMapperAsyncUnmapperTest {
     void mapsWithoutPreTouch() throws InterruptedException {
         final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(REGION_SIZE);
         final FileMapper fileMapper = mock(FileMapper.class);
-        when(fileMapper.map(anyLong(), eq(REGION_SIZE), anyBoolean())).thenReturn(data.address());
+        when(fileMapper.map(anyLong(), eq(REGION_SIZE), any(MappingMode.class))).thenReturn(data.address());
         final AsyncRuntime asyncRuntime = mock(AsyncRuntime.class);
         final List<Recurring> recurring = new ArrayList<>();
         doAnswer(invocation -> recurring.add(invocation.getArgument(0))).when(asyncRuntime).register(any());
         final RegionMapper regionMapper = new SyncRegionMapperAsyncUnmapper(asyncRuntime, fileMapper, REGION_METRICS,
                 32);
-        assertEquals(data.address(), regionMapper.map(0));
-        verify(fileMapper).map(0L, REGION_SIZE, false);
+        assertEquals(data.address(), regionMapper.map(0, MAP_OR_CREATE));
+        verify(fileMapper).map(0L, REGION_SIZE, MAP_OR_CREATE);
         RecurringTasks.closeWhileExecuting(regionMapper::close, recurring.get(0));
     }
 }

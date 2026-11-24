@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
@@ -44,9 +45,9 @@ class LoggingRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int regionSize, final MappingMode mode) {
         final boolean cached = isMappedInCache(position);
-        final long address = mapper.mapInternal(position, regionSize);
+        final long address = mapper.mapInternal(position, regionSize, mode);
         LOGGER.info("mapInternal: {} -> @{}{}", position, address, cached ? " (cached)" : "");
         return address;
     }

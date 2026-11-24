@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.api.Mapping;
@@ -47,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,6 +59,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_AND_TOUCH;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link FixedMappingImpl}: construction, creation failures with read-only files, mapping at offsets
@@ -188,23 +191,23 @@ class FixedMappingImplTest {
     void mapsWithoutPreTouch() {
         final MutableMemoryBuffer data = MemoryBuffers.allocateDirect((int) REGION_SIZE_GRANULARITY);
         final FileMapper fileMapper = mock(FileMapper.class);
-        when(fileMapper.map(anyLong(), anyInt(), anyBoolean())).thenReturn(data.address());
+        when(fileMapper.map(anyLong(), anyInt(), any(MappingMode.class))).thenReturn(data.address());
         try (final Mapping mapping = new FixedMappingImpl(fileMapper, 0, 64, false)) {
             assertTrue(mapping.isMapped());
         }
-        verify(fileMapper).map(anyLong(), anyInt(), eq(false));
-        verify(fileMapper, never()).map(anyLong(), anyInt(), eq(true));
+        verify(fileMapper).map(anyLong(), anyInt(), eq(MAP_OR_CREATE));
+        verify(fileMapper, never()).map(anyLong(), anyInt(), eq(MAP_AND_TOUCH));
     }
 
     @Test
     void failedMappingThrowsAndClosesOnlyOwnedFileMapper() {
         final FileMapper notOwned = mock(FileMapper.class);
-        when(notOwned.map(anyLong(), anyInt(), anyBoolean())).thenReturn(NULL_ADDRESS);
+        when(notOwned.map(anyLong(), anyInt(), any(MappingMode.class))).thenReturn(NULL_ADDRESS);
         assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(notOwned, 0, 64, false));
         verify(notOwned, never()).close();
 
         final FileMapper owned = mock(FileMapper.class);
-        when(owned.map(anyLong(), anyInt(), anyBoolean())).thenReturn(NULL_ADDRESS);
+        when(owned.map(anyLong(), anyInt(), any(MappingMode.class))).thenReturn(NULL_ADDRESS);
         assertThrows(IllegalArgumentException.class, () -> new FixedMappingImpl(owned, 0, 64));
         verify(owned).close();
     }

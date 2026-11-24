@@ -145,6 +145,25 @@ final class FileHandle implements Closeable {
     }
 
     /**
+     * Returns the channel of the file if it exists, opening it on first use without ever creating it; opening an
+     * existing writable file initialises it to the min file size like {@link #channel()}, as its creator does anyway.
+     *
+     * @return the channel, or null if the file does not exist yet, or if in read-only mode and the file is empty yet
+     * @throws IllegalStateException if this handle is closed
+     * @throws UncheckedIOException if opening the file fails
+     */
+    public FileChannel channelIfExists() {
+        final OpenFile open = openFile.get();
+        if (open == CLOSED) {
+            throw alreadyClosedException(this);
+        }
+        if (open != null) {
+            return open.channel;
+        }
+        return file.exists() ? channel() : null;
+    }
+
+    /**
      * Extends the writable file to the given size unless it is already that long, initialising the new space under an
      * exclusive file lock.
      *

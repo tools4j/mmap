@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 import static org.tools4j.mmap.mapping.unsafe.RecordingRegionMapper.address;
 import static org.tools4j.mmap.mapping.unsafe.RecordingRegionMapper.position;
 
@@ -46,10 +47,9 @@ class LruCacheRegionMapperTest {
 
     private final RecordingRegionMapper base = new RecordingRegionMapper(64);
 
-    private long map(final RegionMapper mapper, final int region) {
-        final long address = mapper.map(position(region));
+    private void map(final RegionMapper mapper, final int region) {
+        final long address = mapper.map(position(region), MAP_OR_CREATE);
         assertEquals(address(position(region)), address, "region " + region);
-        return address;
     }
 
     private static void unmap(final RegionMapper mapper, final int region) {
@@ -194,14 +194,14 @@ class LruCacheRegionMapperTest {
         assertTrue(mapper.isClosed());
         final List<String> calls = base.takeCalls();
         assertEquals("close", calls.get(calls.size() - 1), calls.toString());
-        assertThrows(IllegalStateException.class, () -> mapper.map(position(1)));
+        assertThrows(IllegalStateException.class, () -> mapper.map(position(1), MAP_OR_CREATE));
     }
 
     @ParameterizedTest(name = "deferUnmapping={0}")
     @ValueSource(booleans = {false, true})
     void unmapOfUncachedRegionPassesThroughToBase(final boolean deferUnmapping) {
         final RegionMapper mapper = new LruCacheRegionMapper(base, 4, deferUnmapping);
-        final long address = base.mapInternal(position(2), RecordingRegionMapper.REGION_SIZE);
+        final long address = base.mapInternal(position(2), RecordingRegionMapper.REGION_SIZE, MAP_OR_CREATE);
         base.takeCalls();
         mapper.unmap(position(2), address);
         assertEquals(List.of("unmap:2"), base.takeCalls());
@@ -212,15 +212,15 @@ class LruCacheRegionMapperTest {
     @ValueSource(booleans = {false, true})
     void unmapOfEvictedRegionAfterRemappingPassesThroughToBase(final boolean deferUnmapping) {
         final RegionMapper mapper = new LruCacheRegionMapper(base, 1, deferUnmapping);
-        final long oldAddress = mapper.map(position(0));
-        mapper.map(position(1));
-        final long newAddress = mapper.map(position(0));
+        final long oldAddress = mapper.map(position(0), MAP_OR_CREATE);
+        mapper.map(position(1), MAP_OR_CREATE);
+        final long newAddress = mapper.map(position(0), MAP_OR_CREATE);
         assertNotEquals(oldAddress, newAddress, "region 0 mapped again while evicted mapping is still live");
         base.takeCalls();
 
         mapper.unmap(position(0), oldAddress);
         assertEquals(List.of("unmap:0"), base.takeCalls(), "old address unmapped in base");
-        assertEquals(newAddress, mapper.map(position(0)));
+        assertEquals(newAddress, mapper.map(position(0), MAP_OR_CREATE));
         assertEquals(List.of(), base.takeCalls(), "new address still cached");
         unmap(mapper, 1);
         assertEquals(List.of("unmap:1"), base.takeCalls(), "evicted region 1 passes through to base");
@@ -231,7 +231,7 @@ class LruCacheRegionMapperTest {
     void mappingFailureIsNotCached(final boolean deferUnmapping) {
         final RegionMapper mapper = new LruCacheRegionMapper(base, 4, deferUnmapping);
         final long beyondEnd = base.maxPosition() + position(1);
-        assertEquals(NULL_ADDRESS, mapper.map(beyondEnd));
+        assertEquals(NULL_ADDRESS, mapper.map(beyondEnd, MAP_OR_CREATE));
         assertFalse(mapper.isMappedInCache(beyondEnd));
         map(mapper, 1);
         assertTrue(mapper.isMappedInCache(position(1)));

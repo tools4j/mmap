@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 import static org.tools4j.mmap.mapping.unsafe.RecordingRegionMapper.address;
 import static org.tools4j.mmap.mapping.unsafe.RecordingRegionMapper.position;
 
@@ -53,9 +54,9 @@ class RefCountRegionMapperTest {
 
     @Test
     void sharedRegionIsMappedOnceAndUnmappedWithLastReference() {
-        assertEquals(address(position(3)), mapper.map(position(3)));
-        assertEquals(address(position(3)), mapper.map(position(3)));
-        assertEquals(address(position(3)), mapper.map(position(3)));
+        assertEquals(address(position(3)), mapper.map(position(3), MAP_OR_CREATE));
+        assertEquals(address(position(3)), mapper.map(position(3), MAP_OR_CREATE));
+        assertEquals(address(position(3)), mapper.map(position(3), MAP_OR_CREATE));
         assertEquals(List.of("map:3"), base.takeCalls());
         assertTrue(mapper.isMappedInCache(position(3)));
 
@@ -66,15 +67,15 @@ class RefCountRegionMapperTest {
         assertEquals(List.of("unmap:3"), base.takeCalls());
         assertFalse(mapper.isMappedInCache(position(3)));
 
-        assertEquals(address(position(3)), mapper.map(position(3)));
+        assertEquals(address(position(3)), mapper.map(position(3), MAP_OR_CREATE));
         assertEquals(List.of("map:3"), base.takeCalls(), "mapped again after last reference was released");
     }
 
     @Test
     void regionsAreCountedIndependently() {
-        mapper.map(position(1));
-        mapper.map(position(2));
-        mapper.map(position(2));
+        mapper.map(position(1), MAP_OR_CREATE);
+        mapper.map(position(2), MAP_OR_CREATE);
+        mapper.map(position(2), MAP_OR_CREATE);
         mapper.unmap(position(2), address(position(2)));
         mapper.unmap(position(1), address(position(1)));
         assertEquals(List.of("map:1", "map:2", "unmap:1"), base.takeCalls());
@@ -83,7 +84,7 @@ class RefCountRegionMapperTest {
 
     @Test
     void unmapOfUnknownOrMismatchedAddressIsRejected() {
-        mapper.map(position(1));
+        mapper.map(position(1), MAP_OR_CREATE);
         assertThrows(IllegalArgumentException.class, () -> mapper.unmap(position(1), address(position(2))));
         assertThrows(IllegalArgumentException.class, () -> mapper.unmap(position(2), address(position(2))));
         assertEquals(List.of("map:1"), base.takeCalls());
@@ -92,16 +93,16 @@ class RefCountRegionMapperTest {
     @Test
     void mappingFailureIsNotCounted() {
         final long beyondEnd = base.maxPosition() + position(1);
-        assertEquals(NULL_ADDRESS, mapper.map(beyondEnd));
+        assertEquals(NULL_ADDRESS, mapper.map(beyondEnd, MAP_OR_CREATE));
         assertFalse(mapper.isMappedInCache(beyondEnd));
         assertEquals(0, base.mapped());
     }
 
     @Test
     void closeUnmapsRegionsStillReferencedAndClosesBase() {
-        mapper.map(position(1));
-        mapper.map(position(1));
-        mapper.map(position(2));
+        mapper.map(position(1), MAP_OR_CREATE);
+        mapper.map(position(1), MAP_OR_CREATE);
+        mapper.map(position(2), MAP_OR_CREATE);
         base.takeCalls();
         mapper.close();
         assertEquals(0, base.mapped());
@@ -115,7 +116,7 @@ class RefCountRegionMapperTest {
 
     @Test
     void toStringShowsCachedRegions() {
-        mapper.map(position(1));
+        mapper.map(position(1), MAP_OR_CREATE);
         assertTrue(mapper.toString().startsWith("RefCountRegionMapper:cached=1|baseMapper="), mapper.toString());
     }
 }

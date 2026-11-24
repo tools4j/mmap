@@ -111,6 +111,39 @@ public interface DynamicMapping extends Mapping {
     boolean moveTo(long position, int length);
 
     /**
+     * Moves the mapping to the specified position like {@link #moveTo(long)}, but only if its region exists already:
+     * returns false instead of creating the file or extending it to the region, as if the region were not available
+     * yet, also beyond the max file size of a non-rolling file. A region exists if it lies within the current length
+     * of its file, whose bytes may still be zeros if nothing was written there yet. Equivalent to
+     * {@link #moveTo(long)} for a read-only mapping. Useful for instance to search a file without growing it.
+     *
+     * @param position the position to move to (absolute, not relative to the current position or region start)
+     * @return true if the mapping is ready for data access, and false if the region does not exist or is not
+     *         available yet
+     * @throws IllegalArgumentException if position is negative, or if the requested length exceeds the
+     *                                  {@linkplain #maxLengthAtPosition(long) max length} at the position
+     * @throws IllegalStateException if mapping fails
+     * @throws UncheckedIOException if mapping fails with an I/O error
+     */
+    boolean moveToExisting(long position);
+
+    /**
+     * Moves the mapping to the specified position and maps the specified number of bytes, which becomes the requested
+     * length of later moves, but only if the region exists already, like {@link #moveToExisting(long)} otherwise.
+     *
+     * @param position the position to move to (absolute, not relative to the current position or region start)
+     * @param length   the new length of this mapping, at least zero and no more than the
+     *                 {@linkplain #maxLengthAtPosition(long) max length} at the position, or {@link #STRETCH_LENGTH}
+     * @return true if the mapping is ready for data access, and false if the region does not exist or is not
+     *         available yet
+     * @throws IllegalArgumentException if position is negative, or if length is less than -1 or exceeds the max
+     *                                  length at the position
+     * @throws IllegalStateException if mapping fails
+     * @throws UncheckedIOException if mapping fails with an I/O error
+     */
+    boolean moveToExisting(long position, int length);
+
+    /**
      * Moves the mapping forward or backward by the specified delta in bytes, mapping the requested length like
      * {@link #moveTo(long)}.
      * <p>
@@ -235,7 +268,8 @@ public interface DynamicMapping extends Mapping {
     /**
      * Performs a linear search for the last position that still results in a match given the specified matcher. Returns
      * true if a match is found, and leaves the mapping at the matching position. If no match is found, false is
-     * returned and the mapping is left at the position last tried.
+     * returned and the mapping is left at the position last tried. The search moves only to
+     * {@linkplain #moveToExisting(long) existing} regions, so it never creates or extends a file.
      *
      * @param startPosition     the first position to test
      * @param positionIncrement the positive increment added to position at every step
@@ -251,7 +285,9 @@ public interface DynamicMapping extends Mapping {
     /**
      * Performs a logarithmic binary search for the last position that still results in a match given the specified
      * matcher. Returns true if a match is found, and leaves the mapping at the matching position. If no match is found,
-     * false is returned and the mapping is left at the position last tried.
+     * false is returned and the mapping is left at the position last tried. The search moves only to
+     * {@linkplain #moveToExisting(long) existing} regions, so it never creates or extends a file, even when it probes
+     * beyond the last match.
      *
      * @param startPosition     the first position to test
      * @param positionIncrement the positive increment added to position at every step

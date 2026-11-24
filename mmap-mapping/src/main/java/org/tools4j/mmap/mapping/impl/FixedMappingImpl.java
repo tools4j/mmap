@@ -32,6 +32,7 @@ import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.FixedMutableMapping;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
 import org.tools4j.mmap.mapping.unsafe.FixedSizeFileMapper;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 
 import static java.util.Objects.requireNonNull;
 import static org.tools4j.mmap.core.internal.Validations.validateNonNegative;
@@ -109,7 +110,7 @@ public final class FixedMappingImpl implements FixedMutableMapping {
 
     private static long map(final FileMapper fileMapper, final long position, final int length) {
         //NOTE: no pre-touch, the mapping is used by the thread creating it
-        final long address = fileMapper.map(position, length, false);
+        final long address = fileMapper.map(position, length, MappingMode.MAP_OR_CREATE);
         if (address != NULL_ADDRESS) {
             return address;
         }

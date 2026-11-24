@@ -133,6 +133,16 @@ class DynamicMappingDefaultMethodsTest {
         }
 
         @Override
+        public boolean moveToExisting(final long position) {
+            return delegate.moveToExisting(position);
+        }
+
+        @Override
+        public boolean moveToExisting(final long position, final int length) {
+            return delegate.moveToExisting(position, length);
+        }
+
+        @Override
         public void length(final int length) {
             delegate.length(length);
         }

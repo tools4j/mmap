@@ -30,6 +30,7 @@ import org.tools4j.mmap.core.unsafe.Unsafe;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
@@ -132,13 +133,25 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
     @Override
     public boolean moveTo(final long position) {
         validatePosition(position);
-        return moveToInternal(position, requestedLength);
+        return moveToInternal(position, requestedLength, MappingMode.MAP_OR_CREATE);
     }
 
     @Override
     public boolean moveTo(final long position, final int length) {
         validatePosition(position);
-        return moveToInternal(position, length);
+        return moveToInternal(position, length, MappingMode.MAP_OR_CREATE);
+    }
+
+    @Override
+    public boolean moveToExisting(final long position) {
+        validatePosition(position);
+        return moveToInternal(position, requestedLength, MappingMode.MAP_IF_EXISTS);
+    }
+
+    @Override
+    public boolean moveToExisting(final long position, final int length) {
+        validatePosition(position);
+        return moveToInternal(position, length, MappingMode.MAP_IF_EXISTS);
     }
 
     @Override
@@ -146,7 +159,7 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
         final long position = position();
         validatePositionState(position);
         validatePositionDelta(position, delta);
-        return moveToInternal(position + delta, requestedLength);
+        return moveToInternal(position + delta, requestedLength, MappingMode.MAP_OR_CREATE);
     }
 
     @Override
@@ -154,14 +167,15 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
         final long position = position();
         validatePositionState(position);
         validatePositionDelta(position, delta);
-        return moveToInternal(position + delta, length);
+        return moveToInternal(position + delta, length, MappingMode.MAP_OR_CREATE);
     }
 
     /**
      * Moves to the position mapping the requested length, which becomes the requested length of later moves if the
-     * move succeeds; a failing move leaves this mapping as it was, including its requested length.
+     * move succeeds; a failing move leaves this mapping as it was, including its requested length. The mode applies
+     * only if the position lies in another region than the one mapped.
      */
-    private boolean moveToInternal(final long position, final int length) {
+    private boolean moveToInternal(final long position, final int length, final MappingMode mode) {
         final int newLength = resolveLength(position, length);
         final RegionMetrics metrics = regionMetrics;
         final int newOffset = metrics.regionOffset(position);
@@ -175,7 +189,7 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
             return true;
         }
         final long oldRegionAddress = mappedRegionAddress;
-        final long newRegionAddress = map(newRegionPosition);
+        final long newRegionAddress = map(newRegionPosition, mode);
         if (newRegionAddress > NULL_ADDRESS) {
             initBufferAndOffset(newRegionAddress, newOffset, newLength);
             requestedLength = length;
@@ -227,8 +241,8 @@ public final class DynamicMappingImpl implements DynamicMutableMapping {
         }
     }
 
-    private long map(final long regionPosition) {
-        final long addr = regionMapper.map(regionPosition);
+    private long map(final long regionPosition, final MappingMode mode) {
+        final long addr = regionMapper.map(regionPosition, mode);
         if (addr > NULL_ADDRESS) {
             mappedRegionPosition = regionPosition;
             mappedRegionAddress = addr;

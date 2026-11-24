@@ -145,8 +145,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
 
 
     @Override
-    public long map(final long position) {
-        return RegionMapper.super.map(position);
+    public long map(final long position, final MappingMode mode) {
+        return RegionMapper.super.map(position, mode);
     }
 
     @Override
@@ -155,8 +155,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
     }
 
     @Override
-    public long mapInternal(final long position, final int mappingSize) {
-        return cachingMapper.mapInternal(position, mappingSize);
+    public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
+        return cachingMapper.mapInternal(position, mappingSize, mode);
     }
 
     @Override
@@ -239,8 +239,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
 
 
         @Override
-        public long map(final long position) {
-            return RegionMapper.super.map(position);
+        public long map(final long position, final MappingMode mode) {
+            return RegionMapper.super.map(position, mode);
         }
 
         @Override
@@ -249,19 +249,23 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
         }
 
         @Override
-        public long mapInternal(final long position, final int mappingSize) {
+        public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
             long addr = sharedState.consumeAddressIfMapped(position);
             if (addr >= NULL_ADDRESS) {
                 asyncStats++;
             }
             if (addr <= NULL_ADDRESS) {
                 syncStats++;
-                addr = baseMapper.mapInternal(position, mappingSize);
+                addr = baseMapper.mapInternal(position, mappingSize, mode);
                 if (addr == NULL_ADDRESS) {
                     return NULL_ADDRESS;
                 }
             }
-            mapAhead(position);
+            //NOTE: a region mapped only if it exists is no sequential access, and mapping ahead from it would extend
+            //      the file beyond what exists
+            if (mode != MappingMode.MAP_IF_EXISTS) {
+                mapAhead(position);
+            }
             return addr;
         }
 
@@ -474,8 +478,8 @@ final class AsyncRunAheadRegionMapper implements RegionMapper, Describable {
                 if (req != NULL_POSITION) {
                     long mappedAddr;
                     try {
-                        //NOTE: pre-touch, mapped ahead on the mapping thread before the requester uses it
-                        mappedAddr = fileMapper.map(req, regionMetrics.mappingSize(), true);
+                        //NOTE: touched, mapped ahead on the mapping thread before the requester uses it
+                        mappedAddr = fileMapper.map(req, regionMetrics.mappingSize(), MappingMode.MAP_AND_TOUCH);
                     } catch (final RuntimeException e) {
                         //NOTE: mapping ahead is speculative, the requester maps synchronously when needed and gets
                         //      the error then; the slot must be handed back to the requester in any case

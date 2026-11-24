@@ -98,8 +98,8 @@ final class LruCacheRegionMapper implements RegionMapper {
 
 
     @Override
-    public long map(final long position) {
-        return RegionMapper.super.map(position);
+    public long map(final long position, final MappingMode mode) {
+        return RegionMapper.super.map(position, mode);
     }
 
     @Override
@@ -108,7 +108,7 @@ final class LruCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int mappingSize) {
+    public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
         long addr, posn;
         int index = (int)positionToIndex.get(position);
         if (index >= 0) {
@@ -125,7 +125,7 @@ final class LruCacheRegionMapper implements RegionMapper {
             }
             return addr;
         }
-        addr = baseMapper.mapInternal(position, mappingSize);
+        addr = baseMapper.mapInternal(position, mappingSize, mode);
         if (addr != NULL_ADDRESS) {
             index = acquireIndex();
             positions[index] = position;

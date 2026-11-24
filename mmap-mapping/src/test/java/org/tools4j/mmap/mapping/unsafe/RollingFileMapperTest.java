@@ -41,6 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_IF_EXISTS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link RollingFileMapper}: rolling a logical position range over multiple files, file naming, creating
@@ -78,7 +80,7 @@ class RollingFileMapperTest {
 
     private static void writeRegions(final FileMapper mapper, final int regions) {
         for (int region = 0; region < regions; region++) {
-            final long address = mapper.map(position(region), REGION_SIZE, false);
+            final long address = mapper.map(position(region), REGION_SIZE, MAP_OR_CREATE);
             assertNotEquals(NULL_ADDRESS, address, "region " + region);
             final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
             buffer.putLong(0, valueFor(region));
@@ -89,7 +91,7 @@ class RollingFileMapperTest {
 
     private static void assertRegions(final FileMapper mapper, final int regions) {
         for (int region = 0; region < regions; region++) {
-            final long address = mapper.map(position(region), REGION_SIZE, false);
+            final long address = mapper.map(position(region), REGION_SIZE, MAP_OR_CREATE);
             assertNotEquals(NULL_ADDRESS, address, "region " + region);
             final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
             assertEquals(valueFor(region), buffer.getLong(0), "region " + region);
@@ -111,13 +113,14 @@ class RollingFileMapperTest {
         final long tailValue = 0x0102030405060708L;
         try (final FileMapper mapper = RollingFileMapper.forReadWrite(baseFile, AccessMode.READ_WRITE, expandFile, 0,
                 MAX_FILE_SIZE, REGION_SIZE, overlapSize, 0, 2, FILE_INITIALISER)) {
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, REGION_SIZE, false), "without overlap");
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, REGION_SIZE, MAP_OR_CREATE),
+                    "without overlap");
             final long lastRegion = position(REGIONS_PER_FILE - 1);
-            final long address = mapper.map(lastRegion, mappingSize, false);
+            final long address = mapper.map(lastRegion, mappingSize, MAP_OR_CREATE);
             TestBuffers.wrap(address, mappingSize).putLong(REGION_SIZE, tailValue);
             mapper.unmap(lastRegion, address, mappingSize);
             final long nextFile = position(REGIONS_PER_FILE);
-            final long next = mapper.map(nextFile, mappingSize, false);
+            final long next = mapper.map(nextFile, mappingSize, MAP_OR_CREATE);
             assertEquals(0, TestBuffers.wrap(next, mappingSize).getLong(0), "next file starts with own bytes");
             mapper.unmap(nextFile, next, mappingSize);
         }
@@ -127,7 +130,7 @@ class RollingFileMapperTest {
         try (final FileMapper reader = RollingFileMapper.forReadOnly(baseFile, MAX_FILE_SIZE, REGION_SIZE,
                 overlapSize, 2, FILE_INITIALISER)) {
             final long lastRegion = position(REGIONS_PER_FILE - 1);
-            final long address = reader.map(lastRegion, mappingSize, false);
+            final long address = reader.map(lastRegion, mappingSize, MAP_OR_CREATE);
             assertNotEquals(NULL_ADDRESS, address);
             assertEquals(tailValue, TestBuffers.wrap(address, mappingSize).getLong(REGION_SIZE), "tail read back");
             reader.unmap(lastRegion, address, mappingSize);
@@ -153,7 +156,7 @@ class RollingFileMapperTest {
         try (final FileMapper mapper = readOnly(baseFile, 1)) {
             assertEquals(AccessMode.READ_ONLY, mapper.accessMode());
             assertRegions(mapper, 3 * REGIONS_PER_FILE);
-            assertEquals(NULL_ADDRESS, mapper.map(position(3 * REGIONS_PER_FILE), REGION_SIZE, false),
+            assertEquals(NULL_ADDRESS, mapper.map(position(3 * REGIONS_PER_FILE), REGION_SIZE, MAP_OR_CREATE),
                     "read-only mapping of file that does not exist");
         }
     }
@@ -216,7 +219,7 @@ class RollingFileMapperTest {
     @Test
     void unmapReleasesMappingOfOpenFile() {
         try (final FileMapper mapper = readWrite(baseFile("open.map"), false, 0, 1)) {
-            final long address = mapper.map(position(0), REGION_SIZE, false);
+            final long address = mapper.map(position(0), REGION_SIZE, MAP_OR_CREATE);
             final Path file0 = OsMappings.realPath(baseFile("open_0.map"));
             assertTrue(OsMappings.isMapped(file0));
             mapper.unmap(position(0), address, REGION_SIZE);
@@ -227,9 +230,9 @@ class RollingFileMapperTest {
     @Test
     void unmapReleasesMappingOfAlreadyClosedFile() {
         try (final FileMapper mapper = readWrite(baseFile("evicted.map"), false, 0, 1)) {
-            final long address0 = mapper.map(position(0), REGION_SIZE, false);
+            final long address0 = mapper.map(position(0), REGION_SIZE, MAP_OR_CREATE);
             final Path file0 = OsMappings.realPath(baseFile("evicted_0.map"));
-            final long address1 = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE, false);//closes file 0
+            final long address1 = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE, MAP_OR_CREATE);//closes file 0
             assertTrue(mapper.toString().contains("|openFiles=1|"), mapper.toString());
             assertTrue(OsMappings.isMapped(file0), "mapping outlives closing its file");
             mapper.unmap(position(0), address0, REGION_SIZE);
@@ -241,15 +244,15 @@ class RollingFileMapperTest {
     @Test
     void negativePositionIsNotMapped() {
         try (final FileMapper mapper = readWrite(baseFile("neg.map"), false, 0, 2)) {
-            assertEquals(NULL_ADDRESS, mapper.map(-REGION_SIZE, REGION_SIZE, false));
+            assertEquals(NULL_ADDRESS, mapper.map(-REGION_SIZE, REGION_SIZE, MAP_OR_CREATE));
         }
     }
 
     @Test
     void lengthMustMatchRegionSize() {
         try (final FileMapper mapper = readWrite(baseFile("len.map"), false, 0, 2)) {
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, REGION_SIZE / 2, false));
-            final long address = mapper.map(0, REGION_SIZE, false);
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(0, REGION_SIZE / 2, MAP_OR_CREATE));
+            final long address = mapper.map(0, REGION_SIZE, MAP_OR_CREATE);
             assertThrows(IllegalArgumentException.class, () -> mapper.unmap(0, address, REGION_SIZE / 2));
             mapper.unmap(0, address, REGION_SIZE);
         }
@@ -259,7 +262,7 @@ class RollingFileMapperTest {
     void fileCreatedAheadIsReusedWhenMappingAnEarlierFile() {
         final File baseFile = baseFile("reuse.map");
         try (final FileMapper mapper = readWrite(baseFile, false, 1, 3)) {
-            final long address = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE, false);
+            final long address = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE, MAP_OR_CREATE);
             assertNotEquals(NULL_ADDRESS, address);
             mapper.unmap(position(REGIONS_PER_FILE), address, REGION_SIZE);
             assertTrue(mapper.toString().contains("|openFiles=2|"), mapper.toString());
@@ -273,8 +276,8 @@ class RollingFileMapperTest {
     void readOnlyMapperMapsFileCreatedAfterFailedAttempt() {
         final File baseFile = baseFile("later.map");
         try (final FileMapper reader = readOnly(baseFile, 2)) {
-            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE, false));
-            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE, false));
+            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE, MAP_OR_CREATE));
+            assertEquals(NULL_ADDRESS, reader.map(position(0), REGION_SIZE, MAP_OR_CREATE));
             try (final FileMapper writer = readWrite(baseFile, false, 0, 2)) {
                 writeRegions(writer, 1);
             }
@@ -286,7 +289,7 @@ class RollingFileMapperTest {
     void positionBeyondMaxFileIndexIsRejected() {
         try (final FileMapper mapper = readWrite(baseFile("max.map"), false, 0, 2)) {
             final long position = (Integer.MAX_VALUE + 1L) * MAX_FILE_SIZE;
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE, false));
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(position, REGION_SIZE, MAP_OR_CREATE));
         }
     }
 
@@ -317,6 +320,37 @@ class RollingFileMapperTest {
         assertTrue(mapper.isClosed());
         assertTrue(mapper.toString().contains("|openFiles=0|closed=true"), mapper.toString());
         mapper.close();
-        assertThrows(IllegalStateException.class, () -> mapper.map(0, REGION_SIZE, false));
+        assertThrows(IllegalStateException.class, () -> mapper.map(0, REGION_SIZE, MAP_OR_CREATE));
+    }
+
+    @Test
+    void mapIfExistsCreatesNoFileNorFilesAhead() {
+        final File baseFile = baseFile("exists.map");
+        try (final FileMapper mapper = readWrite(baseFile, false, 1, 3)) {
+            assertEquals(NULL_ADDRESS, mapper.map(position(0), REGION_SIZE, MAP_IF_EXISTS));
+            assertFalse(baseFile("exists_0.map").exists(), "file not created");
+            assertFalse(baseFile("exists_1.map").exists(), "file not created ahead");
+
+            writeRegions(mapper, 1);
+            assertTrue(baseFile("exists_1.map").isFile(), "file created ahead by mapping");
+            final long address = mapper.map(position(REGIONS_PER_FILE), REGION_SIZE, MAP_IF_EXISTS);
+            assertNotEquals(NULL_ADDRESS, address, "file created ahead exists");
+            mapper.unmap(position(REGIONS_PER_FILE), address, REGION_SIZE);
+            assertEquals(NULL_ADDRESS, mapper.map(position(2 * REGIONS_PER_FILE), REGION_SIZE,
+                    MAP_IF_EXISTS));
+            assertFalse(baseFile("exists_2.map").exists(), "file not created");
+            assertFalse(baseFile("exists_3.map").exists(), "file not created ahead");
+        }
+    }
+
+    @Test
+    void mapIfExistsDoesNotExtendExpandableFile() {
+        final File baseFile = baseFile("expand.map");
+        try (final FileMapper mapper = readWrite(baseFile, true, 0, 2)) {
+            writeRegions(mapper, 1);
+            assertEquals(REGION_SIZE, baseFile("expand_0.map").length());
+            assertEquals(NULL_ADDRESS, mapper.map(position(1), REGION_SIZE, MAP_IF_EXISTS));
+            assertEquals(REGION_SIZE, baseFile("expand_0.map").length(), "file not extended");
+        }
     }
 }

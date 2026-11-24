@@ -28,20 +28,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.mapping.config.MappingConfig;
+import org.tools4j.mmap.mapping.config.MappingConfigurator;
 
+import java.io.File;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for {@link DynamicMappingImpl} length handling, in particular {@link DynamicMapping#STRETCH_LENGTH}, with
- * the default overlap.
+ * the default overlap, and moves to existing regions only.
  */
 class DynamicMappingImplTest {
+
+    @TempDir
+    Path tempDir;
 
     private DynamicMapping mapping;
     private int regionSize;
@@ -49,7 +57,7 @@ class DynamicMappingImplTest {
     private int mappingSize;
 
     @BeforeEach
-    void init(@TempDir final Path tempDir) {
+    void init() {
         mapping = Mappings.dynamicMutableMapping(tempDir.resolve("dynamic.map").toFile(), OpenMode.OPEN_OR_CREATE);
         regionSize = mapping.regionMetrics().regionSize();
         overlapSize = mapping.regionMetrics().overlapSize();
@@ -229,5 +237,61 @@ class DynamicMappingImplTest {
         assertTrue(mapping.moveTo(100, 10));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, -2));
         assertThrows(IllegalArgumentException.class, () -> mapping.moveBy(10, mappingSize - 109));
+    }
+
+    /** A single expandable file: min file size 2 regions, max file size 8 regions */
+    private MappingConfig expandableConfig() {
+        return MappingConfigurator.configure()
+                .regionSize(regionSize)
+                .minFileSize(2L * regionSize)
+                .maxFileSize(8L * regionSize)
+                .expandFile(true)
+                .rollFiles(false);
+    }
+
+    @Test
+    void moveToExistingNeitherCreatesNorExtendsTheFile() {
+        final File file = tempDir.resolve("existing.map").toFile();
+        final MappingConfig config = expandableConfig();
+        final long lastRegion;
+        try (final DynamicMutableMapping writer = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                config)) {
+            assertFalse(writer.moveToExisting(0), "file does not exist");
+            assertFalse(file.exists(), "file not created");
+            assertTrue(writer.moveTo(100));
+            final long fileLength = file.length();
+            lastRegion = fileLength - writer.regionMetrics().mappingSize();
+            assertEquals(regionSize, lastRegion, "min file size of 2 regions plus overlap");
+
+            assertTrue(writer.moveToExisting(lastRegion + 8, 8));
+            assertEquals(lastRegion + 8, writer.position());
+            assertEquals(8, writer.length());
+            assertFalse(writer.moveToExisting(lastRegion + regionSize), "region beyond the file length");
+            assertFalse(writer.moveToExisting(8L * regionSize), "region beyond the max file size");
+            assertEquals(lastRegion + 8, writer.position(), "mapping stays where it was");
+            assertEquals(fileLength, file.length(), "file not extended");
+        }
+        try (final DynamicMapping reader = Mappings.dynamicMapping(file, OpenMode.READ_ONLY, config)) {
+            assertTrue(reader.moveToExisting(lastRegion));
+            assertFalse(reader.moveToExisting(lastRegion + regionSize), "like moveTo for read-only");
+            assertFalse(reader.moveTo(lastRegion + regionSize));
+        }
+    }
+
+    @Test
+    void searchesNeitherExtendTheFileNorProbeBeyondIt() {
+        final File file = tempDir.resolve("search.map").toFile();
+        try (final DynamicMutableMapping writer = Mappings.dynamicMutableMapping(file, OpenMode.OPEN_OR_CREATE,
+                expandableConfig())) {
+            assertTrue(writer.moveTo(0));
+            final long fileLength = file.length();
+            final long lastRegion = fileLength - writer.regionMetrics().mappingSize();
+
+            assertTrue(writer.binarySearchLast(0, regionSize, m -> true), "every existing position matches");
+            assertEquals(lastRegion, writer.position(), "last existing region");
+            assertTrue(writer.findLast(0, regionSize, m -> true));
+            assertEquals(lastRegion, writer.position(), "last existing region");
+            assertEquals(fileLength, file.length(), "file not extended");
+        }
     }
 }

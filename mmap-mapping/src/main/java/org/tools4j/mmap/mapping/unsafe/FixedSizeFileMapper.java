@@ -98,10 +98,13 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length, final boolean preTouch) {
+    public long map(final long position, final int length, final MappingMode mode) {
         assert position >= 0;
         assert length >= 0;
         if (position + length > fileSize) {
+            if (mode == MappingMode.MAP_IF_EXISTS && accessMode != AccessMode.READ_ONLY) {
+                return NULL_ADDRESS;
+            }
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
                     "exceeds fixed file size " + fileSize + " for file " + file);
         }
@@ -111,7 +114,8 @@ public class FixedSizeFileMapper implements FileMapper, Describable {
             throw new IllegalStateException("Failed to open file channel for file " + file);
         }
         final long address = FileChannels.map(channel, accessMode.mapMode(), position, length);
-        if (preTouch && accessMode != AccessMode.READ_ONLY) {//pre-touching writes, which a read-only mapping must not
+        //touching writes, which a read-only mapping must not
+        if (mode == MappingMode.MAP_AND_TOUCH && accessMode != AccessMode.READ_ONLY) {
             preToucher.preTouch(position, length, address);
         }
         return address;

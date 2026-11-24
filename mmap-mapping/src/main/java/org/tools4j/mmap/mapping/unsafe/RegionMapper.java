@@ -47,7 +47,7 @@ import static org.tools4j.mmap.mapping.impl.MappingValidations.validateRegionPos
  * <p>
  * <br>
  * <b>Important notes:</b><ul>
- *     <li>A region is mapped through {@link #map(long)} which returns the mapped memory address</li>
+ *     <li>A region is mapped through {@link #map(long, MappingMode)}, which returns the mapped memory address</li>
  *     <li>A mapped address is only valid until the next map invocation is made; after that continuing to use the
  *         address may result in a JVM crash.
  *     </li>
@@ -70,24 +70,28 @@ public interface RegionMapper extends Closeable {
 
     /**
      * Attempts to map the region at the specified position with its {@linkplain RegionMetrics#mappingSize()
-     * mapping size}, and returns the address at which the region was mapped.
+     * mapping size} and the given mode, and returns the address at which the region was mapped.
      *
      * @param position      the requested position, a non-negative value and a multiple of region size
+     * @param mode          whether the file may be created or extended, and whether the pages are touched; ignored by
+     *                      read-only mappers, which map only what exists and never touch
      * @return  the address at which the region was mapped, or {@code NULL_ADDRESS} if the region is not available yet,
-     *          for instance because the file to map does not exist yet
+     *          for instance because the file to map does not exist yet, or because the region does not exist yet and
+     *          the mode is {@link MappingMode#MAP_IF_EXISTS}
      * @throws IllegalArgumentException if position is negative or not a multiple of region size
-     * @throws IllegalStateException if this mapper is closed, or if mapping fails, see {@link FileMapper#map(long, int, boolean)}
+     * @throws IllegalStateException if this mapper is closed, or if mapping fails, see
+     *                               {@link FileMapper#map(long, int, MappingMode)}
      * @throws UncheckedIOException if mapping fails with an I/O error
      * @see #regionMetrics()
      */
-    default long map(final long position) {
+    default long map(final long position, final MappingMode mode) {
         final RegionMetrics metrics = regionMetrics();
         validateRegionPosition(position, metrics.regionSize());
         validateNotClosed(this);
-        return mapInternal(position, metrics.mappingSize());
+        return mapInternal(position, metrics.mappingSize(), mode);
     }
 
-    long mapInternal(long position, int mappingSize);
+    long mapInternal(long position, int mappingSize, MappingMode mode);
 
     /**
      * Unmaps previously mapped address of the region starting at absolute position, mapped with its

@@ -49,24 +49,24 @@ public interface FileMapper extends Closeable {
      * @param position absolute position, a multiple of
      *                 {@link org.tools4j.mmap.mapping.impl.Constants#REGION_SIZE_GRANULARITY REGION_SIZE_GRANULARITY}
      * @param length region length
-     * @param preTouch true to pre-touch the region if this mapper writes (read-write mappers touch every page the
-     *                 first time a position is mapped, so that it faults in writable and its file blocks are
-     *                 allocated); pass true only when mapping ahead on a thread other than the one using the region,
-     *                 as pre-touching on the using thread only bunches the page faults it would take anyway into one
-     *                 stall
+     * @param mode     whether the file may be created or extended, and whether the pages are touched; ignored by
+     *                 read-only mappers, which map only what exists and never touch
      * @return positive value if address has been mapped, or {@code NULL_ADDRESS} if the region is not available yet,
-     *         for instance because a read-only file does not exist or is not long enough yet
-     * @throws IllegalArgumentException if the region exceeds the {@link #mappingLimit() mapping limit}, or if the
-     *                                  length is invalid for this mapper
+     *         for instance because a read-only file does not exist or is not long enough yet, or because the region
+     *         does not exist yet and the mode is {@link MappingMode#MAP_IF_EXISTS}
+     * @throws IllegalArgumentException if the region exceeds the {@link #mappingLimit() mapping limit} unless the mode
+     *                                  is {@link MappingMode#MAP_IF_EXISTS}, or if the length is invalid for this
+     *                                  mapper
      * @throws IllegalStateException if this mapper is closed, or if the file cannot be opened or extended
      * @throws UncheckedIOException if creating, opening, initialising, extending or mapping the file fails
      *                                      with an I/O error
      */
-    long map(long position, int length, boolean preTouch);
+    long map(long position, int length, MappingMode mode);
 
     /**
-     * Returns the mapping limit, the maximum end position (exclusive) of any mapping: {@link #map(long, int) mapping}
-     * a region whose position plus length exceeds this limit is illegal.
+     * Returns the mapping limit, the maximum end position (exclusive) of any mapping:
+     * {@link #map(long, int, MappingMode) mapping} a region whose position plus length exceeds this limit is illegal,
+     * or yields {@code NULL_ADDRESS} with {@link MappingMode#MAP_IF_EXISTS}.
      *
      * @return the mapping limit, or {@link Long#MAX_VALUE} if mapping positions are not limited
      */

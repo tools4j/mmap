@@ -55,11 +55,11 @@ class DynamicMappingsTest {
     @Test
     void noMatchAtStartPositionReturnsFalse() {
         final DynamicMapping mapping = mock(DynamicMapping.class);
-        when(mapping.moveTo(anyLong())).thenReturn(true);
+        when(mapping.moveToExisting(anyLong())).thenReturn(true);
         assertFalse(DynamicMappings.findLast(mapping, 0, 8, m -> false));
         assertFalse(DynamicMappings.binarySearchLast(mapping, 0, 8, m -> false));
 
-        when(mapping.moveTo(anyLong())).thenReturn(false);
+        when(mapping.moveToExisting(anyLong())).thenReturn(false);
         assertFalse(DynamicMappings.findLast(mapping, 0, 8, m -> true));
         assertFalse(DynamicMappings.binarySearchLast(mapping, 0, 8, m -> true));
     }
@@ -78,12 +78,12 @@ class DynamicMappingsTest {
 
     private static void assertBinarySearchLastEndsAt(final long start, final long increment, final long expected) {
         final DynamicMapping mapping = mock(DynamicMapping.class);
-        when(mapping.moveTo(anyLong())).thenReturn(true);
+        when(mapping.moveToExisting(anyLong())).thenReturn(true);
 
         assertTrue(DynamicMappings.binarySearchLast(mapping, start, increment, m -> true));
 
         final ArgumentCaptor<Long> positions = ArgumentCaptor.forClass(Long.class);
-        verify(mapping, atLeastOnce()).moveTo(positions.capture());
+        verify(mapping, atLeastOnce()).moveToExisting(positions.capture());
         assertEquals(expected, positions.getValue(), "final position");
         assertTrue(positions.getAllValues().stream().allMatch(position -> position >= start),
                 () -> "positions: " + positions.getAllValues());

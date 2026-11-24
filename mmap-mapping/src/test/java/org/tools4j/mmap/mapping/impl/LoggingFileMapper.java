@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.tools4j.mmap.mapping.api.AccessMode;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 import org.tools4j.mmap.mapping.unsafe.FileMapper;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import static java.util.Objects.requireNonNull;
@@ -51,8 +52,8 @@ class LoggingFileMapper implements FileMapper {
     }
 
     @Override
-    public long map(final long position, final int length, final boolean preTouch) {
-        final long address = mapper.map(position, length, preTouch);
+    public long map(final long position, final int length, final MappingMode mode) {
+        final long address = mapper.map(position, length, mode);
         LOGGER.info("map: {} -> @{}", position, address);
         return address;
     }

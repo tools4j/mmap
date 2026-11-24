@@ -48,6 +48,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
+
 /**
  * The cost of extending a file by one region and writing to each new page through a mapping, with the file
  * initialiser {@code ZERO} allocating the new space with {@code fallocate} or writing zeros, and {@code LAZY} leaving
@@ -114,7 +116,7 @@ public class FileExtensionBenchmark {
 
     @Benchmark
     public long extendAndWrite() {
-        final long address = fileMapper.map(position, REGION_SIZE, false);
+        final long address = fileMapper.map(position, REGION_SIZE, MAP_OR_CREATE);
         try {
             buffer.wrap(address, REGION_SIZE);
             for (int offset = 0; offset < REGION_SIZE; offset += PAGE_SIZE) {

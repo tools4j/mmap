@@ -39,12 +39,14 @@ public enum DynamicMappings {
             throw new IllegalArgumentException("Position increment most be positive: " + positionIncrement);
         }
         long lastPosition = NULL_POSITION;
-        for (long position = startPosition; mapping.moveTo(position) && matcher.test(mapping); position += positionIncrement) {
+        for (long position = startPosition;
+             mapping.moveToExisting(position) && matcher.test(mapping);
+             position += positionIncrement) {
             lastPosition = position;
         }
         if (lastPosition != NULL_POSITION) {
-            final boolean success = mapping.moveTo(lastPosition);
-            assert success : "moveTo failed unexpectedly";
+            final boolean success = mapping.moveToExisting(lastPosition);
+            assert success : "moving to the existing last match failed unexpectedly";
             return true;
         }
         return false;
@@ -58,7 +60,7 @@ public enum DynamicMappings {
             throw new IllegalArgumentException("Position increment most be positive: " + positionIncrement);
         }
         //1) initial low
-        if (!mapping.moveTo(startPosition) || !matcher.test(mapping)) {
+        if (!mapping.moveToExisting(startPosition) || !matcher.test(mapping)) {
             return false;
         }
         long lowPosition = startPosition;
@@ -77,22 +79,22 @@ public enum DynamicMappings {
                     break;
                 }
                 increment <<= 1;
-            } while (mapping.moveTo(highPosition) && matcher.test(mapping));
+            } while (mapping.moveToExisting(highPosition) && matcher.test(mapping));
         }
 
         //3) find middle
         if (highPosition != NULL_POSITION) {
             while (lowPosition + positionIncrement < highPosition) {
                 final long midPosition = mid(lowPosition, highPosition);
-                if (mapping.moveTo(midPosition) && matcher.test(mapping)) {
+                if (mapping.moveToExisting(midPosition) && matcher.test(mapping)) {
                     lowPosition = midPosition;
                 } else {
                     highPosition = midPosition;
                 }
             }
         }
-        final boolean success = mapping.moveTo(lowPosition);
-        assert success : "moveTo failed unexpectedly";
+        final boolean success = mapping.moveToExisting(lowPosition);
+        assert success : "moving to the existing last match failed unexpectedly";
         return true;
     }
 
