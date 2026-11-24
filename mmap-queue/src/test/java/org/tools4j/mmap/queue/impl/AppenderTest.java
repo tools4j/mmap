@@ -31,10 +31,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tools4j.mmap.core.base.LifecycleListener;
 import org.tools4j.mmap.core.buffer.MemoryBuffer;
 import org.tools4j.mmap.core.buffer.MemoryBufferFlyweight;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
+import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
 import org.tools4j.mmap.queue.api.Appender;
@@ -50,6 +52,8 @@ import org.tools4j.mmap.queue.config.MappingStrategy;
 import org.tools4j.mmap.queue.config.QueueConfig;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -69,6 +73,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
 
 /**
@@ -606,6 +615,94 @@ class AppenderTest {
             assertEquals(LONG_QUEUE_ENTRIES + 1, busy.append(bytes(expected, "busy")));
             assertEquals(LONG_QUEUE_ENTRIES + 2, idle.append(bytes(expected, "idle-2")));
             assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void appenderMovesHeaderBackToEndIndexAfterCatchUpSearchThrew() {
+        final File dir = tempDir.resolve("queue").toFile();
+        final QueueConfig config = smallConfig(false);
+        final QueueFiles files = new QueueFiles(dir);
+        final List<String> expected = new ArrayList<>();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config);
+             final AppenderIdPool idPool = new AppenderIdPool(files.idPoolFile());
+             final FailingProbeMappings mappings = new FailingProbeMappings(
+                     AppenderMappings.create(files, idPool, config, config.appenderConfig()));
+             final Appender failing = new AppenderImpl("queue", mappings, config, () -> {}, LifecycleListener.NO_OP);
+             final Appender other = queue.createAppender()) {
+            assertEquals(0, failing.append(bytes(expected, "failing-0")));
+            appendLongQueue(other, expected, 1, 6);
+
+            //the catch-up search from index 1 throws after probing an empty slot beyond the end index 6
+            mappings.failProbesOnceEmptySlotProbed();
+            assertThrows(UncheckedIOException.class, () -> failing.append(new byte[]{1}));
+            assertTrue(Headers.indexForHeaderPosition(mappings.header().position()) > 6);
+
+            //claiming that slot would leave a gap in the headers, ending the queue for readers
+            mappings.stopFailingProbes();
+            assertEquals(6, failing.append(bytes(expected, "failing-6")));
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    /** Appender mappings whose header mapping fails probes on request, delegating to the given mappings otherwise */
+    private static final class FailingProbeMappings implements AppenderMappings {
+        final AppenderMappings mappings;
+        final DynamicMutableMapping header;
+        boolean failProbes;
+        boolean emptySlotProbed;
+
+        FailingProbeMappings(final AppenderMappings mappings) {
+            this.mappings = requireNonNull(mappings);
+            final DynamicMutableMapping realHeader = mappings.header();
+            this.header = mock(DynamicMutableMapping.class, delegatesTo(realHeader));
+            doAnswer(invocation -> {
+                if (failProbes && emptySlotProbed) {
+                    throw new UncheckedIOException(new IOException("Injected probe failure"));
+                }
+                final boolean moved = realHeader.moveToExisting(invocation.getArgument(0), invocation.getArgument(1));
+                emptySlotProbed = moved && realHeader.buffer().getLongAcquire(0) == Headers.NULL_HEADER;
+                return moved;
+            }).when(header).moveToExisting(anyLong(), anyInt());
+        }
+
+        void failProbesOnceEmptySlotProbed() {
+            failProbes = true;
+            emptySlotProbed = false;
+        }
+
+        void stopFailingProbes() {
+            failProbes = false;
+        }
+
+        @Override
+        public int appenderId() {
+            return mappings.appenderId();
+        }
+
+        @Override
+        public DynamicMutableMapping header() {
+            return header;
+        }
+
+        @Override
+        public DynamicMutableMapping payload() {
+            return mappings.payload();
+        }
+
+        @Override
+        public boolean payloadFileExisted() {
+            return mappings.payloadFileExisted();
+        }
+
+        @Override
+        public boolean isClosed() {
+            return mappings.isClosed();
+        }
+
+        @Override
+        public void close() {
+            mappings.close();
         }
     }
 
