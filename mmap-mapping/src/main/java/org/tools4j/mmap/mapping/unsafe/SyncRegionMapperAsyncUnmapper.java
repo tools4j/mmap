@@ -32,9 +32,9 @@ import org.tools4j.mmap.mapping.api.AsyncRuntime;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
 
 import static java.util.Objects.requireNonNull;
+import static org.tools4j.mmap.core.internal.CacheLines.CACHE_LINE_LENGTH;
 import static org.tools4j.mmap.core.internal.Validations.validatePowerOfTwo;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
-import static org.tools4j.mmap.mapping.impl.Constants.CACHE_LINE_LENGTH;
 
 /**
  * A direct region mapper that delegates mapping operations synchronously to the underlying {@link FileMapper} and
