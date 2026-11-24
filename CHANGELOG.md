@@ -133,8 +133,12 @@ Notable changes per release. Entries are curated from the commits since the prev
   releases a lock that another mapping of the same file in the JVM holds at the time.
 - `AppendingContext.commit(length)` with an invalid length throws without closing the context, so that the entry can
   still be committed with a valid length or aborted; it used to abort the entry.
+- An appender that fell behind other appenders catches up with a galloping search for the end of the queue, reading
+  about 2·log2(n) headers for n entries appended meanwhile instead of all n.
 
 ### Fixed
+- Creating an appender no longer creates or extends header files: its search for the end of the queue probed up to
+  the next power of two of the last index, creating rolled header files or extending a non-rolling one up to there.
 - `DynamicMapping.findLast(..)` and `binarySearchLast(..)` no longer create or extend files: probing beyond the last
   match of a mutable mapping extended the file or created rolling files, and threw beyond the max file size of a
   non-rolling file.

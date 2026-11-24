@@ -180,6 +180,15 @@ enum Headers {
         return header.moveTo(position, HEADER_LENGTH);
     }
 
+    /**
+     * Returns the header at the given index like {@link #moveAndGetHeader(DynamicMapping, long)}, but reads
+     * {@link #NULL_HEADER} for a header region that does not exist yet instead of creating or extending a header file.
+     */
+    public static long probeHeader(final DynamicMapping header, final long index) {
+        final long position = headerPositionForIndex(index);
+        return header.moveToExisting(position, HEADER_LENGTH) ? header.buffer().getLongAcquire(0) : NULL_HEADER;
+    }
+
     public static long headerPositionForIndex(final long index) {
         assert validIndex(index) : "index is invalid";
         return bijectionStep(index, BIJECTION_STEP_FW) << HEADER_SHIFT;
@@ -208,18 +217,31 @@ enum Headers {
         return lastIndex != Index.NULL ? moveAndGetHeader(header, lastIndex) : NULL_HEADER;
     }
 
+    /**
+     * Returns the last index with a non-empty header, searching from the start index, or {@link Index#NULL} if the
+     * header at the start index is empty. Headers are dense, so the search gallops forward from the start index and
+     * then bisects, probing only header regions that exist; the header mapping is left at the last probed index.
+     */
     public static long binarySearchLastIndex(final DynamicMapping header, final long startIndex) {
         if (startIndex < Index.FIRST || startIndex > Index.MAX) {
             throw new IllegalArgumentException("Invalid start index: " + startIndex);
         }
-        //1) initial low
-        if (NULL_HEADER == moveAndGetHeader(header, startIndex)) {
+        if (NULL_HEADER == probeHeader(header, startIndex)) {
             return Index.NULL;
         }
-        long lowIndex = startIndex;
+        return binarySearchLastIndexFromNonEmpty(header, startIndex);
+    }
+
+    /**
+     * Returns the last index with a non-empty header like {@link #binarySearchLastIndex(DynamicMapping, long)}, given
+     * an index known to have a non-empty header, for instance one whose header could not be claimed.
+     */
+    public static long binarySearchLastIndexFromNonEmpty(final DynamicMapping header, final long nonEmptyIndex) {
+        assert validIndex(nonEmptyIndex) : "nonEmptyIndex is invalid";
+        long lowIndex = nonEmptyIndex;
         long highIndex = Index.NULL;
 
-        //2) find low + high
+        //1) find low + high
         while (highIndex == Index.NULL && lowIndex < Index.MAX) {
             long increment = 1L;
             do {
@@ -232,14 +254,14 @@ enum Headers {
                     break;
                 }
                 increment <<= 1;
-            } while (NULL_HEADER != moveAndGetHeader(header, highIndex));
+            } while (NULL_HEADER != probeHeader(header, highIndex));
         }
 
-        //3) find middle
+        //2) find middle
         if (highIndex != Index.NULL) {
             while (lowIndex + 1L < highIndex) {
                 final long midIndex = mid(lowIndex, highIndex);
-                if (NULL_HEADER != moveAndGetHeader(header, midIndex)) {
+                if (NULL_HEADER != probeHeader(header, midIndex)) {
                     lowIndex = midIndex;
                 } else {
                     highIndex = midIndex;
