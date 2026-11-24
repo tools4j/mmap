@@ -28,7 +28,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.tools4j.mmap.core.base.Closeable;
 import org.tools4j.mmap.core.base.Describable;
 import org.tools4j.mmap.core.base.ErrorListener;
+import org.tools4j.mmap.mapping.api.Mappings;
 import org.tools4j.mmap.mapping.api.OpenMode;
+import org.tools4j.mmap.queue.api.Move;
 import org.tools4j.mmap.queue.api.Poller;
 import org.tools4j.mmap.queue.api.Queue;
 import org.tools4j.mmap.queue.config.QueueConfig;
@@ -124,6 +126,20 @@ class QueueCloseTest {
         queue.close();
         assertTrue(queue.isClosed());
         assertEquals(List.of(), errorListener.errors);
+    }
+
+    @Test
+    void closingQueueUnmapsAllItsElementsMapped() {
+        final long bytes = Mappings.mappedBytes();
+        final long count = Mappings.mappingCount();
+        final Queue queue = Queue.open(queueDir(), OpenMode.CREATE, config());
+        createAllElements(queue);
+        queue.createAppender().append(new byte[]{1, 2, 3});
+        assertEquals(Poller.ENTRY_POLLED, queue.createPoller().poll((index, buffer, offset, length) -> Move.NEXT));
+        assertTrue(Mappings.mappingCount() > count, "mapped while open");
+        queue.close();
+        assertEquals(bytes, Mappings.mappedBytes(), "mapped bytes");
+        assertEquals(count, Mappings.mappingCount(), "mapping count");
     }
 
     @Test

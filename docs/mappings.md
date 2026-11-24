@@ -45,6 +45,15 @@ file never becomes available: the writer does not grow the file beyond its own o
 limits the contiguous bytes accessible to the reader's overlap. A writable mapping with a larger overlap than a file was
 created with grows the file by the difference.
 
+## Monitoring
+`Mappings.mappedBytes()` and `Mappings.mappingCount()` return the bytes and the number of memory mappings the library
+currently has mapped in the JVM, for all mappings and pools, and for queues built on them. This includes regions that
+are cached, mapped ahead or waiting to be unmapped by a background thread, and returns to its previous value once they
+are closed. It is the virtual address space taken, not memory use: pages never accessed take no memory, and a region
+mapped several times counts each time. The count matters against the operating system's limit of mappings per
+process, e.g. `vm.max_map_count` on Linux (65530 by default, also counting the JVM's own mappings), which many
+readers with large caches and map-ahead can approach.
+
 ## Concurrent Access
 Mappings and mapping pools are not thread-safe: each thread needs its own mappings, or its own pool. The mapped
 memory itself is shared, however, and the mapping's buffer supports CAS and memory ordering operations, for

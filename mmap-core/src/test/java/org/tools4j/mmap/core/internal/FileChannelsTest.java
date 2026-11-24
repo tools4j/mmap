@@ -31,12 +31,14 @@ import org.tools4j.mmap.core.unsafe.UnsafeAccess;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Unit test for {@link FileChannels} mapping modes.
@@ -66,6 +68,35 @@ class FileChannelsTest {
             } finally {
                 FileChannels.unmap(address, LENGTH);
             }
+        }
+    }
+
+    @Test
+    void mapAndUnmapCountBytesAndMappings() throws IOException {
+        final Path path = file();
+        try (final RandomAccessFile raf = new RandomAccessFile(path.toFile(), "rw");
+             final FileChannel channel = raf.getChannel()) {
+            final long bytes = FileChannels.mappedBytes();
+            final long count = FileChannels.mappingCount();
+            final long address = FileChannels.map(channel, MapMode.READ_WRITE, 0, LENGTH);
+            assertEquals(bytes + LENGTH, FileChannels.mappedBytes());
+            assertEquals(count + 1, FileChannels.mappingCount());
+            FileChannels.unmap(address, LENGTH);
+            assertEquals(bytes, FileChannels.mappedBytes());
+            assertEquals(count, FileChannels.mappingCount());
+        }
+    }
+
+    @Test
+    void failedMapCountsNothing() throws IOException {
+        final Path path = file();
+        try (final RandomAccessFile raf = new RandomAccessFile(path.toFile(), "r");
+             final FileChannel channel = raf.getChannel()) {
+            final long bytes = FileChannels.mappedBytes();
+            final long count = FileChannels.mappingCount();
+            assertThrows(UncheckedIOException.class, () -> FileChannels.map(channel, MapMode.READ_WRITE, 0, LENGTH));
+            assertEquals(bytes, FileChannels.mappedBytes());
+            assertEquals(count, FileChannels.mappingCount());
         }
     }
 
