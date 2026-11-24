@@ -331,7 +331,7 @@ public final class ConcurrentRollingFileMapper implements Describable {
         }
 
         @Override
-        public long map(final long position, final int length, final boolean preTouch) {
+        public long map(final long position, final int length, final MappingMode mode) {
             if (position < 0) {
                 return NULL_ADDRESS;
             }
@@ -342,20 +342,22 @@ public final class ConcurrentRollingFileMapper implements Describable {
             final int fileIndex = positionToFileIndex(position);
             FileMapper mapperForIndex = borrower.tryAcquire(fileIndex);
             if (mapperForIndex == null) {
-                if (accessMode == AccessMode.READ_ONLY && !getOrCreateFile(fileIndex).exists()) {
+                //NOTE: read-only mappers never create files, read-write ones not when mapping only if the region exists
+                final boolean ifExists = mode == MappingMode.MAP_IF_EXISTS && accessMode != AccessMode.READ_ONLY;
+                if ((ifExists || accessMode == AccessMode.READ_ONLY) && !getOrCreateFile(fileIndex).exists()) {
                     return NULL_ADDRESS;
                 }
                 //NOTE: pre-create next files first, furthest first, before acquiring fileIndex itself: this way
                 //      fileIndex is never exposed to eviction while its own pre-create batch runs, and the nearest
                 //      (soonest-needed) pre-created file ends up most-recently-used, i.e. least likely to be
                 //      evicted under pressure
-                for (int i = filesToCreateAhead; i >= 1; i--) {
+                for (int i = ifExists ? 0 : filesToCreateAhead; i >= 1; i--) {
                     borrower.createIfAbsent(fileIndex + i, fileMapperByIndexFactory);
                 }
                 mapperForIndex = borrower.acquire(fileIndex, fileMapperByIndexFactory);
             }
             try {
-                return mapperForIndex.map(position & positionInFileMask, length, preTouch);
+                return mapperForIndex.map(position & positionInFileMask, length, mode);
             } finally {
                 borrower.release();
             }

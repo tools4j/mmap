@@ -40,7 +40,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,6 +51,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_AND_TOUCH;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_IF_EXISTS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link AsyncRunAheadRegionMapper} mapping ahead at the file mapper's mapping limit and when mapping
@@ -79,7 +81,7 @@ class AsyncRunAheadRegionMapperTest {
         doAnswer(invocation -> recurring.add(invocation.getArgument(0))).when(asyncRuntime).register(any());
         doAnswer(invocation -> recurring.remove(invocation.getArgument(0))).when(asyncRuntime).deregister(any());
         when(fileMapper.mappingLimit()).thenReturn(mappingLimit);
-        when(fileMapper.map(anyLong(), eq(REGION_SIZE + overlapSize), anyBoolean()))
+        when(fileMapper.map(anyLong(), eq(REGION_SIZE + overlapSize), any(MappingMode.class)))
                 .thenAnswer(invocation -> address(invocation.getArgument(0)));
         regionMapper = new AsyncRunAheadRegionMapper(asyncRuntime,
                 new SyncRegionMapper(fileMapper, new RegionMetricsImpl(REGION_SIZE, overlapSize)),
@@ -115,10 +117,11 @@ class AsyncRunAheadRegionMapperTest {
     void mapAheadStopsAtMappingLimit() {
         final RegionMapper mapper = regionMapper(REGIONS * REGION_SIZE, 2, 0);
         for (int region = 0; region < REGIONS; region++) {
-            assertEquals(address(region * REGION_SIZE), mapper.map(region * REGION_SIZE));
+            assertEquals(address(region * REGION_SIZE), mapper.map(region * REGION_SIZE, MAP_OR_CREATE));
             executeAsyncMapper();
         }
-        verify(fileMapper, never()).map(longThat(position -> position >= REGIONS * REGION_SIZE), anyInt(), anyBoolean());
+        verify(fileMapper, never()).map(longThat(position -> position >= REGIONS * REGION_SIZE), anyInt(),
+                any(MappingMode.class));
     }
 
     @ParameterizedTest(name = "fileCoversOverlap={0}")
@@ -129,24 +132,25 @@ class AsyncRunAheadRegionMapperTest {
         final long mappingLimit = (long) REGIONS * REGION_SIZE + (fileCoversOverlap ? overlapSize : 0);
         final RegionMapper mapper = regionMapper(mappingLimit, 2, 0, overlapSize);
         for (long position = 0; position < lastRegion; position += REGION_SIZE) {
-            assertEquals(address(position), mapper.map(position));
+            assertEquals(address(position), mapper.map(position, MAP_OR_CREATE));
             executeAsyncMapper();
         }
-        verify(fileMapper, never()).map(longThat(position -> position > lastRegion), anyInt(), anyBoolean());
-        verify(fileMapper, fileCoversOverlap ? times(1) : never()).map(lastRegion, REGION_SIZE + overlapSize, true);
+        verify(fileMapper, never()).map(longThat(position -> position > lastRegion), anyInt(), any(MappingMode.class));
+        verify(fileMapper, fileCoversOverlap ? times(1) : never())
+                .map(lastRegion, REGION_SIZE + overlapSize, MAP_AND_TOUCH);
     }
 
     @Test
     void requesterMapsWithoutPreTouchAndMapAheadWithPreTouch() {
         final RegionMapper mapper = regionMapper(REGIONS * REGION_SIZE, 2, 0);
-        assertEquals(address(0), mapper.map(0));
-        verify(fileMapper).map(0L, REGION_SIZE, false);
+        assertEquals(address(0), mapper.map(0, MAP_OR_CREATE));
+        verify(fileMapper).map(0L, REGION_SIZE, MAP_OR_CREATE);
         //map-ahead requested but not executed yet: the requester maps synchronously, without pre-touch
-        assertEquals(address(REGION_SIZE), mapper.map(REGION_SIZE));
-        verify(fileMapper).map((long) REGION_SIZE, REGION_SIZE, false);
+        assertEquals(address(REGION_SIZE), mapper.map(REGION_SIZE, MAP_OR_CREATE));
+        verify(fileMapper).map((long) REGION_SIZE, REGION_SIZE, MAP_OR_CREATE);
         executeAsyncMapper();
-        verify(fileMapper).map(2L * REGION_SIZE, REGION_SIZE, true);
-        verify(fileMapper, never()).map(0L, REGION_SIZE, true);
+        verify(fileMapper).map(2L * REGION_SIZE, REGION_SIZE, MAP_AND_TOUCH);
+        verify(fileMapper, never()).map(0L, REGION_SIZE, MAP_AND_TOUCH);
     }
 
     @Test
@@ -154,20 +158,29 @@ class AsyncRunAheadRegionMapperTest {
         //single map-ahead slot shared by all positions
         final RegionMapper mapper = regionMapper(Long.MAX_VALUE, 1, 1);
         final long failing = REGION_SIZE;
-        when(fileMapper.map(eq(failing), eq(REGION_SIZE), anyBoolean()))
+        when(fileMapper.map(eq(failing), eq(REGION_SIZE), any(MappingMode.class)))
                 .thenThrow(new IllegalStateException("mapping failed"))
                 .thenAnswer(invocation -> address(failing));
 
-        assertEquals(address(0), mapper.map(0));
+        assertEquals(address(0), mapper.map(0, MAP_OR_CREATE));
         assertEquals(1, executeAsyncMapper(), "failed map-ahead executed once, not retried");
-        verify(fileMapper, times(1)).map(eq(failing), eq(REGION_SIZE), anyBoolean());
+        verify(fileMapper, times(1)).map(eq(failing), eq(REGION_SIZE), any(MappingMode.class));
 
         //failed map-ahead is retried synchronously, which requests the next region ahead in the same slot
-        assertEquals(address(failing), mapper.map(failing));
-        verify(fileMapper, times(2)).map(eq(failing), eq(REGION_SIZE), anyBoolean());
+        assertEquals(address(failing), mapper.map(failing, MAP_OR_CREATE));
+        verify(fileMapper, times(2)).map(eq(failing), eq(REGION_SIZE), any(MappingMode.class));
         assertEquals(1, executeAsyncMapper(), "slot handed back and next region mapped ahead");
-        verify(fileMapper, times(1)).map(eq(2L * REGION_SIZE), eq(REGION_SIZE), anyBoolean());
-        assertNotEquals(NULL_ADDRESS, mapper.map(2L * REGION_SIZE));
-        verify(fileMapper, times(1)).map(eq(2L * REGION_SIZE), eq(REGION_SIZE), anyBoolean());
+        verify(fileMapper, times(1)).map(eq(2L * REGION_SIZE), eq(REGION_SIZE), any(MappingMode.class));
+        assertNotEquals(NULL_ADDRESS, mapper.map(2L * REGION_SIZE, MAP_OR_CREATE));
+        verify(fileMapper, times(1)).map(eq(2L * REGION_SIZE), eq(REGION_SIZE), any(MappingMode.class));
+    }
+
+    @Test
+    void mapIfExistsDoesNotMapAhead() {
+        final RegionMapper mapper = regionMapper((long) REGIONS * REGION_SIZE, 2, 0);
+        assertEquals(address(0), mapper.map(0, MAP_IF_EXISTS));
+        verify(fileMapper).map(0L, REGION_SIZE, MAP_IF_EXISTS);
+        assertEquals(0, executeAsyncMapper(), "nothing to map ahead");
+        verify(fileMapper, never()).map(anyLong(), anyInt(), eq(MAP_AND_TOUCH));
     }
 }

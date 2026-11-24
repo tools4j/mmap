@@ -35,6 +35,7 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.verification.VerificationMode;
 import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.DynamicMutableMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
@@ -46,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,6 +56,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link org.tools4j.mmap.mapping.unsafe.SyncRegionMapper SyncRegionMapper} with ring and LRU caches,
@@ -77,7 +79,7 @@ public class SyncRegionMapperTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         final MutableMemoryBuffer data = MemoryBuffers.allocateDirect(MAX_DATA_LENGTH);
-        when(fileMapper.map(anyLong(), eq(regionSize), anyBoolean())).thenAnswer(invocation -> {
+        when(fileMapper.map(anyLong(), eq(regionSize), any(MappingMode.class))).thenAnswer(invocation -> {
             final long position = invocation.getArgument(0);
             if (position < 0 || position >= MAX_DATA_LENGTH || (position % regionSize) != 0) {
                 return NULL_ADDRESS;
@@ -95,8 +97,8 @@ public class SyncRegionMapperTest {
     @Test
     public void mapsWithoutPreTouch() {
         regionMapper = RegionMappers.createSyncRegionMapper(fileMapper, regionMetrics);
-        regionMapper.map(0);
-        verify(fileMapper).map(0L, regionSize, false);
+        regionMapper.map(0, MAP_OR_CREATE);
+        verify(fileMapper).map(0L, regionSize, MAP_OR_CREATE);
     }
 
     @ParameterizedTest(name = "cacheSize={0}, lruCacheSize={1}, deferUnmapping={2}")
@@ -116,7 +118,7 @@ public class SyncRegionMapperTest {
         final DynamicMutableMapping region = new DynamicMappingImpl(regionMapper, true);
         final long failingRegionPosition = 2L * regionSize;
         final IllegalStateException error = new IllegalStateException("test mapping error");
-        doThrow(error).when(fileMapper).map(eq(failingRegionPosition), eq(regionSize), anyBoolean());
+        doThrow(error).when(fileMapper).map(eq(failingRegionPosition), eq(regionSize), any(MappingMode.class));
         region.moveTo(8);
         region.buffer().putLong(0, 42);
 
@@ -159,7 +161,7 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), any(MappingMode.class));
         assertEquals(position, region.position());
         assertEquals(regionSize - positionInRegion, region.bytesAvailable());
 
@@ -168,7 +170,7 @@ public class SyncRegionMapperTest {
         region.moveTo(regionStartPosition + offset, DynamicMapping.STRETCH_LENGTH);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
         assertEquals(regionStartPosition + offset, region.position());
         assertEquals(regionSize - offset, region.bytesAvailable());
 
@@ -176,7 +178,7 @@ public class SyncRegionMapperTest {
         region.moveTo(regionStartPosition, DynamicMapping.STRETCH_LENGTH);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
         assertEquals(regionStartPosition, region.position());
         assertEquals(regionSize, region.bytesAvailable());
 
@@ -186,7 +188,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, once()).unmap(regionStartPosition, address, regionSize);
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
     }
 
     @ParameterizedTest(name = "cacheSize={0}, deferUnmapping={1}")
@@ -213,13 +215,13 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), any(MappingMode.class));
 
         //when - map again within the same region and check if had been mapped
         region.moveTo(regionStartPosition);
 
         //then
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
 
         //when - close to unmap
         long address = region.address();
@@ -234,7 +236,7 @@ public class SyncRegionMapperTest {
 
         //then
         inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
-        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+        inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
     }
 
     @ParameterizedTest(name = "cacheSize={0}, deferUnmapping={1}")
@@ -262,7 +264,7 @@ public class SyncRegionMapperTest {
         region.moveTo(position);
 
         //then
-        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), anyBoolean());
+        inOrder.verify(fileMapper, once()).map(eq(regionStartPosition), eq(regionSize), any(MappingMode.class));
 
         //when
         unmapAddress = region.address() - offset;
@@ -270,7 +272,7 @@ public class SyncRegionMapperTest {
 
         //then
         final long nextRegionStartPosition = regionStartPosition + regionSize;
-        inOrder.verify(fileMapper, once()).map(eq(nextRegionStartPosition), eq(regionSize), anyBoolean());
+        inOrder.verify(fileMapper, once()).map(eq(nextRegionStartPosition), eq(regionSize), any(MappingMode.class));
         if (cacheSize > 1 && deferUnmapping) {
             inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
         } else {
@@ -285,10 +287,10 @@ public class SyncRegionMapperTest {
         //then
         if (cacheSize > 1 && deferUnmapping) {
             //already mapped from before, still in ring cache
-            inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), anyBoolean());
+            inOrder.verify(fileMapper, never()).map(anyLong(), anyInt(), any(MappingMode.class));
             inOrder.verify(fileMapper, never()).unmap(anyLong(), anyLong(), anyInt());
         } else {
-            inOrder.verify(fileMapper, once()).map(eq(prevRegionStartPosition), eq(regionSize), anyBoolean());
+            inOrder.verify(fileMapper, once()).map(eq(prevRegionStartPosition), eq(regionSize), any(MappingMode.class));
             inOrder.verify(fileMapper, once()).unmap(nextRegionStartPosition, unmapAddress, regionSize);
         }
 
@@ -297,7 +299,7 @@ public class SyncRegionMapperTest {
         region.moveTo(lastRegionPosition);
 
         //then
-        inOrder.verify(fileMapper, once()).map(eq(lastRegionPosition), eq(regionSize), anyBoolean());
+        inOrder.verify(fileMapper, once()).map(eq(lastRegionPosition), eq(regionSize), any(MappingMode.class));
         inOrder.verify(fileMapper, once()).unmap(eq(prevRegionStartPosition), anyLong(), eq(regionSize));
     }
 

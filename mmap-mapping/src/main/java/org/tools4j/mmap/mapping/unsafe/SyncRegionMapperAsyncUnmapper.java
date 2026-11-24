@@ -96,8 +96,8 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
 
 
     @Override
-    public long map(final long position) {
-        return DirectRegionMapper.super.map(position);
+    public long map(final long position, final MappingMode mode) {
+        return DirectRegionMapper.super.map(position, mode);
     }
 
     @Override
@@ -106,9 +106,8 @@ record SyncRegionMapperAsyncUnmapper(AsyncRuntime asyncRuntime,
     }
 
     @Override
-    public long mapInternal(final long position, final int mappingSize) {
-        //NOTE: no pre-touch, mapped synchronously for immediate use
-        final long addr = fileMapper.map(position, mappingSize, false);
+    public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
+        final long addr = fileMapper.map(position, mappingSize, mode);
         return addr > 0 ? addr : NULL_ADDRESS;
     }
 

@@ -61,8 +61,8 @@ final class RefCountRegionMapper implements RegionMapper {
 
 
     @Override
-    public long map(final long position) {
-        return RegionMapper.super.map(position);
+    public long map(final long position, final MappingMode mode) {
+        return RegionMapper.super.map(position, mode);
     }
 
     @Override
@@ -71,13 +71,13 @@ final class RefCountRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int mappingSize) {
+    public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
         long addr = positionToAddress.get(position);
         if (addr != NULL_ADDRESS) {
             positionToRefCount.put(position, positionToRefCount.get(position) + 1);
             return addr;
         }
-        addr = baseMapper.mapInternal(position, mappingSize);
+        addr = baseMapper.mapInternal(position, mappingSize, mode);
         if (addr != NULL_ADDRESS) {
             positionToAddress.put(position, addr);
             positionToRefCount.put(position, 1);

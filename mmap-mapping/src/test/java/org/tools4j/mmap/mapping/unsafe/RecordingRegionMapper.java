@@ -93,7 +93,7 @@ final class RecordingRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int regionSize) {
+    public long mapInternal(final long position, final int regionSize, final MappingMode mode) {
         if (position > maxPosition) {
             return NULL_ADDRESS;
         }

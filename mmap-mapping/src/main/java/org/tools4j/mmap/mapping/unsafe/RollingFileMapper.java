@@ -291,7 +291,7 @@ public class RollingFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length, final boolean preTouch) {
+    public long map(final long position, final int length, final MappingMode mode) {
         validateNotClosed(this);
         if (position < 0) {
             return NULL_ADDRESS;
@@ -308,7 +308,9 @@ public class RollingFileMapper implements FileMapper, Describable {
                 return NULL_ADDRESS;
             }
             final File file = getOrCreateFile(fileIndex);
-            if (accessMode == AccessMode.READ_ONLY && !file.exists()) {
+            //NOTE: read-only mappers never create files, read-write ones not when mapping only if the region exists
+            final boolean ifExists = mode == MappingMode.MAP_IF_EXISTS && accessMode != AccessMode.READ_ONLY;
+            if ((ifExists || accessMode == AccessMode.READ_ONLY) && !file.exists()) {
                 return NULL_ADDRESS;
             }
             mapperForIndex = createFileMapper(fileIndex, file);
@@ -317,7 +319,7 @@ public class RollingFileMapper implements FileMapper, Describable {
             //NOTE: pre-create next files, furthest first, so the nearest (soonest-needed) one ends up
             //      most-recently-touched, i.e. least likely to be closed under pressure
             FileMapper mapper = mapperForIndex;
-            for (int i = filesToCreateAhead; i >= 1 && mapper != null; i--) {
+            for (int i = ifExists ? 0 : filesToCreateAhead; i >= 1 && mapper != null; i--) {
                 mapper = getOrCreateFileMapper(fileIndex + i);
                 if (openFiles > maxOpenFiles) {
                     touch(fileIndex);//prevent closing the one we actually want
@@ -331,7 +333,7 @@ public class RollingFileMapper implements FileMapper, Describable {
             touch(fileIndex);
         }
         final long positionWithinFile = position & positionInFileMask;
-        return mapperForIndex.map(positionWithinFile, length, preTouch);
+        return mapperForIndex.map(positionWithinFile, length, mode);
     }
 
     @Override

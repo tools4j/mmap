@@ -88,8 +88,8 @@ final class RingCacheRegionMapper implements RegionMapper {
 
 
     @Override
-    public long map(final long position) {
-        return RegionMapper.super.map(position);
+    public long map(final long position, final MappingMode mode) {
+        return RegionMapper.super.map(position, mode);
     }
 
     @Override
@@ -98,7 +98,7 @@ final class RingCacheRegionMapper implements RegionMapper {
     }
 
     @Override
-    public long mapInternal(final long position, final int mappingSize) {
+    public long mapInternal(final long position, final int mappingSize, final MappingMode mode) {
         final int cacheIndex = cacheIndex(position);
         final long curPosition = positions[cacheIndex];
         if (curPosition == position) {
@@ -109,7 +109,7 @@ final class RingCacheRegionMapper implements RegionMapper {
             positions[cacheIndex] = position;
             return addresses[cacheIndex];
         }
-        final long addr = baseMapper.mapInternal(position, mappingSize);
+        final long addr = baseMapper.mapInternal(position, mappingSize, mode);
         if (addr == NULL_ADDRESS) {
             return NULL_ADDRESS;
         }

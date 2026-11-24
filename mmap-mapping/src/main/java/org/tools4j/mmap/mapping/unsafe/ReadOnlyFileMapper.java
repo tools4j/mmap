@@ -82,7 +82,7 @@ public class ReadOnlyFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length, final boolean preTouch) {
+    public long map(final long position, final int length, final MappingMode mode) {
         assert position >= 0;
         assert length >= 0;
         //NOTE: relying on fileHandle's closed check

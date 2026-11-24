@@ -104,6 +104,10 @@ try (MappingPool pool = Mappings.mappingPool(file, OpenMode.READ_ONLY)) {
     int secondValue = second.buffer().getInt(0);//1
 }
 ```
+Moving a mutable mapping creates the file or extends it as needed, whereas `moveToExisting(..)` moves only to regions
+the file already has and returns false otherwise, as a move of a mapping for reading only does: searching a file with
+`findLast(..)` or `binarySearchLast(..)` moves this way, so that it never grows the file.
+
 Rolling files with async mapping, i.e. regions mapped ahead in a background thread for sequential access:
 ```java
 //roll file every 1MB, map regions ahead in a background thread when accessed sequentially

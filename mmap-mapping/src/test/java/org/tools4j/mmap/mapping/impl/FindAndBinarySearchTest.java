@@ -35,6 +35,7 @@ import org.tools4j.mmap.core.buffer.MemoryBuffers;
 import org.tools4j.mmap.core.buffer.MutableMemoryBuffer;
 import org.tools4j.mmap.mapping.api.DynamicMapping;
 import org.tools4j.mmap.mapping.api.RegionMetrics;
+import org.tools4j.mmap.mapping.unsafe.MappingMode;
 import org.tools4j.mmap.mapping.unsafe.RegionMapper;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
@@ -133,7 +135,7 @@ class FindAndBinarySearchTest {
         final Predicate<DynamicMapping> matcher = count ? counter(matcher(bytes), counter) : matcher(bytes);
         final MutableMemoryBuffer dataBuffer = dataBuffer(bytes, expectedPosition, dataLength);
         when(regionMapper.regionMetrics()).thenReturn(regionMetrics);
-        when(regionMapper.map(anyLong())).thenAnswer(mapRegion(dataLength, dataBuffer));
+        when(regionMapper.map(anyLong(), any(MappingMode.class))).thenAnswer(mapRegion(dataLength, dataBuffer));
         final DynamicMapping mapping = new DynamicMappingImpl(regionMapper, true);
 
         //when

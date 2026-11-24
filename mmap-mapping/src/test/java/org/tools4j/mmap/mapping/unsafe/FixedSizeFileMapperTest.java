@@ -39,7 +39,11 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_AND_TOUCH;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_IF_EXISTS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link FixedSizeFileMapper}.
@@ -62,13 +66,32 @@ class FixedSizeFileMapperTest {
         try (final FixedSizeFileMapper mapper = new FixedSizeFileMapper(file, LENGTH, AccessMode.READ_ONLY,
                 FileInitialiser.LAZY)) {
             //pre-touching writes, which would crash the JVM on a read-only mapping
-            final long address = mapper.map(0, LENGTH, true);
+            final long address = mapper.map(0, LENGTH, MAP_AND_TOUCH);
             assertNotEquals(NULL_ADDRESS, address);
             final MutableMemoryBuffer buffer = TestBuffers.wrap(address, LENGTH);
             for (int offset = 0; offset < LENGTH; offset += Long.BYTES) {
                 assertEquals(offset + 1, buffer.getLong(offset), "offset=" + offset);
             }
             mapper.unmap(0, address, LENGTH);
+        }
+    }
+
+    @Test
+    void mapIfExistsBeyondFileSizeIsNotAvailableUnlessReadOnly() {
+        final File file = tempDir.resolve("fixed.map").toFile();
+        try (final FixedSizeFileMapper mapper = new FixedSizeFileMapper(file, LENGTH, AccessMode.READ_WRITE,
+                FileInitialiser.LAZY)) {
+            assertEquals(NULL_ADDRESS, mapper.map(LENGTH, LENGTH, MAP_IF_EXISTS));
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(LENGTH, LENGTH, MAP_OR_CREATE));
+            final long address = mapper.map(0, LENGTH, MAP_IF_EXISTS);
+            assertNotEquals(NULL_ADDRESS, address);
+            mapper.unmap(0, address, LENGTH);
+        }
+        assertEquals(LENGTH, file.length());
+        try (final FixedSizeFileMapper mapper = new FixedSizeFileMapper(file, LENGTH, AccessMode.READ_ONLY,
+                FileInitialiser.LAZY)) {
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(LENGTH, LENGTH, MAP_IF_EXISTS),
+                    "mode ignored by read-only mappers");
         }
     }
 }

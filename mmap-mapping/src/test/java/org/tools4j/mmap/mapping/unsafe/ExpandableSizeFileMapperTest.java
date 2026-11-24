@@ -51,6 +51,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.tools4j.mmap.mapping.api.NullValues.NULL_ADDRESS;
 import static org.tools4j.mmap.mapping.impl.Constants.REGION_SIZE_GRANULARITY;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_IF_EXISTS;
+import static org.tools4j.mmap.mapping.unsafe.MappingMode.MAP_OR_CREATE;
 
 /**
  * Unit test for {@link ExpandableSizeFileMapper}: the file grows on demand in multiples of the min file size, up to
@@ -73,7 +75,7 @@ class ExpandableSizeFileMapperTest {
     }
 
     private static long mapAndWrite(final FileMapper mapper, final long position, final long value) {
-        final long address = mapper.map(position, REGION_SIZE, false);
+        final long address = mapper.map(position, REGION_SIZE, MAP_OR_CREATE);
         assertNotEquals(NULL_ADDRESS, address, "position " + position);
         TestBuffers.wrap(address, REGION_SIZE).putLong(0, value);
         mapper.unmap(position, address, REGION_SIZE);
@@ -114,19 +116,20 @@ class ExpandableSizeFileMapperTest {
                 MAX_FILE_SIZE, REGION_SIZE, overlapSize, FILE_INITIALISER)) {
             assertEquals(MAX_FILE_SIZE + overlapSize, mapper.mappingLimit());
             assertEquals(0, file.length(), "not opened yet");
-            final long address = mapper.map(0, mappingSize, false);
+            final long address = mapper.map(0, mappingSize, MAP_OR_CREATE);
             assertEquals(2L * REGION_SIZE + overlapSize, file.length(), "min file size plus overlap");
             TestBuffers.wrap(address, mappingSize).putLong(REGION_SIZE, 0x0102030405060708L);
             mapper.unmap(0, address, mappingSize);
-            final long next = mapper.map(REGION_SIZE, mappingSize, false);
+            final long next = mapper.map(REGION_SIZE, mappingSize, MAP_OR_CREATE);
             assertEquals(2L * REGION_SIZE + overlapSize, file.length(), "next region fits with overlap");
             assertEquals(0x0102030405060708L, TestBuffers.wrap(next, mappingSize).getLong(0), "overlap");
             mapper.unmap(REGION_SIZE, next, mappingSize);
-            mapper.unmap(2L * REGION_SIZE, mapper.map(2L * REGION_SIZE, mappingSize, false), mappingSize);
+            mapper.unmap(2L * REGION_SIZE, mapper.map(2L * REGION_SIZE, mappingSize, MAP_OR_CREATE), mappingSize);
             assertEquals(4L * REGION_SIZE + overlapSize, file.length());
-            mapper.unmap(7L * REGION_SIZE, mapper.map(7L * REGION_SIZE, mappingSize, false), mappingSize);
+            mapper.unmap(7L * REGION_SIZE, mapper.map(7L * REGION_SIZE, mappingSize, MAP_OR_CREATE), mappingSize);
             assertEquals(MAX_FILE_SIZE + overlapSize, file.length(), "last region with overlap");
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(8L * REGION_SIZE, mappingSize, false));
+            assertThrows(IllegalArgumentException.class,
+                    () -> mapper.map(8L * REGION_SIZE, mappingSize, MAP_OR_CREATE));
         }
     }
 
@@ -136,7 +139,7 @@ class ExpandableSizeFileMapperTest {
             mapAndWrite(mapper, 5L * REGION_SIZE, 0x0102030405060708L);
         }
         try (final ExpandableSizeFileMapper mapper = mapper(0)) {
-            final long address = mapper.map(5L * REGION_SIZE, REGION_SIZE, false);
+            final long address = mapper.map(5L * REGION_SIZE, REGION_SIZE, MAP_OR_CREATE);
             assertEquals(0x0102030405060708L, TestBuffers.wrap(address, REGION_SIZE).getLong(0));
             mapper.unmap(5L * REGION_SIZE, address, REGION_SIZE);
             assertEquals(6L * REGION_SIZE, file.length());
@@ -152,7 +155,7 @@ class ExpandableSizeFileMapperTest {
                 0, FILE_INITIALISER)) {
             for (int i = 0; i < 2; i++) {
                 final UncheckedIOException error = assertThrows(UncheckedIOException.class,
-                        () -> mapper.map(0, REGION_SIZE, false));
+                        () -> mapper.map(0, REGION_SIZE, MAP_OR_CREATE));
                 assertTrue(error.getMessage().contains(file.getPath()), error.getMessage());
             }
         }
@@ -171,7 +174,8 @@ class ExpandableSizeFileMapperTest {
         try (final ExpandableSizeFileMapper mapper = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE, REGION_SIZE,
                 0, accessMode -> failingInitialiser)) {
             for (int i = 0; i < 2; i++) {
-                assertSame(cause, assertThrows(UncheckedIOException.class, () -> mapper.map(0, REGION_SIZE, false))
+                assertSame(cause, assertThrows(UncheckedIOException.class,
+                        () -> mapper.map(0, REGION_SIZE, MAP_OR_CREATE))
                         .getCause());
             }
         }
@@ -180,9 +184,9 @@ class ExpandableSizeFileMapperTest {
     @Test
     void mappingBeyondMaxFileSizeIsRejected() {
         try (final ExpandableSizeFileMapper mapper = mapper(0)) {
-            assertThrows(IllegalArgumentException.class, () -> mapper.map(MAX_FILE_SIZE, REGION_SIZE, false));
+            assertThrows(IllegalArgumentException.class, () -> mapper.map(MAX_FILE_SIZE, REGION_SIZE, MAP_OR_CREATE));
             assertThrows(IllegalArgumentException.class, () -> mapper.map(MAX_FILE_SIZE - REGION_SIZE + 1,
-                    REGION_SIZE, false));
+                    REGION_SIZE, MAP_OR_CREATE));
         }
     }
 
@@ -204,13 +208,13 @@ class ExpandableSizeFileMapperTest {
     @Test
     void closedMapperDoesNotMapAndRejectsUnmap() {
         final ExpandableSizeFileMapper mapper = mapper(0);
-        final long address = mapper.map(0, REGION_SIZE, false);
+        final long address = mapper.map(0, REGION_SIZE, MAP_OR_CREATE);
         assertFalse(mapper.isClosed());
         mapper.close();
         assertTrue(mapper.isClosed());
         assertTrue(mapper.toString().contains("|closed=true"), mapper.toString());
         mapper.close();
-        assertThrows(IllegalStateException.class, () -> mapper.map(0, REGION_SIZE, false));
+        assertThrows(IllegalStateException.class, () -> mapper.map(0, REGION_SIZE, MAP_OR_CREATE));
         assertThrows(IllegalStateException.class, () -> mapper.unmap(0, address, REGION_SIZE));
         FileChannels.unmap(address, REGION_SIZE);
     }
@@ -230,7 +234,7 @@ class ExpandableSizeFileMapperTest {
                         //each thread grows the file region by region, starting at a different region
                         for (int i = 0; i < regions; i++) {
                             final int region = (thread + i) % regions;
-                            final long address = mapper.map((long) region * REGION_SIZE, REGION_SIZE, false);
+                            final long address = mapper.map((long) region * REGION_SIZE, REGION_SIZE, MAP_OR_CREATE);
                             assertNotEquals(NULL_ADDRESS, address, "region " + region);
                             TestBuffers.wrap(address, REGION_SIZE).putLong(thread * Long.BYTES, region + 1);
                             mapper.unmap((long) region * REGION_SIZE, address, REGION_SIZE);
@@ -249,7 +253,7 @@ class ExpandableSizeFileMapperTest {
             assertNull(error.get(), () -> "mapping failed: " + error.get());
             assertEquals(MAX_FILE_SIZE, file.length());
             for (int region = 0; region < regions; region++) {
-                final long address = mapper.map((long) region * REGION_SIZE, REGION_SIZE, false);
+                final long address = mapper.map((long) region * REGION_SIZE, REGION_SIZE, MAP_OR_CREATE);
                 final MutableMemoryBuffer buffer = TestBuffers.wrap(address, REGION_SIZE);
                 for (int thread = 0; thread < threads; thread++) {
                     assertEquals(region + 1, buffer.getLong(thread * Long.BYTES), "region " + region);
@@ -269,9 +273,42 @@ class ExpandableSizeFileMapperTest {
             //no extension needed, the second mapper picks up the length from the file
             mapAndWrite(second, 2L * REGION_SIZE, 3);
             assertEquals(4L * REGION_SIZE, file.length());
-            final long address = second.map(3L * REGION_SIZE, REGION_SIZE, false);
+            final long address = second.map(3L * REGION_SIZE, REGION_SIZE, MAP_OR_CREATE);
             assertEquals(2, TestBuffers.wrap(address, REGION_SIZE).getLong(0));
             second.unmap(3L * REGION_SIZE, address, REGION_SIZE);
+        }
+    }
+
+    @Test
+    void mapIfExistsNeitherCreatesNorExtendsTheFile() {
+        try (final ExpandableSizeFileMapper mapper = mapper(2L * REGION_SIZE)) {
+            assertEquals(NULL_ADDRESS, mapper.map(0, REGION_SIZE, MAP_IF_EXISTS));
+            assertFalse(file.exists(), "file not created");
+            mapAndWrite(mapper, 0, 1);
+            assertEquals(2L * REGION_SIZE, file.length());
+
+            final long address = mapper.map(REGION_SIZE, REGION_SIZE, MAP_IF_EXISTS);
+            assertNotEquals(NULL_ADDRESS, address, "within the file length");
+            mapper.unmap(REGION_SIZE, address, REGION_SIZE);
+            assertEquals(NULL_ADDRESS, mapper.map(2L * REGION_SIZE, REGION_SIZE, MAP_IF_EXISTS));
+            assertEquals(NULL_ADDRESS, mapper.map(MAX_FILE_SIZE, REGION_SIZE, MAP_IF_EXISTS),
+                    "beyond the mapping limit");
+            assertEquals(2L * REGION_SIZE, file.length(), "file not extended");
+        }
+    }
+
+    @Test
+    void mapIfExistsMapsRegionOfFileExtendedByAnotherMapper() {
+        try (final ExpandableSizeFileMapper first = mapper(0);
+             final ExpandableSizeFileMapper second = new ExpandableSizeFileMapper(file, 0, MAX_FILE_SIZE,
+                     REGION_SIZE, 0, FILE_INITIALISER)) {
+            mapAndWrite(first, 0, 1);
+            assertEquals(NULL_ADDRESS, first.map(3L * REGION_SIZE, REGION_SIZE, MAP_IF_EXISTS));
+            mapAndWrite(second, 3L * REGION_SIZE, 2);
+            final long address = first.map(3L * REGION_SIZE, REGION_SIZE, MAP_IF_EXISTS);
+            assertNotEquals(NULL_ADDRESS, address, "file length queried again");
+            assertEquals(2, TestBuffers.wrap(address, REGION_SIZE).getLong(0));
+            first.unmap(3L * REGION_SIZE, address, REGION_SIZE);
         }
     }
 }

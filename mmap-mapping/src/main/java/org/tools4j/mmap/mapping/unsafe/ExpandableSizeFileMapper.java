@@ -34,6 +34,8 @@ import org.tools4j.mmap.mapping.api.FileInitialiser;
 import org.tools4j.mmap.mapping.config.MappingConfigurations;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,24 +123,49 @@ public class ExpandableSizeFileMapper implements FileMapper, Describable {
     }
 
     @Override
-    public long map(final long position, final int length, final boolean preTouch) {
+    public long map(final long position, final int length, final MappingMode mode) {
         assert position >= 0;
         assert length >= 0;
         //NOTE: relying on fileHandle's closed check
+        final boolean ifExists = mode == MappingMode.MAP_IF_EXISTS;
         if (position + length > mappingLimit()) {
+            if (ifExists) {
+                return NULL_ADDRESS;
+            }
             throw new IllegalArgumentException("Attempt to map [" + position + ", " + (position + length - 1) + "] " +
                     "exceeds max file size " + maxFileSize + " plus overlap size " + overlapSize + " for file " + file);
         }
-        final FileChannel channel = fileHandle.channel();
+        final FileChannel channel = ifExists ? fileHandle.channelIfExists() : fileHandle.channel();
         if (channel == null || !channel.isOpen()) {
             return NULL_ADDRESS;
         }
-        ensureFileLength(position + length);
+        if (ifExists) {
+            if (!fileCovers(channel, position + length)) {
+                return NULL_ADDRESS;
+            }
+        } else {
+            ensureFileLength(position + length);
+        }
         final long address = FileChannels.map(channel, AccessMode.READ_WRITE.mapMode(), position, length);
-        if (preTouch) {
+        if (mode == MappingMode.MAP_AND_TOUCH) {
             preToucher.preTouch(position, length, address);
         }
         return address;
+    }
+
+    /**
+     * Returns whether the file is at least the given length, querying its length only if the cached length is shorter,
+     * as another process may have extended the file
+     */
+    private boolean fileCovers(final FileChannel channel, final long minLength) {
+        if (minLength <= fileLengthCache.get()) {
+            return true;
+        }
+        try {
+            return minLength <= fileLengthCache.accumulateAndGet(channel.size(), Math::max);
+        } catch (final IOException e) {
+            throw new UncheckedIOException("Failed to get the length of file " + file, e);
+        }
     }
 
     @Override
