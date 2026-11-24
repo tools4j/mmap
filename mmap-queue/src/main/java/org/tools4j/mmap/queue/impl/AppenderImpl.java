@@ -95,9 +95,9 @@ final class AppenderImpl implements Appender, Describable {
     }
 
     /**
-     * Move to end while also finding the last of our own headers: binary search of the last entry, backward scan to
-     * our last own entry unless our ID has none, then forward scan to the end, which may have moved since the binary
-     * search if other appenders appended concurrently
+     * Move to end while also finding the last of our own headers: binary search of the last entry, probing only header
+     * regions that exist, backward scan to our last own entry unless our ID has none, then forward scan to the end,
+     * which may have moved since the binary search if other appenders appended concurrently
      */
     private void initialMoveToEnd() {
         final DynamicMapping hdr = header;
@@ -201,17 +201,18 @@ final class AppenderImpl implements Appender, Describable {
         final MutableMemoryBuffer buf = hdr.buffer();
         final long headerValue = Headers.header(appenderId, payloadPosition);
         long index = endIndex;
-        assert index <= Index.MAX : "endIndex never exceeds max index, only the retry loop advances beyond it";
+        assert index <= Index.MAX : "endIndex never exceeds max index, only the catch-up advances beyond it";
+        if (hdr.position() != Headers.headerPositionForIndex(index)) {
+            //a catch-up that threw left hdr at the index it probed last
+            moveToHeaderIndex(hdr, index);
+        }
         while (!buf.compareAndSetLong(0, NULL_HEADER, headerValue)) {
-            do {
-                index++;
-                checkIndexNotExceedingMax(index);
-                if (!Headers.moveToHeaderIndex(hdr, index)) {
-                    throw headerMoveException(this, Headers.headerPositionForIndex(index));
-                }
-                //NOTE: only after a successful move, endIndex must always be where hdr is mapped
-                endIndex = index;
-            } while (buf.getLongAcquire(0) != NULL_HEADER);
+            //catch up with other appenders, by galloping search rather than a scan over all their entries
+            index = Headers.binarySearchLastIndexFromNonEmpty(hdr, index) + 1;
+            checkIndexNotExceedingMax(index);
+            moveToHeaderIndex(hdr, index);
+            //NOTE: only after a successful move, endIndex must always be where hdr is mapped
+            endIndex = index;
         }
         final long nextIndex = index + 1;
         if (nextIndex <= Index.MAX && tryMoveToHeaderIndexAfterCommit(hdr, nextIndex)) {
@@ -224,6 +225,12 @@ final class AppenderImpl implements Appender, Describable {
         lastOwnHeader = headerValue;
         lastOwnPayloadLength = payloadLength;
         return index;
+    }
+
+    private void moveToHeaderIndex(final DynamicMapping hdr, final long index) {
+        if (!Headers.moveToHeaderIndex(hdr, index)) {
+            throw headerMoveException(this, Headers.headerPositionForIndex(index));
+        }
     }
 
     /**

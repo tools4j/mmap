@@ -542,6 +542,85 @@ class AppenderTest {
     }
 
     @Test
+    void creatingAppenderOnLongQueueCreatesNoHeaderFileNorExtendsOne() {
+        final File dir = tempDir.resolve("queue").toFile();
+        //one header region per rolled file, and sync mapping, so that no file is created ahead asynchronously
+        final QueueConfig config = QueueConfig.configure(longQueueConfig(false))
+                .maxHeaderFileSize(REGION_SIZE)
+                .rollHeaderFile(true)
+                .appenderConfig(appender -> appender.headerMappingStrategy(MappingStrategy.SyncMappingStrategy))
+                .toImmutableQueueConfig();
+        //last index in the fifth header file, just beyond a power of two: galloping used to probe up to the eighth
+        final int entries = 4 * REGION_SIZE / Headers.HEADER_LENGTH + 1;
+        final List<String> expected = new ArrayList<>();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config);
+             final Appender appender = queue.createAppender()) {
+            appendLongQueue(appender, expected, 0, entries);
+        }
+        final List<String> headerFiles = headerFilesWithLengths(dir);
+        try (final Queue queue = Queue.open(dir, OpenMode.READ_WRITE, config);
+             final Appender ignored = queue.createAppender()) {
+            assertEquals(headerFiles, headerFilesWithLengths(dir));
+        }
+    }
+
+    @Test
+    void creatingAppenderOnNonRollingQueueDoesNotExtendHeaderFile() {
+        final File dir = tempDir.resolve("queue").toFile();
+        //header file growing by one region, and sync mapping, so that no region is mapped ahead asynchronously
+        final QueueConfig config = QueueConfig.configure(longQueueConfig(false))
+                .maxHeaderFileSize(4L * REGION_SIZE)
+                .rollHeaderFile(false)
+                .appenderConfig(appender -> appender.headerMappingStrategy(MappingStrategy.SyncMappingStrategy))
+                .toImmutableQueueConfig();
+        //last index in the third header region, just beyond a power of two: galloping used to probe the fourth
+        final int entries = 2 * REGION_SIZE / Headers.HEADER_LENGTH + 1;
+        final List<String> expected = new ArrayList<>();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config)) {
+            try (final Appender appender = queue.createAppender()) {
+                appendLongQueue(appender, expected, 0, entries);
+            }
+            final List<String> headerFiles = headerFilesWithLengths(dir);
+            try (final Appender appender = queue.createAppender()) {
+                assertEquals(headerFiles, headerFilesWithLengths(dir));
+                assertEquals(entries, appender.append(bytes(expected, "appended")));
+            }
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    @Test
+    void idleAppenderCatchesUpWithEntriesOfAnotherAppenderAcrossHeaderFiles() {
+        final File dir = tempDir.resolve("queue").toFile();
+        final QueueConfig config = QueueConfig.configure(longQueueConfig(false))
+                .maxHeaderFileSize(REGION_SIZE)
+                .rollHeaderFile(true)
+                .toImmutableQueueConfig();
+        final List<String> expected = new ArrayList<>();
+        try (final Queue queue = Queue.open(dir, OpenMode.CREATE, config);
+             final Appender idle = queue.createAppender();
+             final Appender busy = queue.createAppender()) {
+            assertEquals(0, idle.append(bytes(expected, "idle-0")));
+            appendLongQueue(busy, expected, 1, LONG_QUEUE_ENTRIES);
+            assertEquals(LONG_QUEUE_ENTRIES, idle.append(bytes(expected, "idle-1")));
+            assertEquals(LONG_QUEUE_ENTRIES + 1, busy.append(bytes(expected, "busy")));
+            assertEquals(LONG_QUEUE_ENTRIES + 2, idle.append(bytes(expected, "idle-2")));
+            assertEquals(expected, pollAll(queue.createPoller()));
+        }
+    }
+
+    private static List<String> headerFilesWithLengths(final File dir) {
+        final List<String> files = new ArrayList<>();
+        for (final File file : requireNonNull(dir.listFiles())) {
+            if (file.getName().contains("_hdr")) {
+                files.add(file.getName() + ":" + file.length());
+            }
+        }
+        files.sort(null);
+        return files;
+    }
+
+    @Test
     void appendOverloadsAppendTheGivenBytes() {
         final File dir = tempDir.resolve("queue").toFile();
         try (final Queue queue = Queue.open(dir);

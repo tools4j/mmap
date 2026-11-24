@@ -38,9 +38,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.tools4j.mmap.queue.impl.Headers.BIJECTION_BLOCK_SIZE;
@@ -266,7 +270,7 @@ public class HeadersTest {
         final DynamicMapping header = mock(DynamicMapping.class);
         final MutableMemoryBuffer buffer = MemoryBuffers.allocate(Headers.HEADER_LENGTH);
         buffer.putLong(0, Headers.header(0, 0));
-        when(header.moveTo(anyLong(), eq(Headers.HEADER_LENGTH))).thenReturn(true);
+        when(header.moveToExisting(anyLong(), eq(Headers.HEADER_LENGTH))).thenReturn(true);
         when(header.buffer()).thenReturn(buffer);
         assertTimeoutPreemptively(Duration.ofSeconds(10),
                 () -> assertEquals(Index.MAX, Headers.binarySearchLastIndex(header, Index.FIRST)));
@@ -274,11 +278,44 @@ public class HeadersTest {
                 () -> assertEquals(Index.MAX, Headers.binarySearchLastIndex(header, Index.MAX - 1)));
     }
 
+    @ParameterizedTest(name = "[{index}]: lastIndex={0}, nonEmptyIndex={1}")
+    @CsvSource(delimiter = '|', value = {
+            "0             | 0",
+            "1             | 0",
+            "1             | 1",
+            "1000          | 3",
+            "1000          | 1000",
+            "1099511627776 | 7",
+    })
+    public void binarySearchLastIndexFromNonEmptyFindsLastHeaderWithLogarithmicProbes(final long lastIndex,
+                                                                                    final long nonEmptyIndex) {
+        final DynamicMapping header = headersUpToIndex(lastIndex);
+        assertEquals(lastIndex, Headers.binarySearchLastIndexFromNonEmpty(header, nonEmptyIndex));
+        final int maxProbes = 2 * (Long.SIZE - Long.numberOfLeadingZeros(lastIndex - nonEmptyIndex + 1));
+        verify(header, atMost(maxProbes)).moveToExisting(anyLong(), anyInt());
+        verify(header, never()).moveTo(anyLong(), anyInt());
+    }
+
+    @Test
+    public void binarySearchLastIndexTreatsMissingHeaderRegionsAsEmpty() {
+        //regions beyond the last header are not mapped, as they do not exist
+        final long lastIndex = 1000;
+        final DynamicMapping header = mock(DynamicMapping.class);
+        final MutableMemoryBuffer buffer = MemoryBuffers.allocate(Headers.HEADER_LENGTH);
+        buffer.putLong(0, Headers.header(0, 0));
+        when(header.moveToExisting(anyLong(), eq(Headers.HEADER_LENGTH))).thenAnswer(invocation ->
+                Headers.indexForHeaderPosition(invocation.getArgument(0)) <= lastIndex);
+        when(header.buffer()).thenReturn(buffer);
+        assertEquals(lastIndex, Headers.binarySearchLastIndex(header, Index.FIRST));
+        assertEquals(Headers.NULL_HEADER, Headers.probeHeader(header, lastIndex + 1));
+        verify(header, never()).moveTo(anyLong(), anyInt());
+    }
+
     /** Header mapping with non-empty headers for indices up to and including lastIndex */
     private static DynamicMapping headersUpToIndex(final long lastIndex) {
         final DynamicMapping header = mock(DynamicMapping.class);
         final MutableMemoryBuffer buffer = MemoryBuffers.allocate(Headers.HEADER_LENGTH);
-        when(header.moveTo(anyLong(), eq(Headers.HEADER_LENGTH))).thenAnswer(invocation -> {
+        when(header.moveToExisting(anyLong(), eq(Headers.HEADER_LENGTH))).thenAnswer(invocation -> {
             final long index = Headers.indexForHeaderPosition(invocation.getArgument(0));
             buffer.putLong(0, index <= lastIndex ? Headers.header(0, 0) : Headers.NULL_HEADER);
             return true;
